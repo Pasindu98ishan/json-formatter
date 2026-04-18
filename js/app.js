@@ -1,5 +1,10 @@
 // Main Application File
+let treeViewer; // Global tree viewer instance
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tree viewer
+    treeViewer = new JSONTreeViewer('treeViewerContainer');
+    
     // Initialize event listeners
     initializeEventListeners();
     initializeTheme();
@@ -35,13 +40,18 @@ function handleFormat() {
         clearError();
         if (!input) {
             showError('Please enter JSON data to format');
+            treeViewer.clear();
             return;
         }
 
         const formatted = formatJSON(input);
         output.value = formatted;
+        
+        // Update tree viewer with formatted JSON
+        treeViewer.render(formatted);
     } catch (error) {
         showError('Error: ' + error.message);
+        treeViewer.clear();
     }
 }
 
@@ -53,13 +63,18 @@ function handleMinify() {
         clearError();
         if (!input) {
             showError('Please enter JSON data to minify');
+            treeViewer.clear();
             return;
         }
 
         const minified = minifyJSON(input);
         output.value = minified;
+        
+        // Update tree viewer with minified JSON
+        treeViewer.render(minified);
     } catch (error) {
         showError('Error: ' + error.message);
+        treeViewer.clear();
     }
 }
 
@@ -70,15 +85,19 @@ function handleValidate() {
         clearError();
         if (!input) {
             showError('Please enter JSON data to validate');
+            treeViewer.clear();
             return;
         }
 
         const isValid = validateJSON(input);
         if (isValid) {
             showSuccess('✓ Valid JSON! No errors found.');
+            // Update tree viewer with valid JSON
+            treeViewer.render(input);
         }
     } catch (error) {
         showError('JSON Error: ' + error.message);
+        treeViewer.clear();
     }
 }
 
@@ -119,6 +138,7 @@ function handleClear() {
     document.getElementById('inputJSON').value = '';
     document.getElementById('outputJSON').value = '';
     clearError();
+    treeViewer.clear();
 }
 
 function handlePaste(e) {
@@ -129,9 +149,11 @@ function handlePaste(e) {
             try {
                 const formatted = formatJSON(input);
                 document.getElementById('outputJSON').value = formatted;
+                treeViewer.render(formatted);
                 clearError();
             } catch (error) {
                 // Silent fail - user can click format manually
+                treeViewer.clear();
             }
         }
     }, 10);
