@@ -165,6 +165,8 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 - [x] JSON Minifier
 - [x] Dark Mode
 - [x] Copy & Download
+- [x] Blog articles and SEO pages
+- [x] Sitemap and robots.txt
 
 ### Phase 2
 - [ ] JSON to CSV conversion
