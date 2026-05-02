@@ -1,6 +1,10 @@
 // JSON Validator Tool Page
 // Uses validator.js and utilities for clipboard operations.
 
+function trackEvent(action, params = {}) {
+    if (typeof gtag === 'function') gtag('event', action, params);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const inputJSON = document.getElementById('inputJSON');
     const outputText = document.getElementById('outputText');
@@ -44,10 +48,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (result.valid) {
                 outputText.value = result.message;
                 showMessage(result.message, true);
+                trackEvent('validate_json', { result: 'valid' });
             } else {
                 const lineInfo = result.line ? ` at line ${result.line}` : '';
                 outputText.value = `${result.message}${lineInfo}`;
                 showMessage(result.message + lineInfo, false);
+                trackEvent('validate_json', { result: 'invalid' });
             }
         });
     }
@@ -59,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             copyToClipboard(outputText.value)
-                .then(() => showMessage('Copied to clipboard!', true))
+                .then(() => { showMessage('Copied to clipboard!', true); trackEvent('copy_output', { tool: 'validator' }); })
                 .catch(() => showMessage('Unable to copy result to clipboard.', false));
         });
     }
@@ -72,4 +78,9 @@ document.addEventListener('DOMContentLoaded', function () {
             inputJSON.focus();
         });
     }
+
+    initDragDrop('inputJSON', function(content) {
+        inputJSON.value = content;
+        inputJSON.dispatchEvent(new Event('input'));
+    }, ['.json', '.txt']);
 });

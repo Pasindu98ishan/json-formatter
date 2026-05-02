@@ -3,6 +3,43 @@
 // Helper functions for JSON manipulation and conversions
 // ============================================
 
+/**
+ * Enable drag-and-drop file upload on a textarea.
+ * @param {string} textareaId - ID of the textarea element
+ * @param {function} onLoad - Callback(content) called with file text after load
+ * @param {string[]} [accepts] - Accepted file extensions e.g. ['.json']
+ */
+function initDragDrop(textareaId, onLoad, accepts) {
+    const el = document.getElementById(textareaId);
+    if (!el) return;
+
+    el.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        el.classList.add('drag-over');
+    });
+
+    el.addEventListener('dragleave', function(e) {
+        if (!el.contains(e.relatedTarget)) el.classList.remove('drag-over');
+    });
+
+    el.addEventListener('drop', function(e) {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        if (accepts && accepts.length) {
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!accepts.includes(ext)) {
+                alert('Unsupported file type. Expected: ' + accepts.join(', '));
+                return;
+            }
+        }
+        const reader = new FileReader();
+        reader.onload = function(ev) { onLoad(ev.target.result); };
+        reader.readAsText(file);
+    });
+}
+
 // ========== CLIPBOARD & FILE OPERATIONS ==========
 
 /**

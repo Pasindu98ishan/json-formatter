@@ -1,6 +1,10 @@
 // JSON Minifier Tool Page
 // Uses formatter.js for minification and beautification.
 
+function trackEvent(action, params = {}) {
+    if (typeof gtag === 'function') gtag('event', action, params);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const inputJSON = document.getElementById('inputJSON');
     const outputJSON = document.getElementById('outputJSON');
@@ -44,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             try {
                 outputJSON.value = minifyJSON(value);
+                trackEvent('minify_json');
                 showMessage('JSON minified successfully.', true);
             } catch (error) {
                 showMessage(error.message, false);
@@ -64,6 +69,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             try {
                 outputJSON.value = beautifyJSON(value, 2);
+                trackEvent('beautify_json');
                 showMessage('JSON beautified successfully.', true);
             } catch (error) {
                 showMessage(error.message, false);
@@ -78,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             copyToClipboard(outputJSON.value)
-                .then(() => showMessage('Copied output to clipboard!', true))
+                .then(() => { showMessage('Copied output to clipboard!', true); trackEvent('copy_output', { tool: 'minifier' }); })
                 .catch(() => showMessage('Unable to copy output.', false));
         });
     }
@@ -90,6 +96,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             downloadFile(outputJSON.value, 'json-output.json', 'application/json');
+            trackEvent('download_output', { tool: 'minifier' });
             showMessage('Download started.', true);
         });
     }
@@ -102,4 +109,8 @@ document.addEventListener('DOMContentLoaded', function () {
             inputJSON.focus();
         });
     }
+
+    initDragDrop('inputJSON', function(content) {
+        inputJSON.value = content;
+    }, ['.json', '.txt']);
 });

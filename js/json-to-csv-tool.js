@@ -1,4 +1,8 @@
 // JSON to CSV Converter Tool
+function trackEvent(action, params = {}) {
+    if (typeof gtag === 'function') gtag('event', action, params);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const inputJSON = document.getElementById('inputJSON');
     const outputCSV = document.getElementById('outputCSV');
@@ -58,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             outputCSV.value = csv;
+            trackEvent('convert_to_csv');
             showNotification('Converted to CSV successfully');
         } catch (error) {
             outputCSV.value = 'Error: ' + error.message;
@@ -80,6 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         outputCSV.select();
         document.execCommand('copy');
+        trackEvent('copy_output', { tool: 'csv' });
         showNotification('Copied to clipboard!');
     });
 
@@ -97,8 +103,13 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(element);
         element.click();
         document.body.removeChild(element);
+        trackEvent('download_output', { tool: 'csv' });
         showNotification('Downloaded!');
     });
+
+    initDragDrop('inputJSON', function(content) {
+        inputJSON.value = content;
+    }, ['.json', '.txt']);
 
     // Show notification
     function showNotification(message, type = 'success') {

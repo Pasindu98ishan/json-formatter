@@ -1,4 +1,8 @@
 // URL Encoder/Decoder Tool
+function trackEvent(action, params = {}) {
+    if (typeof gtag === 'function') gtag('event', action, params);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const inputText = document.getElementById('inputText');
     const outputText = document.getElementById('outputText');
@@ -18,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const encoded = encodeURIComponent(input);
             outputText.value = encoded;
+            trackEvent('encode_url');
             showNotification('URL encoded successfully');
         } catch (error) {
             outputText.value = 'Error: ' + error.message;
@@ -34,6 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const decoded = decodeURIComponent(input);
             outputText.value = decoded;
+            trackEvent('decode_url');
             showNotification('URL decoded successfully');
         } catch (error) {
             outputText.value = 'Error: Invalid URL encoding - ' + error.message;
@@ -55,6 +61,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         outputText.select();
         document.execCommand('copy');
+        trackEvent('copy_output', { tool: 'url-encoder' });
         showNotification('Copied to clipboard!');
     });
 

@@ -1,14 +1,31 @@
 // Main Application File
 let treeViewer; // Global tree viewer instance
 
+function trackEvent(action, params = {}) {
+    if (typeof gtag === 'function') gtag('event', action, params);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize tree viewer
     treeViewer = new JSONTreeViewer('treeViewerContainer');
-    
+
     // Initialize event listeners
     initializeEventListeners();
     initializeTheme();
     initializeAds();
+
+    // Drag-and-drop JSON file onto input
+    initDragDrop('inputJSON', function(content) {
+        document.getElementById('inputJSON').value = content;
+        try {
+            const formatted = formatJSON(content);
+            setOutput(formatted);
+            treeViewer.render(formatted);
+            clearError();
+        } catch (e) {
+            showError('Dropped file contains invalid JSON: ' + e.message);
+        }
+    }, ['.json', '.txt']);
 });
 
 function initializeEventListeners() {
@@ -31,10 +48,27 @@ function initializeEventListeners() {
     if (inputJSON) inputJSON.addEventListener('paste', handlePaste);
 }
 
+function setOutput(text) {
+    const pre = document.getElementById('outputJSON');
+    const raw = document.getElementById('outputJSONRaw');
+    if (pre) pre.innerHTML = addSyntaxHighlight(text);
+    if (raw) raw.value = text;
+}
+
+function getOutput() {
+    const raw = document.getElementById('outputJSONRaw');
+    return raw ? raw.value : '';
+}
+
+function clearOutput() {
+    const pre = document.getElementById('outputJSON');
+    const raw = document.getElementById('outputJSONRaw');
+    if (pre) pre.innerHTML = '<span class="output-placeholder">Formatted JSON will appear here...</span>';
+    if (raw) raw.value = '';
+}
+
 function handleFormat() {
     const input = document.getElementById('inputJSON').value.trim();
-    const output = document.getElementById('outputJSON');
-    const errorContainer = document.getElementById('errorContainer');
 
     try {
         clearError();
@@ -45,9 +79,8 @@ function handleFormat() {
         }
 
         const formatted = formatJSON(input);
-        output.value = formatted;
-        
-        // Update tree viewer with formatted JSON
+        setOutput(formatted);
+        trackEvent('format_json');
         treeViewer.render(formatted);
     } catch (error) {
         showError('Error: ' + error.message);
@@ -57,7 +90,6 @@ function handleFormat() {
 
 function handleMinify() {
     const input = document.getElementById('inputJSON').value.trim();
-    const output = document.getElementById('outputJSON');
 
     try {
         clearError();
@@ -68,9 +100,8 @@ function handleMinify() {
         }
 
         const minified = minifyJSON(input);
-        output.value = minified;
-        
-        // Update tree viewer with minified JSON
+        setOutput(minified);
+        trackEvent('minify_json');
         treeViewer.render(minified);
     } catch (error) {
         showError('Error: ' + error.message);
@@ -92,6 +123,7 @@ function handleValidate() {
         const isValid = validateJSON(input);
         if (isValid) {
             showSuccess('✓ Valid JSON! No errors found.');
+            trackEvent('validate_json', { result: 'valid' });
             // Update tree viewer with valid JSON
             treeViewer.render(input);
         }
@@ -102,27 +134,28 @@ function handleValidate() {
 }
 
 function handleCopy() {
-    const output = document.getElementById('outputJSON');
-    if (!output.value) {
+    const text = getOutput();
+    if (!text) {
         showError('Nothing to copy. Please format JSON first.');
         return;
     }
 
-    navigator.clipboard.writeText(output.value).then(() => {
+    navigator.clipboard.writeText(text).then(() => {
         showSuccess('✓ Copied to clipboard!');
+        trackEvent('copy_output', { tool: 'formatter' });
     }).catch(err => {
         showError('Failed to copy: ' + err.message);
     });
 }
 
 function handleDownload() {
-    const output = document.getElementById('outputJSON').value;
-    if (!output) {
+    const text = getOutput();
+    if (!text) {
         showError('Nothing to download. Please format JSON first.');
         return;
     }
 
-    const blob = new Blob([output], { type: 'application/json' });
+    const blob = new Blob([text], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -131,12 +164,13 @@ function handleDownload() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    trackEvent('download_output', { tool: 'formatter' });
     showSuccess('✓ File downloaded!');
 }
 
 function handleClear() {
     document.getElementById('inputJSON').value = '';
-    document.getElementById('outputJSON').value = '';
+    clearOutput();
     clearError();
     treeViewer.clear();
 }
@@ -148,7 +182,7 @@ function handlePaste(e) {
         if (input && input.length > 0) {
             try {
                 const formatted = formatJSON(input);
-                document.getElementById('outputJSON').value = formatted;
+                setOutput(formatted);
                 treeViewer.render(formatted);
                 clearError();
             } catch (error) {

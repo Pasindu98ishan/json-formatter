@@ -1,4 +1,8 @@
 // JSON to YAML Converter Tool
+function trackEvent(action, params = {}) {
+    if (typeof gtag === 'function') gtag('event', action, params);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const inputJSON = document.getElementById('inputJSON');
     const outputYAML = document.getElementById('outputYAML');
@@ -23,6 +27,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const yaml = jsonToYaml(jsonData);
             
             outputYAML.value = yaml;
+            trackEvent('convert_to_yaml');
             showNotification('Converted to YAML successfully');
         } catch (error) {
             outputYAML.value = 'Error: ' + error.message;
@@ -115,6 +120,10 @@ document.addEventListener('DOMContentLoaded', function() {
         return yaml;
     }
 
+    initDragDrop('inputJSON', function(content) {
+        inputJSON.value = content;
+    }, ['.json', '.txt']);
+
     // Clear
     clearBtn.addEventListener('click', function() {
         inputJSON.value = '';
@@ -130,6 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         outputYAML.select();
         document.execCommand('copy');
+        trackEvent('copy_output', { tool: 'yaml' });
         showNotification('Copied to clipboard!');
     });
 
@@ -147,6 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(element);
         element.click();
         document.body.removeChild(element);
+        trackEvent('download_output', { tool: 'yaml' });
         showNotification('Downloaded!');
     });
 
