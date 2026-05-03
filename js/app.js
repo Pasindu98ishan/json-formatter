@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
     initializeTheme();
     initializeAds();
+    loadSharedJSON();
 
     // Drag-and-drop JSON file onto input
     initDragDrop('inputJSON', function(content) {
@@ -38,6 +39,10 @@ function initializeEventListeners() {
     const themeToggle = document.getElementById('theme-toggle');
     const inputJSON = document.getElementById('inputJSON');
 
+    const fetchBtn = document.getElementById('fetchBtn');
+    const sampleBtn = document.getElementById('sampleBtn');
+    const shareBtn = document.getElementById('shareBtn');
+
     if (formatBtn) formatBtn.addEventListener('click', handleFormat);
     if (minifyBtn) minifyBtn.addEventListener('click', handleMinify);
     if (validateBtn) validateBtn.addEventListener('click', handleValidate);
@@ -46,6 +51,9 @@ function initializeEventListeners() {
     if (clearBtn) clearBtn.addEventListener('click', handleClear);
     if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
     if (inputJSON) inputJSON.addEventListener('paste', handlePaste);
+    if (fetchBtn) fetchBtn.addEventListener('click', handleFetch);
+    if (sampleBtn) sampleBtn.addEventListener('click', handleSample);
+    if (shareBtn) shareBtn.addEventListener('click', handleShare);
 }
 
 function setOutput(text) {
@@ -78,9 +86,12 @@ function handleFormat() {
             return;
         }
 
-        const formatted = formatJSON(input);
+        const indent = parseInt(document.getElementById('indentSelect')?.value || '2');
+        const sortKeys = document.getElementById('sortKeysToggle')?.checked;
+        let formatted = beautifyJSON(input, indent);
+        if (sortKeys) formatted = sortJSONKeys(formatted);
         setOutput(formatted);
-        trackEvent('format_json');
+        trackEvent('format_json', { indent, sort_keys: sortKeys });
         treeViewer.render(formatted);
     } catch (error) {
         showError('Error: ' + error.message);
@@ -173,6 +184,85 @@ function handleClear() {
     clearOutput();
     clearError();
     treeViewer.clear();
+}
+
+const SAMPLE_JSON = JSON.stringify({
+    "user": {
+        "id": 1,
+        "name": "Jane Smith",
+        "email": "jane@example.com",
+        "roles": ["admin", "editor"],
+        "address": { "city": "New York", "country": "US" }
+    },
+    "createdAt": "2026-01-15T10:30:00Z",
+    "active": true
+}, null, 2);
+
+function handleSample() {
+    document.getElementById('inputJSON').value = SAMPLE_JSON;
+    const indent = parseInt(document.getElementById('indentSelect')?.value || '2');
+    const formatted = beautifyJSON(SAMPLE_JSON, indent);
+    setOutput(formatted);
+    treeViewer.render(formatted);
+    clearError();
+    trackEvent('load_sample_json');
+}
+
+async function handleFetch() {
+    const url = document.getElementById('fetchUrl').value.trim();
+    if (!url) { showError('Enter a URL to fetch.'); return; }
+
+    try {
+        clearError();
+        showSuccess('Fetching...');
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const text = await res.text();
+        document.getElementById('inputJSON').value = text;
+        const indent = parseInt(document.getElementById('indentSelect')?.value || '2');
+        const formatted = beautifyJSON(text, indent);
+        setOutput(formatted);
+        treeViewer.render(formatted);
+        clearError();
+        trackEvent('fetch_url_json');
+    } catch (e) {
+        showError('Fetch failed: ' + e.message + '. Note: the API must allow browser requests (CORS).');
+    }
+}
+
+function handleShare() {
+    const text = getOutput();
+    if (!text) { showError('Format JSON first to create a share link.'); return; }
+
+    if (typeof LZString === 'undefined') {
+        showError('Share library not loaded. Please refresh and try again.');
+        return;
+    }
+
+    const compressed = LZString.compressToEncodedURIComponent(text);
+    const url = location.origin + location.pathname + '?j=' + compressed;
+    const shareUrlInput = document.getElementById('shareUrl');
+    const shareContainer = document.getElementById('shareContainer');
+    shareUrlInput.value = url;
+    shareContainer.style.display = 'block';
+    navigator.clipboard.writeText(url).then(() => showSuccess('Share link copied to clipboard!'));
+    trackEvent('share_json');
+}
+
+function loadSharedJSON() {
+    const params = new URLSearchParams(location.search);
+    const compressed = params.get('j');
+    if (!compressed) return;
+    try {
+        if (typeof LZString === 'undefined') return;
+        const json = LZString.decompressFromEncodedURIComponent(compressed);
+        if (!json) return;
+        const indent = parseInt(document.getElementById('indentSelect')?.value || '2');
+        document.getElementById('inputJSON').value = json;
+        const formatted = beautifyJSON(json, indent);
+        setOutput(formatted);
+        treeViewer.render(formatted);
+    } catch (e) { /* malformed share link — silent fail */ }
 }
 
 function handlePaste(e) {
