@@ -193,30 +193,30 @@ function handlePaste(e) {
     }, 10);
 }
 
+function setThemeToggleState(btn, isDarkMode) {
+    btn.textContent = isDarkMode ? '☀️ Light' : '🌙 Dark';
+    btn.setAttribute('aria-label', isDarkMode ? 'Switch to light mode' : 'Switch to dark mode');
+}
+
 function toggleTheme() {
     const body = document.body;
     const themeToggle = document.getElementById('theme-toggle');
-    
+
     body.classList.toggle('dark-mode');
-    
-    // Save preference
+
     const isDarkMode = body.classList.contains('dark-mode');
     localStorage.setItem('darkMode', isDarkMode);
-    
-    // Update button text
-    themeToggle.textContent = isDarkMode ? '☀️ Light' : '🌙 Dark';
+    setThemeToggleState(themeToggle, isDarkMode);
 }
 
 function initializeTheme() {
     const darkMode = localStorage.getItem('darkMode') === 'true';
     const themeToggle = document.getElementById('theme-toggle');
-    
+
     if (darkMode) {
         document.body.classList.add('dark-mode');
-        if (themeToggle) themeToggle.textContent = '☀️ Light';
-    } else {
-        if (themeToggle) themeToggle.textContent = '🌙 Dark';
     }
+    if (themeToggle) setThemeToggleState(themeToggle, darkMode);
 }
 
 function showError(message) {
