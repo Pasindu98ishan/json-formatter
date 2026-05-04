@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSON array vs object: when to use [] vs {}. Learn the clear rules for choosing between arrays and objects in JSON API design, with real examples.">
+    <meta name="keywords" content="json array vs object, json array or object, json {} vs [], when to use json array, json object vs array difference">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://pasindu98ishan.github.io/json-formatter/blog/json-array-vs-object.html">
+    <meta property="og:title" content="JSON Array vs Object – When to Use Each">
+    <meta property="og:description" content="Clear rules for when to use [] vs {} in JSON. Covers ordered lists, named properties, common mistakes, and real API patterns.">
+    <meta property="og:url" content="https://pasindu98ishan.github.io/json-formatter/blog/json-array-vs-object.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON Array vs Object – When to Use Each | Developer Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pasindu98ishan.github.io/json-formatter/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://pasindu98ishan.github.io/json-formatter/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON Array vs Object – When to Use Each", "item": "https://pasindu98ishan.github.io/json-formatter/blog/json-array-vs-object.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON Array vs Object – When to Use Each",
+      "description": "Clear rules for when to use [] vs {} in JSON, with real API examples and common mistakes to avoid.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-04",
+      "dateModified": "2026-05-04",
+      "publisher": { "@type": "Organization", "name": "Developer Tools Hub" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the difference between a JSON array and a JSON object?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A JSON array ([ ]) is an ordered list of values. Values are accessed by their integer index (0, 1, 2...). A JSON object ({ }) is an unordered set of key-value pairs. Values are accessed by their string key. Use arrays when order matters or when you have a collection of similar items. Use objects when items have named properties and you need to look up values by name." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can a JSON array contain objects?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. An array of objects is the most common pattern in API responses — for example, a list of users where each user is an object. This pattern looks like: [{\"id\": 1, \"name\": \"Alice\"}, {\"id\": 2, \"name\": \"Bob\"}]. Each element of the array is an object with consistent keys." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is using numbered object keys (like 0, 1, 2) an anti-pattern?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Using {\"0\": ..., \"1\": ..., \"2\": ...} instead of an array loses all array semantics: no length property, no forEach/map/filter iteration, no guaranteed ordering, and no standard way to append items. It forces clients to write extra code to work with what should be a simple list. Always use an array [] for ordered collections." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 Developer Tools Hub</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSON Array vs Object</span>
+            </nav>
+            <h1>JSON Array vs Object – When to Use Each</h1>
+            <div class="article-meta">Published May 2026 &middot; 5 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>JSON has two composite data types: arrays (<code>[]</code>) and objects (<code>{}</code>). Choosing the right one for each part of your data structure makes your API more predictable and easier to consume.</p>
+
+            <h2>What a JSON array is</h2>
+            <p>A JSON array is an <strong>ordered list of values</strong> enclosed in square brackets. Values can be of any JSON type (strings, numbers, booleans, null, objects, or other arrays), but in practice arrays usually contain items of the same type.</p>
+            <pre>[
+  "admin",
+  "editor",
+  "viewer"
+]
+
+// Array of objects — the most common API pattern:
+[
+  { "id": 1, "name": "Alice", "role": "admin" },
+  { "id": 2, "name": "Bob",   "role": "editor" }
+]</pre>
+            <p>Arrays are accessed by integer index (0-based). The order of elements is preserved and significant.</p>
+
+            <h2>What a JSON object is</h2>
+            <p>A JSON object is an <strong>unordered set of key-value pairs</strong> enclosed in curly braces. Keys must be strings (double-quoted). Values can be any JSON type.</p>
+            <pre>{
+  "id": 42,
+  "name": "Alice",
+  "email": "alice@example.com",
+  "active": true,
+  "roles": ["admin", "editor"],
+  "address": {
+    "city": "London",
+    "country": "UK"
+  }
+}</pre>
+            <p>Object values are accessed by key name. Order is technically not guaranteed by the JSON spec, though most parsers preserve insertion order.</p>
+
+            <h2>When to use an array</h2>
+            <ul>
+                <li><strong>Ordered collections:</strong> A list of search results, paginated items, log entries where sequence matters</li>
+                <li><strong>Collections of same-type items:</strong> A list of user objects, a list of product IDs, a list of error messages</li>
+                <li><strong>When you iterate:</strong> If you're going to <code>forEach</code>, <code>map</code>, or <code>filter</code> over it, it should be an array</li>
+                <li><strong>When count matters:</strong> Arrays have a <code>length</code> property; objects don't without extra work</li>
+            </ul>
+
+            <h2>When to use an object</h2>
+            <ul>
+                <li><strong>Named properties:</strong> An entity with distinct fields (user, product, config settings)</li>
+                <li><strong>Key-based lookup:</strong> A map from user ID to user data, a dictionary of error codes to messages</li>
+                <li><strong>Configuration:</strong> Settings where each key has a specific meaning (<code>host</code>, <code>port</code>, <code>timeout</code>)</li>
+                <li><strong>API responses with metadata:</strong> A top-level object wrapping a <code>data</code> array and a <code>pagination</code> object</li>
+            </ul>
+
+            <h2>The numbered-key anti-pattern</h2>
+            <p>A common mistake is using an object with numbered string keys to represent a list:</p>
+            <pre>// Anti-pattern — don't do this
+{
+  "0": { "id": 1, "name": "Alice" },
+  "1": { "id": 2, "name": "Bob" },
+  "2": { "id": 3, "name": "Carol" }
+}
+
+// Correct — use an array
+[
+  { "id": 1, "name": "Alice" },
+  { "id": 2, "name": "Bob" },
+  { "id": 3, "name": "Carol" }
+]</pre>
+            <p>The numbered-key version forces every consumer to convert it to an array before they can iterate, count items, or use array methods. There's no good reason to use this pattern — it's almost always a serialization bug from code that converted a zero-indexed array to an object.</p>
+
+            <h2>Array of objects — the most common API pattern</h2>
+            <p>Most REST API responses use the array-of-objects pattern for collections. Each object in the array represents one record, and every object has the same set of keys:</p>
+            <pre>{
+  "users": [
+    { "id": 1, "name": "Alice", "email": "alice@example.com", "active": true },
+    { "id": 2, "name": "Bob",   "email": "bob@example.com",   "active": false },
+    { "id": 3, "name": "Carol", "email": "carol@example.com", "active": true }
+  ],
+  "total": 3
+}</pre>
+            <p>The outer structure is an object (it has named fields: <code>users</code> and <code>total</code>). The <code>users</code> value is an array of objects. This is the standard pattern that every HTTP client library knows how to handle.</p>
+
+            <h2>Object as a lookup map</h2>
+            <p>Objects are ideal when you need to look up items by a unique key — for example, a map of country codes to country names, or error codes to messages:</p>
+            <pre>{
+  "US": "United States",
+  "GB": "United Kingdom",
+  "DE": "Germany",
+  "JP": "Japan"
+}
+
+// Error code map:
+{
+  "E001": "Invalid input format",
+  "E002": "Authentication failed",
+  "E003": "Resource not found"
+}</pre>
+            <p>Object lookup by key is O(1). Searching an array of objects for a matching key is O(n). When your primary access pattern is "give me the item with this ID", an object map is more efficient than an array.</p>
+
+            <h2>Inspect your JSON structure</h2>
+            <p>Use the <a href="../formatter.html">JSON Formatter</a> tree view to visually inspect the structure of any JSON document. The tree makes it immediately clear which parts are arrays (shown with indices) and which are objects (shown with key names), so you can spot accidentally numbered-key objects or other structural issues at a glance.</p>
+
+            <h2>Related articles</h2>
+            <ul>
+                <li><a href="json-best-practices.html">JSON Naming Conventions and Best Practices for APIs</a></li>
+                <li><a href="how-to-read-nested-json.html">How to Read Nested JSON Data</a></li>
+                <li><a href="json-vs-xml.html">JSON vs XML – Key Differences and When to Use Each</a></li>
+            </ul>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Formatter. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../docs/CONTRIBUTING.md">Contribute</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

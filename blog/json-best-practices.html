@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSON naming conventions and best practices for APIs: camelCase vs snake_case, date formats, null vs undefined, pagination, and avoiding deeply nested structures.">
+    <meta name="keywords" content="json naming conventions, json best practices, camelcase vs snake_case json, json api design, json date format, json pagination">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://pasindu98ishan.github.io/json-formatter/blog/json-best-practices.html">
+    <meta property="og:title" content="JSON Naming Conventions and Best Practices for APIs">
+    <meta property="og:description" content="camelCase vs snake_case, ISO dates, null handling, pagination, and avoiding nested structures — practical JSON API design best practices.">
+    <meta property="og:url" content="https://pasindu98ishan.github.io/json-formatter/blog/json-best-practices.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON Naming Conventions and Best Practices for APIs | Developer Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pasindu98ishan.github.io/json-formatter/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://pasindu98ishan.github.io/json-formatter/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON Naming Conventions and Best Practices", "item": "https://pasindu98ishan.github.io/json-formatter/blog/json-best-practices.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON Naming Conventions and Best Practices for APIs",
+      "description": "Practical guidance on JSON naming conventions, date formats, null handling, pagination, and API design.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-04",
+      "dateModified": "2026-05-04",
+      "publisher": { "@type": "Organization", "name": "Developer Tools Hub" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Should JSON keys use camelCase or snake_case?",
+          "acceptedAnswer": { "@type": "Answer", "text": "camelCase is the most common convention for JSON APIs, especially those designed for JavaScript clients, since it matches JavaScript variable naming (no underscore needed). snake_case is common in Python-based APIs. The most important rule is consistency — pick one and use it everywhere in your API." }
+        },
+        {
+          "@type": "Question",
+          "name": "How should I represent dates in JSON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use ISO 8601 format: '2026-05-04T14:30:00Z' for a UTC timestamp or '2026-05-04' for a date without time. This format is unambiguous, lexicographically sortable, and parseable by Date.parse() in JavaScript and datetime.fromisoformat() in Python. Avoid Unix timestamps as strings — they're unreadable without conversion." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I use null or omit the key when a value is absent?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Include the key with a null value rather than omitting it entirely. This makes your API response shape predictable — consumers can always access the key without checking whether it exists. Omitting keys makes API responses inconsistent and forces clients to handle both the missing-key case and the null case separately." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 Developer Tools Hub</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSON Naming Conventions and Best Practices</span>
+            </nav>
+            <h1>JSON Naming Conventions and Best Practices for APIs</h1>
+            <div class="article-meta">Published May 2026 &middot; 7 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>There is no official JSON style guide, but there are strong community conventions that make APIs predictable, maintainable, and pleasant to work with. Here are the most important ones.</p>
+
+            <h2>Key naming: camelCase vs snake_case</h2>
+            <p>The biggest debate in JSON API design. Both are widely used:</p>
+            <pre>// camelCase — most common in JavaScript-centric APIs (GitHub, Twitter, Stripe)
+{
+  "userId": 42,
+  "firstName": "Alice",
+  "createdAt": "2026-05-04T10:00:00Z"
+}
+
+// snake_case — common in Python-based APIs (Django REST Framework defaults)
+{
+  "user_id": 42,
+  "first_name": "Alice",
+  "created_at": "2026-05-04T10:00:00Z"
+}</pre>
+            <p><strong>Recommendation:</strong> Use camelCase for JSON APIs. It matches JavaScript variable naming natively, so JavaScript clients don't need to transform keys. If your backend is Python, use a serialization library that converts snake_case to camelCase at the API boundary (e.g., <code>humps</code>, Django REST Framework with a custom renderer).</p>
+            <p>Whatever you choose, <strong>be consistent</strong>. A mix of camelCase and snake_case in the same response is the worst outcome.</p>
+
+            <h2>Always use double quotes</h2>
+            <p>This is required by the JSON spec, not just a convention. Single quotes cause a parse error. Every key and every string value must use double quotes.</p>
+            <pre>// Valid
+{ "status": "active" }
+
+// Invalid — will not parse
+{ 'status': 'active' }</pre>
+
+            <h2>Use null for absent values — don't omit keys</h2>
+            <p>When a value is not available, include the key with a <code>null</code> value rather than leaving the key out entirely:</p>
+            <pre>// Preferred — consistent shape
+{
+  "userId": 42,
+  "middleName": null,
+  "phoneNumber": null
+}
+
+// Avoid — clients must check both "key missing" and "key is null"
+{
+  "userId": 42
+}</pre>
+            <p>Consistent key presence makes client-side code simpler. Consumers can access <code>data.middleName</code> safely and get <code>null</code> without first checking if the key exists.</p>
+
+            <h2>Use ISO 8601 for dates and timestamps</h2>
+            <p>ISO 8601 is unambiguous, sortable, and parseable in every major language:</p>
+            <pre>{
+  "createdAt": "2026-05-04T14:30:00Z",       // UTC timestamp
+  "updatedAt": "2026-05-04T14:30:00+05:30",  // with timezone offset
+  "birthDate": "1995-08-22"                   // date only
+}</pre>
+            <p>Avoid Unix timestamps as strings (<code>"created": "1746360600"</code>) — they're unreadable without conversion. Unix timestamps as numbers are acceptable for high-frequency logging where every byte counts, but name the field clearly (<code>createdAtTimestamp</code>).</p>
+
+            <h2>Use arrays for ordered collections — not numbered keys</h2>
+            <p>A common anti-pattern is using numbered keys to simulate an ordered list:</p>
+            <pre>// Anti-pattern — don't do this
+{
+  "item_0": { "name": "Widget A" },
+  "item_1": { "name": "Widget B" },
+  "item_2": { "name": "Widget C" }
+}
+
+// Correct — use an array
+{
+  "items": [
+    { "name": "Widget A" },
+    { "name": "Widget B" },
+    { "name": "Widget C" }
+  ]
+}</pre>
+            <p>Arrays maintain order, have a <code>length</code> property, and can be iterated with standard array methods. Numbered object keys do none of this.</p>
+
+            <h2>Avoid deeply nested structures</h2>
+            <p>Nesting beyond 3-4 levels makes JSON hard to read and hard to access programmatically. If you find yourself writing <code>data.response.user.profile.address.city</code>, consider flattening:</p>
+            <pre>// Overly nested
+{
+  "response": {
+    "user": {
+      "profile": {
+        "address": { "city": "London" }
+      }
+    }
+  }
+}
+
+// Flatter — easier to work with
+{
+  "user": {
+    "city": "London"
+  }
+}</pre>
+
+            <h2>Pagination conventions</h2>
+            <p>When returning paginated lists, include metadata that clients need to navigate pages:</p>
+            <pre>{
+  "data": [ ... ],
+  "pagination": {
+    "page": 2,
+    "perPage": 20,
+    "total": 157,
+    "totalPages": 8,
+    "nextPage": 3,
+    "prevPage": 1
+  }
+}</pre>
+            <p>Alternatively, use cursor-based pagination for large or real-time datasets:</p>
+            <pre>{
+  "data": [ ... ],
+  "cursor": {
+    "next": "eyJpZCI6MTAwfQ",
+    "hasMore": true
+  }
+}</pre>
+
+            <h2>Validate your JSON structure</h2>
+            <p>Use the <a href="../json-validator.html">JSON Validator</a> to confirm your API responses are syntactically valid. For structural validation — ensuring required fields are present and have the correct types — consider <a href="validate-json-schema.html">JSON Schema validation</a>. The <a href="../formatter.html">JSON Formatter</a> makes it easy to visually inspect complex nested responses.</p>
+
+            <h2>Related articles</h2>
+            <ul>
+                <li><a href="validate-json-schema.html">How to Validate JSON Against a Schema</a></li>
+                <li><a href="json-array-vs-object.html">JSON Array vs Object – When to Use Each</a></li>
+                <li><a href="json-validator-best-practices.html">JSON Validator Best Practices</a></li>
+            </ul>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Formatter. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../docs/CONTRIBUTING.md">Contribute</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

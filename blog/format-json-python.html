@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="How to format JSON in Python using json.dumps with indent, sort_keys, and separators. Includes reading and reformatting JSON files and pretty-printing for debugging.">
+    <meta name="keywords" content="format json python, json.dumps indent, python pretty print json, python json format, json.dumps sort_keys, python json file format">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://pasindu98ishan.github.io/json-formatter/blog/format-json-python.html">
+    <meta property="og:title" content="How to Format JSON in Python – json.dumps with indent">
+    <meta property="og:description" content="Complete guide to formatting JSON in Python: json.dumps with indent, sort_keys, reformatting JSON files, and pprint for debugging.">
+    <meta property="og:url" content="https://pasindu98ishan.github.io/json-formatter/blog/format-json-python.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>How to Format JSON in Python – json.dumps with indent | Developer Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pasindu98ishan.github.io/json-formatter/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://pasindu98ishan.github.io/json-formatter/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "How to Format JSON in Python", "item": "https://pasindu98ishan.github.io/json-formatter/blog/format-json-python.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "How to Format JSON in Python – json.dumps with indent",
+      "description": "Complete guide to formatting JSON in Python: json.dumps with indent, sort_keys, reformatting files, and pprint for debugging.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-04",
+      "dateModified": "2026-05-04",
+      "publisher": { "@type": "Organization", "name": "Developer Tools Hub" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I pretty print JSON in Python?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use json.dumps(data, indent=2) to produce a formatted JSON string with 2-space indentation. Pass indent=4 for 4-space indentation. To also sort the keys alphabetically, add sort_keys=True. To print directly to the console, use print(json.dumps(data, indent=2))." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I reformat a JSON file in Python?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Read the file with json.load(), then write it back with json.dump() using the indent parameter. Example: with open('data.json') as f: data = json.load(f). Then: with open('data.json', 'w') as f: json.dump(data, f, indent=2). This reads the JSON, parses it, and rewrites the file with consistent formatting." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between json.dumps and json.dump in Python?",
+          "acceptedAnswer": { "@type": "Answer", "text": "json.dumps() serializes a Python object to a JSON string (the 's' stands for string). json.dump() serializes a Python object and writes it directly to a file object. Use dumps() when you need the JSON as a string variable, and dump() when writing to a file." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 Developer Tools Hub</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>How to Format JSON in Python</span>
+            </nav>
+            <h1>How to Format JSON in Python – json.dumps with indent</h1>
+            <div class="article-meta">Published May 2026 &middot; 5 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>Python's built-in <code>json</code> module makes it straightforward to format (pretty-print) JSON with a single parameter. You don't need any third-party libraries — everything you need is in the standard library.</p>
+
+            <h2>Basic pretty-printing with json.dumps</h2>
+            <p>The <code>indent</code> parameter is the key. Pass an integer to specify the number of spaces per indentation level:</p>
+            <pre>import json
+
+data = {"name": "Alice", "age": 28, "roles": ["admin", "editor"], "active": True}
+
+# 2-space indentation (most common)
+print(json.dumps(data, indent=2))
+
+# Output:
+# {
+#   "name": "Alice",
+#   "age": 28,
+#   "roles": [
+#     "admin",
+#     "editor"
+#   ],
+#   "active": true
+# }</pre>
+
+            <p>Use <code>indent=4</code> if your team's style guide calls for 4-space indentation. Note that Python booleans (<code>True</code>, <code>False</code>) are automatically converted to lowercase <code>true</code>/<code>false</code> as required by the JSON spec.</p>
+
+            <h2>Sorting keys alphabetically</h2>
+            <p>The <code>sort_keys=True</code> parameter outputs keys in alphabetical order, which makes JSON easier to compare and diff:</p>
+            <pre>import json
+
+data = {"zebra": 1, "apple": 2, "mango": 3}
+
+print(json.dumps(data, indent=2, sort_keys=True))
+# {
+#   "apple": 2,
+#   "mango": 3,
+#   "zebra": 1
+# }</pre>
+
+            <h2>Controlling separators for compact or readable output</h2>
+            <p>The <code>separators</code> parameter controls the characters used between items and between keys and values. The default for pretty-printed output adds a space after colons and commas. For the most compact (minified) output:</p>
+            <pre>import json
+
+data = {"host": "localhost", "port": 5432}
+
+# Default pretty output (separators=(',', ': '))
+print(json.dumps(data, indent=2))
+
+# Compact minified output — no spaces at all
+print(json.dumps(data, separators=(',', ':')))
+# {"host":"localhost","port":5432}</pre>
+
+            <h2>Reading and reformatting a JSON file</h2>
+            <p>To reformat an existing JSON file — standardise indentation across a project, or convert minified JSON to readable JSON:</p>
+            <pre>import json
+
+# Read the file
+with open('data.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+
+# Write it back with 2-space indentation
+with open('data.json', 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2, ensure_ascii=False)
+    f.write('\n')  # Add trailing newline (good practice)</pre>
+
+            <p>The <code>ensure_ascii=False</code> flag preserves Unicode characters (accented letters, emoji, etc.) rather than escaping them as <code>\uXXXX</code> sequences. This is almost always what you want for human-readable output.</p>
+
+            <h2>Pretty-printing from the command line</h2>
+            <p>Python ships with a command-line JSON formatter you can pipe into:</p>
+            <pre># Format a JSON file
+python -m json.tool data.json
+
+# Format JSON from an API response via curl
+curl -s https://api.example.com/users | python -m json.tool
+
+# Write formatted output to a file
+python -m json.tool data.json > data-formatted.json</pre>
+
+            <h2>Using pprint for quick debug output</h2>
+            <p>The <code>pprint</code> module pretty-prints Python data structures (dicts, lists) in a readable format. It's not JSON, but it's useful for quick debugging when you don't need valid JSON output:</p>
+            <pre>from pprint import pprint
+import json, urllib.request
+
+with urllib.request.urlopen('https://api.example.com/data') as res:
+    data = json.load(res)
+
+pprint(data)  # Readable Python dict output for inspection</pre>
+
+            <p>Use <code>json.dumps(data, indent=2)</code> when you need valid JSON. Use <code>pprint(data)</code> when you just want to inspect a Python dict quickly in a script.</p>
+
+            <h2>Formatting JSON in the browser</h2>
+            <p>If you're working with JSON responses from an API and want to format them without writing code, use the <a href="../formatter.html">JSON Formatter</a>. Paste any JSON — minified or broken — and get clean, indented output with a tree view. It's useful for inspecting API responses during development alongside your Python code.</p>
+
+            <h2>Related articles</h2>
+            <ul>
+                <li><a href="pretty-print-json.html">How to Pretty Print JSON – Browser, JavaScript, Python, curl</a></li>
+                <li><a href="json-stringify-indent.html">JSON.stringify Indent – JavaScript Formatting Options Explained</a></li>
+                <li><a href="how-to-format-json.html">How to Format JSON Properly</a></li>
+            </ul>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Formatter. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../docs/CONTRIBUTING.md">Contribute</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

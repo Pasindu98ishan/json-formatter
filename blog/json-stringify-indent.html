@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Complete breakdown of JSON.stringify(value, replacer, space) — the indent parameter, replacer function, replacer array, and real examples with 2-space, 4-space, and tab indentation.">
+    <meta name="keywords" content="json stringify indent, json.stringify space, json.stringify replacer, json stringify formatting, json.stringify options, json stringify tabs">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://pasindu98ishan.github.io/json-formatter/blog/json-stringify-indent.html">
+    <meta property="og:title" content="JSON.stringify Indent – Formatting Options Explained">
+    <meta property="og:description" content="Full breakdown of the JSON.stringify space and replacer parameters with practical examples for filtering keys and controlling output format.">
+    <meta property="og:url" content="https://pasindu98ishan.github.io/json-formatter/blog/json-stringify-indent.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON.stringify Indent – Formatting Options Explained | Developer Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pasindu98ishan.github.io/json-formatter/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://pasindu98ishan.github.io/json-formatter/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON.stringify Indent – Formatting Options Explained", "item": "https://pasindu98ishan.github.io/json-formatter/blog/json-stringify-indent.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON.stringify Indent – Formatting Options Explained",
+      "description": "Full breakdown of the JSON.stringify space and replacer parameters with practical examples.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-04",
+      "dateModified": "2026-05-04",
+      "publisher": { "@type": "Organization", "name": "Developer Tools Hub" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does the third argument to JSON.stringify do?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The third argument (space) controls indentation in the output. If you pass a number, JSON.stringify uses that many spaces per indentation level. If you pass a string (e.g., '\\t'), it uses that string as the indent. Passing null or 0 produces compact (minified) output with no whitespace." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the replacer argument in JSON.stringify?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The second argument (replacer) can be a function or an array. An array of key names acts as an allowlist — only those keys appear in the output. A function is called for each key-value pair and can return a transformed value, or undefined to omit the key from the output entirely. Pass null to include all keys." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I use JSON.stringify to exclude sensitive fields?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use a replacer function that returns undefined for keys you want to exclude. For example: JSON.stringify(user, (key, val) => key === 'password' ? undefined : val, 2) will serialize the user object but omit the password field from the output." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 Developer Tools Hub</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSON.stringify Indent – Formatting Options Explained</span>
+            </nav>
+            <h1>JSON.stringify Indent – Formatting Options Explained</h1>
+            <div class="article-meta">Published May 2026 &middot; 6 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p><code>JSON.stringify()</code> has three parameters, but most developers only use the first one. The second and third parameters — replacer and space — unlock powerful control over what gets serialized and how it's formatted.</p>
+
+            <pre>JSON.stringify(value, replacer, space)</pre>
+
+            <h2>The space parameter — controlling indentation</h2>
+            <p>The third argument, <code>space</code>, controls the indentation of the formatted output. It accepts either a number or a string:</p>
+
+            <h3>Number — spaces per indent level</h3>
+            <pre>const data = { name: "Alice", address: { city: "London", zip: "SW1A" } };
+
+// No indent (minified) — default when space is 0, null, or omitted
+JSON.stringify(data);
+// {"name":"Alice","address":{"city":"London","zip":"SW1A"}}
+
+// 2-space indent
+JSON.stringify(data, null, 2);
+// {
+//   "name": "Alice",
+//   "address": {
+//     "city": "London",
+//     "zip": "SW1A"
+//   }
+// }
+
+// 4-space indent
+JSON.stringify(data, null, 4);
+// {
+//     "name": "Alice",
+//     "address": {
+//         "city": "London",
+//         "zip": "SW1A"
+//     }
+// }</pre>
+
+            <p>Values larger than 10 are clamped to 10. Negative values are treated as 0 (minified output).</p>
+
+            <h3>String — custom indent character</h3>
+            <pre>// Tab indentation (useful for some file formats)
+JSON.stringify(data, null, '\t');
+// {
+// &lt;tab&gt;"name": "Alice",
+// &lt;tab&gt;"address": {
+// &lt;tab&gt;&lt;tab&gt;"city": "London",
+// &lt;tab&gt;&lt;tab&gt;"zip": "SW1A"
+// &lt;tab&gt;}
+// }
+
+// Custom string (first 10 chars only, per spec)
+JSON.stringify(data, null, '--');
+// {
+// --"name": "Alice",
+// --"address": {
+// ----"city": "London",
+// ----"zip": "SW1A"
+// --}
+// }</pre>
+
+            <h2>The replacer parameter — filtering and transforming output</h2>
+            <p>The second argument controls which keys appear in the output and what their values are. It can be an array (allowlist) or a function (transformation).</p>
+
+            <h3>Replacer as an array — include only specific keys</h3>
+            <pre>const user = {
+    id: 42,
+    name: "Alice",
+    email: "alice@example.com",
+    password: "secret123",
+    createdAt: "2026-05-04"
+};
+
+// Only include id and name in the output
+JSON.stringify(user, ['id', 'name'], 2);
+// {
+//   "id": 42,
+//   "name": "Alice"
+// }</pre>
+
+            <h3>Replacer as a function — exclude or transform values</h3>
+            <pre>// Exclude sensitive fields
+JSON.stringify(user, (key, value) => {
+    if (key === 'password') return undefined; // omit this key
+    return value; // include everything else
+}, 2);
+
+// Exclude multiple sensitive fields
+const sensitiveKeys = new Set(['password', 'ssn', 'creditCard']);
+JSON.stringify(user, (key, value) => {
+    return sensitiveKeys.has(key) ? undefined : value;
+}, 2);</pre>
+
+            <pre>// Transform values — convert Date objects to ISO strings
+const event = {
+    title: "Conference",
+    date: new Date('2026-06-15'),
+    attendees: 250
+};
+
+JSON.stringify(event, (key, value) => {
+    if (value instanceof Date) return value.toISOString();
+    return value;
+}, 2);
+// {
+//   "title": "Conference",
+//   "date": "2026-06-15T00:00:00.000Z",
+//   "attendees": 250
+// }</pre>
+
+            <h2>Important: how the replacer function is called</h2>
+            <p>The replacer function is called with the key and value for every key-value pair, including the root object. For the root, the key is an empty string <code>""</code>. If the replacer returns <code>undefined</code> for any key, that key is omitted from the output. If it returns <code>undefined</code> for the root (empty key), the entire output is <code>undefined</code>.</p>
+            <pre>JSON.stringify({ a: 1, b: 2 }, (key, value) => {
+    console.log(JSON.stringify(key), '→', value);
+    return value;
+});
+// "" → { a: 1, b: 2 }   (root call, key is empty string)
+// "a" → 1
+// "b" → 2</pre>
+
+            <h2>toJSON() — custom serialization on objects</h2>
+            <p>If an object has a <code>toJSON()</code> method, <code>JSON.stringify()</code> calls it and serializes the returned value instead of the object itself:</p>
+            <pre>class User {
+    constructor(id, name, password) {
+        this.id = id;
+        this.name = name;
+        this.password = password;
+    }
+
+    // This controls what JSON.stringify serializes
+    toJSON() {
+        return { id: this.id, name: this.name }; // omit password
+    }
+}
+
+const user = new User(1, 'Alice', 'secret');
+JSON.stringify(user); // '{"id":1,"name":"Alice"}'</pre>
+
+            <h2>Browser alternative for one-off formatting</h2>
+            <p>If you need to format a JSON string without writing code, paste it into the <a href="../formatter.html">JSON Formatter</a>. It supports 2-space and 4-space indentation, a tree view for navigation, and key sorting — equivalent to <code>JSON.stringify(data, null, 2)</code> with the sort-keys option.</p>
+
+            <h2>Related articles</h2>
+            <ul>
+                <li><a href="pretty-print-json.html">How to Pretty Print JSON – Browser, JavaScript, Python, curl</a></li>
+                <li><a href="format-json-python.html">How to Format JSON in Python – json.dumps with indent</a></li>
+                <li><a href="json-trailing-comma.html">JSON Trailing Comma Error – Why It Happens and How to Fix It</a></li>
+            </ul>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Formatter. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../docs/CONTRIBUTING.md">Contribute</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free online JSON Diff tool. Compare two JSON objects side by side. Highlights added, removed, and changed keys instantly in your browser. No signup required.">
+    <meta name="keywords" content="json diff, json compare, json difference, compare json online, json diff tool, json object comparison">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://pasindu98ishan.github.io/json-formatter/json-diff.html">
+    <meta property="og:title" content="JSON Diff Online – Compare Two JSON Objects Free">
+    <meta property="og:description" content="Compare two JSON objects side by side. Highlights added, removed, and changed keys instantly in your browser.">
+    <meta property="og:url" content="https://pasindu98ishan.github.io/json-formatter/json-diff.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON Diff Online – Compare Two JSON Objects Free</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pasindu98ishan.github.io/json-formatter/" },
+        { "@type": "ListItem", "position": 2, "name": "JSON Diff", "item": "https://pasindu98ishan.github.io/json-formatter/json-diff.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "JSON Diff Online",
+      "url": "https://pasindu98ishan.github.io/json-formatter/json-diff.html",
+      "description": "Free online JSON Diff tool. Compare two JSON objects side by side and highlight added, removed, and changed keys.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How does the JSON diff work?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The tool recursively walks both JSON objects and compares every key and value. Added keys are highlighted in green, removed keys in red, and changed values in yellow." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my JSON data sent to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. All comparison happens entirely in your browser using JavaScript. Your data never leaves your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it handle nested JSON objects?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. The diff is recursive — nested objects and arrays are compared at every level, and the path to each difference is shown (e.g., user.address.city)." }
+        },
+        {
+          "@type": "Question",
+          "name": "What do the colors mean?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Green (+) means a key exists in B but not in A (added). Red (−) means a key exists in A but not in B (removed). Yellow (~) means the key exists in both but the value is different (changed)." }
+        }
+      ]
+    }
+    </script>
+    <style>
+        .diff-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+        @media (max-width: 700px) {
+            .diff-panels { grid-template-columns: 1fr; }
+        }
+        .diff-panel label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .diff-panel textarea {
+            width: 100%;
+            font-family: monospace;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        .diff-error {
+            font-size: 13px;
+            color: #c0392b;
+            margin-top: 4px;
+            display: none;
+        }
+        body.dark-mode .diff-error { color: #f08080; }
+
+        /* Diff output table */
+        .diff-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+        .diff-table th {
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .diff-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px 10px;
+            vertical-align: top;
+        }
+        .diff-row-added td { background: #f0fff4; }
+        .diff-row-removed td { background: #fff5f5; }
+        .diff-row-changed td { background: #fffbea; }
+        body.dark-mode .diff-row-added td { background: #0f2d1a; }
+        body.dark-mode .diff-row-removed td { background: #2d0f0f; }
+        body.dark-mode .diff-row-changed td { background: #2d2700; }
+        body.dark-mode .diff-table th { background: #2d2d2d; border-color: #555; }
+        body.dark-mode .diff-table td { border-color: #555; }
+
+        .diff-val {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 12px;
+            background: transparent;
+            border: none;
+            padding: 0;
+            font-family: monospace;
+        }
+        .diff-equal {
+            color: #155724;
+            background: #d4edda;
+            border-radius: 6px;
+            padding: 14px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+        body.dark-mode .diff-equal { background: #1a3d26; color: #6fd98a; }
+
+        .diff-summary { margin-bottom: 12px; }
+        .diff-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 13px;
+            margin-right: 6px;
+        }
+        .diff-badge-added { background: #d4edda; color: #155724; }
+        .diff-badge-removed { background: #f8d7da; color: #721c24; }
+        .diff-badge-changed { background: #fff3cd; color: #856404; }
+        body.dark-mode .diff-badge-added { background: #1a3d26; color: #6fd98a; }
+        body.dark-mode .diff-badge-removed { background: #3d1a1a; color: #f08080; }
+        body.dark-mode .diff-badge-changed { background: #332d00; color: #ffd966; }
+    </style>
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="index.html">🔧 Developer Tools Hub</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="formatter.html">JSON Formatter</a></li>
+                    <li><a href="json-validator.html">JSON Validator</a></li>
+                    <li><a href="json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="base64.html">Base64</a></li>
+                    <li><a href="url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="timestamp.html">Timestamp</a></li>
+                            <li><a href="json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="json-diff.html" class="active">JSON Diff</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <h1>JSON Diff</h1>
+            <p>Compare two JSON objects and instantly see what changed — added, removed, and modified keys highlighted.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+
+            <div class="diff-panels">
+                <div class="diff-panel">
+                    <label for="jsonA">JSON A (Left / Original)</label>
+                    <textarea id="jsonA" rows="14" placeholder='{"name": "Alice", "age": 30, "city": "New York"}' aria-label="JSON A input"></textarea>
+                    <div id="errorA" class="diff-error"></div>
+                </div>
+                <div class="diff-panel">
+                    <label for="jsonB">JSON B (Right / Modified)</label>
+                    <textarea id="jsonB" rows="14" placeholder='{"name": "Alice", "age": 31, "country": "USA"}' aria-label="JSON B input"></textarea>
+                    <div id="errorB" class="diff-error"></div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="compareBtn" class="btn btn-primary">Compare JSON</button>
+                <button id="swapBtn" class="btn btn-secondary">⇄ Swap A / B</button>
+                <button id="clearBtn" class="btn btn-secondary">Clear</button>
+            </div>
+
+            <div id="outputSection">
+                <div id="diffOutput"></div>
+            </div>
+
+            <div class="info-section" style="margin-top: 24px;">
+                <h3>How JSON Diff Works</h3>
+                <p>The tool recursively compares every key and value in both JSON objects:</p>
+                <ul>
+                    <li><strong style="color:#155724;">+ Added (green)</strong> — key exists in B but not in A</li>
+                    <li><strong style="color:#721c24;">− Removed (red)</strong> — key exists in A but not in B</li>
+                    <li><strong style="color:#856404;">~ Changed (yellow)</strong> — key exists in both but the value differs</li>
+                </ul>
+                <p>Nested paths are shown in dot notation (e.g., <code>user.address.city</code>) so you can pinpoint exactly where the difference is.</p>
+                <p>Need to format your JSON first? Use the <a href="formatter.html">JSON Formatter</a>. Need to validate? Try the <a href="json-validator.html">JSON Validator</a>.</p>
+            </div>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>How does the JSON diff work?</summary>
+                <p>The tool recursively walks both JSON objects and compares every key and value. Added keys are highlighted in green, removed keys in red, and changed values in yellow.</p>
+            </details>
+            <details>
+                <summary>Is my JSON data sent to a server?</summary>
+                <p>No. All comparison happens entirely in your browser using JavaScript. Your data never leaves your device.</p>
+            </details>
+            <details>
+                <summary>Does it handle nested JSON objects?</summary>
+                <p>Yes. The diff is recursive — nested objects and arrays are compared at every level, and the path to each difference is shown (e.g., <code>user.address.city</code>).</p>
+            </details>
+            <details>
+                <summary>What do the colors mean?</summary>
+                <p>Green (+) means a key exists in B but not in A (added). Red (−) means a key exists in A but not in B (removed). Yellow (~) means the key exists in both but the value is different (changed).</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="formatter.html">JSON Formatter</a></li>
+                <li><a href="json-validator.html">JSON Validator</a></li>
+                <li><a href="csv-to-json.html">CSV to JSON</a></li>
+                <li><a href="json-to-csv.html">JSON to CSV</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Formatter. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="docs/CONTRIBUTING.md">Contribute</a></p>
+        </div>
+    </footer>
+
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/json-diff-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>

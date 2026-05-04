@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSON trailing comma errors happen because JSON is stricter than JavaScript. Learn why trailing commas are invalid in JSON, how to find them, and how to remove them.">
+    <meta name="keywords" content="json trailing comma, trailing comma json error, remove trailing comma json, json syntax error comma, json vs javascript comma">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://pasindu98ishan.github.io/json-formatter/blog/json-trailing-comma.html">
+    <meta property="og:title" content="JSON Trailing Comma Error – Why It Happens and How to Remove It">
+    <meta property="og:description" content="Trailing commas are valid in JavaScript but forbidden in JSON. Learn where they come from and how to find and remove them quickly.">
+    <meta property="og:url" content="https://pasindu98ishan.github.io/json-formatter/blog/json-trailing-comma.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON Trailing Comma Error – Why It Happens and How to Remove It | Developer Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pasindu98ishan.github.io/json-formatter/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://pasindu98ishan.github.io/json-formatter/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON Trailing Comma Error", "item": "https://pasindu98ishan.github.io/json-formatter/blog/json-trailing-comma.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON Trailing Comma Error – Why It Happens and How to Remove It",
+      "description": "Trailing commas are valid in JavaScript but forbidden in JSON per RFC 8259. Learn how to find and fix them.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-04",
+      "dateModified": "2026-05-04",
+      "publisher": { "@type": "Organization", "name": "Developer Tools Hub" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why does JSON not allow trailing commas?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON follows RFC 8259, which was designed to be simple and unambiguous to parse across all programming languages. The spec explicitly forbids trailing commas to keep parsers simple. JavaScript ES5+ allows trailing commas as a developer convenience, but JSON is a data format — not JavaScript — and was intentionally kept more strict." }
+        },
+        {
+          "@type": "Question",
+          "name": "What error message does a trailing comma produce?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Different parsers report it differently. Node.js and modern browsers show 'SyntaxError: Unexpected token }' or 'SyntaxError: Expected double-quoted property name in JSON'. Python shows 'json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes'. All point to the character just after the trailing comma." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there a JSON format that allows trailing commas?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON5 is a superset of JSON that allows trailing commas, single-quoted strings, and comments. VS Code uses JSONC (JSON with Comments) for its settings files. However, these formats require their own parsers and are not compatible with standard JSON.parse() or most API clients." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 Developer Tools Hub</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSON Trailing Comma Error</span>
+            </nav>
+            <h1>JSON Trailing Comma Error – Why It Happens and How to Remove It</h1>
+            <div class="article-meta">Published May 2026 &middot; 4 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>A trailing comma in JSON is a comma placed after the last item in an object or array, with nothing following it before the closing bracket. It's one of the most common JSON errors — and it's almost always caused by the fact that JavaScript allows trailing commas, but JSON does not.</p>
+
+            <h2>What a trailing comma looks like</h2>
+            <pre>// This is INVALID JSON — trailing comma after "NYC"
+{
+  "name": "Alice",
+  "city": "NYC",
+}
+
+// Also invalid in an array:
+["red", "green", "blue",]
+
+// Both are valid JavaScript, but will fail JSON.parse()</pre>
+
+            <h2>Why JSON forbids trailing commas</h2>
+            <p>JSON is defined by <a href="https://www.rfc-editor.org/rfc/rfc8259" rel="noopener noreferrer">RFC 8259</a>. The grammar for an object is explicitly: a sequence of key-value pairs separated by commas, with no trailing comma allowed. The reason is simplicity: keeping the grammar unambiguous means any language can implement a JSON parser consistently without edge cases.</p>
+            <p>JavaScript (ES5 and later) allows trailing commas in object literals, array literals, and function parameters as a developer convenience — makes diffs cleaner when you add or remove a line. But JSON predates this and was intentionally kept stricter.</p>
+
+            <h2>Where trailing commas come from</h2>
+
+            <h3>Copy-pasting from JavaScript source code</h3>
+            <p>If you copy a JavaScript object literal and paste it as JSON — perhaps into a config file or an API testing tool — trailing commas come along with it.</p>
+
+            <h3>Manual editing</h3>
+            <p>You add a new field to a JSON object and forget to remove the comma from what is now the second-to-last field after rearranging. Or you delete the last field but leave its preceding comma on the field above.</p>
+            <pre>// You had:
+{
+  "host": "localhost",
+  "port": 5432,
+  "db": "mydb"
+}
+
+// You delete the last line:
+{
+  "host": "localhost",
+  "port": 5432,   // ← now a trailing comma — easy to miss
+}</pre>
+
+            <h3>Code generation bugs</h3>
+            <p>If you're building JSON strings by concatenating items in a loop, a naive join can produce a trailing comma:</p>
+            <pre>// Bug: produces trailing comma
+const parts = items.map(i => `"${i.name}": ${i.value}`);
+const json = '{' + parts.join(',') + ',}'; // extra comma before }
+
+// Correct approach — always use JSON.stringify():
+const obj = {};
+items.forEach(i => { obj[i.name] = i.value; });
+const json = JSON.stringify(obj);</pre>
+
+            <h2>How to find and remove trailing commas</h2>
+            <p>The fastest way is to paste your JSON into the <a href="../json-validator.html">JSON Validator</a>. It parses the input and reports the exact line and column where the trailing comma appears. For most text editors, you can then jump directly to that line.</p>
+
+            <p>If you need to strip trailing commas programmatically (for example, you're receiving JSON5-like input from a legacy system), you can use a regex as a pre-processing step before parsing. This is not recommended for production without thorough testing, but useful for one-off cleanup:</p>
+            <pre>// Removes trailing commas before } or ]
+// WARNING: This regex can fail on commas inside strings — use with care
+function stripTrailingCommas(jsonString) {
+    return jsonString.replace(/,\s*([}\]])/g, '$1');
+}</pre>
+
+            <h2>Prevent trailing commas upstream</h2>
+            <p>The best fix is to never construct JSON by string concatenation. Always use <code>JSON.stringify()</code> in JavaScript or <code>json.dumps()</code> in Python. These serializers always produce valid JSON with no trailing commas.</p>
+
+            <pre>// JavaScript — always produces valid JSON
+const data = { name: "Alice", city: "NYC" };
+const json = JSON.stringify(data, null, 2);
+
+// Python — always produces valid JSON
+import json
+data = {"name": "Alice", "city": "NYC"}
+json_str = json.dumps(data, indent=2)</pre>
+
+            <h2>Related articles</h2>
+            <ul>
+                <li><a href="10-json-errors.html">10 JSON Errors I See Every Week</a></li>
+                <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="json-stringify-indent.html">JSON.stringify Indent – Formatting Options Explained</a></li>
+            </ul>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Formatter. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../docs/CONTRIBUTING.md">Contribute</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>
