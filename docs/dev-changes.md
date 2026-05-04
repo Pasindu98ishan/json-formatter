@@ -1,4 +1,4 @@
-# Dev Changes — Growth Implementation Plan
+﻿# Dev Changes â€” Growth Implementation Plan
 
 Ordered by impact-to-effort ratio. Each item references exact files and functions.
 
@@ -18,11 +18,11 @@ Both files contain a visible note at the bottom:
 
 ## 2. Indentation Selector (2 / 4 / 8 spaces)
 
-**Impact:** High — differentiating UX; `beautifyJSON(str, indent)` already supports it  
+**Impact:** High â€” differentiating UX; `beautifyJSON(str, indent)` already supports it  
 **Files:** `formatter.html`, `js/app.js`
 
 ### formatter.html
-Replace the existing button group (lines 111–118):
+Replace the existing button group (lines 111â€“118):
 
 ```html
 <div class="button-group">
@@ -56,7 +56,7 @@ const formatted = beautifyJSON(input, indent);
 
 ## 3. Sort Keys Toggle
 
-**Impact:** High — heavily requested in tool comparisons; `sortJSONKeys()` already exists at `js/formatter.js:109`  
+**Impact:** High â€” heavily requested in tool comparisons; `sortJSONKeys()` already exists at `js/formatter.js:109`  
 **Files:** `formatter.html`, `js/app.js`
 
 ### formatter.html
@@ -80,7 +80,7 @@ treeViewer.render(result);
 
 ## 4. "Try Sample JSON" Button
 
-**Impact:** High for new users — reduces friction on first visit, improves bounce rate  
+**Impact:** High for new users â€” reduces friction on first visit, improves bounce rate  
 **Files:** `formatter.html`, `js/app.js`
 
 ### formatter.html
@@ -127,7 +127,7 @@ function handleSample() {
 
 ## 5. BreadcrumbList JSON-LD Schema
 
-**Impact:** Medium SEO — enables breadcrumb display in Google SERPs  
+**Impact:** Medium SEO â€” enables breadcrumb display in Google SERPs  
 **Files:** All 8 tool pages + `blog/` article template
 
 Add this `<script type="application/ld+json">` block to each tool page's `<head>`, after the existing schemas. Replace `PAGE_NAME` and `PAGE_URL` per file:
@@ -141,13 +141,13 @@ Add this `<script type="application/ld+json">` block to each tool page's `<head>
       "@type": "ListItem",
       "position": 1,
       "name": "Home",
-      "item": "https://pasindu98ishan.github.io/json-formatter/"
+      "item": "https://jsondevtools.org/"
     },
     {
       "@type": "ListItem",
       "position": 2,
       "name": "PAGE_NAME",
-      "item": "https://pasindu98ishan.github.io/json-formatter/PAGE_URL"
+      "item": "https://jsondevtools.org/PAGE_URL"
     }
   ]
 }
@@ -172,7 +172,7 @@ For blog posts, use 3-level breadcrumb (Home > Blog > Article Title).
 
 ## 6. URL-to-JSON Fetcher
 
-**Impact:** High — enables pasting an API URL directly, a top competitor differentiator  
+**Impact:** High â€” enables pasting an API URL directly, a top competitor differentiator  
 **Files:** `formatter.html`, `js/app.js`
 
 ### formatter.html
@@ -211,18 +211,18 @@ async function handleFetch() {
         clearError();
         trackEvent('fetch_url_json');
     } catch (e) {
-        showError('Fetch failed: ' + e.message + '. Check CORS — the API must allow browser requests.');
+        showError('Fetch failed: ' + e.message + '. Check CORS â€” the API must allow browser requests.');
     }
 }
 ```
 
-> **Note:** Browser CORS restrictions apply. Public APIs with `Access-Control-Allow-Origin: *` work. Private APIs won't work client-side — document this limitation visibly in the UI.
+> **Note:** Browser CORS restrictions apply. Public APIs with `Access-Control-Allow-Origin: *` work. Private APIs won't work client-side â€” document this limitation visibly in the UI.
 
 ---
 
 ## 7. JSON Share Link (LZ-string URL compression)
 
-**Impact:** Very high — viral sharing mechanism; zero backend required  
+**Impact:** Very high â€” viral sharing mechanism; zero backend required  
 **Files:** `formatter.html`, `js/app.js`
 
 ### Step 1: Add LZ-string library
@@ -246,7 +246,7 @@ In `formatter.html`, before the closing `</body>`, add:
 </div>
 ```
 
-### Step 4: js/app.js — Wire share button
+### Step 4: js/app.js â€” Wire share button
 ```js
 const shareBtn = document.getElementById('shareBtn');
 if (shareBtn) shareBtn.addEventListener('click', handleShare);
@@ -277,7 +277,7 @@ function loadSharedJSON() {
         const formatted = beautifyJSON(json, 2);
         setOutput(formatted);
         treeViewer.render(formatted);
-    } catch (e) { /* silent — malformed share link */ }
+    } catch (e) { /* silent â€” malformed share link */ }
 }
 ```
 
@@ -307,12 +307,13 @@ body.dark-mode .url-fetcher input[type="url"] {
 
 ## Implementation Order
 
-1. Legal disclaimer removal — 5 minutes
-2. Indentation selector — 30 minutes
-3. Sort Keys toggle — 20 minutes
-4. Try Sample button — 20 minutes
-5. BreadcrumbList schema — 45 minutes (8 files)
-6. URL fetcher — 45 minutes
-7. JSON Share Link — 1 hour
+1. Legal disclaimer removal â€” 5 minutes
+2. Indentation selector â€” 30 minutes
+3. Sort Keys toggle â€” 20 minutes
+4. Try Sample button â€” 20 minutes
+5. BreadcrumbList schema â€” 45 minutes (8 files)
+6. URL fetcher â€” 45 minutes
+7. JSON Share Link â€” 1 hour
 
 **Total estimated time: ~4 hours**
+
