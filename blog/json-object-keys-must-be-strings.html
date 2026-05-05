@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSON object keys must be strings wrapped in double quotes. Learn why numeric and unquoted keys cause errors and how JSON.stringify handles non-string keys.">
+    <meta name="keywords" content="json object keys must be strings, json key not string, json numeric key, unquoted json key, json key error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-object-keys-must-be-strings.html">
+    <meta property="og:title" content="JSON Object Keys Must Be Strings – Why and How">
+    <meta property="og:description" content="JSON requires all object keys to be double-quoted strings. Numeric or unquoted keys are not valid. Learn how this works and what JSON.stringify does automatically.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-object-keys-must-be-strings.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON Object Keys Must Be Strings – Why and How | Developer Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON Object Keys Must Be Strings", "item": "https://jsondevtools.org/blog/json-object-keys-must-be-strings.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON Object Keys Must Be Strings – Why and How",
+      "description": "JSON requires all object keys to be double-quoted strings. Learn why this rule exists and how to handle numeric or symbol keys.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-05",
+      "dateModified": "2026-05-05",
+      "publisher": { "@type": "Organization", "name": "Developer Tools Hub" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can JSON keys be numbers?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. In JSON, all keys must be strings enclosed in double quotes. You can have a key whose value looks like a number (e.g., \"42\"), but the key itself must be a quoted string, not a bare number." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens to JavaScript Map keys when serialized to JSON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON.stringify cannot serialize a JavaScript Map. It produces an empty object {} because Maps are not plain objects. To serialize a Map, first convert it: JSON.stringify(Object.fromEntries(map)) — but only if all keys are strings or convertible to strings." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does JSON.stringify do with numeric object keys?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JavaScript converts all object keys to strings internally, so { 42: 'value' } is stored as { '42': 'value' }. When JSON.stringify serializes it, the key appears as the quoted string '\"42\"' in the JSON output — which is valid JSON." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 Developer Tools Hub</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSON Object Keys Must Be Strings</span>
+            </nav>
+            <h1>JSON Object Keys Must Be Strings – Why and How</h1>
+            <div class="article-meta">Published May 2026 &middot; 4 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>The JSON specification has a simple rule for object keys: they must be strings, and those strings must be enclosed in double quotes. This rule catches developers who write JSON by hand and forget the quotes, or who try to serialize Python dicts with integer keys or JavaScript Maps with non-string keys.</p>
+
+            <h2>Valid vs invalid key syntax</h2>
+            <pre>// Invalid JSON — unquoted key
+{ name: "Alice" }
+
+// Invalid JSON — numeric key (bare number, not a string)
+{ 42: "the answer" }
+
+// Valid JSON — all keys are double-quoted strings
+{ "name": "Alice", "42": "the answer" }</pre>
+
+            <p>The parser throws a <code>SyntaxError</code> the moment it encounters a key that is not a double-quoted string. Common error messages include: <em>Expected property name or '}'</em> or <em>Unexpected token n in JSON at position 2</em>.</p>
+
+            <h2>Why this rule exists</h2>
+            <p>In JavaScript, object keys can be unquoted identifiers (<code>{ name: "Alice" }</code>), which makes JavaScript object literals easier to write. But JSON is a data interchange format shared across languages. Python, Java, Go, and other languages have their own rules about what constitutes a valid key in a dictionary or map. By requiring all keys to be strings, JSON provides a universal key type that every language understands.</p>
+
+            <h2>JavaScript's automatic key conversion</h2>
+            <p>A quirk of JavaScript is that all object keys are coerced to strings internally. If you write <code>{ 42: "value" }</code> in JavaScript, the key is actually stored as the string <code>"42"</code>. When <code>JSON.stringify()</code> serializes this object, it outputs <code>{"42":"value"}</code> — valid JSON with a quoted string key:</p>
+            <pre>const obj = { 42: "the answer" };
+console.log(JSON.stringify(obj)); // '{"42":"the answer"}'</pre>
+
+            <p>This is why writing numeric keys in JavaScript does not cause serialization problems — they are already strings by the time <code>stringify</code> runs. The problem appears when you write JSON by hand and use a bare number as a key.</p>
+
+            <h2>JavaScript Maps with non-string keys</h2>
+            <p>JavaScript's <code>Map</code> supports any value as a key, including numbers and objects. But <code>JSON.stringify()</code> does not know how to serialize a <code>Map</code>:</p>
+            <pre>const map = new Map([[1, "one"], [2, "two"]]);
+JSON.stringify(map);
+// '{}' — silently produces an empty object, no error</pre>
+
+            <p>To serialize a Map to JSON, convert it to an object first. If the keys are numeric, they will be coerced to strings in the output:</p>
+            <pre>JSON.stringify(Object.fromEntries(map));
+// '{"1":"one","2":"two"}'</pre>
+
+            <h2>Duplicate keys in JSON</h2>
+            <p>The JSON spec does not forbid duplicate keys — it says behavior is undefined when two properties have the same key. Most parsers accept the document and use the last value seen for that key. This is generally a bug in the source data. Use the <a href="../json-validator.html">JSON Validator</a> to detect duplicate keys before they cause silent overwrites in your application.</p>
+
+            <h2>Python dict serialization</h2>
+            <p>Python's <code>json.dumps()</code> handles integer keys similarly to JavaScript — it converts them to strings:</p>
+            <pre>import json
+data = {1: "one", 2: "two"}
+print(json.dumps(data))
+# '{"1": "one", "2": "two"}'</pre>
+
+            <p>However, <code>json.dumps()</code> will throw a <code>TypeError</code> if a key cannot be converted to a string at all (for example, if you use a tuple as a key).</p>
+
+            <h2>Related articles</h2>
+            <ul>
+                <li><a href="json-single-quotes.html">JSON Single Quotes Are Not Allowed</a></li>
+                <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="json-best-practices.html">JSON Best Practices</a></li>
+            </ul>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Formatter. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../docs/CONTRIBUTING.md">Contribute</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

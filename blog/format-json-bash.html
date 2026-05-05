@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="How to format and pretty-print JSON in the terminal using jq, python -m json.tool, and other command-line tools. With practical bash examples.">
+    <meta name="keywords" content="format json bash, pretty print json terminal, jq format json, json tool command line, json bash script">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/format-json-bash.html">
+    <meta property="og:title" content="How to Format JSON in Bash – jq, Python, and Terminal Tools">
+    <meta property="og:description" content="Pretty-print JSON directly in your terminal using jq or python -m json.tool. Learn practical bash one-liners for formatting API responses and files.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/format-json-bash.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>How to Format JSON in Bash – jq, Python, and Terminal Tools | Developer Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "How to Format JSON in Bash", "item": "https://jsondevtools.org/blog/format-json-bash.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "How to Format JSON in Bash – jq, Python, and Terminal Tools",
+      "description": "Learn how to pretty-print and format JSON directly in the terminal using jq, python -m json.tool, and other command-line approaches.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-05",
+      "dateModified": "2026-05-05",
+      "publisher": { "@type": "Organization", "name": "Developer Tools Hub" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I pretty-print JSON in bash?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The two most common ways are: (1) echo '{\"key\":\"value\"}' | jq . — using jq, the JSON processor for the command line; or (2) echo '{\"key\":\"value\"}' | python3 -m json.tool — using Python's built-in JSON formatter. Both produce indented, readable output." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I format a JSON file with jq?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Run: jq . input.json — this reads the file and pretty-prints it to stdout. To write the formatted output back to a file, use: jq . input.json > formatted.json" }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I format a JSON API response in bash?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Pipe the curl output to jq: curl -s https://api.example.com/data | jq . — the -s flag silences curl's progress meter, and jq . pretty-prints the JSON response with syntax highlighting in the terminal." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 Developer Tools Hub</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>How to Format JSON in Bash</span>
+            </nav>
+            <h1>How to Format JSON in Bash – jq, Python, and Terminal Tools</h1>
+            <div class="article-meta">Published May 2026 &middot; 5 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>When you are working in the terminal — debugging an API, processing log files, or writing shell scripts — you need a way to format JSON without leaving the command line. This article covers the three most practical approaches: <code>jq</code>, Python's built-in formatter, and Node.js.</p>
+
+            <h2>Option 1 — jq (recommended)</h2>
+            <p><code>jq</code> is the standard command-line JSON processor. It parses, formats, filters, and transforms JSON. Install it with your package manager:</p>
+            <pre># macOS
+brew install jq
+
+# Debian / Ubuntu
+sudo apt install jq
+
+# Fedora / RHEL
+sudo dnf install jq</pre>
+
+            <h3>Pretty-print a file</h3>
+            <pre>jq . data.json</pre>
+            <p>The <code>.</code> filter means "output the whole document as-is." Combined with jq's default pretty-printing, this formats any valid JSON file with indentation and syntax-colored output in the terminal.</p>
+
+            <h3>Format an API response on the fly</h3>
+            <pre>curl -s https://api.github.com/users/octocat | jq .</pre>
+            <p>The <code>-s</code> flag silences curl's progress meter so only the JSON appears in the pipe.</p>
+
+            <h3>Write formatted output to a file</h3>
+            <pre>jq . input.json > formatted.json</pre>
+
+            <h3>Extract a specific field</h3>
+            <pre># Print just the "name" field from a JSON object
+jq '.name' data.json
+
+# Print all items in an array
+jq '.[]' items.json
+
+# Print a specific field from each array element
+jq '.[].email' users.json</pre>
+
+            <h3>Minify JSON with jq</h3>
+            <pre>jq -c . data.json   # -c for compact output</pre>
+
+            <h2>Option 2 — Python's built-in json.tool</h2>
+            <p>If Python 3 is installed (it is on most systems), you can format JSON without installing anything:</p>
+            <pre># Format a file
+python3 -m json.tool data.json
+
+# Format from stdin (pipe)
+echo '{"name":"Alice","age":30}' | python3 -m json.tool
+
+# Write to a file
+python3 -m json.tool data.json > formatted.json
+
+# Use a 4-space indent (default is 4; change with --indent)
+python3 -m json.tool --indent 2 data.json</pre>
+
+            <p><code>json.tool</code> validates the JSON as it formats — if the input is invalid, it prints an error with the location of the problem.</p>
+
+            <h2>Option 3 — Node.js one-liner</h2>
+            <p>If Node.js is available and you prefer JavaScript:</p>
+            <pre># Format from a file
+node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('data.json')); console.log(JSON.stringify(d,null,2));"
+
+# Format from stdin
+echo '{"name":"Alice"}' | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>console.log(JSON.stringify(JSON.parse(d),null,2)));"</pre>
+
+            <p>The Node.js approach is useful in environments where jq is not available but Node.js is, such as some CI containers.</p>
+
+            <h2>Validating JSON in bash</h2>
+            <p>Both <code>jq</code> and <code>python3 -m json.tool</code> act as validators — they exit with a non-zero status code if the input is not valid JSON. This is useful in shell scripts:</p>
+            <pre>if jq . data.json > /dev/null 2>&1; then
+    echo "Valid JSON"
+else
+    echo "Invalid JSON — check data.json"
+    exit 1
+fi</pre>
+
+            <h2>Formatting JSON in CI/CD pipelines</h2>
+            <p>A common CI task is to verify that config files are valid JSON before deploying:</p>
+            <pre># In a GitHub Actions step
+- name: Validate JSON configs
+  run: |
+    for f in config/*.json; do
+      jq . "$f" > /dev/null || (echo "Invalid: $f" && exit 1)
+    done</pre>
+
+            <h2>When to use an online formatter instead</h2>
+            <p>For one-off formatting when you are not in a terminal, the <a href="../formatter.html">JSON Formatter</a> offers tree navigation, syntax highlighting, and copy-to-clipboard — without needing to install any tool. For batch processing or scripting, <code>jq</code> is the right choice.</p>
+
+            <h2>Related articles</h2>
+            <ul>
+                <li><a href="format-json-python.html">How to Format JSON in Python</a></li>
+                <li><a href="format-json-javascript.html">How to Format JSON in JavaScript</a></li>
+                <li><a href="json-minify-json-for-production.html">Minify JSON for Production</a></li>
+            </ul>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Formatter. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../docs/CONTRIBUTING.md">Contribute</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

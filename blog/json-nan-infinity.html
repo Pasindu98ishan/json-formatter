@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSON does not support NaN or Infinity. JSON.stringify converts them to null silently. Learn why and how to handle them correctly in your API.">
+    <meta name="keywords" content="json nan, json infinity, nan not valid json, infinity not valid json, json stringify nan, handle nan json">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-nan-infinity.html">
+    <meta property="og:title" content="JSON NaN and Infinity Are Not Valid – How to Handle Them">
+    <meta property="og:description" content="NaN and Infinity are JavaScript values with no JSON equivalent. JSON.stringify converts them to null silently. Learn how to detect and handle this.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-nan-infinity.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON NaN and Infinity Are Not Valid – How to Handle Them | Developer Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON NaN and Infinity Are Not Valid", "item": "https://jsondevtools.org/blog/json-nan-infinity.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON NaN and Infinity Are Not Valid – How to Handle Them",
+      "description": "NaN and Infinity are JavaScript values with no equivalent in the JSON specification. JSON.stringify converts them to null silently.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-05",
+      "dateModified": "2026-05-05",
+      "publisher": { "@type": "Organization", "name": "Developer Tools Hub" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does JSON.stringify do with NaN?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON.stringify converts NaN to null without throwing an error. This means your receiver gets null where you had NaN — a silent data change. Always check for NaN before serializing numeric values." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I represent Infinity in JSON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not directly. JSON numbers are finite decimal numbers only. Infinity and -Infinity are converted to null by JSON.stringify. Common alternatives are to use the string 'Infinity', a very large sentinel number, or null with a separate flag field." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does JSON not support NaN or Infinity?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON is a language-independent format. NaN and Infinity are IEEE 754 floating-point concepts that many languages represent differently. The JSON specification chose to restrict numbers to finite decimal values for maximum interoperability." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 Developer Tools Hub</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSON NaN and Infinity Are Not Valid</span>
+            </nav>
+            <h1>JSON NaN and Infinity Are Not Valid – How to Handle Them</h1>
+            <div class="article-meta">Published May 2026 &middot; 5 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p><code>NaN</code> (Not a Number) and <code>Infinity</code> are valid JavaScript number values, but they have no representation in the JSON specification. If you try to serialize them with <code>JSON.stringify()</code>, you will not get an error — you will get silent data corruption. Understanding this behavior is essential for building reliable APIs.</p>
+
+            <h2>What JSON.stringify does with NaN and Infinity</h2>
+            <pre>JSON.stringify({ ratio: NaN });       // '{"ratio":null}'
+JSON.stringify({ max: Infinity });    // '{"max":null}'
+JSON.stringify({ min: -Infinity });   // '{"min":null}'</pre>
+
+            <p>No exception is thrown. The values become <code>null</code>. The receiver on the other end of the API gets <code>null</code> where you intended a numeric special value — and may have no way to tell the difference between "this was NaN" and "this field was genuinely missing."</p>
+
+            <h2>Why JSON does not support them</h2>
+            <p>The JSON number grammar covers finite decimal numbers only. <code>NaN</code> and <code>Infinity</code> are IEEE 754 floating-point sentinels. Many languages that consume JSON (Python, Java, Go, Ruby) represent these differently or not at all. Including them in JSON would break cross-language interoperability, which is the core purpose of the format.</p>
+
+            <h2>Detecting NaN and Infinity before serializing</h2>
+            <p>The safest approach is to screen for these values before serialization:</p>
+            <pre>function isSafeNumber(n) {
+    return typeof n === 'number' && isFinite(n);
+}
+
+// Or use the replacer function in JSON.stringify
+const json = JSON.stringify(data, (key, value) => {
+    if (typeof value === 'number' && !isFinite(value)) {
+        throw new Error(`Cannot serialize non-finite number at key: "${key}" (value: ${value})`);
+    }
+    return value;
+});</pre>
+            <p>Using a replacer that throws makes the problem visible immediately rather than silently passing <code>null</code> to consumers.</p>
+
+            <h2>Representing these values in JSON</h2>
+            <p>If you genuinely need to convey NaN or Infinity through JSON, a few patterns are used in practice:</p>
+
+            <h3>Option 1 — use a string sentinel</h3>
+            <pre>{
+  "ratio": "NaN",
+  "max": "Infinity",
+  "min": "-Infinity"
+}</pre>
+            <p>The consumer must know to parse these strings back to the appropriate numeric type. Document this convention in your API spec.</p>
+
+            <h3>Option 2 — use null with a separate flag</h3>
+            <pre>{
+  "ratio": null,
+  "ratio_invalid": true
+}</pre>
+
+            <h3>Option 3 — use a large finite sentinel number</h3>
+            <p>Some scientific APIs use <code>1e308</code> (near JavaScript's <code>Number.MAX_VALUE</code>) as a stand-in for Infinity. This is fragile and not recommended unless the domain makes it unambiguous.</p>
+
+            <h2>Parsing JSON that contains these strings</h2>
+            <p>If you receive a JSON string like <code>"NaN"</code> or <code>"Infinity"</code> from a server using the string convention, parse it back in your consumer:</p>
+            <pre>function parseSpecialNumber(value) {
+    if (value === 'NaN') return NaN;
+    if (value === 'Infinity') return Infinity;
+    if (value === '-Infinity') return -Infinity;
+    return value;
+}
+
+const parsed = JSON.parse(json);
+parsed.ratio = parseSpecialNumber(parsed.ratio);</pre>
+
+            <h2>Validating numeric JSON data</h2>
+            <p>If you receive JSON from an external source and want to confirm it contains only finite numbers before processing, paste it into the <a href="../json-validator.html">JSON Validator</a>. A properly formed JSON document will never contain the literal text <code>NaN</code> or <code>Infinity</code> — if you see those tokens outside a string, the source serializer is non-compliant.</p>
+
+            <h2>Related articles</h2>
+            <ul>
+                <li><a href="json-undefined-value.html">undefined Is Not Valid in JSON</a></li>
+                <li><a href="json-circular-reference.html">JSON Circular Reference Error</a></li>
+                <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+            </ul>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Formatter. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../docs/CONTRIBUTING.md">Contribute</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>
