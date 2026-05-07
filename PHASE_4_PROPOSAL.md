@@ -237,17 +237,21 @@ After implementing all new pages, add these entries to `sitemap.xml`:
 | `json-beautifier.html` | New tool page (110K/month keyword) | P1 | ✅ Done |
 | `json-tools.html` | Hub page listing all tools by category | P1 | ✅ Done |
 | `sitemap.xml` | Add viewer, beautifier, tools hub | P1 | ✅ Done |
-| `json-to-xml.html` | New converter page | P2 | [ ] |
-| `js/json-to-xml-tool.js` | XML converter JS | P2 | [ ] |
-| `formatter.html` | Update meta description with synonyms | P2 | [ ] |
-| `js/formatter-tool.js` | Add GA4 custom events | P3 | [ ] |
-| `js/validator-tool.js` | Add GA4 custom events | P3 | [ ] |
-| `js/minifier-tool.js` | Add GA4 custom events | P3 | [ ] |
-| `js/json-diff-tool.js` | Add GA4 custom events | P3 | [ ] |
+| `json-to-xml.html` | New converter page | P2 | ✅ Done |
+| `js/json-to-xml-tool.js` | XML converter JS | P2 | ✅ Done |
+| `formatter.html` | Update meta description with synonyms | P2 | ✅ Done |
+| `js/app.js` | Add GA4 tool_start on paste | P3 | ✅ Done |
+| `js/json-validator-tool.js` | Add GA4 tool_start on paste | P3 | ✅ Done |
+| `js/json-minifier-tool.js` | Add GA4 tool_start on paste | P3 | ✅ Done |
+| `js/json-diff-tool.js` | Add GA4 tool_start on paste | P3 | ✅ Done |
+| `js/json-to-xml-tool.js` | GA4 tool_start + convert_to_xml | P3 | ✅ Done |
+| All nav dropdowns (root + blog) | Add JSON→XML link | P2 | ✅ Done |
+| `json-tools.html` | Add JSON→XML card to Converters | P2 | ✅ Done |
+| `js/tests.js` | Add XML + CSV plain-object tests | P3 | ✅ Done |
 
 ---
 
-**Document Version:** 1.1  
-**Last Updated:** 2026-05-05  
-**Status:** P0 + P0c + P1 complete — P2 next  
-**Next Step:** `json-to-xml.html` converter (P2) — then GA4 events (P3)
+**Document Version:** 1.2  
+**Last Updated:** 2026-05-07  
+**Status:** Phase 4 complete ✅  
+**Next Step:** Push changes → submit sitemap in Search Console → request indexing for json-viewer, json-beautifier, json-tools, json-to-xml

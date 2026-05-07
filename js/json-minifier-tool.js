@@ -110,7 +110,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    if (inputJSON) {
+        inputJSON.addEventListener('paste', () => trackEvent('tool_start', { tool: 'json_minifier' }));
+    }
+
     initDragDrop('inputJSON', function(content) {
         inputJSON.value = content;
+        trackEvent('tool_start', { tool: 'json_minifier' });
     }, ['.json', '.txt']);
 });

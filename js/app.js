@@ -266,6 +266,7 @@ function loadSharedJSON() {
 }
 
 function handlePaste(e) {
+    trackEvent('tool_start', { tool: 'json_formatter' });
     // Auto-format after paste
     setTimeout(() => {
         const input = document.getElementById('inputJSON').value.trim();

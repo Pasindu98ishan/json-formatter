@@ -105,6 +105,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (swapBtn) swapBtn.addEventListener('click', handleSwap);
 
     document.getElementById('outputSection').style.display = 'none';
+
+    ['jsonA', 'jsonB'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('paste', () => trackEvent('tool_start', { tool: 'json_diff' }));
+    });
 });
 
 function handleCompare() {

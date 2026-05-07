@@ -79,8 +79,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    if (inputJSON) {
+        inputJSON.addEventListener('paste', () => trackEvent('tool_start', { tool: 'json_validator' }));
+    }
+
     initDragDrop('inputJSON', function(content) {
         inputJSON.value = content;
+        trackEvent('tool_start', { tool: 'json_validator' });
         inputJSON.dispatchEvent(new Event('input'));
     }, ['.json', '.txt']);
 });
