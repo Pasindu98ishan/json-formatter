@@ -21,12 +21,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Parse JSON
-            const jsonData = JSON.parse(input);
-            
+            let jsonData = JSON.parse(input);
+
+            // Wrap a single object in an array so both formats work
             if (!Array.isArray(jsonData)) {
-                throw new Error('JSON must be an array of objects');
+                if (typeof jsonData === 'object' && jsonData !== null) {
+                    jsonData = [jsonData];
+                } else {
+                    throw new Error('JSON must be an object or an array of objects');
+                }
             }
-            
+
             if (jsonData.length === 0) {
                 outputCSV.value = '';
                 showNotification('Empty array');
