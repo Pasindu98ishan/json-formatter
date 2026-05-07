@@ -70,7 +70,7 @@ Both new pages use the same nav, footer, and CSS as the rest of the site. Footer
 5. JSON Diff
 6. JSON to CSV
 
-**Status:** [ ] Pending implementation
+**Status:** ✅ Done — homepage now shows 8 featured tools + "Browse all tools →" linking to json-tools.html
 
 **Files to change:**
 - `index.html` — reduce feature-card grid to 6 tools, add "Browse all tools →" button
@@ -88,7 +88,7 @@ Both new pages use the same nav, footer, and CSS as the rest of the site. Footer
 - **Internal links:** formatter.html, json-validator.html, json-diff.html
 - **Sitemap:** priority 0.88, changefreq monthly
 
-**Status:** [ ] Pending
+**Status:** ✅ Done
 
 ### 6.2 `json-beautifier.html` — 110K/month
 
@@ -99,7 +99,7 @@ Both new pages use the same nav, footer, and CSS as the rest of the site. Footer
 - **Schema:** FAQPage + BreadcrumbList + WebApplication JSON-LD
 - **Sitemap:** priority 0.88, changefreq monthly
 
-**Status:** [ ] Pending
+**Status:** ✅ Done
 
 ### 6.3 `json-tools.html` — Hub Page
 
@@ -112,7 +112,7 @@ Both new pages use the same nav, footer, and CSS as the rest of the site. Footer
 - **Purpose:** All tool pages link here; it links out to all tools and blog articles. Keeps homepage clean.
 - **Sitemap:** priority 0.75, changefreq monthly
 
-**Status:** [ ] Pending
+**Status:** ✅ Done
 
 ---
 
@@ -180,9 +180,9 @@ After implementing all new pages, add these entries to `sitemap.xml`:
 |---|---|---|
 | `about.html` | 0.40 | ✅ Added |
 | `contact.html` | 0.40 | ✅ Added |
-| `json-viewer.html` | 0.88 | [ ] Pending |
-| `json-beautifier.html` | 0.88 | [ ] Pending |
-| `json-tools.html` | 0.75 | [ ] Pending |
+| `json-viewer.html` | 0.88 | ✅ Added |
+| `json-beautifier.html` | 0.88 | ✅ Added |
+| `json-tools.html` | 0.75 | ✅ Added |
 | `json-to-xml.html` | 0.80 | [ ] Pending |
 
 ---
@@ -232,11 +232,11 @@ After implementing all new pages, add these entries to `sitemap.xml`:
 | All 47+ HTML files | Brand rename (nav logo + footer + footer links) | P0 | ✅ Done |
 | `index.html` | Schema name + title + og:title updated | P0 | ✅ Done |
 | `sitemap.xml` | Added about.html + contact.html | P0 | ✅ Done |
-| `index.html` | Reduce tool cards to 6 featured + "Browse all tools →" | P0c | [ ] |
-| `json-viewer.html` | New tool page (135K/month keyword) | P1 | [ ] |
-| `json-beautifier.html` | New tool page (110K/month keyword) | P1 | [ ] |
-| `json-tools.html` | Hub page listing all tools by category | P1 | [ ] |
-| `sitemap.xml` | Add viewer, beautifier, tools hub, xml converter | P1 | [ ] |
+| `index.html` | Show 8 featured tools + "Browse all tools →" | P0c | ✅ Done |
+| `json-viewer.html` | New tool page (135K/month keyword) | P1 | ✅ Done |
+| `json-beautifier.html` | New tool page (110K/month keyword) | P1 | ✅ Done |
+| `json-tools.html` | Hub page listing all tools by category | P1 | ✅ Done |
+| `sitemap.xml` | Add viewer, beautifier, tools hub | P1 | ✅ Done |
 | `json-to-xml.html` | New converter page | P2 | [ ] |
 | `js/json-to-xml-tool.js` | XML converter JS | P2 | [ ] |
 | `formatter.html` | Update meta description with synonyms | P2 | [ ] |
@@ -247,7 +247,7 @@ After implementing all new pages, add these entries to `sitemap.xml`:
 
 ---
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Last Updated:** 2026-05-05  
-**Status:** P0 complete — P0c and P1 next  
-**Next Step:** Homepage redesign (6 featured tools) + json-viewer.html + json-beautifier.html + json-tools.html hub
+**Status:** P0 + P0c + P1 complete — P2 next  
+**Next Step:** `json-to-xml.html` converter (P2) — then GA4 events (P3)
