@@ -1,8 +1,8 @@
 # Phase 5 Proposal: Tool Expansion & Marketing Launch
 
-**Version:** 1.1  
-**Date:** 2026-05-07  
-**Status:** In Progress (Week 1 complete ✅)  
+**Version:** 1.2  
+**Date:** 2026-05-08  
+**Status:** In Progress (Week 2 complete ✅)  
 **Builds on:** PHASE_4_PROPOSAL.md (Phase 4 complete ✅)
 
 ---
@@ -172,9 +172,13 @@ Week 1:  ✅ yaml-to-json.html + xml-to-json.html (tools)
          ✅ blog/index.html updated with 3 new post cards
          ✅ Bug fix: dark mode flash on page navigation (62 HTML files patched)
 
-Week 2:  uuid.html + hash.html (trivial — browser APIs only)
-         blog/uuid-guide.html + blog/hash-guide.html
-         Marketing: Product Hunt + Hacker News launch
+Week 2:  ✅ uuid.html + hash.html (tools)
+         ✅ blog/uuid-guide.html + blog/hash-guide.html (companion posts)
+         ✅ blog/uuid-v4-vs-v7.html + blog/sha256-vs-sha512.html (extra SEO posts)
+         ✅ sitemap.xml, json-tools.html hub, nav dropdown on all pages updated
+         ✅ blog/index.html updated with 4 new post cards
+         ✅ UUID Generator UI redesigned (version badge, qty input, primary Generate btn)
+         [ ] Marketing: Product Hunt + Hacker News launch (user-action pending)
 
 Week 3:  jsonpath.html + json-to-typescript.html (new JS logic)
          blog/jsonpath-guide.html + blog/json-to-typescript.html
@@ -231,12 +235,15 @@ Week 4:  cron.html
 | `json-tools.html` | Add cards for new tools in correct sections | P1 | ✅ Done |
 | `blog/index.html` | Add cards for new blog posts | P1 | ✅ Done |
 | All 62 HTML pages | Bug fix: dark mode flash on navigation | Bug | ✅ Done |
-| `uuid.html` | New tool page | P1 | [ ] Pending |
-| `js/uuid-tool.js` | UUID generator JS (crypto.randomUUID) | P1 | [ ] Pending |
-| `hash.html` | New tool page | P1 | [ ] Pending |
-| `js/hash-tool.js` | Hash generator JS (WebCrypto + MD5) | P1 | [ ] Pending |
-| `blog/uuid-guide.html` | Companion blog post | P2 | [ ] Pending |
-| `blog/hash-guide.html` | Companion blog post | P2 | [ ] Pending |
+| `uuid.html` | New tool page | P1 | ✅ Done |
+| `js/uuid-tool.js` | UUID generator JS (crypto.randomUUID) | P1 | ✅ Done |
+| `hash.html` | New tool page | P1 | ✅ Done |
+| `js/hash-tool.js` | Hash generator JS (WebCrypto + MD5) | P1 | ✅ Done |
+| `blog/uuid-guide.html` | Companion blog post | P2 | ✅ Done |
+| `blog/hash-guide.html` | Companion blog post | P2 | ✅ Done |
+| `blog/uuid-v4-vs-v7.html` | Extra SEO post: UUID v4 vs v7 for DB primary keys | P2 | ✅ Done |
+| `blog/sha256-vs-sha512.html` | Extra SEO post: SHA-256 vs SHA-512 performance & security | P2 | ✅ Done |
+| All nav dropdowns (root + blog) | Add UUID Generator + Hash Generator links | P1 | ✅ Done |
 | `jsonpath.html` | New tool page | P2 | [ ] Pending |
 | `js/jsonpath-tool.js` | JSONPath evaluator JS (jsonpath-plus CDN) | P2 | [ ] Pending |
 | `json-to-typescript.html` | New tool page | P2 | [ ] Pending |
@@ -295,13 +302,15 @@ Transforms the formatter from plain `<textarea>` to professional editor.
 
 | Session | Items | Status |
 |---|---|---|
-| Session 1 | A + B + C + D + E | [ ] Pending |
-| Session 2 | CodeMirror | [ ] Pending |
-| Session 3 | Accessibility | [ ] Pending |
+| Session 1 | A (localStorage) + B (Ctrl+Enter) + D (toast) | ✅ Done |
+| Session 1 | C (homepage hero CTA) | ⏭ Skipped |
+| Session 1 | E (spacing/card padding) | [ ] Pending |
+| Session 2 | CodeMirror 6 syntax highlighting | [ ] Pending |
+| Session 3 | Accessibility audit + fixes | [ ] Pending |
 
 ---
 
-**Document Version:** 1.1  
-**Last Updated:** 2026-05-07  
-**Status:** Week 1 complete ✅ — Week 2 next  
-**Next Step:** Week 2 — `uuid.html` + `hash.html` + 2 blog posts + Product Hunt / Hacker News launch
+**Document Version:** 1.2  
+**Last Updated:** 2026-05-08  
+**Status:** Week 2 complete ✅ — Week 3 next  
+**Next Step:** Week 3 — `jsonpath.html` + `json-to-typescript.html` + companion blog posts + Product Hunt / Hacker News launch (user-action)
