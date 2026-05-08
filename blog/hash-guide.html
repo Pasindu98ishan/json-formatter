@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="MD5 vs SHA-256 vs SHA-512 — which hash algorithm should you use? Learn the differences, when each is appropriate, and what never to use MD5 for.">
+    <meta name="keywords" content="md5 vs sha256, hash algorithm comparison, sha256 vs sha512, md5 sha256 difference, which hash to use, cryptographic hash guide">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/hash-guide.html">
+    <meta property="og:title" content="MD5 vs SHA-256: Which Hash Should You Use?">
+    <meta property="og:description" content="Learn the differences between MD5, SHA-1, SHA-256, and SHA-512. When to use each, and why MD5 should never be used for passwords or security.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/hash-guide.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>MD5 vs SHA-256: Which Hash Should You Use? – JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "MD5 vs SHA-256: Which Hash Should You Use?",
+      "description": "Learn the differences between MD5, SHA-1, SHA-256, and SHA-512. When to use each, and why MD5 should never be used for passwords or security.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-05-08",
+      "dateModified": "2026-05-08",
+      "url": "https://jsondevtools.org/blog/hash-guide.html"
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../json-to-xml.html">JSON→XML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                            <li><a href="../yaml-to-json.html">YAML&#8594;JSON</a></li>
+                            <li><a href="../xml-to-json.html">XML&#8594;JSON</a></li>
+                            <li><a href="../uuid.html">UUID Generator</a></li>
+                            <li><a href="../hash.html">Hash Generator</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="blog-article-layout">
+        <article class="blog-article">
+            <header class="article-header">
+                <div class="article-meta">May 2026 &middot; 7 min read</div>
+                <h1>MD5 vs SHA-256: Which Hash Should You Use?</h1>
+                <p class="article-subtitle">A practical guide to MD5, SHA-1, SHA-256, and SHA-512 — what each is for, what each is not for, and how to choose.</p>
+            </header>
+
+            <section>
+                <p>A <strong>hash function</strong> takes any input — a string, a file, a password — and produces a fixed-length output called a hash or digest. The same input always produces the same hash. Any change to the input, even a single character, produces a completely different hash.</p>
+                <p>The four hash algorithms you will encounter most often are MD5, SHA-1, SHA-256, and SHA-512. They look similar at a glance, but they differ significantly in output size, speed, and security. Choosing the wrong one is one of the most common security mistakes in web development.</p>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Generate hashes instantly in your browser:</strong></p>
+                    <a href="../hash.html" class="btn btn-primary" style="display:inline-block;">Open Hash Generator →</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>Quick comparison</h2>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:var(--light-bg);">
+                                <th style="padding:10px 12px; text-align:left; border:1px solid var(--border-color);">Algorithm</th>
+                                <th style="padding:10px 12px; text-align:left; border:1px solid var(--border-color);">Output size</th>
+                                <th style="padding:10px 12px; text-align:left; border:1px solid var(--border-color);">Hex chars</th>
+                                <th style="padding:10px 12px; text-align:left; border:1px solid var(--border-color);">Security</th>
+                                <th style="padding:10px 12px; text-align:left; border:1px solid var(--border-color);">Use for</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">MD5</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">128 bits</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">32</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Broken</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Checksums, cache keys</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">SHA-1</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">160 bits</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">40</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Deprecated</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Git commit IDs (legacy)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">SHA-256</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">256 bits</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">64</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Secure</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">TLS, JWTs, signatures</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">SHA-512</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">512 bits</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">128</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Secure</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">High-security signing</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section>
+                <h2>MD5 — fast, broken, still everywhere</h2>
+                <p>MD5 was designed in 1991 and was the default hashing algorithm for decades. It produces a 128-bit (32 hex character) digest very quickly. The problem: MD5 is <strong>cryptographically broken</strong>. Researchers have demonstrated practical collision attacks since 2004 — meaning two different inputs can be deliberately crafted to produce the same MD5 hash.</p>
+                <p>Example MD5 hashes:</p>
+                <pre><code>MD5("hello") = 5d41402abc4b2a76b9719d911017c592
+MD5("Hello") = 8b1a9953c4611296a827abf8c47804d7</code></pre>
+                <p><strong>What MD5 is still fine for:</strong></p>
+                <ul>
+                    <li>File checksums where you control both sides and collisions are not a threat (e.g. detecting accidental corruption, not malicious tampering)</li>
+                    <li>Cache keys and deduplication where speed matters and security is irrelevant</li>
+                    <li>Non-security fingerprinting (URL shorteners, ETag headers)</li>
+                </ul>
+                <p><strong>What you must never use MD5 for:</strong></p>
+                <ul>
+                    <li>Password storage — even with MD5, rainbow tables can crack most passwords in seconds</li>
+                    <li>Digital signatures</li>
+                    <li>Certificate fingerprints</li>
+                    <li>Any security-sensitive integrity check</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>SHA-1 — deprecated but still in the wild</h2>
+                <p>SHA-1 produces a 160-bit (40 hex character) digest. Google demonstrated a practical SHA-1 collision in 2017 (the SHAttered attack), and all major browsers and CAs stopped accepting SHA-1 certificates. It is still used in Git commit IDs (though Git is migrating to SHA-256) and some legacy systems.</p>
+                <p>Do not use SHA-1 for any new development. If you are maintaining a legacy system that uses SHA-1, plan a migration to SHA-256.</p>
+                <pre><code>SHA-1("hello") = aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d</code></pre>
+            </section>
+
+            <section>
+                <h2>SHA-256 — the standard choice</h2>
+                <p>SHA-256 is part of the SHA-2 family, standardized by NIST in 2001. It produces a 256-bit (64 hex character) digest and is considered secure against all known attacks. It is the algorithm behind TLS certificates, Bitcoin, JWT signatures (HS256, RS256), and most modern cryptographic systems.</p>
+                <pre><code>SHA-256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824</code></pre>
+                <p>Use SHA-256 for:</p>
+                <ul>
+                    <li>HMAC signatures for API authentication</li>
+                    <li>Data integrity verification (file downloads, webhooks)</li>
+                    <li>JWT tokens (HS256 / RS256 / ES256)</li>
+                    <li>TLS certificate hashing</li>
+                    <li>Blockchain and proof-of-work systems</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>SHA-512 — more security margin</h2>
+                <p>SHA-512 produces a 512-bit (128 hex character) digest. It offers a larger security margin than SHA-256 and is actually faster than SHA-256 on 64-bit CPUs due to its 64-bit word operations. Use it when you need the strongest possible hash output — for example, high-value signing keys, government-grade data integrity, or long-term archival hashing.</p>
+                <pre><code>SHA-512("hello") = 9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043</code></pre>
+            </section>
+
+            <section>
+                <h2>The critical mistake: hashing passwords</h2>
+                <p>This is the single most important point in this article: <strong>do not use MD5, SHA-1, SHA-256, or SHA-512 directly to store passwords.</strong></p>
+                <p>All of these algorithms are designed to be fast. Fast is bad for password storage — it means an attacker with a GPU can test billions of passwords per second against a stolen hash database. In 2024, a modern GPU can crack an unsalted MD5 password hash of a typical password in milliseconds.</p>
+                <p>For passwords, use a <strong>dedicated password hashing function</strong> that is deliberately slow and includes a salt:</p>
+                <ul>
+                    <li><strong>bcrypt</strong> — the most widely supported. Tunable cost factor. Good default choice.</li>
+                    <li><strong>Argon2</strong> — winner of the Password Hashing Competition (2015). Memory-hard. Recommended for new systems.</li>
+                    <li><strong>PBKDF2</strong> — NIST-approved. Required for FIPS compliance. Uses a configurable iteration count.</li>
+                    <li><strong>scrypt</strong> — memory-hard, computationally intensive. Used in Litecoin and some Linux distributions.</li>
+                </ul>
+                <pre><code>// Node.js — bcrypt example
+import bcrypt from 'bcrypt';
+
+const hash = await bcrypt.hash(password, 12); // 12 = cost factor
+const match = await bcrypt.compare(inputPassword, hash);</code></pre>
+            </section>
+
+            <section>
+                <h2>Practical rule of thumb</h2>
+                <ul>
+                    <li>Passwords → bcrypt / Argon2 (never raw hashes)</li>
+                    <li>API signatures, JWTs, data integrity → SHA-256</li>
+                    <li>High-security signing → SHA-512</li>
+                    <li>Non-security checksums, cache keys → MD5 is acceptable</li>
+                    <li>Legacy Git compatibility → SHA-1 is acceptable</li>
+                    <li>New systems → never use MD5 or SHA-1 for anything security-related</li>
+                </ul>
+            </section>
+
+            <div class="article-cta">
+                <p>Generate MD5, SHA-1, SHA-256, and SHA-512 hashes in your browser with the free <a href="../hash.html">Hash Generator →</a></p>
+            </div>
+
+            <section class="related-articles">
+                <h2>Related Articles</h2>
+                <ul>
+                    <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
+                    <li><a href="what-is-url-encoding.html">What Is URL Encoding?</a></li>
+                    <li><a href="json-best-practices.html">JSON Best Practices for APIs</a></li>
+                </ul>
+            </section>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="UUID v4 vs UUID v7: which should you use for database primary keys? Learn why UUID v4 causes B-tree fragmentation and how UUID v7 fixes it with sortable timestamps.">
+    <meta name="keywords" content="uuid v4 vs v7, uuid v7 database primary key, uuid v7 postgresql, uuid sortable, uuid b-tree fragmentation, uuid7 javascript">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/uuid-v4-vs-v7.html">
+    <meta property="og:title" content="UUID v4 vs UUID v7: Which Should You Use for Database Primary Keys?">
+    <meta property="og:description" content="UUID v4 causes index fragmentation at scale. UUID v7 fixes it with a timestamp prefix. Learn which to choose, when to migrate, and how to generate v7 in JS, Python, Go, and SQL.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/uuid-v4-vs-v7.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>UUID v4 vs UUID v7: Which Should You Use for Database Primary Keys? – JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "UUID v4 vs UUID v7", "item": "https://jsondevtools.org/blog/uuid-v4-vs-v7.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "UUID v4 vs UUID v7: Which Should You Use for Database Primary Keys?",
+      "description": "UUID v4 causes B-tree index fragmentation at scale. UUID v7 fixes it with a timestamp prefix. Learn which to use, when to migrate, and code examples in five languages.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-05-08",
+      "dateModified": "2026-05-08",
+      "url": "https://jsondevtools.org/blog/uuid-v4-vs-v7.html"
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../json-to-xml.html">JSON→XML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                            <li><a href="../yaml-to-json.html">YAML&#8594;JSON</a></li>
+                            <li><a href="../xml-to-json.html">XML&#8594;JSON</a></li>
+                            <li><a href="../uuid.html">UUID Generator</a></li>
+                            <li><a href="../hash.html">Hash Generator</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="blog-article-layout">
+        <article class="blog-article">
+            <header class="article-header">
+                <div class="article-meta">May 2026 &middot; 8 min read</div>
+                <h1>UUID v4 vs UUID v7: Which Should You Use for Database Primary Keys?</h1>
+                <p class="article-subtitle">UUID v4's randomness is a feature everywhere except inside a database index. UUID v7 fixes that with a timestamp prefix — here is what changes, what doesn't, and when the migration is worth it.</p>
+            </header>
+
+            <section>
+                <p>UUID v4 has been the default choice for distributed unique IDs for years. It is simple, collision-safe, and requires no coordination. But at table sizes above a few million rows, UUID v4 has a well-documented performance problem with B-tree indexes — the same randomness that makes it safe causes write amplification that slows inserts measurably.</p>
+                <p>UUID v7, finalised in <a href="https://www.rfc-editor.org/rfc/rfc9562" rel="noopener">RFC 9562 (May 2024)</a>, solves this by making the first 48 bits a Unix millisecond timestamp. New rows always sort near the end of the index, eliminating fragmentation — with no change to the UUID column type.</p>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Generate UUID v4 values in your browser:</strong></p>
+                    <a href="../uuid.html" class="btn btn-primary" style="display:inline-block;">Open UUID Generator →</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>Why UUID v4 is slow in database indexes</h2>
+
+                <h3>How B-tree indexes work</h3>
+                <p>Every relational database primary key is backed by a B-tree index. The index stays sorted at all times — each new row is inserted at the position its key belongs to, not appended to the end. When rows arrive in sorted order (like auto-increment integers), every insert appends to the rightmost leaf page. The hot page stays in cache, writes are sequential, and the index stays compact.</p>
+
+                <h3>What UUID v4 does to that index</h3>
+                <p>UUID v4 values are fully random. A new UUID is equally likely to belong anywhere in the index. This means:</p>
+                <ul>
+                    <li>Each insert reads a random leaf page from disk (cache miss)</li>
+                    <li>If the page is full, it splits into two — doubling future lookup cost for that range</li>
+                    <li>Over time the index fills with half-empty pages (<em>index bloat</em>)</li>
+                    <li>VACUUM / OPTIMIZE TABLE has to work harder to recover that space</li>
+                </ul>
+                <p>The practical result at scale: UUID v4 inserts are 30–50% slower than auto-increment at 10 million rows, and the gap widens as the table grows. Read performance degrades too because the index is larger and more fragmented than it needs to be.</p>
+
+                <h3>Small tables do not notice</h3>
+                <p>If your table has fewer than ~500,000 rows and fits entirely in the buffer pool, page splits stay in memory and the cost is negligible. UUID v4 is not a problem until the index exceeds available RAM.</p>
+            </section>
+
+            <section>
+                <h2>What UUID v7 is and how it fixes the problem</h2>
+
+                <h3>The structure</h3>
+                <p>UUID v7 is a 128-bit value formatted identically to any other UUID (<code>xxxxxxxx-xxxx-7xxx-yxxx-xxxxxxxxxxxx</code>). The internal layout is:</p>
+                <ul>
+                    <li><strong>Bits 0–47:</strong> Unix millisecond timestamp (48 bits)</li>
+                    <li><strong>Bits 48–51:</strong> Version field (<code>7</code>)</li>
+                    <li><strong>Bits 52–63:</strong> Random or sequence bits (12 bits)</li>
+                    <li><strong>Bits 64–127:</strong> Random bits (64 bits, including 2 variant bits)</li>
+                </ul>
+                <p>The timestamp prefix means that UUIDs generated later sort after UUIDs generated earlier. New rows always insert at the end of the index — same behaviour as auto-increment — while the random suffix maintains global uniqueness with no coordination required.</p>
+
+                <h3>v4 vs v7 side by side</h3>
+                <pre><code># UUID v4 — fully random, inserts anywhere in the index
+f47ac10b-58cc-4372-a567-0e02b2c3d479
+3b3a8a5d-9f2e-4b1c-a8d7-1234567890ab
+a1b2c3d4-e5f6-4789-abcd-ef0123456789
+
+# UUID v7 — timestamp-prefixed, always inserts near the end
+01960a3e-bf15-7c0a-9e12-4a3d9a2f1082
+01960a3e-bf16-7f4b-8c23-5b4e0b3f2193  ← later timestamp
+01960a3e-bf17-7a8c-ad34-6c5f1c4g3204  ← even later</code></pre>
+
+                <h3>Collision safety</h3>
+                <p>UUID v7 retains approximately 74 random bits after the timestamp and version fields. The collision probability is comparable to UUID v4 in any realistic scenario — the timestamp prefix does not meaningfully reduce randomness at the scale of a single application.</p>
+            </section>
+
+            <section>
+                <h2>Three-way comparison: auto-increment vs UUID v4 vs UUID v7</h2>
+
+                <div style="overflow-x:auto; margin:1.5rem 0;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:var(--light-bg);">
+                                <th style="padding:10px 12px; text-align:left; border:1px solid var(--border-color);">Factor</th>
+                                <th style="padding:10px 12px; text-align:left; border:1px solid var(--border-color);">Auto-increment</th>
+                                <th style="padding:10px 12px; text-align:left; border:1px solid var(--border-color);">UUID v4</th>
+                                <th style="padding:10px 12px; text-align:left; border:1px solid var(--border-color);">UUID v7</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Insert performance (large tables)</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Best</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Worst</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Near-equal to auto-increment</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Works in distributed systems</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">No (conflicts)</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Yes</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Yes</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Sortable by creation time</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Yes</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">No</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Yes (millisecond precision)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Reveals row count / sequence</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Yes</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">No</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">No</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Reveals creation time</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Indirectly</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">No</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Yes (ms precision)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Column storage</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">4–8 bytes</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">16 bytes</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">16 bytes</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Native DB support</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Universal</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">Universal</td>
+                                <td style="padding:10px 12px; border:1px solid var(--border-color);">PostgreSQL 17+, MySQL 8.4+</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section>
+                <h2>When to use each</h2>
+
+                <h3>Use UUID v4 when:</h3>
+                <ul>
+                    <li>Your table is small (under ~500k rows) and insert performance is not a concern</li>
+                    <li>Creation time must not be inferrable from the ID — e.g. user IDs where exposing account age is a privacy risk</li>
+                    <li>You are maintaining an existing codebase where the migration cost exceeds the performance gain</li>
+                </ul>
+
+                <h3>Use UUID v7 when:</h3>
+                <ul>
+                    <li>You have high insert rates or expect to exceed 1M rows</li>
+                    <li>You need IDs that are sortable by creation time — event logs, audit tables, message queues, pagination cursors</li>
+                    <li>You are building a new system and have no reason to prefer v4</li>
+                    <li>You are on PostgreSQL 17+, MySQL 8.4+, or another database with native v7 support</li>
+                </ul>
+
+                <h3>Stay with auto-increment when:</h3>
+                <ul>
+                    <li>Single-node database with no distributed writes or replication conflicts</li>
+                    <li>Maximum insert throughput is the top constraint</li>
+                    <li>Sequential exposure (row count, creation order) is not a concern</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>How to generate UUID v7 in code</h2>
+
+                <h3>JavaScript / Node.js (uuid package v9+)</h3>
+                <pre><code>import { v7 as uuidv7 } from 'uuid';
+
+const id = uuidv7();
+console.log(id);
+// "01960a3e-bf15-7c0a-9e12-4a3d9a2f1082"</code></pre>
+                <p>Note: <code>crypto.randomUUID()</code> generates v4 only. There is no native browser v7 API yet.</p>
+
+                <h3>Python</h3>
+                <pre><code># pip install uuid-utils
+import uuid_utils
+
+id = uuid_utils.uuid7()
+print(str(id))
+# "01960a3e-bf15-7c0a-9e12-4a3d9a2f1082"</code></pre>
+
+                <h3>Go</h3>
+                <pre><code>// go get github.com/google/uuid
+import "github.com/google/uuid"
+
+id := uuid.New()  // v4
+id7 := uuid.Must(uuid.NewV7())  // v7 (google/uuid v1.6+)
+fmt.Println(id7.String())</code></pre>
+
+                <h3>PostgreSQL 17+ (native)</h3>
+                <pre><code>-- Generate a UUID v7
+SELECT uuidv7();
+
+-- Use as column default
+CREATE TABLE events (
+  id   uuid DEFAULT uuidv7() PRIMARY KEY,
+  name text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);</code></pre>
+
+                <h3>PostgreSQL pre-17 (extension workaround)</h3>
+                <pre><code>-- Install pg_uuidv7 extension
+CREATE EXTENSION IF NOT EXISTS "pg_uuidv7";
+SELECT uuid_generate_v7();</code></pre>
+
+                <h3>MySQL 8.4+</h3>
+                <pre><code>-- Native UUID v7
+SELECT UUID_V7();
+
+-- Store efficiently as BINARY(16)
+CREATE TABLE events (
+  id   BINARY(16) DEFAULT (UUID_TO_BIN(UUID_V7(), 0)) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL
+);</code></pre>
+            </section>
+
+            <section>
+                <h2>Migrating an existing table from UUID v4 to UUID v7</h2>
+
+                <h3>Is the migration worth it?</h3>
+                <p>Run this check first: if your table has fewer than 1M rows or insert rate is under a few hundred per second, the measurable benefit is small. Migrations carry risk — only proceed if the performance gain is justified.</p>
+
+                <h3>No-downtime migration steps</h3>
+                <pre><code>-- Step 1: add new column with v7 default (does not block reads or writes)
+ALTER TABLE orders
+  ADD COLUMN id_v7 uuid DEFAULT uuidv7();
+
+-- Step 2: backfill in batches (run during off-peak hours)
+UPDATE orders SET id_v7 = uuidv7()
+WHERE id_v7 IS NULL
+LIMIT 10000;
+-- repeat until complete
+
+-- Step 3: switch application code to write/read id_v7
+
+-- Step 4: verify no references remain to old column
+
+-- Step 5: drop old column
+ALTER TABLE orders DROP COLUMN id;</code></pre>
+
+                <h3>What you do not need to change</h3>
+                <ul>
+                    <li>Column type — both v4 and v7 are stored as <code>uuid</code> (PostgreSQL) or <code>BINARY(16)</code> (MySQL)</li>
+                    <li>Application code that <em>reads</em> UUIDs — a UUID is a UUID regardless of version</li>
+                    <li>Foreign key constraints — references to the column work unchanged</li>
+                    <li>Client libraries — any UUID string is valid in any UUID field</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>UUID v7 vs ULID — what is the difference?</h2>
+                <p>ULID (Universally Unique Lexicographically Sortable Identifier) was created in 2016 with the same core idea: timestamp prefix + random suffix. The differences:</p>
+                <ul>
+                    <li><strong>Format:</strong> ULID uses Crockford Base32 — 26 characters, no hyphens, shorter than UUID's 36-character string</li>
+                    <li><strong>Standard:</strong> UUID v7 is an IETF RFC. ULID has no formal standard body.</li>
+                    <li><strong>DB support:</strong> UUID v7 fits natively in <code>uuid</code> columns. ULID needs a <code>TEXT</code> or <code>BINARY</code> column and custom tooling.</li>
+                    <li><strong>Ecosystem:</strong> UUID v7 works in any library or ORM that already handles UUIDs</li>
+                </ul>
+                <p><strong>Recommendation:</strong> prefer UUID v7 for new systems. Choose ULID only if you are already using it or need the shorter string representation for user-visible IDs.</p>
+            </section>
+
+            <section>
+                <h2>Frequently Asked Questions</h2>
+
+                <h3>Is UUID v7 collision-safe?</h3>
+                <p>Yes. UUID v7 retains approximately 74 random bits. The probability of generating two identical UUID v7 values in the same millisecond is approximately 1 in 2⁷⁴ — negligible in any real-world application.</p>
+
+                <h3>Does UUID v7 reveal when a record was created?</h3>
+                <p>Yes — the first 48 bits encode a Unix millisecond timestamp. Anyone who can read the UUID can extract the approximate creation time. For most data (events, orders, log entries) this is fine or even useful. For user-facing IDs where creation time is sensitive, consider keeping UUID v4 or a separate opaque ID.</p>
+
+                <h3>Can I mix UUID v4 and v7 in the same table?</h3>
+                <p>Yes. Both are valid UUID format values. A <code>uuid</code> column accepts either without schema changes. You may see slightly reduced index benefit if the table has a large proportion of v4 rows, but it works correctly.</p>
+
+                <h3>Does Hibernate / JPA support UUID v7?</h3>
+                <p>Yes, from Hibernate 6.2 onwards. Use <code>@UuidGenerator(style = UuidGenerator.Style.TIME)</code> on your ID field.</p>
+            </section>
+
+            <div class="article-cta">
+                <p>Generate UUID v4 values instantly — single or bulk — with the free <a href="../uuid.html">UUID Generator →</a></p>
+            </div>
+
+            <section class="related-articles">
+                <h2>Related Articles</h2>
+                <ul>
+                    <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
+                    <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
+                    <li><a href="sha256-vs-sha512.html">SHA-256 vs SHA-512: Performance, Security, and When to Use Each</a></li>
+                </ul>
+            </section>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>
