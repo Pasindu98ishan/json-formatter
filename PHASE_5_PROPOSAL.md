@@ -1,8 +1,8 @@
 # Phase 5 Proposal: Tool Expansion & Marketing Launch
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** 2026-05-07  
-**Status:** Planned  
+**Status:** In Progress (Week 1 complete ✅)  
 **Builds on:** PHASE_4_PROPOSAL.md (Phase 4 complete ✅)
 
 ---
@@ -166,9 +166,11 @@ These community distribution tasks have been deferred since Phase 1 and should b
 ## 8. Execution Order
 
 ```
-Week 1:  yaml-to-json.html + xml-to-json.html (tools)
-         blog/yaml-to-json.html + blog/xml-to-json.html + blog/yaml-vs-json.html (posts)
-         Update: sitemap.xml, json-tools.html hub, nav "More ▾" on all existing pages
+Week 1:  ✅ yaml-to-json.html + xml-to-json.html (tools)
+         ✅ blog/yaml-to-json.html + blog/xml-to-json.html + blog/yaml-vs-json.html (posts)
+         ✅ Update: sitemap.xml, json-tools.html hub, nav "More ▾" on all existing pages
+         ✅ blog/index.html updated with 3 new post cards
+         ✅ Bug fix: dark mode flash on page navigation (62 HTML files patched)
 
 Week 2:  uuid.html + hash.html (trivial — browser APIs only)
          blog/uuid-guide.html + blog/hash-guide.html
@@ -217,32 +219,33 @@ Week 4:  cron.html
 
 | File | Action | Priority | Status |
 |---|---|---|---|
-| `yaml-to-json.html` | New tool page | P1 | [ ] Pending |
-| `js/yaml-to-json-tool.js` | YAML→JSON JS (uses js-yaml CDN) | P1 | [ ] Pending |
-| `xml-to-json.html` | New tool page | P1 | [ ] Pending |
-| `js/xml-to-json-tool.js` | XML→JSON JS (uses DOMParser) | P1 | [ ] Pending |
+| `yaml-to-json.html` | New tool page | P1 | ✅ Done |
+| `js/yaml-to-json-tool.js` | YAML→JSON JS (uses js-yaml CDN) | P1 | ✅ Done |
+| `xml-to-json.html` | New tool page | P1 | ✅ Done |
+| `js/xml-to-json-tool.js` | XML→JSON JS (uses DOMParser) | P1 | ✅ Done |
+| `blog/yaml-to-json.html` | Companion blog post | P1 | ✅ Done |
+| `blog/xml-to-json.html` | Companion blog post | P1 | ✅ Done |
+| `blog/yaml-vs-json.html` | Standalone post (high traffic keyword) | P1 | ✅ Done |
+| All nav dropdowns (root + blog) | Add YAML→JSON + XML→JSON links | P1 | ✅ Done |
+| `sitemap.xml` | Add all new tool + blog URLs | P1 | ✅ Done |
+| `json-tools.html` | Add cards for new tools in correct sections | P1 | ✅ Done |
+| `blog/index.html` | Add cards for new blog posts | P1 | ✅ Done |
+| All 62 HTML pages | Bug fix: dark mode flash on navigation | Bug | ✅ Done |
 | `uuid.html` | New tool page | P1 | [ ] Pending |
 | `js/uuid-tool.js` | UUID generator JS (crypto.randomUUID) | P1 | [ ] Pending |
 | `hash.html` | New tool page | P1 | [ ] Pending |
 | `js/hash-tool.js` | Hash generator JS (WebCrypto + MD5) | P1 | [ ] Pending |
+| `blog/uuid-guide.html` | Companion blog post | P2 | [ ] Pending |
+| `blog/hash-guide.html` | Companion blog post | P2 | [ ] Pending |
 | `jsonpath.html` | New tool page | P2 | [ ] Pending |
 | `js/jsonpath-tool.js` | JSONPath evaluator JS (jsonpath-plus CDN) | P2 | [ ] Pending |
 | `json-to-typescript.html` | New tool page | P2 | [ ] Pending |
 | `js/json-to-typescript-tool.js` | TypeScript interface generator JS | P2 | [ ] Pending |
-| `cron.html` | New tool page | P3 | [ ] Pending |
-| `js/cron-tool.js` | CRON parser + next-runs calculator JS | P3 | [ ] Pending |
-| `blog/yaml-to-json.html` | Companion blog post | P1 | [ ] Pending |
-| `blog/xml-to-json.html` | Companion blog post | P1 | [ ] Pending |
-| `blog/yaml-vs-json.html` | Standalone post (high traffic keyword) | P1 | [ ] Pending |
-| `blog/uuid-guide.html` | Companion blog post | P2 | [ ] Pending |
-| `blog/hash-guide.html` | Companion blog post | P2 | [ ] Pending |
 | `blog/jsonpath-guide.html` | Companion blog post | P2 | [ ] Pending |
 | `blog/json-to-typescript.html` | Companion blog post | P2 | [ ] Pending |
+| `cron.html` | New tool page | P3 | [ ] Pending |
+| `js/cron-tool.js` | CRON parser + next-runs calculator JS | P3 | [ ] Pending |
 | `blog/understanding-cron.html` | Companion blog post | P3 | [ ] Pending |
-| All nav dropdowns (root + blog) | Add YAML→JSON + XML→JSON links | P1 | [ ] Pending |
-| `sitemap.xml` | Add all new tool + blog URLs | P1 | [ ] Pending |
-| `json-tools.html` | Add cards for new tools in correct sections | P1 | [ ] Pending |
-| `blog/index.html` | Add cards for new blog posts | P1 | [ ] Pending |
 
 ---
 
@@ -258,7 +261,47 @@ Week 4:  cron.html
 
 ---
 
-**Document Version:** 1.0  
+## 13. UI Improvement Plan (from Quality Report — May 7, 2026)
+
+Based on the Website Quality Report. Skipped items: visual design system, JSON-LD (already done), global search, GitHub/trust signals, logo/OG images.
+
+### Session 1 — Quick Wins (~1 hour)
+
+| Item | File | What to do |
+|---|---|---|
+| A. Persist formatter input | `js/formatter.js` | On `input` event (debounced 500ms): `localStorage.setItem('formatterInput', value)`. On load: restore from localStorage. |
+| B. Ctrl/Cmd+Enter shortcut | `js/formatter.js` | `keydown` listener: if `(ctrlKey \|\| metaKey) && key==='Enter'` → trigger Format. Add hint text near button. Extend to validator + minifier. |
+| C. Homepage hero CTA | `index.html` | Add a prominent `<a href="formatter.html" class="btn btn-primary">Open JSON Formatter →</a>` in the `<header>` below the tagline. |
+| D. Button + Toast polish ⚡ Very High | `css/styles.css`, all tool pages | Polish button styles (hover states, active press effect). Replace alert/static copy confirmation with a small "Copied!" toast div that fades out after 1.5s. |
+| E. Better spacing & card padding | `css/styles.css` | Standardize padding/margins across all tool pages — consistent card padding, section gaps, and button-group spacing. |
+
+### Session 2 — CodeMirror 6 Syntax Highlighting (~3 hours)
+
+Transforms the formatter from plain `<textarea>` to professional editor.
+
+- **Library:** CodeMirror 6 via CDN (not Monaco — Monaco is 2MB+, CodeMirror 6 is ~200kb)
+- **Features:** JSON syntax highlighting, line numbers, inline error markers replacing the separate error div, read-only output pane
+- **Files:** `formatter.html`, `js/formatter.js`
+- **Scope:** Formatter first, then validator as follow-up
+
+### Session 3 — Accessibility (~2 hours)
+
+- Verify colour contrast WCAG 2.1 AA (4.5:1) in light and dark mode
+- Add `aria-label` to icon-only buttons (Copy, Download)
+- Fix keyboard nav on "More ▾" dropdown (Tab + Enter + Escape)
+- Run Lighthouse audit in Chrome DevTools — target score ≥ 90
+
+### Status
+
+| Session | Items | Status |
+|---|---|---|
+| Session 1 | A + B + C + D + E | [ ] Pending |
+| Session 2 | CodeMirror | [ ] Pending |
+| Session 3 | Accessibility | [ ] Pending |
+
+---
+
+**Document Version:** 1.1  
 **Last Updated:** 2026-05-07  
-**Status:** Phase 5 planned — awaiting implementation start  
-**Next Step:** Begin Week 1 — `yaml-to-json.html` + `xml-to-json.html` + 3 blog posts
+**Status:** Week 1 complete ✅ — Week 2 next  
+**Next Step:** Week 2 — `uuid.html` + `hash.html` + 2 blog posts + Product Hunt / Hacker News launch
