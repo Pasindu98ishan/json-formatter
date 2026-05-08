@@ -65,8 +65,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             copyToClipboard(outputText.value)
-                .then(() => { showMessage('Copied to clipboard!', true); trackEvent('copy_output', { tool: 'validator' }); })
+                .then(() => { showToast('Copied!'); trackEvent('copy_output', { tool: 'validator' }); })
                 .catch(() => showMessage('Unable to copy result to clipboard.', false));
+        });
+    }
+
+    if (inputJSON) {
+        inputJSON.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                if (validateBtn) validateBtn.click();
+            }
         });
     }
 

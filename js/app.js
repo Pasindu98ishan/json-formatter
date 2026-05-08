@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeTheme();
     initializeAds();
     loadSharedJSON();
+    restoreFormatterInput();
 
     // Drag-and-drop JSON file onto input
     initDragDrop('inputJSON', function(content) {
@@ -54,6 +55,24 @@ function initializeEventListeners() {
     if (fetchBtn) fetchBtn.addEventListener('click', handleFetch);
     if (sampleBtn) sampleBtn.addEventListener('click', handleSample);
     if (shareBtn) shareBtn.addEventListener('click', handleShare);
+
+    // Ctrl/Cmd+Enter → Format
+    if (inputJSON) {
+        inputJSON.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                handleFormat();
+            }
+        });
+    }
+
+    // Persist input on every change (debounced)
+    if (inputJSON) {
+        const saveInput = debounce(function() {
+            localStorage.setItem('formatterInput', inputJSON.value);
+        }, 500);
+        inputJSON.addEventListener('input', saveInput);
+    }
 }
 
 function setOutput(text) {
@@ -152,7 +171,7 @@ function handleCopy() {
     }
 
     navigator.clipboard.writeText(text).then(() => {
-        showSuccess('✓ Copied to clipboard!');
+        showToast('Copied!');
         trackEvent('copy_output', { tool: 'formatter' });
     }).catch(err => {
         showError('Failed to copy: ' + err.message);
@@ -181,9 +200,16 @@ function handleDownload() {
 
 function handleClear() {
     document.getElementById('inputJSON').value = '';
+    localStorage.removeItem('formatterInput');
     clearOutput();
     clearError();
     treeViewer.clear();
+}
+
+function restoreFormatterInput() {
+    if (new URLSearchParams(location.search).get('j')) return;
+    const saved = localStorage.getItem('formatterInput');
+    if (saved) document.getElementById('inputJSON').value = saved;
 }
 
 const SAMPLE_JSON = JSON.stringify({

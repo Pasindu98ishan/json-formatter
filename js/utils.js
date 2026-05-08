@@ -330,6 +330,25 @@ function formatYAMLValue(value) {
     return value.toString();
 }
 
+// ========== TOAST NOTIFICATIONS ==========
+
+function showToast(message) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.remove('toast-hide');
+    toast.classList.add('toast-show');
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => {
+        toast.classList.remove('toast-show');
+        toast.classList.add('toast-hide');
+    }, 2000);
+}
+
 // ========== FUNCTIONAL UTILITIES ==========
 
 /**

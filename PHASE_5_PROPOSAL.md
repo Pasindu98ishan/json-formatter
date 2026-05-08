@@ -271,7 +271,7 @@ Based on the Website Quality Report. Skipped items: visual design system, JSON-L
 |---|---|---|
 | A. Persist formatter input | `js/formatter.js` | On `input` event (debounced 500ms): `localStorage.setItem('formatterInput', value)`. On load: restore from localStorage. |
 | B. Ctrl/Cmd+Enter shortcut | `js/formatter.js` | `keydown` listener: if `(ctrlKey \|\| metaKey) && key==='Enter'` → trigger Format. Add hint text near button. Extend to validator + minifier. |
-| C. Homepage hero CTA | `index.html` | Add a prominent `<a href="formatter.html" class="btn btn-primary">Open JSON Formatter →</a>` in the `<header>` below the tagline. |
+<!-- | C. Homepage hero CTA | `index.html` | Add a prominent `<a href="formatter.html" class="btn btn-primary">Open JSON Formatter →</a>` in the `<header>` below the tagline. | -->
 | D. Button + Toast polish ⚡ Very High | `css/styles.css`, all tool pages | Polish button styles (hover states, active press effect). Replace alert/static copy confirmation with a small "Copied!" toast div that fades out after 1.5s. |
 | E. Better spacing & card padding | `css/styles.css` | Standardize padding/margins across all tool pages — consistent card padding, section gaps, and button-group spacing. |
 
