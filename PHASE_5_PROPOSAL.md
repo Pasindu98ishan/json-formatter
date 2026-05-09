@@ -2,7 +2,7 @@
 
 **Version:** 1.2  
 **Date:** 2026-05-08  
-**Status:** In Progress (Week 2 complete ✅)  
+**Status:** In Progress (Week 3 complete ✅)  
 **Builds on:** PHASE_4_PROPOSAL.md (Phase 4 complete ✅)
 
 ---
@@ -180,8 +180,11 @@ Week 2:  ✅ uuid.html + hash.html (tools)
          ✅ UUID Generator UI redesigned (version badge, qty input, primary Generate btn)
          [ ] Marketing: Product Hunt + Hacker News launch (user-action pending)
 
-Week 3:  jsonpath.html + json-to-typescript.html (new JS logic)
-         blog/jsonpath-guide.html + blog/json-to-typescript.html
+Week 3:  ✅ jsonpath.html + json-to-typescript.html (tools)
+         ✅ blog/jsonpath-guide.html + blog/json-to-typescript.html (companion posts)
+         ✅ sitemap.xml, json-tools.html hub, nav dropdown on all pages updated
+         ✅ blog/index.html updated with 2 new post cards
+         ✅ Nav gap fix: 6 pages (json-diff, yaml-to-json, xml-to-json + 3 blog pages) patched with full 13-tool dropdown
 
 Week 4:  cron.html
          blog/understanding-cron.html
@@ -244,12 +247,12 @@ Week 4:  cron.html
 | `blog/uuid-v4-vs-v7.html` | Extra SEO post: UUID v4 vs v7 for DB primary keys | P2 | ✅ Done |
 | `blog/sha256-vs-sha512.html` | Extra SEO post: SHA-256 vs SHA-512 performance & security | P2 | ✅ Done |
 | All nav dropdowns (root + blog) | Add UUID Generator + Hash Generator links | P1 | ✅ Done |
-| `jsonpath.html` | New tool page | P2 | [ ] Pending |
-| `js/jsonpath-tool.js` | JSONPath evaluator JS (jsonpath-plus CDN) | P2 | [ ] Pending |
-| `json-to-typescript.html` | New tool page | P2 | [ ] Pending |
-| `js/json-to-typescript-tool.js` | TypeScript interface generator JS | P2 | [ ] Pending |
-| `blog/jsonpath-guide.html` | Companion blog post | P2 | [ ] Pending |
-| `blog/json-to-typescript.html` | Companion blog post | P2 | [ ] Pending |
+| `jsonpath.html` | New tool page | P2 | ✅ Done |
+| `js/jsonpath-tool.js` | JSONPath evaluator JS (jsonpath-plus CDN) | P2 | ✅ Done |
+| `json-to-typescript.html` | New tool page | P2 | ✅ Done |
+| `js/json-to-typescript-tool.js` | TypeScript interface generator JS | P2 | ✅ Done |
+| `blog/jsonpath-guide.html` | Companion blog post | P2 | ✅ Done |
+| `blog/json-to-typescript.html` | Companion blog post | P2 | ✅ Done |
 | `cron.html` | New tool page | P3 | [ ] Pending |
 | `js/cron-tool.js` | CRON parser + next-runs calculator JS | P3 | [ ] Pending |
 | `blog/understanding-cron.html` | Companion blog post | P3 | [ ] Pending |
@@ -310,7 +313,7 @@ Transforms the formatter from plain `<textarea>` to professional editor.
 
 ---
 
-**Document Version:** 1.2  
-**Last Updated:** 2026-05-08  
-**Status:** Week 2 complete ✅ — Week 3 next  
-**Next Step:** Week 3 — `jsonpath.html` + `json-to-typescript.html` + companion blog posts + Product Hunt / Hacker News launch (user-action)
+**Document Version:** 1.3  
+**Last Updated:** 2026-05-09  
+**Status:** Week 3 complete ✅ — Week 4 next  
+**Next Step:** Week 4 — `cron.html` + `blog/understanding-cron.html` + Product Hunt / Hacker News launch (user-action)

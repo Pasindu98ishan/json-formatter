@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Learn how to generate TypeScript interfaces from JSON automatically. Covers manual and automated methods, type inference rules, handling null and optional fields, and tools to automate the process.">
+    <meta name="keywords" content="json to typescript interface, generate typescript from json, json typescript converter, typescript interface from api response, json to typescript types">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-to-typescript.html">
+    <meta property="og:title" content="Generate TypeScript Interfaces from JSON Automatically">
+    <meta property="og:description" content="Learn how to convert JSON to TypeScript interfaces automatically. Covers type inference, null handling, optional fields, and nested objects — with a free online converter.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-to-typescript.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Generate TypeScript Interfaces from JSON Automatically | JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON to TypeScript", "item": "https://jsondevtools.org/blog/json-to-typescript.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Generate TypeScript Interfaces from JSON Automatically",
+      "description": "Learn how to convert JSON to TypeScript interfaces. Covers type inference, null handling, optional fields, and nested objects — with a free online converter.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-05-09",
+      "dateModified": "2026-05-09",
+      "url": "https://jsondevtools.org/blog/json-to-typescript.html"
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../json-to-xml.html">JSON→XML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                            <li><a href="../yaml-to-json.html">YAML&#8594;JSON</a></li>
+                            <li><a href="../xml-to-json.html">XML&#8594;JSON</a></li>
+                            <li><a href="../uuid.html">UUID Generator</a></li>
+                            <li><a href="../hash.html">Hash Generator</a></li>
+                            <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+                            <li><a href="../json-to-typescript.html">JSON&#8594;TypeScript</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSON to TypeScript</span>
+            </nav>
+            <h1>Generate TypeScript Interfaces from JSON Automatically</h1>
+            <div class="article-meta">May 2026 &middot; 6 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <section>
+                <p>TypeScript is now the default choice for new JavaScript projects — over 70% of JS developers use it as of 2026. But every time you add a new API endpoint or change a backend schema, you face the same chore: manually updating your TypeScript interfaces to match the JSON your API returns.</p>
+                <p>This guide covers how JSON maps to TypeScript, what to watch out for (null, optional fields, arrays), and how to automate the conversion so you never hand-write an interface from a JSON response again.</p>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Convert JSON to TypeScript interfaces instantly:</strong></p>
+                    <a href="../json-to-typescript.html" class="btn btn-primary" style="display:inline-block;">Open JSON to TypeScript →</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>How JSON types map to TypeScript</h2>
+                <p>JSON has six value types. TypeScript has a direct equivalent for each:</p>
+                <table>
+                    <thead><tr><th>JSON type</th><th>TypeScript type</th><th>Example</th></tr></thead>
+                    <tbody>
+                        <tr><td>String</td><td><code>string</code></td><td><code>"hello"</code></td></tr>
+                        <tr><td>Number</td><td><code>number</code></td><td><code>42</code>, <code>3.14</code></td></tr>
+                        <tr><td>Boolean</td><td><code>boolean</code></td><td><code>true</code></td></tr>
+                        <tr><td>Null</td><td><code>null</code></td><td><code>null</code></td></tr>
+                        <tr><td>Array</td><td><code>T[]</code></td><td><code>string[]</code>, <code>User[]</code></td></tr>
+                        <tr><td>Object</td><td><code>interface</code></td><td><code>interface User &#123; ... &#125;</code></td></tr>
+                    </tbody>
+                </table>
+                <p>A simple JSON object maps directly to a TypeScript interface:</p>
+                <pre><code>// JSON
+{
+  "id": 1,
+  "name": "Alice",
+  "email": "alice@example.com",
+  "active": true
+}
+
+// Generated TypeScript
+interface Root {
+  id: number;
+  name: string;
+  email: string;
+  active: boolean;
+}</code></pre>
+            </section>
+
+            <section>
+                <h2>Nested objects become nested interfaces</h2>
+                <p>When a JSON value is itself an object, it becomes a named interface derived from the key name:</p>
+                <pre><code>// JSON
+{
+  "user": {
+    "id": 42,
+    "address": {
+      "city": "London",
+      "country": "UK"
+    }
+  }
+}
+
+// Generated TypeScript
+interface Root {
+  user: User;
+}
+
+interface User {
+  id: number;
+  address: Address;
+}
+
+interface Address {
+  city: string;
+  country: string;
+}</code></pre>
+                <p>Interface names are derived from the key using PascalCase: <code>userAddress</code> → <code>UserAddress</code>, <code>api_response</code> → <code>ApiResponse</code>.</p>
+            </section>
+
+            <section>
+                <h2>Arrays</h2>
+                <p>Arrays of a single type become <code>T[]</code>. Arrays of multiple types become a union array <code>(T | U)[]</code>:</p>
+                <pre><code>// JSON
+{ "tags": ["admin", "editor"], "scores": [1, 2.5, 3] }
+
+// TypeScript
+interface Root {
+  tags: string[];
+  scores: number[];
+}</code></pre>
+                <p>Arrays of objects generate a named interface for the item type:</p>
+                <pre><code>// JSON
+{ "books": [{ "title": "Dune", "pages": 412 }] }
+
+// TypeScript
+interface Root {
+  books: Book[];
+}
+
+interface Book {
+  title: string;
+  pages: number;
+}</code></pre>
+            </section>
+
+            <section>
+                <h2>The null problem</h2>
+                <p><code>null</code> is where auto-generated interfaces need human review. A field typed as <code>null</code> from a single API response might actually be <code>string | null</code> at runtime — the response just happened to have a null value when you sampled it.</p>
+                <pre><code>// JSON response (field happens to be null)
+{ "middleName": null }
+
+// Auto-generated (correct but incomplete)
+interface Root {
+  middleName: null;
+}
+
+// What it probably should be
+interface Root {
+  middleName: string | null;
+  // or:
+  middleName?: string;
+}</code></pre>
+                <p><strong>Rule of thumb:</strong> after generating interfaces, review every <code>null</code> field and decide whether it should be <code>T | null</code>, <code>T | undefined</code>, or optional (<code>?</code>).</p>
+            </section>
+
+            <section>
+                <h2>Optional fields</h2>
+                <p>If an API response sometimes includes a field and sometimes omits it, the field should be optional in your interface:</p>
+                <pre><code>interface User {
+  id: number;
+  name: string;
+  avatar?: string;    // may be absent
+  bio?: string | null; // may be absent or null
+}</code></pre>
+                <p>Auto-generators working from a single response cannot detect optional fields — they only see what is present. For accurate optional detection, run the generator against multiple API responses and merge the results, or consult the API schema (OpenAPI / JSON Schema).</p>
+            </section>
+
+            <section>
+                <h2>Using generated interfaces</h2>
+                <p>Once generated, paste the interfaces into a <code>.d.ts</code> or <code>.ts</code> file in your project. You can then use them for type assertions and function signatures:</p>
+                <pre><code>// api.ts
+const response = await fetch('/api/users/42');
+const user: User = await response.json(); // type-safe from here
+console.log(user.name);  // IDE autocomplete works</code></pre>
+                <p>Or use the <code>satisfies</code> operator (TypeScript 4.9+) for safer object literals:</p>
+                <pre><code>const user = {
+  id: 42,
+  name: "Alice",
+} satisfies User;</code></pre>
+            </section>
+
+            <section>
+                <h2>When to use generated interfaces vs JSON Schema</h2>
+                <table>
+                    <thead><tr><th></th><th>Generated interface</th><th>JSON Schema / OpenAPI</th></tr></thead>
+                    <tbody>
+                        <tr><td>Speed</td><td>Instant — paste JSON, copy types</td><td>Requires schema authoring</td></tr>
+                        <tr><td>Accuracy</td><td>Based on one sample — may miss optional fields</td><td>Authoritative — reflects all valid states</td></tr>
+                        <tr><td>Runtime validation</td><td>Not included (compile-time only)</td><td>Yes — can validate at runtime with AJV etc.</td></tr>
+                        <tr><td>Best for</td><td>Rapid prototyping, known stable APIs</td><td>Production APIs, public contracts</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Should I use <code>interface</code> or <code>type</code> for JSON data?</summary>
+                    <p>Either works for simple cases. The TypeScript team's recommendation is to use <code>interface</code> when representing object shapes (which is what JSON objects are), and <code>type</code> for unions, intersections, and primitive aliases. Generated interfaces from JSON should use <code>interface</code>.</p>
+                </details>
+                <details>
+                    <summary>How do I handle a JSON array as the root element?</summary>
+                    <p>If your API returns an array at the root level (e.g., <code>[{ "id": 1 }, { "id": 2 }]</code>), the generated type will be <code>Root[]</code>, where <code>Root</code> describes each item. Use it as <code>const data: Root[] = await response.json()</code>.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between <code>string | null</code> and <code>string | undefined</code>?</summary>
+                    <p><code>null</code> is an explicit JSON value — it appears in the serialized response. <code>undefined</code> is a JavaScript concept for a missing value — it is not valid JSON and is stripped during serialization. For JSON API fields: use <code>string | null</code> when the API sends <code>null</code>, and use <code>string?</code> (optional) when the key may be absent entirely.</p>
+                </details>
+                <details>
+                    <summary>Can I use JSON Schema to generate TypeScript interfaces?</summary>
+                    <p>Yes. If you have an OpenAPI or JSON Schema definition, tools like <code>json-schema-to-typescript</code> and <code>openapi-typescript</code> generate accurate TypeScript types directly from the schema — including optional fields, enums, and union types. This is more reliable than generating from a single JSON sample for production code.</p>
+                </details>
+            </section>
+
+            <div class="article-cta">
+                <p>Generate TypeScript interfaces from your JSON in seconds:</p>
+                <a href="../json-to-typescript.html" class="btn btn-primary">Open JSON to TypeScript →</a>
+            </div>
+
+        </article>
+
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="jsonpath-guide.html">JSONPath Complete Guide – Query JSON Like XPath</a></li>
+                <li><a href="uuid-v4-vs-v7.html">UUID v4 vs UUID v7: Which Should You Use for Database Primary Keys?</a></li>
+                <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

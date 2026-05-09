@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Complete JSONPath guide with examples. Learn JSONPath syntax, filters, recursive descent, and how to query JSON like XPath queries XML. Includes a free online tester.">
+    <meta name="keywords" content="jsonpath guide, jsonpath tutorial, jsonpath examples, jsonpath syntax, jsonpath filter, jsonpath tester, rfc 9535 jsonpath">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/jsonpath-guide.html">
+    <meta property="og:title" content="JSONPath Complete Guide – Query JSON Like XPath">
+    <meta property="og:description" content="Learn JSONPath syntax from scratch: dot notation, filters, recursive descent, and slices. Includes a free online tester and cheat sheet.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/jsonpath-guide.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSONPath Complete Guide – Query JSON Like XPath | JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSONPath Guide", "item": "https://jsondevtools.org/blog/jsonpath-guide.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSONPath Complete Guide – Query JSON Like XPath",
+      "description": "Learn JSONPath syntax, filters, recursive descent, and slices with practical examples. Includes a free online JSONPath tester.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-05-09",
+      "dateModified": "2026-05-09",
+      "url": "https://jsondevtools.org/blog/jsonpath-guide.html"
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON→CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON→YAML</a></li>
+                            <li><a href="../json-to-xml.html">JSON→XML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV→JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                            <li><a href="../yaml-to-json.html">YAML&#8594;JSON</a></li>
+                            <li><a href="../xml-to-json.html">XML&#8594;JSON</a></li>
+                            <li><a href="../uuid.html">UUID Generator</a></li>
+                            <li><a href="../hash.html">Hash Generator</a></li>
+                            <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+                            <li><a href="../json-to-typescript.html">JSON&#8594;TypeScript</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSONPath Guide</span>
+            </nav>
+            <h1>JSONPath Complete Guide – Query JSON Like XPath</h1>
+            <div class="article-meta">May 2026 &middot; 7 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <section>
+                <p>If you have ever needed to extract a specific value from a deeply nested API response, JSONPath is the tool for that job. It is to JSON what XPath is to XML — a path query language that lets you select one or many values from a JSON document with a single expression.</p>
+                <p>JSONPath was originally defined by Stefan Goessner in 2007, and was officially standardised in <a href="https://www.rfc-editor.org/rfc/rfc9535" rel="noopener">RFC 9535</a> (published February 2024). It is used in AWS IAM policies, Kubernetes admission webhooks, Grafana alerting, and dozens of API testing frameworks.</p>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Test JSONPath expressions in your browser:</strong></p>
+                    <a href="../jsonpath.html" class="btn btn-primary" style="display:inline-block;">Open JSONPath Tester →</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>The root element: <code>$</code></h2>
+                <p>Every JSONPath expression starts with <code>$</code>, which represents the root of the document. Given this JSON:</p>
+                <pre><code>{
+  "store": {
+    "book": [
+      { "author": "Nigel Rees",   "price": 8.95  },
+      { "author": "Evelyn Waugh", "price": 12.99 }
+    ],
+    "bicycle": { "color": "red", "price": 19.95 }
+  }
+}</code></pre>
+                <p>The expression <code>$</code> returns the entire document. Everything else is a path from there.</p>
+            </section>
+
+            <section>
+                <h2>Dot and bracket notation</h2>
+                <p>You can navigate child keys using dot notation (<code>.key</code>) or bracket notation (<code>['key']</code>). Both are equivalent for simple key names:</p>
+                <table>
+                    <thead><tr><th>Expression</th><th>Result</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>$.store.bicycle.color</code></td><td><code>["red"]</code></td></tr>
+                        <tr><td><code>$.store['bicycle']['color']</code></td><td><code>["red"]</code></td></tr>
+                        <tr><td><code>$.store.book[0].author</code></td><td><code>["Nigel Rees"]</code></td></tr>
+                        <tr><td><code>$.store.book[1].price</code></td><td><code>[12.99]</code></td></tr>
+                    </tbody>
+                </table>
+                <p>Use bracket notation when a key contains spaces, hyphens, or starts with a digit: <code>$['my-key']</code>.</p>
+            </section>
+
+            <section>
+                <h2>Wildcard: <code>[*]</code></h2>
+                <p>The wildcard <code>*</code> matches all elements of an array or all values of an object:</p>
+                <table>
+                    <thead><tr><th>Expression</th><th>Result</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>$.store.book[*].author</code></td><td>All authors: <code>["Nigel Rees","Evelyn Waugh"]</code></td></tr>
+                        <tr><td><code>$.store.*</code></td><td>All values under store (the book array + bicycle object)</td></tr>
+                        <tr><td><code>$.store.book[*]</code></td><td>All book objects</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>Recursive descent: <code>..</code></h2>
+                <p>The double-dot operator searches all descendants, regardless of depth:</p>
+                <table>
+                    <thead><tr><th>Expression</th><th>Result</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>$..author</code></td><td>All <code>author</code> fields anywhere in the document</td></tr>
+                        <tr><td><code>$..price</code></td><td>All prices (books + bicycle): <code>[8.95, 12.99, 19.95]</code></td></tr>
+                        <tr><td><code>$..book[0]</code></td><td>First book in any nested <code>book</code> array</td></tr>
+                    </tbody>
+                </table>
+                <p>Recursive descent is the JSONPath equivalent of <code>//</code> in XPath. It is powerful but can be slow on very large documents.</p>
+            </section>
+
+            <section>
+                <h2>Array slices</h2>
+                <p>JSONPath supports Python-style array slicing: <code>[start:end:step]</code>.</p>
+                <table>
+                    <thead><tr><th>Expression</th><th>Result</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>$.store.book[0]</code></td><td>First element (index 0)</td></tr>
+                        <tr><td><code>$.store.book[-1]</code></td><td>Last element (JSONPath Plus extension)</td></tr>
+                        <tr><td><code>$.store.book[0:2]</code></td><td>Elements at index 0 and 1</td></tr>
+                        <tr><td><code>$.store.book[0,1]</code></td><td>Elements at index 0 and 1 (union)</td></tr>
+                        <tr><td><code>$.store.book[::2]</code></td><td>Every second element</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>Filter expressions: <code>[?()]</code></h2>
+                <p>Filter expressions let you select elements that satisfy a condition. The current element is referenced with <code>@</code>:</p>
+                <table>
+                    <thead><tr><th>Expression</th><th>Meaning</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>$.store.book[?(@.price &lt; 10)]</code></td><td>Books cheaper than $10</td></tr>
+                        <tr><td><code>$.store.book[?(@.author == "Evelyn Waugh")]</code></td><td>Book by a specific author</td></tr>
+                        <tr><td><code>$.store.book[?(@.price)]</code></td><td>Books that have a price field</td></tr>
+                        <tr><td><code>$..book[?(@.price &gt; $.store.bicycle.price)]</code></td><td>Books more expensive than the bicycle</td></tr>
+                    </tbody>
+                </table>
+                <p>Supported comparison operators: <code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>. You can combine conditions with <code>&amp;&amp;</code> and <code>||</code>.</p>
+            </section>
+
+            <section>
+                <h2>JSONPath cheat sheet</h2>
+                <table>
+                    <thead><tr><th>Syntax</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>$</code></td><td>Root element</td></tr>
+                        <tr><td><code>.key</code> or <code>['key']</code></td><td>Child key</td></tr>
+                        <tr><td><code>[n]</code></td><td>Array index (zero-based)</td></tr>
+                        <tr><td><code>[*]</code></td><td>All elements</td></tr>
+                        <tr><td><code>[a,b]</code></td><td>Union of indices or keys</td></tr>
+                        <tr><td><code>[a:b]</code></td><td>Array slice</td></tr>
+                        <tr><td><code>..</code></td><td>Recursive descent</td></tr>
+                        <tr><td><code>[?(@.x)]</code></td><td>Filter — elements where x exists</td></tr>
+                        <tr><td><code>[?(@.x == y)]</code></td><td>Filter — elements where x equals y</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>JSONPath in practice</h2>
+                <h3>AWS IAM condition keys</h3>
+                <p>AWS uses JSONPath-like syntax in IAM condition keys and CloudFormation. Understanding path syntax makes reading policies much easier.</p>
+                <h3>Kubernetes admission webhooks</h3>
+                <p>Kubernetes uses JSONPath in <code>kubectl</code> output templates:</p>
+                <pre><code>kubectl get pods -o jsonpath='{.items[*].metadata.name}'</code></pre>
+                <h3>Grafana alerting</h3>
+                <p>Grafana alert conditions use JSONPath to extract values from API datasources. A path like <code>$.data.result[0].value[1]</code> extracts the metric value from a Prometheus response.</p>
+                <h3>API testing (Postman, Bruno)</h3>
+                <p>Most API testing tools support JSONPath for assertions: <code>pm.expect(jsonData.store.book[0].price).to.equal(8.95)</code>.</p>
+            </section>
+
+            <section>
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Why does JSONPath always return an array?</summary>
+                    <p>JSONPath is designed to return a <em>set</em> of matching nodes, so the result is always wrapped in an array even when only one value matches. This is consistent with how XPath works. If you need the scalar value, read the first element of the result array.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between JSONPath and JMESPath?</summary>
+                    <p>JMESPath is a competing query language used in AWS CLI. JSONPath uses a path syntax similar to XPath (<code>$.store.book[*].author</code>). JMESPath uses a different syntax (<code>store.book[*].author</code>) and includes built-in functions. JSONPath is more widely used in non-AWS contexts; JMESPath is the default in AWS CLI and Boto3.</p>
+                </details>
+                <details>
+                    <summary>Is JSONPath the same as RFC 9535?</summary>
+                    <p>RFC 9535 (published February 2024) is the first formal IETF standard for JSONPath. It largely codifies the original Goessner specification with clarifications and a formal grammar. Most existing JSONPath implementations are compatible with RFC 9535, though some extended features (like JSONPath Plus's parent selector) are not part of the standard.</p>
+                </details>
+                <details>
+                    <summary>Does JSONPath support regular expressions in filters?</summary>
+                    <p>RFC 9535 defines a <code>match()</code> function for regex matching in filter expressions. JSONPath Plus supports this as <code>@=~ /pattern/</code> or via the <code>@.key.match(regex)</code> syntax. Support varies by implementation.</p>
+                </details>
+            </section>
+
+            <div class="article-cta">
+                <p>Ready to test your JSONPath expressions?</p>
+                <a href="../jsonpath.html" class="btn btn-primary">Open JSONPath Tester →</a>
+            </div>
+
+        </article>
+
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="json-to-typescript.html">Generate TypeScript Interfaces from JSON Automatically</a></li>
+                <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
+                <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

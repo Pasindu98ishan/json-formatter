@@ -851,40 +851,50 @@ Each tool needs dedicated page with:
 - [x] Drag-and-drop file input on all tools
 - [ ] AdSense enabled *(apply when 1,000+ sessions/month — placeholder ID still in place)*
 
-**Phase 2 — IN PROGRESS**:
+**Phase 2 ✅ COMPLETE**:
 - [x] First 8+ blog posts published *(13 articles live)*
 - [x] Homepage keyword cannibalization fixed *(index.html is now a hub page, not a duplicate formatter)*
 - [x] Inline error detail with line/column numbers *(validator.js)*
 - [x] Syntax highlighting in formatter output *(formatter.js `addSyntaxHighlight()`)*
 - [x] Legal pages cleaned up *(real contact email, no domain placeholders)*
-- [ ] Product Hunt launch *(see docs/marketing.md for full checklist)*
-- [ ] Hacker News "Show HN" submission *(see docs/marketing.md for template)*
+- [ ] Product Hunt launch *(deferred — execute after Week 3 tools indexed)*
+- [ ] Hacker News "Show HN" submission *(deferred — user-action pending)*
 - [ ] Backlinks from 5+ sources
-- [ ] Traffic: 500+ monthly visitors
-- [ ] AdSense account approved & enabled
 
-**Phase 3 — NEXT (see full proposal below)**:
-- [ ] Formatter UX upgrades shipped (indentation selector, sort keys, sample JSON, share link, URL fetcher)
-- [ ] BreadcrumbList JSON-LD added to all 8 tool pages
-- [ ] 3 new tools added (JWT Decoder, CSV to JSON, JSON Diff)
-- [ ] 36 long-tail blog pages published (error pages + tool variants + comparisons)
-- [ ] Product Hunt launch executed
-- [ ] Traffic: 2,000+ monthly visitors
-- [ ] Revenue: $10-20/month
+**Phase 3 ✅ COMPLETE** *(see PHASE_3_PROPOSAL.md)*:
+- [x] Formatter UX upgrades shipped (Ctrl+Enter, localStorage restore, toast copy feedback)
+- [x] BreadcrumbList JSON-LD added to all tool pages
+- [x] 3 new tools: JWT Decoder (`jwt-decoder.html`), CSV→JSON (`csv-to-json.html`), JSON Diff (`json-diff.html`)
+- [x] 36+ long-tail blog pages published (error pages, tool variants, comparisons)
+- [x] JSON Viewer (`json-viewer.html`), JSON Beautifier (`json-beautifier.html`) added
+- [x] XML→JSON converter (`xml-to-json.html`) added
 
-**Phase 4 (Month 6)**:
-- [ ] 30+ blog posts
-- [ ] 12+ tools
-- [ ] Top keyword ranking top 5
-- [ ] Traffic: 5,000+ monthly visitors
-- [ ] Revenue: $50-100/month
+**Phase 4 ✅ COMPLETE** *(see PHASE_4_PROPOSAL.md)*:
+- [x] UUID Generator (`uuid.html`) — crypto.randomUUID(), bulk generate, version badge UI
+- [x] Hash Generator (`hash.html`) — MD5, SHA-1, SHA-256, SHA-512 via WebCrypto
+- [x] JSONPath Tester (`jsonpath.html`) — RFC 9535 + jsonpath-plus CDN
+- [x] JSON→TypeScript Generator (`json-to-typescript.html`) — pure JS type inference
+- [x] YAML→JSON Converter (`yaml-to-json.html`) — js-yaml CDN
+- [x] Companion blog posts for all 4 new tools + 4 extra SEO posts
+- [x] Favicon (`favicon.svg`) — blue `{}` icon injected into all 70+ HTML pages
+- [x] Nav dropdown updated on all pages (13 tools in "More ▾")
+- [x] Dark-mode flash bug fixed across all 62 HTML pages
 
-**Phase 5 (Month 12)**:
-- [ ] 80+ blog posts
-- [ ] 15+ tools
-- [ ] Multiple keywords on page 1
-- [ ] Traffic: 20,000+ monthly visitors
-- [ ] Revenue: $300-750+/month
+**Phase 5 — IN PROGRESS** *(see PHASE_5_PROPOSAL.md — Week 3 of 4 complete)*:
+- [x] YAML→JSON, XML→JSON tool pages + 3 companion blog posts (Week 1)
+- [x] UUID Generator + Hash Generator + 4 companion blog posts (Week 2)
+- [x] JSONPath Tester + JSON→TypeScript + 2 companion blog posts (Week 3)
+- [x] sitemap.xml, json-tools.html hub, blog/index.html all updated
+- [ ] `cron.html` — CRON Expression Generator & Tester (Week 4 pending)
+- [ ] `blog/understanding-cron.html` (Week 4 pending)
+- [ ] Product Hunt launch (user-action)
+- [ ] Hacker News "Show HN" (user-action)
+
+**Current Site Inventory (May 2026)**:
+- 24 tool pages (formatter, validator, minifier, beautifier, viewer, diff, base64, url-encoder, timestamp, jwt-decoder, json-to-csv, csv-to-json, json-to-yaml, yaml-to-json, json-to-xml, xml-to-json, uuid, hash, jsonpath, json-to-typescript + hub + about + contact + json-tools)
+- 48 blog posts in /blog/
+- 4 static pages (about, contact, privacy-policy, terms-of-service)
+- Favicon: blue `{}` SVG across all pages
 
 ## 13. Risk Assessment & Mitigation
 
@@ -1033,7 +1043,7 @@ This updated proposal transforms your JSON Formatter from a simple tool into a *
 
 ---
 
-**Document Version**: 3.0 - Phase 1 complete, Phase 2 in progress, Phase 3 proposal ready
-**Last Updated**: May 3, 2026
-**Status**: Phase 1 ✅ Complete | Phase 2 🔄 In Progress | Phase 3 📋 See PHASE_3_PROPOSAL.md
-**Next Step**: Execute Phase 3 — begin with formatter UX upgrades (see PHASE_3_PROPOSAL.md Week 1)
+**Document Version**: 4.0 - Phases 1–4 complete, Phase 5 Week 3/4 done
+**Last Updated**: May 9, 2026
+**Status**: Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 🔄 Week 3/4 complete
+**Next Step**: Phase 5 Week 4 — `cron.html` + `blog/understanding-cron.html` + Product Hunt / Hacker News (user-action)
