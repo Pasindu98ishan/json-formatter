@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Px to rem in CSS — what they are, why rem matters for accessibility, the conversion formula, the 62.5% trick, and when to still use pixels. With code examples.">
+    <meta name="keywords" content="px to rem, rem vs px, css rem, what is rem, px to rem formula, 62.5 percent rem, css accessibility rem">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/px-to-rem-guide.html">
+    <meta property="og:title" content="Px to Rem in CSS: Complete Conversion Guide">
+    <meta property="og:description" content="What rem really is, why accessibility advocates prefer it over px, the conversion formula, and how to migrate an existing stylesheet.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/px-to-rem-guide.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Px to Rem in CSS: Complete Conversion Guide – JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Px to Rem in CSS: Complete Conversion Guide",
+      "description": "What rem really is, why accessibility advocates prefer it over px, the conversion formula, and how to migrate an existing stylesheet.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-05-10",
+      "dateModified": "2026-05-10",
+      "url": "https://jsondevtools.org/blog/px-to-rem-guide.html"
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="../index.html">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../base64.html">Base64</a></li>
+                    <li><a href="../url-encoder.html">URL Encoder</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">More ▾</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                            <li><a href="../json-to-csv.html">JSON&#8594;CSV</a></li>
+                            <li><a href="../json-to-yaml.html">JSON&#8594;YAML</a></li>
+                            <li><a href="../json-to-xml.html">JSON&#8594;XML</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                            <li><a href="../csv-to-json.html">CSV&#8594;JSON</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                            <li><a href="../yaml-to-json.html">YAML&#8594;JSON</a></li>
+                            <li><a href="../xml-to-json.html">XML&#8594;JSON</a></li>
+                            <li><a href="../uuid.html">UUID Generator</a></li>
+                            <li><a href="../hash.html">Hash Generator</a></li>
+                            <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+                            <li><a href="../json-to-typescript.html">JSON&#8594;TypeScript</a></li>
+                            <li><a href="../px-to-rem.html">Px&#8596;Rem</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="../index.html">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>Px to Rem Guide</span>
+            </nav>
+            <h1>Px to Rem in CSS: Complete Conversion Guide</h1>
+            <div class="article-meta">May 2026 &middot; 7 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <section>
+                <p>If you have ever wondered whether to write <code>padding: 16px</code> or <code>padding: 1rem</code>, this guide is for you. We'll cover what <code>rem</code> actually means, why accessibility-conscious developers reach for it, the exact conversion formula, and how to migrate an existing stylesheet without breaking your design.</p>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Need to convert a value right now?</strong></p>
+                    <a href="../px-to-rem.html" class="btn btn-primary" style="display:inline-block;">Open Px to Rem Converter →</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>The conversion formula</h2>
+                <p>One formula, no surprises:</p>
+                <pre><code>rem = px ÷ root_font_size
+px  = rem × root_font_size</code></pre>
+                <p>The browser's default root font size is <strong>16px</strong>. So the math people memorise:</p>
+                <pre><code>16px → 1rem
+24px → 1.5rem
+32px → 2rem
+8px  → 0.5rem
+14px → 0.875rem</code></pre>
+                <p>If your stylesheet sets <code>html { font-size: ... }</code> to anything other than 16px, divide by that value instead.</p>
+            </section>
+
+            <section>
+                <h2>What rem actually is</h2>
+                <p><code>rem</code> stands for <strong>"root em"</strong>. It is a length unit relative to the font size of the root element — the <code>&lt;html&gt;</code> element. The browser sets a default of 16px on <code>html</code>, but the user can change this in their browser settings, and your CSS can change it too.</p>
+
+                <p>Compare it to its cousin <code>em</code>:</p>
+                <ul>
+                    <li><code>em</code> is relative to the <strong>parent</strong> element's font size — and compounds when nested. A <code>1.2em</code> heading inside a <code>1.2em</code> container is actually 1.44× the parent's parent size.</li>
+                    <li><code>rem</code> is relative to the <strong>root</strong> only — no compounding. <code>1rem</code> is always the same size everywhere on the page.</li>
+                </ul>
+
+                <p>This is why most modern design systems standardise on <code>rem</code>: a single source of truth that scales the entire UI when needed.</p>
+            </section>
+
+            <section>
+                <h2>Why rem beats px for accessibility</h2>
+                <p>Open Chrome's settings → Appearance → Font size. You'll see options for "Very small", "Small", "Medium", "Large", "Very large". This setting changes the default font size of the <code>html</code> element. A user with low vision may set it to "Very large" (typically 24px instead of 16px).</p>
+
+                <p>Now imagine your button:</p>
+                <pre><code>/* Pixel-based — ignores user preference */
+.button { padding: 12px 24px; font-size: 16px; }
+
+/* Rem-based — scales with user preference */
+.button { padding: 0.75rem 1.5rem; font-size: 1rem; }</code></pre>
+
+                <p>For a user with the "Very large" setting, the rem version's padding becomes <code>18px 36px</code> and font becomes <code>24px</code> — the entire button grows proportionally. The pixel version stays at <code>12px 24px</code>, with text the user can barely read inside an undersized button.</p>
+
+                <p>The <a href="https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html" rel="noopener">WCAG 2.2 — Resize Text</a> success criterion expects content to scale up to 200% without loss of content or functionality. Rem-based layouts pass this naturally; pixel-based layouts often fail.</p>
+            </section>
+
+            <section>
+                <h2>The 62.5% trick — convenient but controversial</h2>
+                <p>You'll often see this in production CSS:</p>
+                <pre><code>html { font-size: 62.5%; }
+/* 62.5% of 16px = 10px */
+
+body { font-size: 1.6rem; } /* = 16px */
+.card { padding: 2.4rem; }  /* = 24px */</code></pre>
+
+                <p>Setting the root to 62.5% makes 1rem equal 10px, and the math becomes trivial: <code>1.6rem</code> is 16px, <code>2.4rem</code> is 24px, <code>0.8rem</code> is 8px. Many designers love this because they can think in pixels but write rems.</p>
+
+                <p><strong>The problem:</strong> you've overridden the user's browser font size preference. A user who set their browser to 20px now gets <code>20px × 62.5% = 12.5px</code> as the root — smaller than they wanted. The accessibility benefit of rem is partially defeated.</p>
+
+                <p><strong>The fix:</strong> always restore body text to a sensible size: <code>body { font-size: 1.6rem; }</code> means default text is 16px-equivalent of <em>their</em> root, not yours. The 62.5% only affects sizes you explicitly set. This is a reasonable compromise — but plain rem with no 62.5% override is the purest path.</p>
+            </section>
+
+            <section>
+                <h2>When to still use px</h2>
+                <p>Don't convert blindly. Some things genuinely belong in pixels:</p>
+                <ul>
+                    <li><strong>Borders</strong> — <code>border: 1px solid #ccc</code> stays a hairline at any zoom level. <code>0.0625rem</code> rounds inconsistently across browsers and can look fuzzy.</li>
+                    <li><strong>Box shadows</strong> — Same idea. A <code>0 2px 4px rgba(0,0,0,0.1)</code> shadow has a designed look that doesn't benefit from scaling.</li>
+                    <li><strong>Outline width</strong> — Focus rings and outlines are usually defined as 2px or 3px for visual consistency.</li>
+                    <li><strong>Image dimensions</strong> — When you need an image to fit a known pixel grid (favicons, sprites, app icons), use px or no unit at all.</li>
+                    <li><strong>Media query breakpoints</strong> — Modern recommendation is <code>em</code> (which respects browser zoom), but <code>px</code> is still common and acceptable.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Migrating an existing stylesheet</h2>
+                <p>You don't have to convert everything at once. A pragmatic migration:</p>
+
+                <ol>
+                    <li><strong>Convert font sizes first.</strong> They have the biggest accessibility impact.
+                        <pre><code>/* Before */
+h1 { font-size: 32px; }
+p  { font-size: 16px; }
+
+/* After */
+h1 { font-size: 2rem; }
+p  { font-size: 1rem; }</code></pre>
+                    </li>
+                    <li><strong>Convert spacing — padding, margin, gap.</strong> These also benefit from scaling.
+                        <pre><code>/* Before */
+.card { padding: 24px; margin-bottom: 16px; }
+
+/* After */
+.card { padding: 1.5rem; margin-bottom: 1rem; }</code></pre>
+                    </li>
+                    <li><strong>Leave borders, shadows, and 1–2px decorative widths alone.</strong> They are fine as px.</li>
+                    <li><strong>Test with browser zoom + custom font size.</strong> Set Chrome to "Very large" font and zoom to 200%. Your layout should remain usable.</li>
+                </ol>
+
+                <p>For large stylesheets, our <a href="../px-to-rem.html">Px to Rem Converter</a> has a bulk mode — paste your CSS, click "Convert px → rem", and review the output before committing.</p>
+            </section>
+
+            <section>
+                <h2>Common conversions reference</h2>
+                <p>Assuming the standard 16px root:</p>
+                <table style="width:100%; border-collapse:collapse; margin:1rem 0; font-family:'Courier New', monospace;">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--border-color);">
+                            <th style="text-align:left; padding:8px 12px;">Pixels</th>
+                            <th style="text-align:left; padding:8px 12px;">Rem</th>
+                            <th style="text-align:left; padding:8px 12px;">Common use</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 12px;">8px</td><td style="padding:6px 12px;">0.5rem</td><td style="padding:6px 12px; font-family:inherit;">Tight spacing, small gaps</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 12px;">12px</td><td style="padding:6px 12px;">0.75rem</td><td style="padding:6px 12px; font-family:inherit;">Captions, helper text</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 12px;">14px</td><td style="padding:6px 12px;">0.875rem</td><td style="padding:6px 12px; font-family:inherit;">Secondary text, labels</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 12px;">16px</td><td style="padding:6px 12px;">1rem</td><td style="padding:6px 12px; font-family:inherit;">Body text (default)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 12px;">18px</td><td style="padding:6px 12px;">1.125rem</td><td style="padding:6px 12px; font-family:inherit;">Slightly larger body</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 12px;">20px</td><td style="padding:6px 12px;">1.25rem</td><td style="padding:6px 12px; font-family:inherit;">Lead paragraphs, h4</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 12px;">24px</td><td style="padding:6px 12px;">1.5rem</td><td style="padding:6px 12px; font-family:inherit;">Card padding, h3</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 12px;">32px</td><td style="padding:6px 12px;">2rem</td><td style="padding:6px 12px; font-family:inherit;">Section spacing, h2</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 12px;">48px</td><td style="padding:6px 12px;">3rem</td><td style="padding:6px 12px; font-family:inherit;">Large headings, h1</td></tr>
+                        <tr><td style="padding:6px 12px;">64px</td><td style="padding:6px 12px;">4rem</td><td style="padding:6px 12px; font-family:inherit;">Hero text, big margins</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>Sass / SCSS helpers</h2>
+                <p>If you write Sass, a small function turns the conversion into a one-liner:</p>
+                <pre><code>// _functions.scss
+@function rem($px, $base: 16) {
+  @return ($px / $base) * 1rem;
+}
+
+// usage
+.card {
+  padding: rem(24);     // → 1.5rem
+  font-size: rem(14);   // → 0.875rem
+}</code></pre>
+
+                <p>Note: in modern Sass (1.65+), division uses <code>math.div()</code>:</p>
+                <pre><code>@use "sass:math";
+
+@function rem($px, $base: 16) {
+  @return math.div($px, $base) * 1rem;
+}</code></pre>
+            </section>
+
+            <section>
+                <h2>CSS-only with custom properties</h2>
+                <p>You can do the same in plain CSS using a custom property:</p>
+                <pre><code>:root {
+  --base-font-size: 16;
+}
+
+.card {
+  /* calc with unit-less variable */
+  padding: calc(24 / var(--base-font-size) * 1rem);
+}</code></pre>
+                <p>This is verbose but eliminates the build step. Most teams just compute the rem values upfront and write them directly.</p>
+            </section>
+
+            <div class="article-cta">
+                <p>Need to convert a stylesheet? Use the free <a href="../px-to-rem.html">Px to Rem Converter →</a></p>
+            </div>
+
+            <section class="related-articles">
+                <h2>Related Articles</h2>
+                <ul>
+                    <li><a href="json-best-practices.html">JSON Best Practices for APIs</a></li>
+                    <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
+                    <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
+                </ul>
+            </section>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

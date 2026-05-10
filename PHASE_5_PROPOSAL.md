@@ -1,8 +1,8 @@
 # Phase 5 Proposal: Tool Expansion & Marketing Launch
 
-**Version:** 1.2  
-**Date:** 2026-05-08  
-**Status:** In Progress (Week 3 complete ✅)  
+**Version:** 1.4  
+**Date:** 2026-05-10  
+**Status:** In Progress (Week 3 complete ✅, Week 4 partially complete)  
 **Builds on:** PHASE_4_PROPOSAL.md (Phase 4 complete ✅)
 
 ---
@@ -83,6 +83,18 @@ These 4 tools either reverse an existing converter (reusing the library already 
 - **Related tools:** base64.html, uuid.html, jwt-decoder.html
 - **Sitemap:** priority 0.75, changefreq monthly
 
+### 3.5 `px-to-rem.html` — Px ↔ Rem Converter (CSS unit converter)
+
+- **Target keyword:** "px to rem converter", "rem to px", "css unit converter" — High volume, Medium competition
+- **H1:** "Px to Rem Converter – Convert CSS Units Online Free"
+- **Intent:** Frontend developers and designers who need to convert pixel values to rem for accessible, scalable CSS — common task during design-system migrations
+- **Why now:** Broadens the audience beyond JSON-focused users into the wider frontend community. Pure JS, no library, ships in one session.
+- **Implementation:** Simple math. Single-value bidirectional converter (live as you type) + bulk CSS converter (regex-replaces every `Npx` / `Nrem` value). Configurable root font size (persisted to localStorage). Reference table that re-renders when base changes. New file: `js/px-to-rem-tool.js`
+- **Drag-drop:** Accept `.css`, `.scss`, `.txt` files onto the bulk input
+- **GA4 events:** `tool_start`, `convert_px_to_rem`, `convert_rem_to_px`, `copy_output`
+- **Related tools:** formatter.html, base64.html, hash.html, url-encoder.html
+- **Sitemap:** priority 0.75, changefreq monthly
+
 ---
 
 ## 4. Batch 2 — Medium Effort (New JS Logic, High Traffic Potential)
@@ -145,6 +157,7 @@ Each new tool needs a companion blog post to reinforce the SEO signal and create
 | `blog/jsonpath-guide.html` | "JSONPath Complete Guide – Query JSON Like XPath" | jsonpath.html | P2 |
 | `blog/json-to-typescript.html` | "Generate TypeScript Interfaces from JSON Automatically" | json-to-typescript.html | P2 |
 | `blog/understanding-cron.html` | "Understanding CRON Expressions with Examples" | cron.html | P3 |
+| `blog/px-to-rem-guide.html` | "Px to Rem in CSS: Complete Conversion Guide" | px-to-rem.html | P2 |
 
 ---
 
@@ -186,9 +199,12 @@ Week 3:  ✅ jsonpath.html + json-to-typescript.html (tools)
          ✅ blog/index.html updated with 2 new post cards
          ✅ Nav gap fix: 6 pages (json-diff, yaml-to-json, xml-to-json + 3 blog pages) patched with full 13-tool dropdown
 
-Week 4:  cron.html
-         blog/understanding-cron.html
-         Marketing: Reddit posts (one per new tool, spread over the week)
+Week 4:  ✅ px-to-rem.html + js/px-to-rem-tool.js (CSS unit converter — quick-win bonus)
+         ✅ blog/px-to-rem-guide.html (companion post)
+         ✅ Sitemap + json-tools.html hub + blog/index.html + nav dropdown rolled out across all 72 pages
+         [ ] cron.html
+         [ ] blog/understanding-cron.html
+         [ ] Marketing: Reddit posts (one per new tool, spread over the week)
 ```
 
 ---
@@ -218,6 +234,7 @@ Week 4:  cron.html
 | `uuid.html` | 0.75 |
 | `hash.html` | 0.75 |
 | `cron.html` | 0.75 |
+| `px-to-rem.html` | 0.75 |
 | Blog posts | 0.60 (standard) |
 
 ---
@@ -256,6 +273,13 @@ Week 4:  cron.html
 | `cron.html` | New tool page | P3 | [ ] Pending |
 | `js/cron-tool.js` | CRON parser + next-runs calculator JS | P3 | [ ] Pending |
 | `blog/understanding-cron.html` | Companion blog post | P3 | [ ] Pending |
+| `px-to-rem.html` | New tool page (CSS unit converter) | P2 | ✅ Done |
+| `js/px-to-rem-tool.js` | Px↔Rem converter + bulk CSS regex transform | P2 | ✅ Done |
+| `blog/px-to-rem-guide.html` | Companion blog post | P2 | ✅ Done |
+| All nav dropdowns (root + blog) | Add Px↔Rem link to dropdown on every page | P2 | ✅ Done (72 files patched via PowerShell batch) |
+| `sitemap.xml` | Add `px-to-rem.html` + `blog/px-to-rem-guide.html` URLs | P2 | ✅ Done |
+| `json-tools.html` | Add Px↔Rem card to Utilities section | P2 | ✅ Done |
+| `blog/index.html` | Add Px to Rem post card (newest, top of grid) | P2 | ✅ Done |
 
 ---
 
@@ -313,7 +337,7 @@ Transforms the formatter from plain `<textarea>` to professional editor.
 
 ---
 
-**Document Version:** 1.3  
-**Last Updated:** 2026-05-09  
-**Status:** Week 3 complete ✅ — Week 4 next  
-**Next Step:** Week 4 — `cron.html` + `blog/understanding-cron.html` + Product Hunt / Hacker News launch (user-action)
+**Document Version:** 1.5  
+**Last Updated:** 2026-05-10  
+**Status:** Week 3 complete ✅ — Week 4 in progress (`px-to-rem.html` fully launched: tool + blog + sitemap + hub + nav rollout done; `cron.html` still pending)  
+**Next Step:** `cron.html` + `blog/understanding-cron.html`, then Product Hunt / Hacker News launch (user-action)
