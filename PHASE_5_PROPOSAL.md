@@ -308,7 +308,7 @@ Transforms the formatter from plain `<textarea>` to professional editor.
 | Session 1 | A (localStorage) + B (Ctrl+Enter) + D (toast) | ✅ Done |
 | Session 1 | C (homepage hero CTA) | ⏭ Skipped |
 | Session 1 | E (spacing/card padding) | [ ] Pending |
-| Session 2 | CodeMirror 6 syntax highlighting | [ ] Pending |
+| Session 2 | CodeMirror 6 syntax highlighting | ✅ Done |
 | Session 3 | Accessibility audit + fixes | [ ] Pending |
 
 ---

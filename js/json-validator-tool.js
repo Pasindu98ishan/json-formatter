@@ -5,6 +5,12 @@ function trackEvent(action, params = {}) {
     if (typeof gtag === 'function') gtag('event', action, params);
 }
 
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const inputJSON = document.getElementById('inputJSON');
     const outputText = document.getElementById('outputText');
@@ -13,13 +19,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const clearBtn = document.getElementById('clearBtn');
     const errorContainer = document.getElementById('errorContainer');
 
-    function showMessage(message, success = false) {
+    function showMessage(message, success = false, hint = '', raw = '') {
         if (!errorContainer) return;
         errorContainer.style.display = 'block';
         errorContainer.style.backgroundColor = success ? '#d4edda' : '#f8d7da';
         errorContainer.style.color = success ? '#155724' : '#721c24';
         errorContainer.style.borderColor = success ? '#c3e6cb' : '#f5c6cb';
-        errorContainer.innerText = message;
+
+        let html = (success ? '✓ ' : '⚠️ ') + escapeHtml(message);
+        if (hint) {
+            html += `<div style="margin-top:6px;font-size:0.9em;opacity:0.9;font-weight:400;">${escapeHtml(hint)}</div>`;
+        }
+        if (raw && raw !== message) {
+            html += `<details style="margin-top:6px;font-size:0.8em;opacity:0.7;"><summary style="cursor:pointer;">Technical details</summary><code style="display:block;margin-top:4px;font-family:monospace;">${escapeHtml(raw)}</code></details>`;
+        }
+        errorContainer.innerHTML = html;
+
         if (success) {
             setTimeout(() => {
                 if (errorContainer) errorContainer.style.display = 'none';
@@ -30,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function resetStatus() {
         if (!errorContainer) return;
         errorContainer.style.display = 'none';
-        errorContainer.innerText = '';
+        errorContainer.innerHTML = '';
     }
 
     if (validateBtn) {
@@ -44,15 +59,43 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            const result = validateJSONDetailed(value);
-            if (result.valid) {
-                outputText.value = result.message;
-                showMessage(result.message, true);
+            try {
+                JSON.parse(value);
+                // Valid — build a useful summary for the output pane
+                const stats = (typeof getJSONStats === 'function') ? getJSONStats(value) : null;
+                const lines = ['✓ Valid JSON — no errors found.'];
+                if (stats) {
+                    lines.push('');
+                    lines.push(`Keys:    ${stats.keys}`);
+                    lines.push(`Objects: ${stats.objects}`);
+                    lines.push(`Arrays:  ${stats.arrays}`);
+                    lines.push(`Depth:   ${stats.depth}`);
+                    if (stats.size) lines.push(`Size:    ${stats.size}`);
+                }
+                outputText.value = lines.join('\n');
+                showMessage('Valid JSON! No errors found.', true);
                 trackEvent('validate_json', { result: 'valid' });
-            } else {
-                const lineInfo = result.line ? ` at line ${result.line}` : '';
-                outputText.value = `${result.message}${lineInfo}`;
-                showMessage(result.message + lineInfo, false);
+            } catch (e) {
+                // Route through the same normalizer the formatter uses
+                const norm = (typeof normalizeJSONError === 'function')
+                    ? normalizeJSONError(value, e.message)
+                    : { title: e.message, hint: '', line: 0, column: 0, rawMessage: e.message };
+
+                const lines = ['✗ Invalid JSON', '', norm.title];
+                if (norm.hint) {
+                    lines.push('');
+                    lines.push('→ ' + norm.hint);
+                }
+                if (norm.line) {
+                    lines.push('');
+                    lines.push(`Location: line ${norm.line}, column ${norm.column}`);
+                }
+                if (norm.rawMessage && norm.rawMessage !== norm.title) {
+                    lines.push('');
+                    lines.push('Technical: ' + norm.rawMessage);
+                }
+                outputText.value = lines.join('\n');
+                showMessage(norm.title, false, norm.hint, norm.rawMessage);
                 trackEvent('validate_json', { result: 'invalid' });
             }
         });

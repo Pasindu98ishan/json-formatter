@@ -76,10 +76,12 @@ function initializeEventListeners() {
 }
 
 function setOutput(text) {
-    const pre = document.getElementById('outputJSON');
     const raw = document.getElementById('outputJSONRaw');
-    if (pre) pre.innerHTML = addSyntaxHighlight(text);
     if (raw) raw.value = text;
+    if (window.cmSetOutput) { window.cmSetOutput(text); return; }
+    // fallback when CM6 module hasn't loaded yet
+    const pre = document.getElementById('outputJSON');
+    if (pre) { pre.style.display = ''; pre.innerHTML = addSyntaxHighlight(text); }
 }
 
 function getOutput() {
@@ -88,10 +90,12 @@ function getOutput() {
 }
 
 function clearOutput() {
-    const pre = document.getElementById('outputJSON');
     const raw = document.getElementById('outputJSONRaw');
-    if (pre) pre.innerHTML = '<span class="output-placeholder">Formatted JSON will appear here...</span>';
     if (raw) raw.value = '';
+    if (window.cmClearOutput) { window.cmClearOutput(); return; }
+    // fallback
+    const pre = document.getElementById('outputJSON');
+    if (pre) { pre.style.display = ''; pre.innerHTML = '<span class="output-placeholder">Formatted JSON will appear here...</span>'; }
 }
 
 function handleFormat() {
@@ -113,7 +117,8 @@ function handleFormat() {
         trackEvent('format_json', { indent, sort_keys: sortKeys });
         treeViewer.render(formatted);
     } catch (error) {
-        showError('Error: ' + error.message);
+        const norm = normalizeJSONError(input, error.message);
+        showError(norm.title, norm.hint, norm.rawMessage);
         treeViewer.clear();
     }
 }
@@ -134,7 +139,8 @@ function handleMinify() {
         trackEvent('minify_json');
         treeViewer.render(minified);
     } catch (error) {
-        showError('Error: ' + error.message);
+        const norm = normalizeJSONError(input, error.message);
+        showError(norm.title, norm.hint, norm.rawMessage);
         treeViewer.clear();
     }
 }
@@ -158,7 +164,8 @@ function handleValidate() {
             treeViewer.render(input);
         }
     } catch (error) {
-        showError('JSON Error: ' + error.message);
+        const norm = normalizeJSONError(input, error.message);
+        showError(norm.title, norm.hint, norm.rawMessage);
         treeViewer.clear();
     }
 }
@@ -336,12 +343,24 @@ function initializeTheme() {
     if (themeToggle) setThemeToggleState(themeToggle, darkMode);
 }
 
-function showError(message) {
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+function showError(message, hint, raw) {
     const errorContainer = document.getElementById('errorContainer');
-    if (errorContainer) {
-        errorContainer.innerHTML = '⚠️ ' + message;
-        errorContainer.style.display = 'block';
+    if (!errorContainer) return;
+    let html = '⚠️ ' + escapeHtml(message);
+    if (hint) {
+        html += `<div style="margin-top:6px;font-size:0.9em;opacity:0.9;font-weight:400;">${escapeHtml(hint)}</div>`;
     }
+    if (raw && raw !== message) {
+        html += `<details style="margin-top:6px;font-size:0.8em;opacity:0.7;"><summary style="cursor:pointer;">Technical details</summary><code style="display:block;margin-top:4px;font-family:monospace;">${escapeHtml(raw)}</code></details>`;
+    }
+    errorContainer.innerHTML = html;
+    errorContainer.style.display = 'block';
 }
 
 function showSuccess(message) {
