@@ -53,12 +53,12 @@
         {
           "@type": "Question",
           "name": "What JSON format does this tool accept?",
-          "acceptedAnswer": { "@type": "Answer", "text": "This tool expects a JSON array of objects. Each object will become one CSV row." }
+          "acceptedAnswer": { "@type": "Answer", "text": "This tool accepts a JSON array of objects or a single JSON object. Each array item becomes one CSV row. Nested objects are flattened automatically." }
         },
         {
           "@type": "Question",
           "name": "Can I convert nested JSON?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Nested objects may not convert cleanly. Flatten the JSON first using the JSON Formatter and adjust keys manually." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Nested objects are flattened automatically using dot notation. For example, an address.city field becomes its own column. Array values are joined with a pipe separator." }
         },
         {
           "@type": "Question",
@@ -114,7 +114,7 @@
     <header class="header">
         <div class="container">
             <h1>JSON to CSV Converter</h1>
-            <p>Convert JSON array to CSV format instantly online.</p>
+            <p>Convert JSON objects and arrays to CSV format instantly. Nested objects are flattened automatically.</p>
         </div>
     </header>
 
@@ -123,8 +123,16 @@
         <section class="formatter-section">
             <div class="editor-container">
                 <div class="editor-input">
-                    <label>Input JSON (Array of objects):</label>
-                    <textarea id="inputJSON" placeholder='[{"name":"John","age":30},{"name":"Jane","age":25}]'></textarea>
+                    <div class="csv-input-panel">
+                        <div class="csv-input-header">
+                            <span class="csv-input-label">Input JSON <span class="csv-input-hint">— object or array of objects</span></span>
+                            <div>
+                                <label for="jsonFileInput" class="file-upload-btn">📁 Upload JSON</label>
+                                <input type="file" id="jsonFileInput" accept=".json,.txt" style="display:none;" aria-label="Upload JSON file">
+                            </div>
+                        </div>
+                        <textarea id="inputJSON" placeholder='{"name":"John","age":30} or [{"name":"John"},{"name":"Jane"}]'></textarea>
+                    </div>
                 </div>
                 <div class="editor-output">
                     <label>Output CSV:</label>
@@ -134,8 +142,19 @@
             <div class="button-group">
                 <button id="convertBtn" class="btn btn-primary">Convert to CSV</button>
                 <button id="copyBtn" class="btn btn-secondary">📋 Copy Output</button>
-                <button id="downloadBtn" class="btn btn-secondary">⬇️ Download CSV</button>
+                <button id="downloadBtn" class="btn btn-secondary">⬇️ Download CSV</button>
                 <button id="clearBtn" class="btn btn-secondary">Clear</button>
+            </div>
+
+            <!-- Table Preview -->
+            <div id="tablePreview" class="csv-table-preview" style="display:none">
+                <div class="csv-table-header">
+                    <span class="csv-table-title">Preview</span>
+                    <span id="tableStats" class="csv-table-stats"></span>
+                </div>
+                <div class="csv-table-scroll">
+                    <table id="previewTable" class="csv-preview-table"></table>
+                </div>
             </div>
 
             <!-- Info Section -->
@@ -148,27 +167,27 @@
                     <li>Data analysis and reporting</li>
                     <li>Data migration between systems</li>
                 </ul>
-                <h4>Example:</h4>
+                <h4>Example — nested object flattened automatically:</h4>
                 <p><strong>Input JSON:</strong></p>
-                <pre>[
-  {"name": "John", "age": 30, "city": "NYC"},
-  {"name": "Jane", "age": 25, "city": "LA"}
-]</pre>
+                <pre>{
+  "name": "John",
+  "address": { "city": "NYC", "country": "US" },
+  "roles": ["admin", "editor"]
+}</pre>
                 <p><strong>Output CSV:</strong></p>
-                <pre>name,age,city
-John,30,NYC
-Jane,25,LA</pre>
+                <pre>name,address.city,address.country,roles
+John,NYC,US,admin | editor</pre>
             </div>
         </section>
         <section class="faq-section">
             <h2>Frequently Asked Questions</h2>
             <details>
                 <summary>What JSON format does this tool accept?</summary>
-                <p>This tool expects a JSON array of objects. Each object will become one CSV row.</p>
+                <p>This tool accepts a JSON array of objects or a single JSON object. Each array item becomes one CSV row. Nested objects are flattened automatically using dot notation.</p>
             </details>
             <details>
                 <summary>Can I convert nested JSON?</summary>
-                <p>Nested objects may not convert cleanly. Flatten the JSON first using the <a href="formatter.html">JSON Formatter</a> and adjust keys manually.</p>
+                <p>Yes. Nested objects are flattened automatically using dot notation — <code>address.city</code>, <code>address.country</code>, etc. Array values inside objects are joined with <code> | </code>.</p>
             </details>
             <details>
                 <summary>Why is my CSV missing fields?</summary>
