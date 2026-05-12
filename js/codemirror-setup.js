@@ -77,9 +77,9 @@ async function initCM6() {
     // the core bundle, EditorView creation will throw and we catch it below.
     let json = null;
     try {
-        const lm = await import('https://esm.sh/@codemirror/lang-json@6?bundle');
+        const lm = await import('https://esm.sh/@codemirror/lang-json@6');
         if (typeof lm.json === 'function') json = lm.json;
-    } catch (_) { /* JSON coloring unavailable — not critical */ }
+    } catch (e) { console.error('lang-json load failed:', e); }
 
     // ── Build editor ──────────────────────────────────────────────────────────
     try {
