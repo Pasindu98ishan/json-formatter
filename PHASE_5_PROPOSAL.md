@@ -1,8 +1,8 @@
 # Phase 5 Proposal: Tool Expansion & Marketing Launch
 
-**Version:** 1.4  
+**Version:** 1.7  
 **Date:** 2026-05-10  
-**Status:** In Progress (Week 3 complete ✅, Week 4 partially complete)  
+**Status:** In Progress (Week 3 complete ✅, Week 4 partially complete; UI Session 4 nav redesign planned; long-tail blog pipeline added §6.5)  
 **Builds on:** PHASE_4_PROPOSAL.md (Phase 4 complete ✅)
 
 ---
@@ -161,6 +161,40 @@ Each new tool needs a companion blog post to reinforce the SEO signal and create
 
 ---
 
+## 6.5 Long-Tail Blog Post Pipeline (SEO-Driven)
+
+**Current GSC signal (as of 2026-05-10):** 678 impressions, 8 organic clicks. CTR ~1.2% indicates most placements are page 2/3. The lever to lift CTR is to push more pages onto page 1 — and the fastest route is more long-tail content where competition is thin.
+
+**Strategic note:**
+
+> Long-tail blog posts are the fastest path to page 1 right now — not the tool pages. The tool pages compete with established sites (jsonformatter.org, jsonlint.com, freeformatter.com) that have a decade-plus head start and thousands of backlinks. Error-specific and problem-fix blog posts have much less competition, target high-intent debugging searches, and Google is already showing interest in this site for those queries (678 impressions, 8 clicks confirmed in GSC on 2026-05-10). Going forward, blog content velocity is the primary growth lever.
+
+**Existing coverage (13 posts, no need to rewrite):** `json-trailing-comma`, `json-unexpected-token`, `json-unexpected-end-input`, `json-missing-comma`, `json-single-quotes`, `json-comments-not-allowed`, `json-undefined-value`, `json-nan-infinity`, `json-circular-reference`, `json-object-keys-must-be-strings`, `json-parse-error-handling`, `common-json-errors`, `10-json-errors`.
+
+**Coverage gaps to fill:** scenario-specific errors (fetch, frameworks), language-specific debugging, behavioural gotchas (silent drops, type coercion), encoding edge cases.
+
+**Recommended pipeline (10 posts):**
+
+| Post file | Working title | Search intent | Pairs with | Priority |
+|---|---|---|---|---|
+| `blog/fetch-unexpected-end-json-input.html` | "Unexpected end of JSON input in fetch() — Causes and Fixes" | Debugging fetch().json() failures | formatter.html, json-validator.html | P1 |
+| `blog/json-parse-unexpected-token-o.html` | "JSON.parse 'Unexpected token o in JSON at position 1' — Why and Fix" | Beginner passing an object to JSON.parse | formatter.html | P1 |
+| `blog/api-returning-html-instead-of-json.html` | "Why is my API Returning HTML Instead of JSON?" | API debugging — login redirects, wrong endpoint, error pages | json-validator.html, jwt-decoder.html | P1 |
+| `blog/json-parse-returns-string-not-object.html` | "JSON.parse Returns a String Instead of an Object — Common Causes" | Double-encoded JSON gotcha | formatter.html | P1 |
+| `blog/json-maximum-call-stack-exceeded.html` | "Fix: 'Maximum call stack size exceeded' in JSON.parse / JSON.stringify" | Deep nesting / circular reference surface error | json-circular-reference.html (link) | P2 |
+| `blog/json-stringify-drops-functions.html` | "Why JSON.stringify Drops Functions, undefined, and Symbols" | Common silent-drop gotcha | formatter.html | P2 |
+| `blog/json-bom-error.html` | "JSON BOM Error: Fix Byte Order Mark / Encoding Issues" | UTF-8 BOM + JSON.parse incompatibility | json-validator.html | P2 |
+| `blog/json-date-format-best-practices.html` | "JSON Date Format: ISO 8601 vs Unix Timestamp Best Practices" | API design decision content | timestamp.html | P2 |
+| `blog/validate-json-python.html` | "How to Validate JSON in Python — json.loads Errors Explained" | Python-specific debugging | json-validator.html | P2 |
+| `blog/json-parse-vs-eval.html` | "JSON.parse vs eval() — Why eval is Dangerous" | Security / educational | formatter.html | P3 | 
+blog/url-encoding-guide.html - "URL Encoding Explained — Spaces, Special Characters & When to Encode
+
+**Pick rationale:** All 10 are specific Google searches developers actually type (not generic "what is JSON" content). None duplicate the existing 13 error posts. Each has a natural CTA to one of the existing tool pages, which feeds tool-page traffic via internal linking. P1 = ship first (4 highest-volume / most-common debugging searches), P2 = fill in next, P3 = optional / lower-volume.
+
+**Cadence target:** 1 P1 post per week interleaved with the existing tool roadmap. Four P1s over four weeks puts ~10 new pages into Google's index alongside `cron.html`, materially closing the gap to the 50+ indexed-pages month-2 target in §12.
+
+---
+
 ## 7. Marketing Launch Actions (User-Side — Cannot Be Automated)
 
 These community distribution tasks have been deferred since Phase 1 and should be executed now while new pages are getting indexed.
@@ -280,6 +314,10 @@ Week 4:  ✅ px-to-rem.html + js/px-to-rem-tool.js (CSS unit converter — quick
 | `sitemap.xml` | Add `px-to-rem.html` + `blog/px-to-rem-guide.html` URLs | P2 | ✅ Done |
 | `json-tools.html` | Add Px↔Rem card to Utilities section | P2 | ✅ Done |
 | `blog/index.html` | Add Px to Rem post card (newest, top of grid) | P2 | ✅ Done |
+| `index.html` | Categorized nav redesign — homepage pilot (Session 4) | P3 | [ ] Pending |
+| `css/styles.css` | `.nav-cta` button + `.nav-dropdown.open` rule (Session 4) | P3 | [ ] Pending |
+| `js/nav.js` | Tap-to-toggle for dropdown buttons (Session 4) | P3 | [ ] Pending |
+| All 75 other pages | Sitewide rollout of categorized nav (Session 4 stretch) | P3 | [ ] Deferred until pilot accepted |
 
 ---
 
@@ -325,6 +363,36 @@ Transforms the formatter from plain `<textarea>` to professional editor.
 - Fix keyboard nav on "More ▾" dropdown (Tab + Enter + Escape)
 - Run Lighthouse audit in Chrome DevTools — target score ≥ 90
 
+### Session 4 — Categorized Nav Redesign (~2 hours)
+
+Replace the single overgrown `More ▾` dropdown (now 14 items) with grouped category dropdowns, plus a JSON Formatter primary CTA button. Cleaner mental model and ready to scale as new tools land (cron, color, bytes, regex).
+
+**Proposed structure:**
+
+```
+[Logo]   JSON Formatter   JSON Tools ▾   Converters ▾   Encoders ▾   Generators ▾   [🌙 Dark]
+```
+
+**Tool categorisation** (all 19 tools mapped):
+
+| Category | Tools |
+|---|---|
+| **Formatter** (CTA button) | `formatter.html` |
+| **JSON ▾** (6) | JSON Validator, JSON Minifier, JSON Diff, JSON Viewer, JSON Beautifier, JSONPath Tester |
+| **Converters ▾** (9) | JSON↔CSV, JSON↔YAML, JSON↔XML, JSON→TypeScript, Px↔Rem, Timestamp |
+| **Encoders ▾** (3) | Base64, URL Encoder, JWT Decoder |
+| **Generators ▾** (2) | UUID Generator, Hash Generator |
+
+**Files to change (homepage pilot):**
+
+- `index.html` — replace `<ul class="nav-links">…</ul>` with new structure
+- `css/styles.css` — add `.nav-cta` button styling, `.nav-dropdown.open .dropdown-menu { display: block }`, tighten flex `gap`
+- `js/nav.js` — add tap-to-toggle for `.dropdown-toggle` (CSS `:hover`/`:focus-within` are unreliable on touch)
+
+**Approach:** Homepage pilot first (`index.html` only). If it lands well, batch-roll the new nav across the other 75 pages via PowerShell `.Replace()` — same pattern as the px-to-rem rollout. The sitewide rollout has two extra wrinkles vs px-to-rem: per-page active-link injection and the root/blog path-prefix variants (`formatter.html` vs `../formatter.html`).
+
+**Plan reference:** Detailed design saved at `~/.claude/plans/i-am-going-to-parallel-fountain.md`.
+
 ### Status
 
 | Session | Items | Status |
@@ -334,10 +402,12 @@ Transforms the formatter from plain `<textarea>` to professional editor.
 | Session 1 | E (spacing/card padding) | [ ] Pending |
 | Session 2 | CodeMirror 6 syntax highlighting | ✅ Done |
 | Session 3 | Accessibility audit + fixes | [ ] Pending |
+| Session 4 | Categorized nav redesign (homepage pilot) | [ ] Pending — plan approved, implementation deferred |
+| Session 4 | Categorized nav — sitewide rollout to 75 other pages | [ ] Deferred (after pilot acceptance) |
 
 ---
 
-**Document Version:** 1.5  
+**Document Version:** 1.6  
 **Last Updated:** 2026-05-10  
-**Status:** Week 3 complete ✅ — Week 4 in progress (`px-to-rem.html` fully launched: tool + blog + sitemap + hub + nav rollout done; `cron.html` still pending)  
-**Next Step:** `cron.html` + `blog/understanding-cron.html`, then Product Hunt / Hacker News launch (user-action)
+**Status:** Week 3 complete ✅ — Week 4 in progress (`px-to-rem.html` fully launched: tool + blog + sitemap + hub + nav rollout done; `cron.html` still pending). UI Session 4 (categorized nav redesign) planned, implementation deferred.  
+**Next Step:** `cron.html` + `blog/understanding-cron.html`, then UI Session 4 implementation, then Product Hunt / Hacker News launch (user-action)
