@@ -11,18 +11,20 @@ async function initCM6() {
     // The unscoped `codemirror` package on esm.sh is unreliable (resolves to CM5
     // shim under ?bundle). @codemirror/* scoped packages always mean CM6.
     let basicSetup, EditorView, EditorState, Compartment, keymap, linter, lintGutter;
-    let view, state, lint;
+    let view, state, lint, json = null;
     try {
-        const [v, s, l, autocomplete, commands, language, search] = await Promise.all([
+        const [v, s, l, autocomplete, commands, language, search, langJsonMod] = await Promise.all([
             import('https://esm.sh/@codemirror/view@6'),
             import('https://esm.sh/@codemirror/state@6'),
             import('https://esm.sh/@codemirror/lint@6'),
             import('https://esm.sh/@codemirror/autocomplete@6'),
             import('https://esm.sh/@codemirror/commands@6'),
             import('https://esm.sh/@codemirror/language@6'),
-            import('https://esm.sh/@codemirror/search@6')
+            import('https://esm.sh/@codemirror/search@6'),
+            import('https://esm.sh/@codemirror/lang-json@6').catch(e => { console.error('lang-json load failed:', e); return null; })
         ]);
         view = v; state = s; lint = l;
+        if (langJsonMod && typeof langJsonMod.json === 'function') json = langJsonMod.json;
 
         ({ EditorView, keymap } = v);
         ({ EditorState, Compartment } = s);
@@ -71,15 +73,6 @@ async function initCM6() {
         console.warn('=== Falling back to native textarea ===');
         return;
     }
-
-    // ── JSON language support (optional — editor works without it) ────────────
-    // lang-json is loaded separately; if its bundled state classes conflict with
-    // the core bundle, EditorView creation will throw and we catch it below.
-    let json = null;
-    try {
-        const lm = await import('https://esm.sh/@codemirror/lang-json@6');
-        if (typeof lm.json === 'function') json = lm.json;
-    } catch (e) { console.error('lang-json load failed:', e); }
 
     // ── Build editor ──────────────────────────────────────────────────────────
     try {

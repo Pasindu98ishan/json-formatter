@@ -146,8 +146,8 @@ function normalizeJSONError(input, errorMessage) {
             const loc = locOf(ahead.pos);
             const containerName = expectedClose === '}' ? 'object' : 'array';
             return {
-                title: `Missing closing ${expectedClose} before ${oppositeClose} at line ${loc.line}`,
-                hint: `An ${containerName} was opened earlier but never closed — add the missing ${expectedClose} before this ${oppositeClose}.`,
+                title: `Unexpected ${oppositeClose} at line ${loc.line} — expected ${expectedClose}`,
+                hint: `An ${containerName} is still open here and needs ${expectedClose}. Two possible fixes — pick based on your structure: (1) insert ${expectedClose} BEFORE this ${oppositeClose} (keeps the ${oppositeClose} to close a parent), or (2) replace this ${oppositeClose} with ${expectedClose} (if the ${oppositeClose} is a typo).`,
                 line: loc.line,
                 column: loc.column,
                 position: ahead.pos,
@@ -155,12 +155,16 @@ function normalizeJSONError(input, errorMessage) {
             };
         }
         // Same context (expected closer matches actual context) → real missing comma
+        // Walk back to the end of the previous value — that's where the comma belongs.
+        const prevTok = prevNonWhitespace(pos);
+        const missingCommaLoc = prevTok ? locOf(prevTok.pos) : { line: result.line, column: result.column };
+        const missingCommaPos = prevTok ? prevTok.pos : Math.max(0, pos);
         return {
-            title: `Missing comma at line ${result.line}`,
+            title: `Missing comma at line ${missingCommaLoc.line}`,
             hint: `Each property in an object and each item in an array must be separated by a comma. The parser was expecting either a comma or '${expectedClose}' here.`,
-            line: result.line,
-            column: result.column,
-            position: Math.max(0, pos),
+            line: missingCommaLoc.line,
+            column: missingCommaLoc.column,
+            position: missingCommaPos,
             rawMessage: msg
         };
     }
@@ -199,6 +203,39 @@ function normalizeJSONError(input, errorMessage) {
     if (closingMatch) {
         const closer = closingMatch[1];
         const opener = closer === '}' ? '{' : '[';
+
+        // Always check for trailing comma — pos may be absent or wrong depending on
+        // the V8/Firefox version, so fall back to a string-aware text scan.
+        let commaIdx = -1;
+        if (pos >= 0) {
+            const prev = prevNonWhitespace(pos);
+            if (prev && prev.char === ',') commaIdx = prev.pos;
+        }
+        if (commaIdx < 0) {
+            let inStr = false, escaped = false;
+            for (let i = 0; i < text.length; i++) {
+                if (escaped)          { escaped = false; continue; }
+                if (inStr)            { if (text[i] === '\\') escaped = true; else if (text[i] === '"') inStr = false; continue; }
+                if (text[i] === '"')  { inStr = true; continue; }
+                if (text[i] === ',')  {
+                    let j = i + 1;
+                    while (j < text.length && /\s/.test(text[j])) j++;
+                    if (j < text.length && /[}\]]/.test(text[j])) { commaIdx = i; break; }
+                }
+            }
+        }
+        if (commaIdx >= 0) {
+            const loc = locOf(commaIdx);
+            return {
+                title: `Trailing comma at line ${loc.line}`,
+                hint: `Remove the comma after the last item before the closing ${closer} — JSON does not allow trailing commas.`,
+                line: loc.line,
+                column: loc.column,
+                position: commaIdx,
+                rawMessage: msg
+            };
+        }
+
         return {
             title: `Unexpected ${closer} at line ${result.line}`,
             hint: `This ${closer} has no matching open ${opener}, or the structure is closed in the wrong order. Check that every ${opener} has a matching ${closer} at the right nesting level.`,
