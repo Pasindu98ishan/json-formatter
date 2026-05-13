@@ -56,6 +56,31 @@ function initializeEventListeners() {
     if (sampleBtn) sampleBtn.addEventListener('click', handleSample);
     if (shareBtn) shareBtn.addEventListener('click', handleShare);
 
+    const jsonFileInput = document.getElementById('jsonFileInput');
+    if (jsonFileInput) {
+        jsonFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const content = evt.target.result;
+                inputJSON.value = content;
+                try {
+                    const formatted = formatJSON(content);
+                    setOutput(formatted);
+                    if (treeViewer) treeViewer.render(formatted);
+                    clearError();
+                } catch (err) {
+                    showError('File contains invalid JSON: ' + err.message);
+                }
+                trackEvent('upload_json', { tool: 'formatter' });
+            };
+            reader.onerror = function() { showError('Error reading file.'); };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+    }
+
     // Ctrl/Cmd+Enter → Format
     if (inputJSON) {
         inputJSON.addEventListener('keydown', function(e) {

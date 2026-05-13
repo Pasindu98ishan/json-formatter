@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A complete guide to CRON expression syntax with examples. Learn each field, special characters, common schedules, and how to test CRON expressions before deploying.">
+    <meta name="keywords" content="cron expression examples, cron syntax, cron schedule, crontab guide, cron expression explained, */5 cron, cron job tutorial">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/understanding-cron.html">
+    <meta property="og:title" content="Understanding CRON Expressions with Examples">
+    <meta property="og:description" content="Learn CRON expression syntax from scratch: all five fields, special characters, common schedules, and how to test them before deploying.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/understanding-cron.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Understanding CRON Expressions with Examples – JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Understanding CRON Expressions with Examples",
+      "description": "A complete guide to CRON expression syntax with examples. Learn each field, special characters, and how to test CRON expressions before deploying.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-05-13",
+      "dateModified": "2026-05-13",
+      "url": "https://jsondevtools.org/blog/understanding-cron.html"
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html" class="nav-cta">JSON Formatter</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../json-validator.html">JSON Validator</a></li>
+                            <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                            <li><a href="../json-viewer.html">JSON Viewer</a></li>
+                            <li><a href="../json-beautifier.html">JSON Beautifier</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                            <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../json-to-csv.html">JSON &#8594; CSV</a></li>
+                            <li><a href="../csv-to-json.html">CSV &#8594; JSON</a></li>
+                            <li><a href="../json-to-yaml.html">JSON &#8594; YAML</a></li>
+                            <li><a href="../yaml-to-json.html">YAML &#8594; JSON</a></li>
+                            <li><a href="../json-to-xml.html">JSON &#8594; XML</a></li>
+                            <li><a href="../xml-to-json.html">XML &#8594; JSON</a></li>
+                            <li><a href="../json-to-typescript.html">JSON &#8594; TypeScript</a></li>
+                            <li><a href="../px-to-rem.html">Px &#8596; Rem</a></li>
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../base64.html">Base64</a></li>
+                            <li><a href="../url-encoder.html">URL Encoder</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../uuid.html">UUID Generator</a></li>
+                            <li><a href="../hash.html">Hash Generator</a></li>
+                            <li><a href="../cron.html">CRON Generator</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>Understanding CRON Expressions</span>
+            </nav>
+            <h1>Understanding CRON Expressions with Examples</h1>
+            <div class="article-meta">May 2026 &middot; 8 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <section>
+                <p>CRON expressions are five-field strings that tell a scheduler exactly when to run a task. They look cryptic at first — <code>*/5 * * * *</code> — but the logic is completely regular once you know what each field means. This guide walks through all five fields, every special character, and thirty real-world examples you can copy and test immediately.</p>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Want to build or test a CRON expression visually?</strong></p>
+                    <a href="../cron.html" class="btn btn-primary" style="display:inline-block;">Open CRON Expression Generator →</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>The five fields</h2>
+                <p>A standard CRON expression has exactly five fields, separated by spaces:</p>
+                <pre><code>┌───────────── minute        (0–59)
+│ ┌─────────── hour          (0–23)
+│ │ ┌───────── day of month  (1–31)
+│ │ │ ┌─────── month         (1–12)
+│ │ │ │ ┌───── day of week   (0–6, 0 = Sunday)
+│ │ │ │ │
+* * * * *</code></pre>
+                <p>So <code>30 8 * * 1</code> means: at minute 30, hour 8, any day of month, any month, only on Monday — which is "every Monday at 8:30 AM".</p>
+            </section>
+
+            <section>
+                <h2>Special characters</h2>
+
+                <h3><code>*</code> — every value</h3>
+                <p>An asterisk matches every possible value for that field.</p>
+                <pre><code>* * * * *   → runs every minute</code></pre>
+
+                <h3><code>*/n</code> — every n-th value (step)</h3>
+                <p>The slash means "step". <code>*/5</code> means every 5th value starting from the minimum. In the minute field that is 0, 5, 10, 15, …, 55.</p>
+                <pre><code>*/5  * * * *   → every 5 minutes
+*   */2 * * *   → every 2 hours (00:00, 02:00, 04:00, …)
+*/30 * * * *   → every 30 minutes</code></pre>
+
+                <h3><code>n-m</code> — range</h3>
+                <p>A hyphen defines a continuous range of values, inclusive.</p>
+                <pre><code>0 9 * * 1-5   → weekdays (Mon–Fri) at 9:00 AM
+0 8-18 * * *  → every hour from 8 AM to 6 PM</code></pre>
+
+                <h3><code>n,m,p</code> — list</h3>
+                <p>Comma-separated values specify multiple discrete values. No spaces around the commas.</p>
+                <pre><code>0 9,17 * * *      → 9:00 AM and 5:00 PM every day
+0 0 1,15 * *      → midnight on the 1st and 15th of each month</code></pre>
+
+                <h3><code>n-m/p</code> — range with step</h3>
+                <p>Combines a range and a step: matches every p-th value within the range n through m.</p>
+                <pre><code>0-30/10 * * * *   → minutes 0, 10, 20, 30 of every hour
+0 8-18/2 * * *    → every 2 hours between 8 AM and 6 PM</code></pre>
+            </section>
+
+            <section>
+                <h2>Common schedules — ready to copy</h2>
+
+                <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--border-color);">
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Expression</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Meaning</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>* * * * *</code></td><td style="padding:8px 12px;">Every minute</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>*/5 * * * *</code></td><td style="padding:8px 12px;">Every 5 minutes</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>*/15 * * * *</code></td><td style="padding:8px 12px;">Every 15 minutes</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 * * * *</code></td><td style="padding:8px 12px;">At the start of every hour</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 0 * * *</code></td><td style="padding:8px 12px;">Every day at midnight</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 6 * * *</code></td><td style="padding:8px 12px;">Every day at 6:00 AM</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 9 * * 1-5</code></td><td style="padding:8px 12px;">Weekdays at 9:00 AM</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 9,17 * * 1-5</code></td><td style="padding:8px 12px;">Weekdays at 9 AM and 5 PM</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 0 * * 0</code></td><td style="padding:8px 12px;">Every Sunday at midnight</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 0 * * 1</code></td><td style="padding:8px 12px;">Every Monday at midnight</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 0 1 * *</code></td><td style="padding:8px 12px;">First day of every month at midnight</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 0 1,15 * *</code></td><td style="padding:8px 12px;">1st and 15th of every month at midnight</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 0 L * *</code></td><td style="padding:8px 12px;">Last day of the month (Linux cron / Quartz only)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 0 1 1 *</code></td><td style="padding:8px 12px;">January 1st at midnight (yearly)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 */4 * * *</code></td><td style="padding:8px 12px;">Every 4 hours (midnight, 4 AM, 8 AM, …)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>30 23 * * *</code></td><td style="padding:8px 12px;">Every day at 11:30 PM</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>0 8-18 * * 1-5</code></td><td style="padding:8px 12px;">Business hours (8 AM–6 PM, Mon–Fri)</td></tr>
+                        <tr><td style="padding:8px 12px;"><code>0 0 * * 6,0</code></td><td style="padding:8px 12px;">Every weekend (Sat and Sun) at midnight</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>Day-of-month vs day-of-week: the OR rule</h2>
+                <p>One of the most confusing behaviours in CRON: if both the day-of-month <em>and</em> day-of-week fields are set to something other than <code>*</code>, most systems use <strong>OR</strong> logic, not AND.</p>
+                <p>For example, <code>0 0 15 * 1</code> runs at midnight on the 15th of every month <em>and also</em> on every Monday. If you wanted "the 15th only if it is a Monday", you cannot express that in a standard CRON expression — you would need to handle it inside the script itself.</p>
+                <p>If one of the two fields is <code>*</code>, the OR rule collapses to the non-wildcard field only. So <code>0 0 15 * *</code> runs only on the 15th, and <code>0 0 * * 1</code> runs only on Mondays.</p>
+            </section>
+
+            <section>
+                <h2>How CRON handles time zones</h2>
+                <p>Classic <code>crontab</code> on Linux always uses the server's local time zone (set by <code>/etc/timezone</code> or the <code>TZ</code> environment variable). Cloud schedulers like AWS EventBridge, GitHub Actions scheduled workflows, and Google Cloud Scheduler default to UTC.</p>
+                <p><strong>The safe default:</strong> always write CRON expressions in UTC and document the UTC offset alongside the job definition. This avoids surprises when daylight saving time shifts clocks by an hour — a job set to run "at 2:00 AM" will either skip or run twice on DST changeover days if the schedule is in local time.</p>
+            </section>
+
+            <section>
+                <h2>CRON in cloud and CI environments</h2>
+                <p>CRON syntax is ubiquitous in modern infrastructure:</p>
+                <ul>
+                    <li><strong>GitHub Actions</strong> — <code>on: schedule: cron: "0 9 * * 1"</code> triggers a workflow every Monday at 9:00 UTC.</li>
+                    <li><strong>AWS EventBridge (CloudWatch Events)</strong> — uses the same five-field syntax but adds a 6th field for seconds in some places.</li>
+                    <li><strong>Kubernetes CronJob</strong> — the <code>spec.schedule</code> field accepts a standard five-field expression.</li>
+                    <li><strong>Google Cloud Scheduler</strong> — accepts standard CRON expressions, runs in UTC by default (configurable per job).</li>
+                    <li><strong>Heroku Scheduler</strong> — limited syntax; supports only <code>every 10 minutes</code>, <code>every hour</code>, and <code>every day at HH:00</code>.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Why expressions are harder to read than they look</h2>
+                <p>A few traps that catch even experienced engineers:</p>
+                <ul>
+                    <li><strong>Month and weekday are 1-based and 0-based respectively.</strong> Month <code>1</code> is January; weekday <code>0</code> is Sunday (not Monday). Some implementations also accept <code>7</code> as Sunday — check your platform's docs.</li>
+                    <li><strong>Minutes come first, not hours.</strong> It is easy to swap them. <code>0 8 * * *</code> is 8:00 AM; <code>8 0 * * *</code> is 0:08 AM.</li>
+                    <li><strong>Ranges are inclusive on both ends.</strong> <code>1-5</code> in the weekday field means Monday through Friday, and includes both 1 and 5.</li>
+                    <li><strong><code>*/n</code> starts from zero (or the field minimum).</strong> <code>*/7</code> in the day-of-month field matches days 1, 8, 15, 22, 29 — not "every 7 days from today".</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Testing before you deploy</h2>
+                <p>Getting a CRON expression wrong is easy. Getting the consequences wrong — a billing job that runs every minute instead of every month — is expensive. Always test before deploying:</p>
+                <ol>
+                    <li>Use the <a href="../cron.html">CRON Expression Generator</a> on this site to see the plain-English description and the next 5 scheduled datetimes.</li>
+                    <li>On Linux, use <code>cronitor select</code> or install <code>cron-descriptor</code> (<code>pip install cron-descriptor</code>) to convert an expression to English at the command line.</li>
+                    <li>In Node.js, <code>cron-parser</code> (<code>npm install cron-parser</code>) lets you iterate over the next N fire times programmatically.</li>
+                    <li>For Kubernetes CronJobs, run a manual job first (<code>kubectl create job --from=cronjob/&lt;name&gt;</code>) to validate the job script itself before the schedule triggers it.</li>
+                </ol>
+            </section>
+
+            <section>
+                <h2>Quick reference: all special characters</h2>
+                <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--border-color);">
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Character</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Name</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Example</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Meaning</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>*</code></td><td style="padding:8px 12px;">Wildcard</td><td style="padding:8px 12px;"><code>*</code></td><td style="padding:8px 12px;">Every value</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>*/n</code></td><td style="padding:8px 12px;">Step</td><td style="padding:8px 12px;"><code>*/5</code></td><td style="padding:8px 12px;">Every 5th value (0, 5, 10, …)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>-</code></td><td style="padding:8px 12px;">Range</td><td style="padding:8px 12px;"><code>1-5</code></td><td style="padding:8px 12px;">Values 1 through 5 inclusive</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><code>,</code></td><td style="padding:8px 12px;">List</td><td style="padding:8px 12px;"><code>1,15</code></td><td style="padding:8px 12px;">Values 1 and 15</td></tr>
+                        <tr><td style="padding:8px 12px;"><code>n-m/p</code></td><td style="padding:8px 12px;">Range + step</td><td style="padding:8px 12px;"><code>8-18/2</code></td><td style="padding:8px 12px;">Every 2nd value from 8 to 18</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>Summary</h2>
+                <p>CRON expressions follow a consistent five-field pattern: <code>minute hour day-of-month month day-of-week</code>. Master the four special characters (<code>*</code>, <code>/</code>, <code>-</code>, <code>,</code>) and you can express almost any recurring schedule. The main pitfalls are field order confusion, the month/weekday OR rule, and time zone assumptions — all of which you can catch before deploying by running the expression through a tester and reading the plain-English description.</p>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Ready to build or test your CRON expression?</strong></p>
+                    <a href="../cron.html" class="btn btn-primary" style="display:inline-block;">Open CRON Expression Generator →</a>
+                </div>
+            </section>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>

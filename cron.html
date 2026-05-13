@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free online CRON expression generator and tester. Build CRON schedules with a visual editor, get plain-English descriptions, and see the next 5 run times instantly. No signup required.">
+    <meta name="keywords" content="cron expression generator, cron expression tester, cron syntax, cron parser online, crontab generator, cron schedule, cron expression explainer">
+    <link rel="canonical" href="https://jsondevtools.org/cron.html">
+    <meta property="og:title" content="CRON Expression Generator & Tester Online – Free">
+    <meta property="og:description" content="Build CRON schedules visually, get plain-English descriptions, and see next run times. Free, fast, private — runs in your browser.">
+    <meta property="og:url" content="https://jsondevtools.org/cron.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>CRON Expression Generator & Tester Online – Free</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "CRON Expression Generator", "item": "https://jsondevtools.org/cron.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "CRON Expression Generator & Tester",
+      "url": "https://jsondevtools.org/cron.html",
+      "description": "Free online CRON expression generator and tester. Build schedules visually, get plain-English descriptions, and see next run times.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is a CRON expression?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A CRON expression is a string with five space-separated fields that defines a schedule: minute, hour, day-of-month, month, and day-of-week. For example, '0 9 * * 1-5' means every weekday at 9:00 AM." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does * mean in CRON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "An asterisk (*) in a CRON field means 'every valid value'. For example, * in the minute field means every minute, and * in the hour field means every hour." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I run a CRON job every 5 minutes?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use */5 in the minute field: '*/5 * * * *'. This means 'every 5 minutes'. The slash syntax means step — */5 means every 5th value starting from 0." }
+        }
+      ]
+    }
+    </script>
+    <style>
+        .cron-expr-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+        #cronInput {
+            flex: 1;
+            min-width: 220px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding: 10px 14px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: #fff;
+            color: var(--text-light);
+            transition: border-color 0.2s;
+        }
+        #cronInput:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.12);
+        }
+        body.dark-mode #cronInput {
+            background: #111;
+            border-color: #3a3a3a;
+            color: #a5c8ea;
+        }
+        .cron-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 22px;
+        }
+        .cron-preset-btn {
+            padding: 5px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            background: var(--light-bg);
+            color: var(--text-light);
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        .cron-preset-btn:hover {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: #fff;
+        }
+        body.dark-mode .cron-preset-btn {
+            background: #1a1a1a;
+            border-color: #3a3a3a;
+            color: #c0c8d8;
+        }
+        body.dark-mode .cron-preset-btn:hover {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: #fff;
+        }
+        .cron-fields {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 640px) {
+            .cron-fields { grid-template-columns: 1fr 1fr; }
+        }
+        .cron-field {
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+        body.dark-mode .cron-field {
+            background: #1a1a1a;
+            border-color: #3a3a3a;
+        }
+        .cron-field label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--secondary-color);
+            margin-bottom: 6px;
+        }
+        .cron-field label span {
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            opacity: 0.7;
+        }
+        .cron-field input {
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 7px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--text-light);
+            box-sizing: border-box;
+        }
+        .cron-field input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.12);
+        }
+        body.dark-mode .cron-field input {
+            background: #111;
+            border-color: #444;
+            color: #a5c8ea;
+        }
+        #cronError {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #b91c1c;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.9rem;
+            margin-bottom: 18px;
+        }
+        body.dark-mode #cronError {
+            background: #2a1a1a;
+            border-color: #7f1d1d;
+            color: #fca5a5;
+        }
+        .cron-results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 4px;
+        }
+        @media (max-width: 640px) { .cron-results { grid-template-columns: 1fr; } }
+        .cron-result-panel {
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px 18px;
+            min-height: 90px;
+        }
+        body.dark-mode .cron-result-panel {
+            background: #1a1a1a;
+            border-color: #3a3a3a;
+        }
+        .cron-panel-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+        }
+        #cronDescription {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-light);
+            line-height: 1.5;
+        }
+        body.dark-mode #cronDescription { color: #c8d8ee; }
+        #nextRunsList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .cron-run-item {
+            font-family: 'Courier New', monospace;
+            font-size: 0.88rem;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-light);
+        }
+        .cron-run-item:last-child { border-bottom: none; }
+        body.dark-mode .cron-run-item {
+            border-color: #2a2a2a;
+            color: #9ab5cc;
+        }
+        .cron-ref-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }
+        .cron-ref-table th, .cron-ref-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .cron-ref-table th {
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--secondary-color);
+        }
+        .cron-ref-table code {
+            font-family: 'Courier New', monospace;
+            font-size: 0.88rem;
+            background: var(--light-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        body.dark-mode .cron-ref-table th,
+        body.dark-mode .cron-ref-table td { border-color: #2a2a2a; }
+        body.dark-mode .cron-ref-table code { background: #111; }
+        body.dark-mode .cron-ref-table tbody tr:hover { background: #1a1a1a; }
+        .cron-ref-table tbody tr:hover { background: var(--light-bg); }
+    </style>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="formatter.html" class="nav-cta">JSON Formatter</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="json-validator.html">JSON Validator</a></li>
+                            <li><a href="json-minifier.html">JSON Minifier</a></li>
+                            <li><a href="json-viewer.html">JSON Viewer</a></li>
+                            <li><a href="json-beautifier.html">JSON Beautifier</a></li>
+                            <li><a href="json-diff.html">JSON Diff</a></li>
+                            <li><a href="jsonpath.html">JSONPath Tester</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="json-to-csv.html">JSON &#8594; CSV</a></li>
+                            <li><a href="csv-to-json.html">CSV &#8594; JSON</a></li>
+                            <li><a href="json-to-yaml.html">JSON &#8594; YAML</a></li>
+                            <li><a href="yaml-to-json.html">YAML &#8594; JSON</a></li>
+                            <li><a href="json-to-xml.html">JSON &#8594; XML</a></li>
+                            <li><a href="xml-to-json.html">XML &#8594; JSON</a></li>
+                            <li><a href="json-to-typescript.html">JSON &#8594; TypeScript</a></li>
+                            <li><a href="px-to-rem.html">Px &#8596; Rem</a></li>
+                            <li><a href="timestamp.html">Timestamp</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="base64.html">Base64</a></li>
+                            <li><a href="url-encoder.html">URL Encoder</a></li>
+                            <li><a href="jwt-decoder.html">JWT Decoder</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="uuid.html">UUID Generator</a></li>
+                            <li><a href="hash.html">Hash Generator</a></li>
+                            <li><a href="cron.html">CRON Generator</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>CRON Expression Generator & Tester</h1>
+            <p>Build CRON schedules visually, get plain-English descriptions, and see the next run times — all in your browser.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+
+            <!-- Expression row -->
+            <div class="cron-expr-row">
+                <input id="cronInput" type="text" value="0 0 * * *" aria-label="CRON expression" spellcheck="false" autocomplete="off">
+                <button id="parseBtn" class="btn btn-primary">Parse</button>
+                <button id="copyCronBtn" class="btn btn-secondary">Copy</button>
+            </div>
+
+            <!-- Presets -->
+            <div class="cron-presets" role="group" aria-label="Quick presets">
+                <button class="cron-preset-btn" data-cron-preset="* * * * *">Every minute</button>
+                <button class="cron-preset-btn" data-cron-preset="0 * * * *">Every hour</button>
+                <button class="cron-preset-btn" data-cron-preset="0 0 * * *">Daily midnight</button>
+                <button class="cron-preset-btn" data-cron-preset="0 9 * * 1-5">Weekdays 9 am</button>
+                <button class="cron-preset-btn" data-cron-preset="0 0 * * 0">Weekly Sunday</button>
+                <button class="cron-preset-btn" data-cron-preset="0 0 1 * *">Monthly 1st</button>
+                <button class="cron-preset-btn" data-cron-preset="*/15 * * * *">Every 15 min</button>
+                <button class="cron-preset-btn" data-cron-preset="0 0 1 1 *">Yearly Jan 1</button>
+            </div>
+
+            <!-- Field builder -->
+            <div class="cron-fields" role="group" aria-label="CRON field editor">
+                <div class="cron-field">
+                    <label for="cronMinute">Minute <span>(0–59)</span></label>
+                    <input id="cronMinute" type="text" value="0" aria-label="Minute field" spellcheck="false">
+                </div>
+                <div class="cron-field">
+                    <label for="cronHour">Hour <span>(0–23)</span></label>
+                    <input id="cronHour" type="text" value="0" aria-label="Hour field" spellcheck="false">
+                </div>
+                <div class="cron-field">
+                    <label for="cronDay">Day <span>(1–31)</span></label>
+                    <input id="cronDay" type="text" value="*" aria-label="Day-of-month field" spellcheck="false">
+                </div>
+                <div class="cron-field">
+                    <label for="cronMonth">Month <span>(1–12)</span></label>
+                    <input id="cronMonth" type="text" value="*" aria-label="Month field" spellcheck="false">
+                </div>
+                <div class="cron-field">
+                    <label for="cronWeekday">Weekday <span>(0–6)</span></label>
+                    <input id="cronWeekday" type="text" value="*" aria-label="Day-of-week field (0=Sun)" spellcheck="false">
+                </div>
+            </div>
+
+            <!-- Error -->
+            <div id="cronError" role="alert" style="display:none;"></div>
+
+            <!-- Results -->
+            <div class="cron-results">
+                <div class="cron-result-panel">
+                    <div class="cron-panel-label">Description</div>
+                    <div id="cronDescription" aria-live="polite"></div>
+                </div>
+                <div class="cron-result-panel">
+                    <div class="cron-panel-label">Next 5 Runs (local time)</div>
+                    <ul id="nextRunsList" aria-live="polite"></ul>
+                </div>
+            </div>
+
+            <!-- Syntax reference -->
+            <div style="margin-top:32px;">
+                <h3 style="font-size:1rem; margin-bottom:12px;">CRON Syntax Quick Reference</h3>
+                <table class="cron-ref-table" aria-label="CRON syntax reference">
+                    <thead>
+                        <tr>
+                            <th>Pattern</th>
+                            <th>Meaning</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>*</code></td><td>Every value</td><td><code>*</code> in hour = every hour</td></tr>
+                        <tr><td><code>*/n</code></td><td>Every n-th value</td><td><code>*/5</code> in minute = every 5 min</td></tr>
+                        <tr><td><code>n</code></td><td>Specific value</td><td><code>9</code> in hour = 9 AM</td></tr>
+                        <tr><td><code>n-m</code></td><td>Range</td><td><code>1-5</code> in weekday = Mon–Fri</td></tr>
+                        <tr><td><code>n,m,p</code></td><td>List</td><td><code>1,15</code> in dom = 1st and 15th</td></tr>
+                        <tr><td><code>n-m/p</code></td><td>Range with step</td><td><code>0-12/2</code> in hour = every 2h, midnight–noon</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="info-section">
+            <h3>About CRON Expressions</h3>
+            <p>CRON is a time-based job scheduler used in Unix-like systems. A CRON expression is a compact string of five fields that defines when a task should run: minute, hour, day of month, month, and day of week.</p>
+            <ul>
+                <li>Use <code>*</code> to mean "every" — <code>* * * * *</code> runs every minute</li>
+                <li>Use <code>*/n</code> for intervals — <code>*/15 * * * *</code> runs every 15 minutes</li>
+                <li>Use <code>n-m</code> for ranges — <code>0 9 * * 1-5</code> runs at 9 AM on weekdays</li>
+                <li>Separate multiple values with commas — <code>0 9,17 * * *</code> runs at 9 AM and 5 PM</li>
+            </ul>
+            <p>Learn more in the companion guide: <a href="blog/understanding-cron.html">Understanding CRON Expressions with Examples</a>.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>What is a CRON expression?</summary>
+                <p>A CRON expression is a string with five space-separated fields that defines a recurring schedule: minute (0–59), hour (0–23), day-of-month (1–31), month (1–12), and day-of-week (0–6, where 0 = Sunday). For example, <code>0 9 * * 1-5</code> means every weekday at 9:00 AM.</p>
+            </details>
+            <details>
+                <summary>What does * mean in CRON?</summary>
+                <p>An asterisk (<code>*</code>) means "every valid value" for that field. For example, <code>*</code> in the minute field means every minute, and <code>*</code> in the hour field means every hour.</p>
+            </details>
+            <details>
+                <summary>How do I run a CRON job every 5 minutes?</summary>
+                <p>Use <code>*/5 * * * *</code>. The <code>/</code> syntax means "step" — <code>*/5</code> means every 5th value starting from 0 (so 0, 5, 10, 15, …).</p>
+            </details>
+            <details>
+                <summary>Can CRON run on a specific day and day of week at the same time?</summary>
+                <p>Yes. If both the day-of-month and day-of-week fields are restricted (not <code>*</code>), most CRON implementations use OR logic — the job runs when either condition matches. This tool follows the same behaviour.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="uuid.html">UUID Generator</a></li>
+                <li><a href="hash.html">Hash Generator</a></li>
+                <li><a href="timestamp.html">Timestamp Converter</a></li>
+                <li><a href="formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/cron-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>

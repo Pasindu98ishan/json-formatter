@@ -236,8 +236,10 @@ Week 3:  ✅ jsonpath.html + json-to-typescript.html (tools)
 Week 4:  ✅ px-to-rem.html + js/px-to-rem-tool.js (CSS unit converter — quick-win bonus)
          ✅ blog/px-to-rem-guide.html (companion post)
          ✅ Sitemap + json-tools.html hub + blog/index.html + nav dropdown rolled out across all 72 pages
-         [ ] cron.html
-         [ ] blog/understanding-cron.html
+         ✅ cron.html + js/cron-tool.js (CRON expression generator & tester)
+         ✅ blog/understanding-cron.html (companion post)
+         ✅ Sitemap + json-tools.html hub + blog/index.html + nav dropdown rolled out across all 77 pages
+         ✅ Upload JSON button added to formatter.html + json-validator.html (FileReader, matches json-to-csv pattern)
          [ ] Marketing: Reddit posts (one per new tool, spread over the week)
 ```
 
@@ -304,9 +306,9 @@ Week 4:  ✅ px-to-rem.html + js/px-to-rem-tool.js (CSS unit converter — quick
 | `js/json-to-typescript-tool.js` | TypeScript interface generator JS | P2 | ✅ Done |
 | `blog/jsonpath-guide.html` | Companion blog post | P2 | ✅ Done |
 | `blog/json-to-typescript.html` | Companion blog post | P2 | ✅ Done |
-| `cron.html` | New tool page | P3 | [ ] Pending |
-| `js/cron-tool.js` | CRON parser + next-runs calculator JS | P3 | [ ] Pending |
-| `blog/understanding-cron.html` | Companion blog post | P3 | [ ] Pending |
+| `cron.html` | New tool page | P3 | ✅ Done |
+| `js/cron-tool.js` | CRON parser + next-runs calculator JS | P3 | ✅ Done |
+| `blog/understanding-cron.html` | Companion blog post | P3 | ✅ Done |
 | `px-to-rem.html` | New tool page (CSS unit converter) | P2 | ✅ Done |
 | `js/px-to-rem-tool.js` | Px↔Rem converter + bulk CSS regex transform | P2 | ✅ Done |
 | `blog/px-to-rem-guide.html` | Companion blog post | P2 | ✅ Done |

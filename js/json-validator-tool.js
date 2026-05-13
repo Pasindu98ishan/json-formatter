@@ -135,6 +135,24 @@ document.addEventListener('DOMContentLoaded', function () {
         inputJSON.addEventListener('paste', () => trackEvent('tool_start', { tool: 'json_validator' }));
     }
 
+    const jsonFileInput = document.getElementById('jsonFileInput');
+    if (jsonFileInput) {
+        jsonFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                inputJSON.value = evt.target.result;
+                outputText.value = '';
+                resetStatus();
+                trackEvent('upload_json', { tool: 'validator' });
+            };
+            reader.onerror = function() { showMessage('Error reading file.', false); };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+    }
+
     initDragDrop('inputJSON', function(content) {
         inputJSON.value = content;
         trackEvent('tool_start', { tool: 'json_validator' });

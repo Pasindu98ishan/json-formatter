@@ -808,6 +808,7 @@ body.dark-mode .drag-over {
     border-radius: 6px;
     overflow: hidden;
     min-height: 400px;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 #cmInputEditor .cm-editor,
@@ -816,15 +817,34 @@ body.dark-mode .drag-over {
     outline: none;
 }
 
+/* Soft panel-level glow instead of the harsh internal blue line */
+#cmInputEditor:focus-within {
+    border-color: rgba(13, 92, 191, 0.55);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.12);
+}
+
 #cmInputEditor .cm-editor.cm-focused,
 #cmOutputEditor .cm-editor.cm-focused {
-    outline: 2px solid var(--primary-color);
-    outline-offset: -2px;
+    outline: none;
 }
 
 body.dark-mode #cmInputEditor,
 body.dark-mode #cmOutputEditor {
     border-color: #444;
+}
+
+body.dark-mode #cmInputEditor:focus-within {
+    border-color: rgba(102, 178, 255, 0.45);
+    box-shadow: 0 0 0 3px rgba(102, 178, 255, 0.1);
+}
+
+/* When inside a panel: panel border handles focus, remove standalone styling */
+.csv-input-panel #cmInputEditor,
+.csv-input-panel #cmOutputEditor {
+    border: none;
+    border-radius: 0;
+    box-shadow: none !important;
+    flex: 1;
 }
 
 /* Syntax-Highlighted Output */
@@ -1417,13 +1437,31 @@ body.dark-mode .csv-preview-table tbody tr:nth-child(even) {
     background: #252525;
 }
 
-/* JSON→CSV input panel */
+/* JSON→CSV input panel — also used by formatter & validator input/output */
 .csv-input-panel {
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     overflow: hidden;
+    flex: 1;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.csv-input-panel:focus-within {
+    border-color: rgba(13, 92, 191, 0.55);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.12);
+}
+
+body.dark-mode .csv-input-panel:focus-within {
+    border-color: rgba(102, 178, 255, 0.45);
+    box-shadow: 0 0 0 3px rgba(102, 178, 255, 0.1);
+}
+
+.csv-input-panel .output-pre {
+    border: none;
+    border-radius: 0;
+    margin: 0;
     flex: 1;
 }
 
@@ -1460,27 +1498,33 @@ body.dark-mode .csv-preview-table tbody tr:nth-child(even) {
     box-shadow: none;
 }
 
-/* File upload button */
+/* File upload button — ghost style, low visual weight */
 .file-upload-btn {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 12px;
-    background: white;
-    color: var(--primary-color);
-    border: 1px solid var(--primary-color);
-    border-radius: 4px;
+    gap: 4px;
+    padding: 3px 9px;
+    background: transparent;
+    color: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 500;
     user-select: none;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
     white-space: nowrap;
+    line-height: 1;
+}
+
+.file-upload-btn svg {
+    flex-shrink: 0;
 }
 
 .file-upload-btn:hover {
-    background: var(--primary-color);
-    color: white;
+    background: var(--light-bg);
+    color: var(--text-light);
+    border-color: #b0b8c4;
 }
 
 body.dark-mode .csv-input-header {
@@ -1494,13 +1538,14 @@ body.dark-mode .csv-input-panel {
 
 body.dark-mode .file-upload-btn {
     background: transparent;
-    color: #66b2ff;
-    border-color: #66b2ff;
+    color: #6b7a8d;
+    border-color: #3a3a3a;
 }
 
 body.dark-mode .file-upload-btn:hover {
-    background: #66b2ff;
-    color: #1a1a1a;
+    background: #252525;
+    color: #b0bac8;
+    border-color: #555;
 }
 
 /* Keyboard shortcut hint */
