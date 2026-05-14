@@ -72,6 +72,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // Close dropdowns on Escape key
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        closeOthers(null);
+        navLinks.classList.remove('nav-open');
+        hamburger.setAttribute('aria-expanded', 'false');
+        hamburger.classList.remove('is-open');
+    });
+
     // Close dropdowns + mobile menu when clicking outside
     document.addEventListener('click', function () {
         document.querySelectorAll('.nav-dropdown.open').forEach(function (d) {
