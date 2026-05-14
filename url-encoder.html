@@ -53,17 +53,27 @@
         {
           "@type": "Question",
           "name": "What is URL encoding used for?",
-          "acceptedAnswer": { "@type": "Answer", "text": "URL encoding replaces unsafe characters so text and query parameters can safely travel through browsers and servers." }
+          "acceptedAnswer": { "@type": "Answer", "text": "URL encoding (percent-encoding) replaces characters that are unsafe or reserved in a URL — such as spaces, ampersands, slashes, and quotes — with a % followed by two hex digits. Browsers, servers, and APIs all rely on this encoding to correctly parse parameters without misinterpreting delimiters." }
         },
         {
           "@type": "Question",
           "name": "Should I encode spaces as + or %20?",
-          "acceptedAnswer": { "@type": "Answer", "text": "This tool uses standard percent-encoding, so spaces become %20. For form data, + may be used instead." }
+          "acceptedAnswer": { "@type": "Answer", "text": "In HTML form query strings (application/x-www-form-urlencoded), spaces are encoded as +. In all other URL contexts — path segments, fragment identifiers, and modern APIs — use %20. This tool uses %20 via encodeURIComponent, which is safe everywhere." }
         },
         {
           "@type": "Question",
           "name": "Can I decode already encoded URLs?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Paste an encoded URL or string and choose the Decode option to restore the original text." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Paste an encoded string and click Decode URL to restore the original text. The tool uses decodeURIComponent internally, which handles all standard percent-encoded sequences." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between encodeURI and encodeURIComponent?",
+          "acceptedAnswer": { "@type": "Answer", "text": "encodeURI encodes a complete URL and preserves structural characters like : / ? # &. encodeURIComponent encodes a single component (query value or path segment) and also encodes those structural characters. Use encodeURIComponent for individual query parameter values." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is URL encoding the same as Base64?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. URL encoding converts individual unsafe characters to %XX sequences so the URL stays readable. Base64 encodes arbitrary binary data into 64 printable ASCII characters. URL encoding is for passing values in URLs; Base64 is for embedding binary data in text formats." }
         }
       ]
     }
@@ -160,34 +170,63 @@
             <!-- Info Section -->
             <div class="info-section">
                 <h3>About URL Encoding</h3>
-                <p>URL encoding (also known as percent-encoding) converts special characters in URLs to a format that can be safely transmitted. It's used for:</p>
+                <p>URL encoding — also called percent-encoding — converts characters that are not allowed or that carry special meaning in a URL into a safe format. Every unsafe character is replaced by a <code>%</code> sign followed by two hexadecimal digits that represent the character's ASCII value. For example, a space becomes <code>%20</code> and an ampersand becomes <code>%26</code>.</p>
+                <p>The rules are defined in <a href="https://datatracker.ietf.org/doc/html/rfc3986" rel="noopener noreferrer" target="_blank">RFC 3986</a>. Characters that must always be encoded include spaces, quotation marks, angle brackets, curly braces, pipes, backslashes, and control characters. Characters that are safe to leave unencoded include letters A–Z, digits 0–9, and the symbols <code>-</code> <code>_</code> <code>.</code> <code>~</code>.</p>
+                <h4>When do you need URL encoding?</h4>
                 <ul>
-                    <li>Query parameters with special characters</li>
-                    <li>Form submissions</li>
-                    <li>API requests with dynamic data</li>
-                    <li>Safe URL transmission over networks</li>
+                    <li><strong>Query parameters</strong> — values after <code>?key=</code> that may contain <code>&amp;</code>, <code>=</code>, or spaces</li>
+                    <li><strong>Form submissions</strong> — <code>application/x-www-form-urlencoded</code> form data uses percent-encoding</li>
+                    <li><strong>REST API paths</strong> — dynamic path segments such as <code>/users/john%40example.com</code></li>
+                    <li><strong>OAuth &amp; JWT tokens</strong> — signatures often contain <code>+</code> and <code>/</code> which must be encoded in URLs</li>
+                    <li><strong>Sharing links</strong> — URLs embedded in emails or documents that pass through multiple systems</li>
                 </ul>
-                <p><strong>Examples:</strong><br>
-                Space → %20<br>
-                ! → %21<br>
-                @ → %40
-                </p>
-                <p>Working with JSON in URLs? Use <a href="formatter.html">JSON Formatter</a> first to tidy the data and <a href="json-validator.html">JSON Validator</a> to ensure it is valid.</p>
+                <h4>Common character encoding reference</h4>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:monospace;margin:12px 0">
+                    <thead><tr style="background:var(--light-bg);text-align:left"><th style="padding:6px 10px;border:1px solid var(--border-color)">Character</th><th style="padding:6px 10px;border:1px solid var(--border-color)">Encoded</th><th style="padding:6px 10px;border:1px solid var(--border-color)">Notes</th></tr></thead>
+                    <tbody>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">Space</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%20</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Also written as + in form data</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">!</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%21</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Sub-delimiter</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">"</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%22</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Always encode in URLs</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">#</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%23</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Fragment separator — encode in query values</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">%</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%25</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Must encode the % sign itself</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">&amp;</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%26</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Query-string delimiter — encode in values</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">+</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%2B</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Unencoded + means space in form data</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">/</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%2F</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Path delimiter — encode in path segments</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">:</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%3A</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Scheme separator</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">=</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%3D</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Key=value delimiter — encode in values</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">?</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%3F</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Query-string start — encode in query values</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">@</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%40</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Common in email addresses in URLs</td></tr>
+                        <tr><td style="padding:5px 10px;border:1px solid var(--border-color)">[  ]</td><td style="padding:5px 10px;border:1px solid var(--border-color)">%5B  %5D</td><td style="padding:5px 10px;border:1px solid var(--border-color)">Used in array query params</td></tr>
+                    </tbody>
+                </table>
+                <p>Working with JSON in URLs? Use <a href="formatter.html">JSON Formatter</a> first to tidy the data, <a href="json-validator.html">JSON Validator</a> to ensure it is valid, then paste the minified JSON here to encode it safely for a query parameter.</p>
             </div>
         </section>
         <section class="faq-section">
             <h2>Frequently Asked Questions</h2>
             <details>
                 <summary>What is URL encoding used for?</summary>
-                <p>URL encoding replaces unsafe characters so text and query parameters can safely travel through browsers and servers.</p>
+                <p>URL encoding (percent-encoding) replaces characters that are unsafe or reserved in a URL — such as spaces, ampersands, slashes, and quotes — with a <code>%</code> followed by two hex digits. Browsers, servers, and APIs all rely on this encoding to correctly parse parameters, path segments, and fragments without misinterpreting delimiters.</p>
             </details>
             <details>
                 <summary>Should I encode spaces as + or %20?</summary>
-                <p>This tool uses standard percent-encoding, so spaces become %20. For form data, + may be used instead.</p>
+                <p>It depends on context. In the query string of an HTML form (<code>application/x-www-form-urlencoded</code>), spaces are traditionally encoded as <code>+</code>. In all other URL contexts — path segments, fragment identifiers, and modern APIs — use <code>%20</code>. This tool uses <code>%20</code> (standard percent-encoding via JavaScript's <code>encodeURIComponent</code>), which is safe everywhere.</p>
             </details>
             <details>
                 <summary>Can I decode already encoded URLs?</summary>
-                <p>Yes. Paste an encoded URL or string and choose the Decode option to restore the original text.</p>
+                <p>Yes. Paste an encoded string (e.g. <code>hello%20world%21</code>) and click <strong>Decode URL</strong> to restore the original text. The tool uses <code>decodeURIComponent</code> internally, which handles all standard percent-encoded sequences.</p>
+            </details>
+            <details>
+                <summary>What is the difference between encodeURI and encodeURIComponent?</summary>
+                <p><code>encodeURI</code> encodes a complete URL — it preserves structural characters like <code>:</code> <code>/</code> <code>?</code> <code>#</code> <code>&amp;</code> because they have meaning in the URL structure. <code>encodeURIComponent</code> encodes a URL component (a single query value or path segment) — it encodes those structural characters too, since they must not be misread as URL delimiters inside a value. Use <code>encodeURIComponent</code> for individual query parameter values; use <code>encodeURI</code> only for full URLs you want to make safe without breaking their structure.</p>
+            </details>
+            <details>
+                <summary>Why does my API reject characters even after encoding?</summary>
+                <p>Some APIs double-encode or have strict allow-lists. Check that you are not encoding an already-encoded string (which would turn <code>%20</code> into <code>%2520</code>). Also verify that the API expects <code>%20</code> for spaces rather than <code>+</code>, and that special characters in the base URL itself (like <code>:</code> and <code>/</code>) are not being encoded — those should only be encoded inside parameter values, not in the URL structure itself.</p>
+            </details>
+            <details>
+                <summary>Is URL encoding the same as Base64?</summary>
+                <p>No. URL encoding converts individual unsafe characters to <code>%XX</code> sequences so the URL stays readable and close to its original form. <a href="base64.html">Base64 encoding</a> converts arbitrary binary data into a fixed set of 64 printable ASCII characters — the output looks nothing like the input. URL encoding is used to pass values in URLs; Base64 is used to embed binary data (images, files) in text formats like JSON or HTML.</p>
             </details>
         </section>
         <section class="related-tools">
@@ -196,6 +235,7 @@
                 <li><a href="formatter.html">JSON Formatter</a></li>
                 <li><a href="json-validator.html">JSON Validator</a></li>
                 <li><a href="base64.html">Base64 Encoder</a></li>
+                <li><a href="jwt-decoder.html">JWT Decoder</a></li>
             </ul>
         </section>
     </main>
