@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Why is your API returning HTML instead of JSON? Learn every cause — 404 pages, 500 errors, auth redirects, CORS, and wrong Content-Type — with code to diagnose and fix each one.">
+    <meta name="keywords" content="api returning html instead of json, why is my api returning html, fetch returns html not json, server returned html instead of json, unexpected token in json">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/api-returning-html-instead-of-json.html">
+    <meta property="og:title" content="Why Is My API Returning HTML Instead of JSON?">
+    <meta property="og:description" content="Every cause of an API returning HTML instead of JSON — wrong URL, server errors, auth redirects, CORS — with diagnostic steps and fixes.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/api-returning-html-instead-of-json.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Why Is My API Returning HTML Instead of JSON? | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Why Is My API Returning HTML Instead of JSON?", "item": "https://jsondevtools.org/blog/api-returning-html-instead-of-json.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Why Is My API Returning HTML Instead of JSON?",
+      "description": "Every cause of an API returning HTML instead of JSON — 404 pages, 500 errors, auth redirects, CORS, wrong Content-Type — with diagnostic steps and fixes.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-14",
+      "dateModified": "2026-05-14",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why does my fetch() call return HTML instead of JSON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The server is returning an HTML error page (404, 500, or a login redirect) instead of your expected JSON. The URL might be wrong, the server may have crashed, or you need to authenticate before the API will respond with data." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I check what my server actually returned?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Call response.text() instead of response.json() and log the result. This gives you the raw response body — usually an HTML error page — which shows you exactly what went wrong. Also check response.status and response.headers.get('content-type')." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I fix 'Unexpected token < in JSON at position 0'?",
+          "acceptedAnswer": { "@type": "Answer", "text": "This error means your server returned HTML (which starts with < ) and you tried to parse it as JSON. Fix the underlying cause: correct the URL, handle auth, or fix the server error. Check the HTTP status code before calling .json() to catch error responses before they reach the parser." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why would an authenticated API return HTML?",
+          "acceptedAnswer": { "@type": "Answer", "text": "When your session expires or your token is missing/invalid, many APIs redirect to a login page (301/302) instead of returning a 401 JSON error. The fetch() call follows the redirect and you receive the HTML login page. Always send the correct Authorization header and check for 401/403 status codes." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html" class="nav-cta">JSON Formatter</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../json-validator.html">JSON Validator</a></li>
+                            <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                            <li><a href="../json-viewer.html">JSON Viewer</a></li>
+                            <li><a href="../json-beautifier.html">JSON Beautifier</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                            <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../json-to-csv.html">JSON &#8594; CSV</a></li>
+                            <li><a href="../csv-to-json.html">CSV &#8594; JSON</a></li>
+                            <li><a href="../json-to-yaml.html">JSON &#8594; YAML</a></li>
+                            <li><a href="../yaml-to-json.html">YAML &#8594; JSON</a></li>
+                            <li><a href="../json-to-xml.html">JSON &#8594; XML</a></li>
+                            <li><a href="../xml-to-json.html">XML &#8594; JSON</a></li>
+                            <li><a href="../json-to-typescript.html">JSON &#8594; TypeScript</a></li>
+                            <li><a href="../px-to-rem.html">Px &#8596; Rem</a></li>
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../base64.html">Base64</a></li>
+                            <li><a href="../url-encoder.html">URL Encoder</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../uuid.html">UUID Generator</a></li>
+                            <li><a href="../hash.html">Hash Generator</a></li>
+                            <li><a href="../cron.html">CRON Generator</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>Why Is My API Returning HTML Instead of JSON?</span>
+            </nav>
+            <h1>Why Is My API Returning HTML Instead of JSON?</h1>
+            <div class="article-meta">Published May 2026 &middot; 6 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>You call an API, try to parse the response as JSON, and get <code>SyntaxError: Unexpected token '&lt;', "&lt;!DOCTYPE "... is not valid JSON</code>. The server returned an HTML page instead of JSON. This guide covers every reason this happens and how to fix each one.</p>
+
+            <h2>Quick diagnostic</h2>
+            <p>Before looking for the cause, log the raw response:</p>
+            <pre><code>const response = await fetch('/api/data');
+console.log(response.status);                          // HTTP status code
+console.log(response.headers.get('content-type'));     // Should be application/json
+const text = await response.text();
+console.log(text);                                     // See exactly what was returned</code></pre>
+            <p>The <code>status</code> and the first line of <code>text</code> will point you to the correct cause below.</p>
+
+            <h2>Cause 1: Wrong URL (404 Not Found)</h2>
+            <p>The most common cause. A typo in the endpoint, a missing version prefix (<code>/api/v2/</code> vs <code>/api/</code>), or a trailing slash difference routes the request to a 404 page instead of your API handler.</p>
+            <p><strong>Status:</strong> <code>404</code><br>
+            <strong>Content-Type:</strong> <code>text/html</code></p>
+            <pre><code>// Wrong
+fetch('/api/users');       // 404 — endpoint doesn't exist
+
+// Correct
+fetch('/api/v1/users');    // 200 JSON</code></pre>
+            <p><strong>Fix:</strong> Open the Network tab in DevTools, click the request, and check the Request URL. Compare it against the API documentation.</p>
+
+            <h2>Cause 2: Server Error (500 Internal Server Error)</h2>
+            <p>An unhandled exception on the server causes the framework (Express, Django, Rails, etc.) to return an HTML error page with a stack trace. This is the default error handler for most frameworks.</p>
+            <p><strong>Status:</strong> <code>500</code><br>
+            <strong>Content-Type:</strong> <code>text/html</code></p>
+            <pre><code>// Express default behaviour — returns HTML error page
+app.get('/api/data', (req, res) => {
+    throw new Error('Something broke!'); // → HTML 500 page
+});
+
+// Correct — return JSON errors
+app.use((err, req, res, next) => {
+    res.status(500).json({ error: err.message });
+});</code></pre>
+            <p><strong>Fix:</strong> Add a JSON error handler middleware. Check your server logs for the exception causing the 500.</p>
+
+            <h2>Cause 3: Authentication Redirect (Login Page)</h2>
+            <p>When your session expires or your token is invalid, many servers redirect to a login page (<code>301</code>/<code>302</code>). <code>fetch()</code> follows redirects automatically and you receive the HTML login page instead of a 401 JSON error.</p>
+            <p><strong>Status:</strong> <code>200</code> (after redirect) — but <code>Content-Type: text/html</code><br>
+            <strong>Body:</strong> HTML login page</p>
+            <pre><code>// Check for auth failure before parsing
+const response = await fetch('/api/protected', {
+    headers: { Authorization: `Bearer ${token}` }
+});
+
+if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
+}
+
+const data = await response.json();</code></pre>
+            <p><strong>Fix:</strong> Always send the correct <code>Authorization</code> header. Handle <code>401</code> and <code>403</code> explicitly before calling <code>.json()</code>. Use a <a href="../jwt-decoder.html">JWT Decoder</a> to check whether your token has expired.</p>
+
+            <h2>Cause 4: CORS Preflight Failure</h2>
+            <p>For cross-origin requests, the browser sends an <code>OPTIONS</code> preflight. If the server does not handle <code>OPTIONS</code> correctly, some servers or proxies return an HTML error. The actual JSON request never happens.</p>
+            <p><strong>Symptom:</strong> The Network tab shows a failed <code>OPTIONS</code> request, not a failed <code>GET</code>/<code>POST</code>.</p>
+            <pre><code>// Server must respond to OPTIONS with the right headers
+app.options('/api/*', cors()); // Express example</code></pre>
+            <p><strong>Fix:</strong> Enable CORS on the server for the correct origin. In development, use a proxy (Vite's <code>server.proxy</code>, Create React App's <code>proxy</code>) so requests appear same-origin.</p>
+
+            <h2>Cause 5: Development Proxy Not Configured</h2>
+            <p>In local development with a frontend dev server (Vite, webpack-dev-server), API calls to <code>/api/...</code> need to be proxied to your backend. Without the proxy, the dev server handles the request and returns a 404 HTML page.</p>
+            <pre><code>// vite.config.js
+export default {
+    server: {
+        proxy: {
+            '/api': 'http://localhost:3000'
+        }
+    }
+};</code></pre>
+            <p><strong>Fix:</strong> Configure your dev server proxy. This is one of the most common causes in React/Vue/Svelte projects.</p>
+
+            <h2>Cause 6: Wrong Content-Type on Request</h2>
+            <p>Some APIs check the request <code>Content-Type</code> header and return an HTML error if it's wrong or missing. This is common with Rails and Django REST Framework.</p>
+            <pre><code>// Missing Content-Type — may trigger HTML response
+fetch('/api/data', {
+    method: 'POST',
+    body: JSON.stringify(data)
+});
+
+// Correct
+fetch('/api/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+});</code></pre>
+
+            <h2>Cause 7: CDN or Load Balancer Error Page</h2>
+            <p>A CDN (Cloudflare, AWS CloudFront) or load balancer in front of your API can intercept requests and return its own HTML error page — a 503 Service Unavailable or a Cloudflare error page — before the request ever reaches your server.</p>
+            <p><strong>Fix:</strong> Configure the CDN to return JSON error responses, or check whether your origin server is actually reachable.</p>
+
+            <h2>Defensive coding pattern</h2>
+            <p>Use this pattern to catch all of the above cases in one place:</p>
+            <pre><code>async function fetchJSON(url, options = {}) {
+    const response = await fetch(url, options);
+    const contentType = response.headers.get('content-type') || '';
+
+    if (!response.ok || !contentType.includes('application/json')) {
+        const body = await response.text();
+        throw new Error(
+            `API error ${response.status}: expected JSON but got ${contentType}.\n` +
+            body.slice(0, 300)
+        );
+    }
+
+    return response.json();
+}</code></pre>
+            <p>This wrapper logs the actual response body when something goes wrong, so you can see immediately whether you got a 404 page, a login redirect, or a server crash message.</p>
+
+            <h2>Validate the JSON you do receive</h2>
+            <p>Once you have confirmed the API is returning JSON, paste the response into the <a href="../json-validator.html">JSON Validator</a> to check for syntax errors, or use the <a href="../formatter.html">JSON Formatter</a> to make the structure readable.</p>
+
+        </article>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>Why does my fetch() call return HTML instead of JSON?</summary>
+                <p>The server is returning an HTML error page (404, 500, or a login redirect) instead of your expected JSON. The URL might be wrong, the server may have crashed, or you need to authenticate before the API will respond with data.</p>
+            </details>
+            <details>
+                <summary>How do I check what my server actually returned?</summary>
+                <p>Call <code>response.text()</code> instead of <code>response.json()</code> and log the result. This gives you the raw response body — usually an HTML error page — which shows you exactly what went wrong. Also check <code>response.status</code> and <code>response.headers.get('content-type')</code>.</p>
+            </details>
+            <details>
+                <summary>How do I fix 'Unexpected token &lt; in JSON at position 0'?</summary>
+                <p>This error means your server returned HTML (which starts with <code>&lt;</code>) and you tried to parse it as JSON. Fix the underlying cause: correct the URL, handle auth, or fix the server error. Check the HTTP status code before calling <code>.json()</code> to catch error responses early.</p>
+            </details>
+            <details>
+                <summary>Why would an authenticated API return HTML?</summary>
+                <p>When your session expires or your token is missing or invalid, many APIs redirect to a login page (301/302) instead of returning a 401 JSON error. <code>fetch()</code> follows the redirect automatically and you receive the HTML login page. Always send the correct <code>Authorization</code> header and check for 401/403 status codes.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="json-unexpected-token.html">Unexpected token &lt; error</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+</body>
+</html>
