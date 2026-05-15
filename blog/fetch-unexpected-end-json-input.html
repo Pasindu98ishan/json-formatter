@@ -154,14 +154,19 @@
 
             <p>This is the most common cause. Your server is returning a <code>401 Unauthorized</code>, <code>500 Internal Server Error</code>, or a login redirect — and the response body is HTML, not JSON. <code>res.json()</code> tries to parse <code>&lt;!DOCTYPE html&gt;...</code> and immediately throws because <code>&lt;</code> is not valid JSON.</p>
 
-            <pre>// The request "succeeds" (no network error), but the body is HTML
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// The request "succeeds" (no network error), but the body is HTML
 fetch('/api/data')
   .then(res =&gt; res.json())   // throws if body is "<!DOCTYPE html>..."
   .then(data =&gt; console.log(data));</pre>
+            </div>
 
             <p><strong>The fix:</strong> always check <code>res.ok</code> before parsing. <code>res.ok</code> is <code>true</code> only for 2xx status codes.</p>
 
-            <pre>fetch('/api/data')
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>fetch('/api/data')
   .then(res =&gt; {
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -170,6 +175,7 @@ fetch('/api/data')
   })
   .then(data =&gt; console.log(data))
   .catch(err =&gt; console.error(err));</pre>
+            </div>
 
             <p>To confirm this is your cause: open DevTools → Network tab → click the request → check the Response tab. If you see HTML instead of JSON, the server is sending the wrong content type.</p>
 
@@ -177,34 +183,45 @@ fetch('/api/data')
 
             <p>A <code>204 No Content</code> response, a <code>DELETE</code> endpoint that returns nothing, or a network error that returns an empty body all result in an empty string. <code>JSON.parse('')</code> throws <code>Unexpected end of JSON input</code> because an empty string is not valid JSON.</p>
 
-            <pre>// 204 No Content — body is empty
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// 204 No Content — body is empty
 fetch('/api/item/42', { method: 'DELETE' })
   .then(res =&gt; res.json())  // throws: empty string is not JSON
   .then(data =&gt; ...);</pre>
+            </div>
 
             <p><strong>The fix:</strong> read the body as text first and only parse if it's non-empty.</p>
 
-            <pre>fetch('/api/item/42', { method: 'DELETE' })
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>fetch('/api/item/42', { method: 'DELETE' })
   .then(res =&gt; {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.text();
   })
   .then(text =&gt; (text ? JSON.parse(text) : null))
   .then(data =&gt; console.log(data));</pre>
+            </div>
 
             <h2>Cause 3 — You already read the response body</h2>
 
             <p>The <code>fetch</code> <code>Response</code> body is a <strong>readable stream</strong> — it can only be consumed once. If you call <code>res.text()</code> first (for example, to log the raw response for debugging), the stream is exhausted. Calling <code>res.json()</code> afterwards reads an empty stream and throws.</p>
 
-            <pre>fetch('/api/data')
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>fetch('/api/data')
   .then(res =&gt; {
     res.text().then(t =&gt; console.log('raw:', t));  // consumes the stream
     return res.json();   // throws — stream is already read
   });</pre>
+            </div>
 
             <p><strong>The fix:</strong> clone the response before reading it twice, or read as text and parse manually.</p>
 
-            <pre>// Option A — clone the response
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Option A — clone the response
 fetch('/api/data')
   .then(res =&gt; {
     res.clone().text().then(t =&gt; console.log('raw:', t));
@@ -218,34 +235,44 @@ fetch('/api/data')
     console.log('raw:', text);
     return JSON.parse(text);
   });</pre>
+            </div>
 
             <h2>Cause 4 — Truncated or partial response</h2>
 
             <p>A network timeout, a proxy that cuts off large responses, or a streaming endpoint that closes prematurely can deliver an incomplete JSON body. The start of the JSON is valid, but the document ends before all brackets are closed.</p>
 
-            <pre>// What arrives in the browser:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// What arrives in the browser:
 {"users": [
   {"id": 1, "name": "Alice"},
   {"id": 2, "name": "Bob"
 // ... response cut off here</pre>
+            </div>
 
             <p><strong>The fix:</strong> read the raw text and inspect what arrived, then investigate the server or proxy configuration that's limiting response size.</p>
 
-            <pre>fetch('/api/large-dataset')
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>fetch('/api/large-dataset')
   .then(res =&gt; res.text())
   .then(text =&gt; {
     console.log('Last 100 chars:', text.slice(-100));
     // If it ends mid-value, the response was truncated
     return JSON.parse(text);
   });</pre>
+            </div>
 
             <h2>Cause 5 — CORS preflight failed silently</h2>
 
             <p>When a cross-origin <code>fetch</code> request fails the CORS preflight, the browser returns an opaque network error. <code>res.json()</code> on an opaque response receives an empty body and throws. The real error is in the console as a CORS policy message, not in the response body.</p>
 
-            <pre>// Check the browser console for:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Check the browser console for:
 // "Access to fetch at 'https://api.example.com/...' from origin
 //  'https://yoursite.com' has been blocked by CORS policy"</pre>
+            </div>
 
             <p><strong>The fix:</strong> configure the server to send the correct <code>Access-Control-Allow-Origin</code> header, or proxy the request through your own server to avoid the cross-origin restriction.</p>
 
@@ -253,7 +280,9 @@ fetch('/api/data')
 
             <p>Whenever you see this error from <code>fetch</code>, swap <code>res.json()</code> for <code>res.text()</code> temporarily and log what you get:</p>
 
-            <pre>fetch('/api/data')
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>fetch('/api/data')
   .then(res =&gt; {
     console.log('Status:', res.status, res.statusText);
     console.log('Content-Type:', res.headers.get('content-type'));
@@ -263,6 +292,7 @@ fetch('/api/data')
     console.log('Body (first 500):', text.slice(0, 500));
     // Now you know exactly what the server sent
   });</pre>
+            </div>
 
             <p>The first 500 characters tell you everything: if it starts with <code>&lt;!</code> the server sent HTML; if it is empty, there was no body; if it looks like partial JSON, the response was truncated.</p>
 
@@ -270,7 +300,9 @@ fetch('/api/data')
 
             <p>This helper handles all five cases — it checks status, reads body once, guards against empty responses, and gives you a useful error message instead of a generic parse failure:</p>
 
-            <pre>async function fetchJSON(url, options) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>async function fetchJSON(url, options) {
   const res = await fetch(url, options);
 
   const contentType = res.headers.get('content-type') || '';
@@ -294,30 +326,54 @@ fetch('/api/data')
 
   return JSON.parse(text);
 }</pre>
+            </div>
 
             <p>Use it as a drop-in replacement for <code>fetch().then(res =&gt; res.json())</code>:</p>
 
-            <pre>const data = await fetchJSON('/api/data');
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const data = await fetchJSON('/api/data');
 const result = await fetchJSON('/api/items', { method: 'POST', body: JSON.stringify(payload) });</pre>
+            </div>
 
-            <h2>FAQ</h2>
+                    <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
 
-            <h3>Why does fetch not throw an error for 4xx and 5xx responses?</h3>
-            <p><code>fetch</code> only rejects (throws) on network failures — DNS errors, connection refused, offline. HTTP error status codes like 404 or 500 resolve the promise normally. You must check <code>res.ok</code> or <code>res.status</code> yourself. This is a common source of confusion for developers coming from libraries like Axios, which throw automatically on 4xx/5xx.</p>
 
-            <h3>Why does my API return HTML instead of JSON?</h3>
-            <p>Usually because the request hit a route that doesn't exist (404 from the framework's HTML error page), or the user's session expired and the server redirected to a login page (302 → HTML). Check the status code and the <code>Content-Type</code> response header. See <a href="api-returning-html-instead-of-json.html">Why is my API returning HTML instead of JSON?</a> for a full breakdown.</p>
+                        <details>
+                <summary>Why does fetch not throw an error for 4xx and 5xx responses?</summary>
+                <p><code>fetch</code> only rejects (throws) on network failures — DNS errors, connection refused, offline. HTTP error status codes like 404 or 500 resolve the promise normally. You must check <code>res.ok</code> or <code>res.status</code> yourself. This is a common source of confusion for developers coming from libraries like Axios, which throw automatically on 4xx/5xx.</p>
+            </details>
 
-            <h3>Can I use async/await instead of .then()?</h3>
-            <p>Yes — the safe wrapper above uses async/await. The behaviour is identical, and async/await is generally easier to read and debug when multiple steps are involved.</p>
+                        <details>
+                <summary>Why does my API return HTML instead of JSON?</summary>
+                <p>Usually because the request hit a route that doesn't exist (404 from the framework's HTML error page), or the user's session expired and the server redirected to a login page (302 → HTML). Check the status code and the <code>Content-Type</code> response header. See <a href="api-returning-html-instead-of-json.html">Why is my API returning HTML instead of JSON?</a> for a full breakdown.</p>
+            </details>
 
-            <h2>Related articles</h2>
+                        <details>
+                <summary>Can I use async/await instead of .then()?</summary>
+                <p>Yes — the safe wrapper above uses async/await. The behaviour is identical, and async/await is generally easier to read and debug when multiple steps are involved.</p>
+            </details>
+
+                    
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="json-unexpected-end-input.html">Unexpected end of JSON input – What it means and how to fix it</a></li>
                 <li><a href="json-unexpected-token.html">Unexpected token &lt; in JSON at position 0 – Cause and fix</a></li>
                 <li><a href="json-parse-error-handling.html">JSON.parse error handling – try/catch patterns and safe parsing</a></li>
                 <li><a href="api-returning-html-instead-of-json.html">Why is my API returning HTML instead of JSON?</a></li>
             </ul>
+        </section>
 
             <div class="tool-cta">
                 <h3>Inspect a JSON response instantly</h3>
@@ -337,5 +393,21 @@ const result = await fetchJSON('/api/items', { method: 'POST', body: JSON.string
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

@@ -147,7 +147,9 @@
                     </tbody>
                 </table>
                 <p>A simple JSON object maps directly to a TypeScript interface:</p>
-                <pre><code>// JSON
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// JSON
 {
   "id": 1,
   "name": "Alice",
@@ -162,12 +164,15 @@ interface Root {
   email: string;
   active: boolean;
 }</code></pre>
+            </div>
             </section>
 
             <section>
                 <h2>Nested objects become nested interfaces</h2>
                 <p>When a JSON value is itself an object, it becomes a named interface derived from the key name:</p>
-                <pre><code>// JSON
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// JSON
 {
   "user": {
     "id": 42,
@@ -192,13 +197,16 @@ interface Address {
   city: string;
   country: string;
 }</code></pre>
+            </div>
                 <p>Interface names are derived from the key using PascalCase: <code>userAddress</code> → <code>UserAddress</code>, <code>api_response</code> → <code>ApiResponse</code>.</p>
             </section>
 
             <section>
                 <h2>Arrays</h2>
                 <p>Arrays of a single type become <code>T[]</code>. Arrays of multiple types become a union array <code>(T | U)[]</code>:</p>
-                <pre><code>// JSON
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// JSON
 { "tags": ["admin", "editor"], "scores": [1, 2.5, 3] }
 
 // TypeScript
@@ -206,8 +214,11 @@ interface Root {
   tags: string[];
   scores: number[];
 }</code></pre>
+            </div>
                 <p>Arrays of objects generate a named interface for the item type:</p>
-                <pre><code>// JSON
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// JSON
 { "books": [{ "title": "Dune", "pages": 412 }] }
 
 // TypeScript
@@ -219,12 +230,15 @@ interface Book {
   title: string;
   pages: number;
 }</code></pre>
+            </div>
             </section>
 
             <section>
                 <h2>The null problem</h2>
                 <p><code>null</code> is where auto-generated interfaces need human review. A field typed as <code>null</code> from a single API response might actually be <code>string | null</code> at runtime — the response just happened to have a null value when you sampled it.</p>
-                <pre><code>// JSON response (field happens to be null)
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// JSON response (field happens to be null)
 { "middleName": null }
 
 // Auto-generated (correct but incomplete)
@@ -238,33 +252,43 @@ interface Root {
   // or:
   middleName?: string;
 }</code></pre>
+            </div>
                 <p><strong>Rule of thumb:</strong> after generating interfaces, review every <code>null</code> field and decide whether it should be <code>T | null</code>, <code>T | undefined</code>, or optional (<code>?</code>).</p>
             </section>
 
             <section>
                 <h2>Optional fields</h2>
                 <p>If an API response sometimes includes a field and sometimes omits it, the field should be optional in your interface:</p>
-                <pre><code>interface User {
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>interface User {
   id: number;
   name: string;
   avatar?: string;    // may be absent
   bio?: string | null; // may be absent or null
 }</code></pre>
+            </div>
                 <p>Auto-generators working from a single response cannot detect optional fields — they only see what is present. For accurate optional detection, run the generator against multiple API responses and merge the results, or consult the API schema (OpenAPI / JSON Schema).</p>
             </section>
 
             <section>
                 <h2>Using generated interfaces</h2>
                 <p>Once generated, paste the interfaces into a <code>.d.ts</code> or <code>.ts</code> file in your project. You can then use them for type assertions and function signatures:</p>
-                <pre><code>// api.ts
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// api.ts
 const response = await fetch('/api/users/42');
 const user: User = await response.json(); // type-safe from here
 console.log(user.name);  // IDE autocomplete works</code></pre>
+            </div>
                 <p>Or use the <code>satisfies</code> operator (TypeScript 4.9+) for safer object literals:</p>
-                <pre><code>const user = {
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const user = {
   id: 42,
   name: "Alice",
 } satisfies User;</code></pre>
+            </div>
             </section>
 
             <section>
@@ -281,7 +305,9 @@ console.log(user.name);  // IDE autocomplete works</code></pre>
             </section>
 
             <section>
-                <h2>Frequently Asked Questions</h2>
+                        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+
                 <details>
                     <summary>Should I use <code>interface</code> or <code>type</code> for JSON data?</summary>
                     <p>Either works for simple cases. The TypeScript team's recommendation is to use <code>interface</code> when representing object shapes (which is what JSON objects are), and <code>type</code> for unions, intersections, and primitive aliases. Generated interfaces from JSON should use <code>interface</code>.</p>
@@ -305,8 +331,18 @@ console.log(user.name);  // IDE autocomplete works</code></pre>
                 <a href="../json-to-typescript.html" class="btn btn-primary">Open JSON to TypeScript →</a>
             </div>
 
+        
+        </section>
+
         </article>
 
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-to-typescript.html">JSON &#8594; TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
         <section class="related-articles">
             <h2>Related Articles</h2>
             <ul>
@@ -326,5 +362,21 @@ console.log(user.name);  // IDE autocomplete works</code></pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

@@ -1,0 +1,528 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSON Schema lets you describe and validate the structure of JSON data. Learn the core keywords — type, properties, required, items — with complete examples.">
+    <meta name="keywords" content="what is json schema, json schema example, json schema tutorial, json schema validation, json schema guide, json schema properties, json schema type">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/what-is-json-schema.html">
+    <meta property="og:title" content="What Is JSON Schema? A Complete Guide with Examples">
+    <meta property="og:description" content="JSON Schema lets you describe and validate the structure of JSON data. Learn type, properties, required, items, and more with real examples.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/what-is-json-schema.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>What Is JSON Schema? A Complete Guide with Examples | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "What Is JSON Schema?", "item": "https://jsondevtools.org/blog/what-is-json-schema.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "What Is JSON Schema? A Complete Guide with Examples",
+      "description": "JSON Schema lets you describe and validate the structure of JSON data. Learn the core keywords — type, properties, required, items — with complete examples.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-15",
+      "dateModified": "2026-05-15",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why is my API rejecting data that looks valid to me?",
+          "acceptedAnswer": { "@type": "Answer", "text": "APIs validate against a schema, not just syntax. Your JSON may be syntactically valid but semantically wrong: a string where an integer is required, a missing required field, or a value outside the allowed enum. JSON Schema lets you define and check those rules before making the API call, so you can see the exact validation error on your side first." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my schema validate in one tool but fail in another?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Different tools implement different JSON Schema draft versions. Keywords like $ref alongside sibling keywords, unevaluatedProperties, and $dynamicRef behave differently across drafts. Always declare '\"$schema\": \"https://json-schema.org/draft/2020-12/schema\"' at the top of your schema and use a validator that explicitly supports that draft version." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I validate JSON against a schema in JavaScript?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use the Ajv library: const Ajv = require('ajv'); const ajv = new Ajv(); const validate = ajv.compile(schema); const valid = validate(data); if (!valid) console.log(validate.errors). Ajv is the fastest JSON Schema validator for JavaScript and supports draft-07 and 2020-12." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is JSON Schema the same as OpenAPI?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No, but OpenAPI uses a subset of JSON Schema to describe request and response bodies. OpenAPI 3.1 adopted the full JSON Schema 2020-12 specification. OpenAPI 3.0 used a modified subset of draft-07, meaning some JSON Schema keywords were not valid in OpenAPI 3.0." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html" class="nav-cta">JSON Formatter</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../json-validator.html">JSON Validator</a></li>
+                            <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                            <li><a href="../json-viewer.html">JSON Viewer</a></li>
+                            <li><a href="../json-beautifier.html">JSON Beautifier</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                            <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../json-to-csv.html">JSON &#8594; CSV</a></li>
+                            <li><a href="../csv-to-json.html">CSV &#8594; JSON</a></li>
+                            <li><a href="../json-to-yaml.html">JSON &#8594; YAML</a></li>
+                            <li><a href="../yaml-to-json.html">YAML &#8594; JSON</a></li>
+                            <li><a href="../json-to-xml.html">JSON &#8594; XML</a></li>
+                            <li><a href="../xml-to-json.html">XML &#8594; JSON</a></li>
+                            <li><a href="../json-to-typescript.html">JSON &#8594; TypeScript</a></li>
+                            <li><a href="../px-to-rem.html">Px &#8596; Rem</a></li>
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../base64.html">Base64</a></li>
+                            <li><a href="../url-encoder.html">URL Encoder</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../uuid.html">UUID Generator</a></li>
+                            <li><a href="../hash.html">Hash Generator</a></li>
+                            <li><a href="../cron.html">CRON Generator</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>What Is JSON Schema?</span>
+            </nav>
+            <h1>What Is JSON Schema? A Complete Guide with Examples</h1>
+            <div class="article-meta">Published May 2026 &middot; 7 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>JSON Schema is a vocabulary that lets you describe the expected structure of a JSON document. You write a schema — itself a JSON object — and then any JSON document can be validated against it automatically. If the data matches the schema, it's valid. If it doesn't, you get detailed error messages telling you exactly what's wrong.</p>
+
+            <p>JSON Schema is used for API request and response validation, configuration file enforcement, form input validation, auto-generated documentation, and generating code (TypeScript interfaces, database models, form widgets). It is the foundation of OpenAPI and is supported by every major language.</p>
+
+            <h2>The simplest valid schema</h2>
+
+            <p>An empty object <code>{}</code> is a valid JSON Schema. It accepts any JSON value at all. In practice, you start adding keywords to restrict what values are valid.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "type": "object"
+}</code></pre>
+            </div>
+
+            <p>The <code>$schema</code> keyword declares which draft of JSON Schema you are using. It is optional but recommended — validators use it to choose the correct behaviour.</p>
+
+            <h2>The <code>type</code> keyword</h2>
+
+            <p><code>type</code> restricts the kind of value allowed. Valid values are: <code>"string"</code>, <code>"number"</code>, <code>"integer"</code>, <code>"boolean"</code>, <code>"array"</code>, <code>"object"</code>, and <code>"null"</code>. You can also pass an array to allow multiple types.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{ "type": "string" }          // only strings pass
+{ "type": "integer" }         // only integers (no decimals)
+{ "type": ["string", "null"] } // string or null (nullable field)</code></pre>
+            </div>
+
+            <h2>Describing objects: <code>properties</code> and <code>required</code></h2>
+
+            <p><code>properties</code> defines the expected keys and their schemas. <code>required</code> is an array of key names that must be present. Any key not listed in <code>properties</code> is still allowed unless you add <code>"additionalProperties": false</code>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "object",
+  "properties": {
+    "id":    { "type": "integer" },
+    "name":  { "type": "string" },
+    "email": { "type": "string", "format": "email" },
+    "age":   { "type": "integer", "minimum": 0, "maximum": 120 }
+  },
+  "required": ["id", "name", "email"],
+  "additionalProperties": false
+}</code></pre>
+            </div>
+
+            <p>This schema validates that:</p>
+            <ul>
+                <li><code>id</code>, <code>name</code>, and <code>email</code> must be present</li>
+                <li><code>age</code> is optional but must be an integer between 0 and 120 if provided</li>
+                <li>No extra keys (like <code>password</code>) are allowed through</li>
+            </ul>
+
+            <h2>String constraints</h2>
+
+            <p>When <code>type</code> is <code>"string"</code>, additional keywords constrain the value further:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "string",
+  "minLength": 3,           // at least 3 characters
+  "maxLength": 50,          // no more than 50 characters
+  "pattern": "^[a-z0-9]+$", // only lowercase letters and digits (regex)
+  "format": "email"         // well-known format hint (validated by some tools)
+}</code></pre>
+            </div>
+
+            <p>Common <code>format</code> values: <code>"email"</code>, <code>"uri"</code>, <code>"date"</code> (YYYY-MM-DD), <code>"date-time"</code> (ISO 8601), <code>"uuid"</code>, <code>"ipv4"</code>. Format validation is optional — validators may only treat it as a hint unless you configure strict format checking.</p>
+
+            <h2>Restricting to a fixed set: <code>enum</code></h2>
+
+            <p><code>enum</code> limits a value to one of a fixed list. It works on any type.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "string",
+  "enum": ["active", "inactive", "pending", "banned"]
+}</code></pre>
+            </div>
+
+            <h2>Number constraints</h2>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "number",
+  "minimum": 0,            // value >= 0
+  "maximum": 100,          // value <= 100
+  "exclusiveMinimum": 0,   // value > 0 (draft-07 syntax)
+  "multipleOf": 0.01       // must be a multiple of 0.01 (useful for currency)
+}</code></pre>
+            </div>
+
+            <h2>Array validation: <code>items</code>, <code>minItems</code>, <code>maxItems</code></h2>
+
+            <p><code>items</code> defines the schema every element in the array must match. Use <code>minItems</code> and <code>maxItems</code> to constrain the length, and <code>uniqueItems: true</code> to prohibit duplicates.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "array",
+  "items": { "type": "string" },  // every element must be a string
+  "minItems": 1,                   // array cannot be empty
+  "maxItems": 10,                  // no more than 10 elements
+  "uniqueItems": true              // no duplicate values
+}</code></pre>
+            </div>
+
+            <p>To validate arrays where each position has a different type (tuples), use <code>prefixItems</code> in draft 2020-12, or an array value for <code>items</code> in draft-07:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// draft-07 tuple: [string, number, boolean]
+{
+  "type": "array",
+  "items": [
+    { "type": "string" },
+    { "type": "number" },
+    { "type": "boolean" }
+  ],
+  "additionalItems": false
+}</code></pre>
+            </div>
+
+            <h2>Nested objects</h2>
+
+            <p>Schemas nest naturally — a property's schema can itself be a full schema with its own <code>properties</code>, <code>required</code>, and constraints.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": { "type": "string" },
+        "city":   { "type": "string" },
+        "zip":    { "type": "string", "pattern": "^\\d{5}$" }
+      },
+      "required": ["street", "city", "zip"]
+    }
+  },
+  "required": ["name", "address"]
+}</code></pre>
+            </div>
+
+            <h2>Reusing definitions with <code>$defs</code></h2>
+
+            <p>To avoid repeating the same sub-schema in multiple places, define it once under <code>$defs</code> and reference it with <code>$ref</code>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "type": "object",
+  "properties": {
+    "firstName": { "$ref": "#/$defs/nonEmptyString" },
+    "lastName":  { "$ref": "#/$defs/nonEmptyString" }
+  },
+  "required": ["firstName", "lastName"]
+}</code></pre>
+            </div>
+
+            <p>In draft-07, use <code>definitions</code> (without the dollar sign) instead of <code>$defs</code>.</p>
+
+            <h2>A complete real-world example</h2>
+
+            <p>This schema validates a user registration payload:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "title": "User Registration",
+  "description": "Schema for a new user sign-up payload",
+  "type": "object",
+  "properties": {
+    "username": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 30,
+      "pattern": "^[a-zA-Z0-9_]+$"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "password": {
+      "type": "string",
+      "minLength": 8
+    },
+    "age": {
+      "type": "integer",
+      "minimum": 13
+    },
+    "role": {
+      "type": "string",
+      "enum": ["user", "admin", "moderator"],
+      "default": "user"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "maxItems": 5,
+      "uniqueItems": true
+    }
+  },
+  "required": ["username", "email", "password"],
+  "additionalProperties": false
+}</code></pre>
+            </div>
+
+            <p>Valid input:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "username": "alice_dev",
+  "email": "alice@example.com",
+  "password": "s3cr3tpass",
+  "age": 25,
+  "role": "user",
+  "tags": ["javascript", "api"]
+}</code></pre>
+            </div>
+
+            <p>Invalid — would fail validation:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "username": "al",              // too short — minLength: 3
+  "email": "not-an-email",      // fails format: email
+  "password": "abc",             // too short — minLength: 8
+  "role": "superadmin",          // not in enum
+  "extra_field": true            // additionalProperties: false
+}</code></pre>
+            </div>
+
+            <h2>Validating in JavaScript with Ajv</h2>
+
+            <p><a href="https://ajv.js.org" rel="noopener noreferrer">Ajv</a> is the fastest JSON Schema validator for JavaScript. Install it with <code>npm install ajv</code>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import Ajv from 'ajv';
+import addFormats from 'ajv-formats'; // for "email", "uri", "date-time" formats
+
+const ajv = new Ajv();
+addFormats(ajv);
+
+const schema = {
+  type: 'object',
+  properties: {
+    username: { type: 'string', minLength: 3 },
+    email:    { type: 'string', format: 'email' }
+  },
+  required: ['username', 'email']
+};
+
+const validate = ajv.compile(schema);
+
+const data = { username: 'alice', email: 'alice@example.com' };
+
+if (validate(data)) {
+  console.log('Valid ✓');
+} else {
+  console.error(validate.errors);
+  // [{
+  //   instancePath: '/email',
+  //   message: 'must match format "email"',
+  //   ...
+  // }]
+}</code></pre>
+            </div>
+
+            <p>Each error object includes <code>instancePath</code> (which field failed), <code>message</code> (human-readable reason), and <code>keyword</code> (which schema keyword triggered it). This makes it straightforward to map errors back to form fields.</p>
+
+            <h2>JSON Schema versions</h2>
+
+            <p>JSON Schema has gone through several drafts. The most important ones:</p>
+
+            <table>
+                <thead>
+                    <tr><th>Draft</th><th>$schema URI</th><th>Notes</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Draft-07</td><td><code>https://json-schema.org/draft-07/schema</code></td><td>Most widely supported; use this as default</td></tr>
+                    <tr><td>Draft 2019-09</td><td><code>https://json-schema.org/draft/2019-09/schema</code></td><td>Intermediate; limited adoption</td></tr>
+                    <tr><td>Draft 2020-12</td><td><code>https://json-schema.org/draft/2020-12/schema</code></td><td>Latest; <code>$defs</code>, <code>prefixItems</code>; used by OpenAPI 3.1</td></tr>
+                </tbody>
+            </table>
+
+            <p>OpenAPI 3.0 uses a modified subset of draft-07. OpenAPI 3.1 adopted full draft 2020-12. If you are writing schemas for an OpenAPI spec, check which version your spec uses.</p>
+
+            <h2>Validate JSON against a schema online</h2>
+
+            <p>Paste your JSON into the <a href="../json-validator.html">JSON Validator</a> to check it for syntax errors first. For schema validation, the full JSON Schema Validator tool coming soon allows you to validate any JSON document against your schema directly in the browser.</p>
+
+        </article>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>Why is my API rejecting data that looks valid to me?</summary>
+                <p>APIs validate against a schema — not just syntax. Your JSON may be syntactically correct but semantically wrong: a string where an integer is expected, a missing required field, or a value outside the allowed enum. Use JSON Schema to define and check those rules locally first so you see the exact validation error before the API call.</p>
+            </details>
+            <details>
+                <summary>Why does my schema validate in one tool but fail in another?</summary>
+                <p>Different tools implement different JSON Schema draft versions. Keywords like <code>$ref</code> alongside sibling keywords, <code>unevaluatedProperties</code>, and <code>$dynamicRef</code> behave differently across drafts. Always declare <code>"$schema": "https://json-schema.org/draft/2020-12/schema"</code> at the top of your schema and use a validator that explicitly supports that draft.</p>
+            </details>
+            <details>
+                <summary>How do I validate JSON against a schema in JavaScript?</summary>
+                <p>Use the Ajv library: <code>npm install ajv ajv-formats</code>. Compile the schema with <code>ajv.compile(schema)</code>, then call the compiled function with your data. It returns <code>true</code> or <code>false</code>, and errors are on <code>validate.errors</code>.</p>
+            </details>
+            <details>
+                <summary>Is JSON Schema the same as OpenAPI?</summary>
+                <p>No. OpenAPI uses JSON Schema to describe request and response bodies, but OpenAPI is a separate specification for documenting HTTP APIs. OpenAPI 3.1 adopted the full JSON Schema 2020-12 spec. OpenAPI 3.0 used a modified subset of draft-07 that excluded some keywords.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-to-typescript.html">JSON &#8594; TypeScript</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="yaml-vs-json.html">YAML vs JSON</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

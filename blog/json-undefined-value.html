@@ -150,7 +150,9 @@
 
             <h2>What JSON.stringify does with undefined</h2>
             <p>When you serialize a JavaScript object using <code>JSON.stringify()</code>, properties with an <code>undefined</code> value are silently dropped from the output:</p>
-            <pre>const user = {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const user = {
   name: "Alice",
   email: undefined,   // will be dropped
   age: 30
@@ -159,21 +161,30 @@
 console.log(JSON.stringify(user));
 // Output: {"name":"Alice","age":30}
 // "email" is gone entirely</pre>
+            </div>
 
             <p>This is often surprising. The object had three properties but the JSON has two — and no error was thrown. If the receiver expects an <code>email</code> key, it will get <code>undefined</code> when it reads <code>data.email</code> in JavaScript, or an equivalent missing-key behavior in other languages.</p>
 
             <h3>undefined in arrays becomes null</h3>
             <p>Arrays behave differently. Because dropping an array element would change the array's length, <code>JSON.stringify()</code> converts <code>undefined</code> array elements to <code>null</code> instead:</p>
-            <pre>JSON.stringify([1, undefined, 3]);
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>JSON.stringify([1, undefined, 3]);
 // Output: "[1,null,3]"</pre>
+            </div>
 
             <h3>A top-level undefined returns undefined from stringify</h3>
-            <pre>JSON.stringify(undefined);
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>JSON.stringify(undefined);
 // Output: undefined (not a string — the function returns the JS value undefined)</pre>
+            </div>
 
             <h2>null vs undefined in JSON</h2>
             <p><code>null</code> is valid JSON. Use it when you want to explicitly represent the absence of a value in a way that survives serialization:</p>
-            <pre>const user = {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const user = {
   name: "Alice",
   email: null,  // explicitly absent — survives JSON.stringify
   age: 30
@@ -181,6 +192,7 @@ console.log(JSON.stringify(user));
 
 console.log(JSON.stringify(user));
 // Output: {"name":"Alice","email":null,"age":30}</pre>
+            </div>
 
             <p>If you are designing an API, use <code>null</code> for optional fields that have no current value. This makes the structure predictable — consumers always receive the key and know it is intentionally absent.</p>
 
@@ -188,31 +200,49 @@ console.log(JSON.stringify(user));
             <p>If you receive data that might contain <code>undefined</code> values and need to serialize it safely, you have a few options:</p>
 
             <h3>Option 1 — replace undefined with null explicitly</h3>
-            <pre>const clean = Object.fromEntries(
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const clean = Object.fromEntries(
   Object.entries(obj).map(([k, v]) => [k, v === undefined ? null : v])
 );</pre>
+            </div>
 
             <h3>Option 2 — use the JSON.stringify replacer function</h3>
-            <pre>const json = JSON.stringify(obj, (key, value) =>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const json = JSON.stringify(obj, (key, value) =>
   value === undefined ? null : value
 );</pre>
+            </div>
 
             <h3>Option 3 — remove undefined properties intentionally</h3>
             <p>If omitting the key is the correct behavior, rely on <code>JSON.stringify()</code>'s default behavior — it will drop <code>undefined</code> properties automatically. This is correct when the key is genuinely optional and receivers are expected to use a default when it is missing.</p>
 
             <h2>Parsing JSON with undefined</h2>
             <p>You cannot include the literal text <code>undefined</code> in a JSON string and expect it to parse:</p>
-            <pre>JSON.parse('{"name": undefined}');
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>JSON.parse('{"name": undefined}');
 // SyntaxError: Unexpected token u in JSON at position 9</pre>
+            </div>
 
             <p>If you see this error, the data was not properly serialized. The source should have used <code>null</code> instead of <code>undefined</code>, or omitted the key entirely.</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="json-nan-infinity.html">JSON NaN and Infinity Are Not Valid</a></li>
                 <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
                 <li><a href="json-validator-best-practices.html">JSON Validator Best Practices</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -226,5 +256,21 @@ console.log(JSON.stringify(user));
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

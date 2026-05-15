@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -151,7 +151,9 @@
             <h2>Why the error says 'o' at position 1</h2>
             <p><code>JSON.parse()</code> requires a string argument. When you pass something that is not a string, JavaScript calls <code>.toString()</code> on it before passing it to the parser. A plain JavaScript object has no custom <code>toString()</code>, so it inherits <code>Object.prototype.toString</code>, which returns the string <code>"[object Object]"</code>.</p>
             <p>Now <code>JSON.parse("[object Object]")</code> runs. The parser sees <code>[</code> — a valid JSON array start — then immediately sees <code>o</code>, which is not a valid JSON value. Position 1 is the character right after the opening bracket.</p>
-            <pre><code>const obj = { name: "Alice" };
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const obj = { name: "Alice" };
 
 // ❌ Wrong — obj.toString() = "[object Object]"
 JSON.parse(obj);
@@ -159,21 +161,27 @@ JSON.parse(obj);
 
 // ✅ Correct — obj is already a JS object, use it directly
 console.log(obj.name); // "Alice"</code></pre>
+            </div>
 
             <h2>The three ways this error appears</h2>
 
             <h3>1. Parsing an object that is already parsed</h3>
             <p>The most common case: you fetch data, <code>response.json()</code> already returns a JavaScript object, and then you mistakenly pass that object to <code>JSON.parse()</code> again.</p>
-            <pre><code>// ❌ Double parse — response.json() already returns an object
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ Double parse — response.json() already returns an object
 const response = await fetch('/api/data');
 const data = await response.json();     // data is now a JS object
 const parsed = JSON.parse(data);        // ❌ data is NOT a string
 
 // ✅ Just use data directly
 const parsed = data;                    // already a JS object</code></pre>
+            </div>
 
             <h3>2. Parsing form input or state without stringifying first</h3>
-            <pre><code>const formData = {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const formData = {
     username: document.getElementById('username').value,
     age: parseInt(document.getElementById('age').value)
 };
@@ -186,17 +194,23 @@ const jsonString = JSON.stringify(formData);
 
 // ✅ Or just use formData directly — it's already an object
 sendToServer(formData);</code></pre>
+            </div>
 
             <h3>3. Passing state from a React/Vue component</h3>
-            <pre><code>// ❌ state is already an object
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ state is already an object
 const [user, setUser] = useState({ name: "Alice" });
 const parsed = JSON.parse(user); // SyntaxError
 
 // ✅ If you need to deep-clone an object using JSON round-trip:
 const clone = JSON.parse(JSON.stringify(user)); // ✅ stringify first, then parse</code></pre>
+            </div>
 
             <h2>How to tell if something is already an object</h2>
-            <pre><code>const value = await response.json();
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const value = await response.json();
 
 console.log(typeof value);           // "object" — already parsed, do not call JSON.parse
 console.log(typeof value === 'string'); // false
@@ -207,10 +221,13 @@ if (typeof value === 'string') {
 } else {
     // value is already a JS object/array — use it directly
 }</code></pre>
+            </div>
 
             <h2>When would you legitimately JSON.parse a string?</h2>
             <p>The correct input to <code>JSON.parse()</code> is always a string that contains valid JSON:</p>
-            <pre><code>// ✅ Parsing JSON from localStorage (stored as string)
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ✅ Parsing JSON from localStorage (stored as string)
 const stored = localStorage.getItem('user');
 const user = JSON.parse(stored);
 
@@ -221,6 +238,7 @@ socket.onmessage = (event) => {
 
 // ✅ Parsing a hardcoded JSON string
 const data = JSON.parse('{"name":"Alice","age":30}');</code></pre>
+            </div>
 
             <h2>Validate the JSON string before parsing</h2>
             <p>If you are not sure whether a value is a valid JSON string, paste it into the <a href="../json-validator.html">JSON Validator</a> to check before running <code>JSON.parse()</code> in your code. You can also use the <a href="../formatter.html">JSON Formatter</a> to inspect the structure.</p>
@@ -250,8 +268,13 @@ const data = JSON.parse('{"name":"Alice","age":30}');</code></pre>
         <section class="related-tools">
             <h2>Related Tools</h2>
             <ul>
-                <li><a href="../json-validator.html">JSON Validator</a></li>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
                 <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
                 <li><a href="json-parse-error-handling.html">JSON.parse Error Handling</a></li>
                 <li><a href="json-unexpected-token.html">Unexpected token &lt; error</a></li>
             </ul>
@@ -267,5 +290,21 @@ const data = JSON.parse('{"name":"Alice","age":30}');</code></pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

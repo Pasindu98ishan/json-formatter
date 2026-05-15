@@ -149,7 +149,9 @@
             <p>A trailing comma in JSON is a comma placed after the last item in an object or array, with nothing following it before the closing bracket. It's one of the most common JSON errors — and it's almost always caused by the fact that JavaScript allows trailing commas, but JSON does not.</p>
 
             <h2>What a trailing comma looks like</h2>
-            <pre>// This is INVALID JSON — trailing comma after "NYC"
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// This is INVALID JSON — trailing comma after "NYC"
 {
   "name": "Alice",
   "city": "NYC",
@@ -159,6 +161,7 @@
 ["red", "green", "blue",]
 
 // Both are valid JavaScript, but will fail JSON.parse()</pre>
+            </div>
 
             <h2>Why JSON forbids trailing commas</h2>
             <p>JSON is defined by <a href="https://www.rfc-editor.org/rfc/rfc8259" rel="noopener noreferrer">RFC 8259</a>. The grammar for an object is explicitly: a sequence of key-value pairs separated by commas, with no trailing comma allowed. The reason is simplicity: keeping the grammar unambiguous means any language can implement a JSON parser consistently without edge cases.</p>
@@ -171,7 +174,9 @@
 
             <h3>Manual editing</h3>
             <p>You add a new field to a JSON object and forget to remove the comma from what is now the second-to-last field after rearranging. Or you delete the last field but leave its preceding comma on the field above.</p>
-            <pre>// You had:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// You had:
 {
   "host": "localhost",
   "port": 5432,
@@ -183,10 +188,13 @@
   "host": "localhost",
   "port": 5432,   // â† now a trailing comma — easy to miss
 }</pre>
+            </div>
 
             <h3>Code generation bugs</h3>
             <p>If you're building JSON strings by concatenating items in a loop, a naive join can produce a trailing comma:</p>
-            <pre>// Bug: produces trailing comma
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Bug: produces trailing comma
 const parts = items.map(i => `"${i.name}": ${i.value}`);
 const json = '{' + parts.join(',') + ',}'; // extra comma before }
 
@@ -194,21 +202,27 @@ const json = '{' + parts.join(',') + ',}'; // extra comma before }
 const obj = {};
 items.forEach(i => { obj[i.name] = i.value; });
 const json = JSON.stringify(obj);</pre>
+            </div>
 
             <h2>How to find and remove trailing commas</h2>
             <p>The fastest way is to paste your JSON into the <a href="../json-validator.html">JSON Validator</a>. It parses the input and reports the exact line and column where the trailing comma appears. For most text editors, you can then jump directly to that line.</p>
 
             <p>If you need to strip trailing commas programmatically (for example, you're receiving JSON5-like input from a legacy system), you can use a regex as a pre-processing step before parsing. This is not recommended for production without thorough testing, but useful for one-off cleanup:</p>
-            <pre>// Removes trailing commas before } or ]
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Removes trailing commas before } or ]
 // WARNING: This regex can fail on commas inside strings — use with care
 function stripTrailingCommas(jsonString) {
     return jsonString.replace(/,\s*([}\]])/g, '$1');
 }</pre>
+            </div>
 
             <h2>Prevent trailing commas upstream</h2>
             <p>The best fix is to never construct JSON by string concatenation. Always use <code>JSON.stringify()</code> in JavaScript or <code>json.dumps()</code> in Python. These serializers always produce valid JSON with no trailing commas.</p>
 
-            <pre>// JavaScript — always produces valid JSON
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// JavaScript — always produces valid JSON
 const data = { name: "Alice", city: "NYC" };
 const json = JSON.stringify(data, null, 2);
 
@@ -216,13 +230,23 @@ const json = JSON.stringify(data, null, 2);
 import json
 data = {"name": "Alice", "city": "NYC"}
 json_str = json.dumps(data, indent=2)</pre>
+            </div>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="10-json-errors.html">10 JSON Errors I See Every Week</a></li>
                 <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
                 <li><a href="json-stringify-indent.html">JSON.stringify Indent – Formatting Options Explained</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -236,6 +260,22 @@ json_str = json.dumps(data, indent=2)</pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 

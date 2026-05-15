@@ -149,9 +149,12 @@
             <p><code>NaN</code> (Not a Number) and <code>Infinity</code> are valid JavaScript number values, but they have no representation in the JSON specification. If you try to serialize them with <code>JSON.stringify()</code>, you will not get an error — you will get silent data corruption. Understanding this behavior is essential for building reliable APIs.</p>
 
             <h2>What JSON.stringify does with NaN and Infinity</h2>
-            <pre>JSON.stringify({ ratio: NaN });       // '{"ratio":null}'
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>JSON.stringify({ ratio: NaN });       // '{"ratio":null}'
 JSON.stringify({ max: Infinity });    // '{"max":null}'
 JSON.stringify({ min: -Infinity });   // '{"min":null}'</pre>
+            </div>
 
             <p>No exception is thrown. The values become <code>null</code>. The receiver on the other end of the API gets <code>null</code> where you intended a numeric special value — and may have no way to tell the difference between "this was NaN" and "this field was genuinely missing."</p>
 
@@ -160,7 +163,9 @@ JSON.stringify({ min: -Infinity });   // '{"min":null}'</pre>
 
             <h2>Detecting NaN and Infinity before serializing</h2>
             <p>The safest approach is to screen for these values before serialization:</p>
-            <pre>function isSafeNumber(n) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>function isSafeNumber(n) {
     return typeof n === 'number' && isFinite(n);
 }
 
@@ -171,31 +176,40 @@ const json = JSON.stringify(data, (key, value) => {
     }
     return value;
 });</pre>
+            </div>
             <p>Using a replacer that throws makes the problem visible immediately rather than silently passing <code>null</code> to consumers.</p>
 
             <h2>Representing these values in JSON</h2>
             <p>If you genuinely need to convey NaN or Infinity through JSON, a few patterns are used in practice:</p>
 
             <h3>Option 1 — use a string sentinel</h3>
-            <pre>{
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
   "ratio": "NaN",
   "max": "Infinity",
   "min": "-Infinity"
 }</pre>
+            </div>
             <p>The consumer must know to parse these strings back to the appropriate numeric type. Document this convention in your API spec.</p>
 
             <h3>Option 2 — use null with a separate flag</h3>
-            <pre>{
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
   "ratio": null,
   "ratio_invalid": true
 }</pre>
+            </div>
 
             <h3>Option 3 — use a large finite sentinel number</h3>
             <p>Some scientific APIs use <code>1e308</code> (near JavaScript's <code>Number.MAX_VALUE</code>) as a stand-in for Infinity. This is fragile and not recommended unless the domain makes it unambiguous.</p>
 
             <h2>Parsing JSON that contains these strings</h2>
             <p>If you receive a JSON string like <code>"NaN"</code> or <code>"Infinity"</code> from a server using the string convention, parse it back in your consumer:</p>
-            <pre>function parseSpecialNumber(value) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>function parseSpecialNumber(value) {
     if (value === 'NaN') return NaN;
     if (value === 'Infinity') return Infinity;
     if (value === '-Infinity') return -Infinity;
@@ -204,16 +218,26 @@ const json = JSON.stringify(data, (key, value) => {
 
 const parsed = JSON.parse(json);
 parsed.ratio = parseSpecialNumber(parsed.ratio);</pre>
+            </div>
 
             <h2>Validating numeric JSON data</h2>
             <p>If you receive JSON from an external source and want to confirm it contains only finite numbers before processing, paste it into the <a href="../json-validator.html">JSON Validator</a>. A properly formed JSON document will never contain the literal text <code>NaN</code> or <code>Infinity</code> — if you see those tokens outside a string, the source serializer is non-compliant.</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="json-undefined-value.html">undefined Is Not Valid in JSON</a></li>
                 <li><a href="json-circular-reference.html">JSON Circular Reference Error</a></li>
                 <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -227,5 +251,21 @@ parsed.ratio = parseSpecialNumber(parsed.ratio);</pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

@@ -157,18 +157,26 @@
             <h2>1. Unexpected token &lt; in JSON at position 0</h2>
             <p><strong>Error message:</strong> <code>SyntaxError: Unexpected token '&lt;', "&lt;!DOCTYPE "... is not valid JSON</code></p>
             <p>The server returned HTML — usually a 404 or 500 error page — instead of JSON. The parser hits the opening <code>&lt;</code> of the HTML document and fails immediately.</p>
-            <pre>// What you're receiving (not JSON):
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// What you're receiving (not JSON):
 &lt;!DOCTYPE html&gt;
 &lt;html&gt;&lt;body&gt;404 Not Found&lt;/body&gt;&lt;/html&gt;</pre>
+            </div>
             <p><strong>Fix:</strong> Check the HTTP response status code first. Log <code>response.status</code> before calling <code>response.json()</code>. A 404 or 500 returns HTML, not JSON. Fix the API URL or handle the error case explicitly.</p>
-            <pre>const res = await fetch('/api/data');
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const res = await fetch('/api/data');
 if (!res.ok) throw new Error(`HTTP ${res.status}`); // Check before .json()
 const data = await res.json();</pre>
+            </div>
 
             <h2>2. Trailing comma after last property</h2>
             <p><strong>Error message:</strong> <code>SyntaxError: Unexpected token '}' in JSON</code></p>
             <p>JavaScript allows trailing commas. JSON does not. This is the most common error when writing JSON by hand or copying from JS source code.</p>
-            <pre>// Error:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Error:
 {
   "name": "Alice",
   "age": 28,       // â† trailing comma
@@ -179,42 +187,54 @@ const data = await res.json();</pre>
   "name": "Alice",
   "age": 28
 }</pre>
+            </div>
             <p><strong>Fix:</strong> Remove the comma after the last property or array element. Use the <a href="../json-validator.html">JSON Validator</a> to find it — it highlights the exact position.</p>
 
             <h2>3. Single quotes instead of double quotes</h2>
             <p><strong>Error message:</strong> <code>SyntaxError: Unexpected token ''' is not valid JSON</code></p>
             <p>JSON requires double quotes for both keys and string values. Single quotes are valid JavaScript but invalid JSON.</p>
-            <pre>// Error:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Error:
 {'name': 'Alice', 'city': 'NYC'}
 
 // Fixed:
 {"name": "Alice", "city": "NYC"}</pre>
+            </div>
             <p><strong>Fix:</strong> Replace all single quotes with double quotes. If your keys come from a Python dict or JS object literal, make sure you're serializing with <code>json.dumps()</code> (Python) or <code>JSON.stringify()</code> (JavaScript).</p>
 
             <h2>4. Unquoted keys</h2>
             <p><strong>Error message:</strong> <code>SyntaxError: Unexpected token 'n' is not valid JSON</code></p>
             <p>In JavaScript, object keys don't need quotes. In JSON, every key must be a double-quoted string.</p>
-            <pre>// Error (valid JS, invalid JSON):
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Error (valid JS, invalid JSON):
 {name: "Alice", age: 28}
 
 // Fixed:
 {"name": "Alice", "age": 28}</pre>
+            </div>
             <p><strong>Fix:</strong> Always quote your keys. If you're constructing JSON manually, use <code>JSON.stringify()</code> instead — it always produces valid JSON.</p>
 
             <h2>5. Undefined value</h2>
             <p><strong>Error message:</strong> <code>SyntaxError: Unexpected token 'u', "...undefined..." is not valid JSON</code></p>
             <p><code>undefined</code> is a JavaScript concept. It has no equivalent in JSON. <code>JSON.stringify()</code> silently drops keys whose values are <code>undefined</code>; but if you somehow embed the literal string <code>undefined</code> in JSON text, it fails immediately.</p>
-            <pre>// Error:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Error:
 {"name": undefined}
 
 // Fixed (use null for absent values):
 {"name": null}</pre>
+            </div>
             <p><strong>Fix:</strong> Use <code>null</code> instead of <code>undefined</code>. Audit your serialization code for values that could be undefined before stringifying.</p>
 
             <h2>6. Comments in JSON</h2>
             <p><strong>Error message:</strong> <code>SyntaxError: Unexpected token '/' in JSON</code></p>
             <p>JSON does not support comments of any kind — no <code>//</code>, no <code>/* */</code>. This trips up developers who treat JSON config files like JavaScript.</p>
-            <pre>// Error:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Error:
 {
   // database connection
   "host": "localhost",
@@ -226,38 +246,50 @@ const data = await res.json();</pre>
   "host": "localhost",
   "port": 5432
 }</pre>
+            </div>
             <p><strong>Fix:</strong> Remove all comments. If your tool supports JSONC (JSON with Comments — used by VS Code's <code>settings.json</code>), make sure you're actually using a JSONC parser, not a standard <code>JSON.parse()</code> call.</p>
 
             <h2>7. Unexpected end of JSON input</h2>
             <p><strong>Error message:</strong> <code>SyntaxError: Unexpected end of JSON input</code></p>
             <p>The JSON is incomplete — a bracket, brace, or quote was never closed. Often caused by truncated API responses, incomplete file writes, or copy-pasting only part of a JSON blob.</p>
-            <pre>// Error (missing closing brace):
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Error (missing closing brace):
 {
   "name": "Alice",
   "address": {
     "city": "NYC"
   }
   // â† missing closing } for the outer object</pre>
+            </div>
             <p><strong>Fix:</strong> Paste the JSON into the <a href="../formatter.html">JSON Formatter</a> — the tree view makes it immediately obvious where a structure is left open. Check for unmatched <code>{</code>, <code>[</code>, or <code>"</code>.</p>
 
             <h2>8. NaN or Infinity as a number value</h2>
             <p><strong>Error message:</strong> <code>SyntaxError: Unexpected token 'N', "NaN" is not valid JSON</code></p>
             <p>JavaScript's <code>NaN</code> and <code>Infinity</code> are not valid JSON values. <code>JSON.stringify(NaN)</code> produces <code>null</code> silently; parsing <code>NaN</code> as a literal string fails.</p>
-            <pre>// Error:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Error:
 {"ratio": NaN, "limit": Infinity}
 
 // Fixed:
 {"ratio": null, "limit": null}</pre>
+            </div>
             <p><strong>Fix:</strong> Validate numeric values before serializing. Replace <code>NaN</code> and <code>Infinity</code> with <code>null</code> or a sentinel value your application can handle.</p>
 
             <h2>9. Circular reference</h2>
             <p><strong>Error message:</strong> <code>TypeError: Converting circular structure to JSON</code></p>
             <p>A circular reference occurs when an object contains a reference back to itself (directly or through a chain). <code>JSON.stringify()</code> cannot serialize infinite structures.</p>
-            <pre>const obj = { name: "Alice" };
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const obj = { name: "Alice" };
 obj.self = obj; // circular reference
 JSON.stringify(obj); // TypeError</pre>
+            </div>
             <p><strong>Fix:</strong> Break the cycle before serializing. Use a replacer function with <code>JSON.stringify()</code> to detect and skip circular references, or use a library like <code>flatted</code> for circular-safe serialization.</p>
-            <pre>// Simple circular-safe stringify:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Simple circular-safe stringify:
 function safeStringify(obj) {
     const seen = new WeakSet();
     return JSON.stringify(obj, (key, value) => {
@@ -268,15 +300,19 @@ function safeStringify(obj) {
         return value;
     }, 2);
 }</pre>
+            </div>
 
             <h2>10. Numbers as object keys</h2>
             <p><strong>Error message:</strong> <code>SyntaxError: Unexpected number in JSON</code></p>
             <p>In JSON, all keys must be strings. Numeric keys are valid in JavaScript arrays and objects, but invalid in JSON.</p>
-            <pre>// Error (numeric key):
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Error (numeric key):
 {1: "first", 2: "second"}
 
 // Fixed:
 {"1": "first", "2": "second"}</pre>
+            </div>
             <p><strong>Fix:</strong> Always quote keys. If you're serializing from JavaScript, <code>JSON.stringify()</code> automatically converts numeric keys to strings for plain objects.</p>
 
             <hr>
@@ -307,12 +343,21 @@ function safeStringify(obj) {
             <h2>The fastest way to diagnose any JSON error</h2>
             <p>Paste the JSON into the <a href="../json-validator.html">JSON Validator</a>. It parses the input and reports the exact line number, column, and error type. For complex nested structures, the <a href="../formatter.html">JSON Formatter</a>'s tree view makes open brackets and missing values immediately visible.</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="how-to-format-json.html">How to Format JSON Properly</a></li>
                 <li><a href="json-formatter-vs-validator.html">JSON Formatter vs JSON Validator — Which to Use</a></li>
                 <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -326,6 +371,22 @@ function safeStringify(obj) {
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 

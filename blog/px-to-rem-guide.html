@@ -123,14 +123,20 @@
             <section>
                 <h2>The conversion formula</h2>
                 <p>One formula, no surprises:</p>
-                <pre><code>rem = px ÷ root_font_size
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>rem = px ÷ root_font_size
 px  = rem × root_font_size</code></pre>
+            </div>
                 <p>The browser's default root font size is <strong>16px</strong>. So the math people memorise:</p>
-                <pre><code>16px → 1rem
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>16px → 1rem
 24px → 1.5rem
 32px → 2rem
 8px  → 0.5rem
 14px → 0.875rem</code></pre>
+            </div>
                 <p>If your stylesheet sets <code>html { font-size: ... }</code> to anything other than 16px, divide by that value instead.</p>
             </section>
 
@@ -152,11 +158,14 @@ px  = rem × root_font_size</code></pre>
                 <p>Open Chrome's settings → Appearance → Font size. You'll see options for "Very small", "Small", "Medium", "Large", "Very large". This setting changes the default font size of the <code>html</code> element. A user with low vision may set it to "Very large" (typically 24px instead of 16px).</p>
 
                 <p>Now imagine your button:</p>
-                <pre><code>/* Pixel-based — ignores user preference */
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>/* Pixel-based — ignores user preference */
 .button { padding: 12px 24px; font-size: 16px; }
 
 /* Rem-based — scales with user preference */
 .button { padding: 0.75rem 1.5rem; font-size: 1rem; }</code></pre>
+            </div>
 
                 <p>For a user with the "Very large" setting, the rem version's padding becomes <code>18px 36px</code> and font becomes <code>24px</code> — the entire button grows proportionally. The pixel version stays at <code>12px 24px</code>, with text the user can barely read inside an undersized button.</p>
 
@@ -166,11 +175,14 @@ px  = rem × root_font_size</code></pre>
             <section>
                 <h2>The 62.5% trick — convenient but controversial</h2>
                 <p>You'll often see this in production CSS:</p>
-                <pre><code>html { font-size: 62.5%; }
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>html { font-size: 62.5%; }
 /* 62.5% of 16px = 10px */
 
 body { font-size: 1.6rem; } /* = 16px */
 .card { padding: 2.4rem; }  /* = 24px */</code></pre>
+            </div>
 
                 <p>Setting the root to 62.5% makes 1rem equal 10px, and the math becomes trivial: <code>1.6rem</code> is 16px, <code>2.4rem</code> is 24px, <code>0.8rem</code> is 8px. Many designers love this because they can think in pixels but write rems.</p>
 
@@ -197,20 +209,26 @@ body { font-size: 1.6rem; } /* = 16px */
 
                 <ol>
                     <li><strong>Convert font sizes first.</strong> They have the biggest accessibility impact.
-                        <pre><code>/* Before */
+                        <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>/* Before */
 h1 { font-size: 32px; }
 p  { font-size: 16px; }
 
 /* After */
 h1 { font-size: 2rem; }
 p  { font-size: 1rem; }</code></pre>
+            </div>
                     </li>
                     <li><strong>Convert spacing — padding, margin, gap.</strong> These also benefit from scaling.
-                        <pre><code>/* Before */
+                        <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>/* Before */
 .card { padding: 24px; margin-bottom: 16px; }
 
 /* After */
 .card { padding: 1.5rem; margin-bottom: 1rem; }</code></pre>
+            </div>
                     </li>
                     <li><strong>Leave borders, shadows, and 1–2px decorative widths alone.</strong> They are fine as px.</li>
                     <li><strong>Test with browser zoom + custom font size.</strong> Set Chrome to "Very large" font and zoom to 200%. Your layout should remain usable.</li>
@@ -248,7 +266,9 @@ p  { font-size: 1rem; }</code></pre>
             <section>
                 <h2>Sass / SCSS helpers</h2>
                 <p>If you write Sass, a small function turns the conversion into a one-liner:</p>
-                <pre><code>// _functions.scss
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// _functions.scss
 @function rem($px, $base: 16) {
   @return ($px / $base) * 1rem;
 }
@@ -258,19 +278,25 @@ p  { font-size: 1rem; }</code></pre>
   padding: rem(24);     // → 1.5rem
   font-size: rem(14);   // → 0.875rem
 }</code></pre>
+            </div>
 
                 <p>Note: in modern Sass (1.65+), division uses <code>math.div()</code>:</p>
-                <pre><code>@use "sass:math";
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>@use "sass:math";
 
 @function rem($px, $base: 16) {
   @return math.div($px, $base) * 1rem;
 }</code></pre>
+            </div>
             </section>
 
             <section>
                 <h2>CSS-only with custom properties</h2>
                 <p>You can do the same in plain CSS using a custom property:</p>
-                <pre><code>:root {
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>:root {
   --base-font-size: 16;
 }
 
@@ -278,6 +304,7 @@ p  { font-size: 1rem; }</code></pre>
   /* calc with unit-less variable */
   padding: calc(24 / var(--base-font-size) * 1rem);
 }</code></pre>
+            </div>
                 <p>This is verbose but eliminates the build step. Most teams just compute the rem values upfront and write them directly.</p>
             </section>
 
@@ -285,14 +312,20 @@ p  { font-size: 1rem; }</code></pre>
                 <p>Need to convert a stylesheet? Use the free <a href="../px-to-rem.html">Px to Rem Converter →</a></p>
             </div>
 
-            <section class="related-articles">
-                <h2>Related Articles</h2>
-                <ul>
-                    <li><a href="json-best-practices.html">JSON Best Practices for APIs</a></li>
-                    <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
-                    <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
-                </ul>
-            </section>
+            <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../px-to-rem.html">Px &#8596; Rem Converter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="json-best-practices.html">JSON Best Practices for APIs</a></li>
+                <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
+                <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
+            </ul>
+        </section>
         </article>
     </main>
 
@@ -305,5 +338,21 @@ p  { font-size: 1rem; }</code></pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

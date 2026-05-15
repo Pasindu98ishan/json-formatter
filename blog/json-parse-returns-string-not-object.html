@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -149,7 +149,9 @@
             <p>You call <code>JSON.parse(data)</code> and instead of getting a JavaScript object, you get back a string. No error is thrown, but the result is wrong. The cause is almost always <strong>double-encoded JSON</strong> — <code>JSON.stringify()</code> was called twice on the same data.</p>
 
             <h2>What double-encoding looks like</h2>
-            <pre><code>const original = { name: "Alice", age: 30 };
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const original = { name: "Alice", age: 30 };
 
 // Normal encoding — produces a JSON string
 const encoded = JSON.stringify(original);
@@ -159,9 +161,12 @@ const encoded = JSON.stringify(original);
 const doubleEncoded = JSON.stringify(encoded);
 // doubleEncoded = '"{\\"name\\":\\"Alice\\",\\"age\\":30}"'
 // Notice: outer quotes + all inner quotes are escaped with backslash</code></pre>
+            </div>
 
             <p>Now when you parse the double-encoded value:</p>
-            <pre><code>const result = JSON.parse(doubleEncoded);
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const result = JSON.parse(doubleEncoded);
 
 typeof result;   // "string" ← still a string!
 console.log(result); // '{"name":"Alice","age":30}' ← the inner JSON string
@@ -170,9 +175,12 @@ console.log(result); // '{"name":"Alice","age":30}' ← the inner JSON string
 const obj = JSON.parse(result);
 typeof obj;   // "object" ✅
 obj.name;     // "Alice" ✅</code></pre>
+            </div>
 
             <h2>How to detect it</h2>
-            <pre><code>const result = JSON.parse(data);
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const result = JSON.parse(data);
 
 if (typeof result === 'string') {
     // Double-encoded — need to parse again
@@ -181,11 +189,14 @@ if (typeof result === 'string') {
 } else {
     // result is the object you expected
 }</code></pre>
+            </div>
 
             <h2>Where double-encoding typically happens</h2>
 
             <h3>1. Server-side: JSON.stringify on an already-serialized value</h3>
-            <pre><code>// Node.js / Express — common mistake
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Node.js / Express — common mistake
 app.get('/api/user', (req, res) => {
     const user = { name: "Alice" };
     const json = JSON.stringify(user);  // json is now a string
@@ -199,9 +210,12 @@ app.get('/api/user', (req, res) => {
     // ✅ Or use res.send() with the pre-stringified string
     res.set('Content-Type', 'application/json').send(json);
 });</code></pre>
+            </div>
 
             <h3>2. Storing and retrieving from localStorage</h3>
-            <pre><code>// ❌ Storing a pre-stringified value, then stringifying again
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ Storing a pre-stringified value, then stringifying again
 const data = JSON.stringify({ name: "Alice" });
 localStorage.setItem('user', JSON.stringify(data)); // double-encoded
 
@@ -211,9 +225,12 @@ JSON.parse(raw); // → string, not object
 // ✅ Correct — stringify the object, not the string
 localStorage.setItem('user', JSON.stringify({ name: "Alice" }));
 const user = JSON.parse(localStorage.getItem('user')); // → object ✅</code></pre>
+            </div>
 
             <h3>3. API gateway or middleware double-serializing</h3>
-            <pre><code>// Some API gateways (AWS API Gateway, certain Express middleware)
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Some API gateways (AWS API Gateway, certain Express middleware)
 // serialize the body automatically. If your handler also stringifies,
 // the client receives a double-encoded string.
 
@@ -228,19 +245,25 @@ return {
     statusCode: 200,
     body: JSON.stringify({ name: "Alice" }) // ← single
 };</code></pre>
+            </div>
 
             <h3>4. Passing a JSON string through JSON.stringify in a query parameter</h3>
-            <pre><code>const filter = JSON.stringify({ status: "active" });
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const filter = JSON.stringify({ status: "active" });
 
 // ❌ Stringifying again when building the URL
 const url = `/api/users?filter=${JSON.stringify(filter)}`;
 
 // ✅ Correct — encode the already-stringified string for the URL
 const url = `/api/users?filter=${encodeURIComponent(filter)}`;</code></pre>
+            </div>
 
             <h2>The defensive parse pattern</h2>
             <p>If you cannot immediately fix the double-encoding at the source, use a safe parser that handles both cases:</p>
-            <pre><code>function safeParse(value) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function safeParse(value) {
     if (typeof value !== 'string') return value; // already an object
     try {
         const parsed = JSON.parse(value);
@@ -253,6 +276,7 @@ const url = `/api/users?filter=${encodeURIComponent(filter)}`;</code></pre>
         throw new SyntaxError('Invalid JSON: ' + value.slice(0, 100));
     }
 }</code></pre>
+            </div>
 
             <p>The real fix is always to find where the extra <code>JSON.stringify()</code> call is happening and remove it. The defensive parser is a temporary measure — double-encoding in a data pipeline is a bug, not a feature.</p>
 
@@ -284,8 +308,13 @@ const url = `/api/users?filter=${encodeURIComponent(filter)}`;</code></pre>
         <section class="related-tools">
             <h2>Related Tools</h2>
             <ul>
-                <li><a href="../formatter.html">JSON Formatter</a></li>
+                                <li><a href="../formatter.html">JSON Formatter</a></li>
                 <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
                 <li><a href="json-parse-error-handling.html">JSON.parse Error Handling</a></li>
                 <li><a href="json-parse-unexpected-token-o.html">Unexpected token o error</a></li>
             </ul>
@@ -301,5 +330,21 @@ const url = `/api/users?filter=${encodeURIComponent(filter)}`;</code></pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

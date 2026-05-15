@@ -149,7 +149,9 @@
             <p>Formatting JSON in JavaScript comes down to one function: <code>JSON.stringify()</code>. Its third argument controls indentation and transforms compact JSON into human-readable output. This article covers everything from the basic pretty-print call to advanced replacer patterns.</p>
 
             <h2>The basic pretty-print</h2>
-            <pre>const data = { name: "Alice", age: 30, roles: ["admin", "editor"] };
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const data = { name: "Alice", age: 30, roles: ["admin", "editor"] };
 
 // Compact (default)
 JSON.stringify(data);
@@ -165,18 +167,25 @@ JSON.stringify(data, null, 2);
 //     "editor"
 //   ]
 // }'</pre>
+            </div>
 
             <p>The three arguments are: the value to serialize, the replacer (pass <code>null</code> to skip), and the space argument. The space argument can be a number (spaces per level) or a string (used as the indent character, e.g., <code>"\t"</code> for tabs).</p>
 
             <h2>Using a tab indent</h2>
-            <pre>JSON.stringify(data, null, "\t");
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>JSON.stringify(data, null, "\t");
 // Uses tab characters instead of spaces</pre>
+            </div>
 
             <h2>Reformatting an existing JSON string</h2>
             <p>If you have a minified JSON string and want to pretty-print it, parse it first:</p>
-            <pre>const minified = '{"name":"Alice","age":30}';
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const minified = '{"name":"Alice","age":30}';
 const pretty = JSON.stringify(JSON.parse(minified), null, 2);
 console.log(pretty);</pre>
+            </div>
 
             <p>This is the same operation that the online <a href="../formatter.html">JSON Formatter</a> performs in the browser.</p>
 
@@ -184,31 +193,43 @@ console.log(pretty);</pre>
             <p>The second argument to <code>JSON.stringify()</code> lets you control what gets included in the output.</p>
 
             <h3>Array replacer — whitelist specific keys</h3>
-            <pre>const user = { id: 1, name: "Alice", password: "secret", age: 30 };
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const user = { id: 1, name: "Alice", password: "secret", age: 30 };
 
 JSON.stringify(user, ["id", "name", "age"], 2);
 // Only includes "id", "name", and "age" — "password" is excluded</pre>
+            </div>
 
             <h3>Function replacer — transform or omit values</h3>
-            <pre>JSON.stringify(user, (key, value) => {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>JSON.stringify(user, (key, value) => {
     if (key === "password") return undefined; // omit
     if (typeof value === "number") return value * 2; // transform
     return value;
 }, 2);</pre>
+            </div>
 
             <p>Returning <code>undefined</code> from the replacer omits the property from the output.</p>
 
             <h2>Logging formatted JSON to the console</h2>
             <p>A common use case is debugging — logging a complex object in a readable way:</p>
-            <pre>console.log(JSON.stringify(response.data, null, 2));</pre>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>console.log(JSON.stringify(response.data, null, 2));</pre>
+            </div>
 
             <p>Note that <code>console.log(obj)</code> already provides interactive tree inspection in browser DevTools. The stringify approach is more useful when you want to copy the output, write it to a file, or compare it as a plain string.</p>
 
             <h2>Writing formatted JSON to a file in Node.js</h2>
-            <pre>import fs from 'fs';
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import fs from 'fs';
 
 const data = { name: "config", version: 1 };
 fs.writeFileSync('config.json', JSON.stringify(data, null, 2));</pre>
+            </div>
 
             <p>Always use an indent of 2 or 4 for JSON files committed to version control — it makes diffs readable.</p>
 
@@ -224,12 +245,21 @@ fs.writeFileSync('config.json', JSON.stringify(data, null, 2));</pre>
             <h2>Quick online formatting</h2>
             <p>For one-off formatting without writing code, paste your JSON into the <a href="../formatter.html">JSON Formatter</a>. It pretty-prints the structure with syntax highlighting and collapses nested nodes for navigation.</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-minifier.html">JSON Minifier</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="json-stringify-indent.html">JSON.stringify indent – The space Parameter Explained</a></li>
                 <li><a href="format-json-python.html">How to Format JSON in Python</a></li>
                 <li><a href="pretty-print-json.html">Pretty-Print JSON – Tools and Techniques</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -243,5 +273,21 @@ fs.writeFileSync('config.json', JSON.stringify(data, null, 2));</pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

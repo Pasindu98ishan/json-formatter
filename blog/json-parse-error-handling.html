@@ -149,19 +149,24 @@
             <p><code>JSON.parse()</code> throws a <code>SyntaxError</code> synchronously when given invalid input. If you do not catch it, the error propagates up the call stack and can crash your application or produce a blank UI. This article covers the most practical patterns for handling this error correctly.</p>
 
             <h2>The basic try/catch</h2>
-            <pre>try {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>try {
     const data = JSON.parse(jsonString);
     // use data safely here
 } catch (error) {
     console.error('JSON parse failed:', error.message);
     // handle the error: show a message, use a default, etc.
 }</pre>
+            </div>
 
             <p>This is the minimum. <code>error.message</code> will contain the parser's error description, which includes the character position of the problem — for example, <code>Unexpected token '}' at position 42</code>.</p>
 
             <h2>A reusable safe-parse function</h2>
             <p>If you parse JSON in many places, a helper function prevents repetition:</p>
-            <pre>function tryParseJSON(str, fallback = null) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>function tryParseJSON(str, fallback = null) {
     try {
         return JSON.parse(str);
     } catch {
@@ -172,6 +177,7 @@
 // Usage
 const config = tryParseJSON(localStorage.getItem('config'), {});
 const items  = tryParseJSON(response.body, []);</pre>
+            </div>
 
             <p>The <code>fallback</code> parameter lets each call site specify a sensible default, making the behavior explicit rather than always returning <code>null</code>.</p>
 
@@ -180,11 +186,16 @@ const items  = tryParseJSON(response.body, []);</pre>
 
             <h3>Recover silently for optional user preferences</h3>
             <p>If the JSON comes from <code>localStorage</code> or user input and a default is acceptable, return the fallback and log a warning — do not crash:</p>
-            <pre>const prefs = tryParseJSON(localStorage.getItem('prefs'), defaultPrefs);</pre>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const prefs = tryParseJSON(localStorage.getItem('prefs'), defaultPrefs);</pre>
+            </div>
 
             <h3>Throw with a clear message for external API responses</h3>
             <p>If a server is supposed to return valid JSON and it does not, that is a real error that should be surfaced:</p>
-            <pre>async function fetchData(url) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>async function fetchData(url) {
     const res = await fetch(url);
     const text = await res.text();
 
@@ -201,12 +212,15 @@ const items  = tryParseJSON(response.body, []);</pre>
     }
     return data;
 }</pre>
+            </div>
 
             <p>Including the raw response preview in the error makes debugging much faster — you can see immediately whether the server returned an HTML error page, a truncated response, or something else.</p>
 
             <h2>Getting line and column from the error</h2>
             <p>The built-in <code>SyntaxError</code> from <code>JSON.parse</code> includes the character offset but not a line number. To calculate the line number from the offset:</p>
-            <pre>function parseJSONWithPosition(str) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>function parseJSONWithPosition(str) {
     try {
         return { value: JSON.parse(str), error: null };
     } catch (e) {
@@ -224,11 +238,14 @@ const items  = tryParseJSON(response.body, []);</pre>
         return { value: null, error: e.message };
     }
 }</pre>
+            </div>
 
             <p>For production tooling, using the <a href="../json-validator.html">JSON Validator</a> is more reliable — it shows the exact line and column with syntax highlighting in the browser.</p>
 
             <h2>TypeScript: narrowing the return type</h2>
-            <pre>function tryParseJSON&lt;T = unknown&gt;(str: string): T | null {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>function tryParseJSON&lt;T = unknown&gt;(str: string): T | null {
     try {
         return JSON.parse(str) as T;
     } catch {
@@ -238,15 +255,25 @@ const items  = tryParseJSON(response.body, []);</pre>
 
 // With a type assertion:
 const user = tryParseJSON&lt;{ name: string; age: number }&gt;(raw);</pre>
+            </div>
 
             <p>Note that <code>JSON.parse</code> has no runtime type checking — even with a TypeScript generic, you should validate the shape of the parsed object before using it in production. Libraries like Zod or Valibot handle this cleanly.</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="json-unexpected-token.html">Unexpected token &lt; in JSON at position 0 – Cause and Fix</a></li>
                 <li><a href="json-unexpected-end-input.html">Unexpected End of JSON Input – What It Means and How to Fix It</a></li>
                 <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -260,5 +287,21 @@ const user = tryParseJSON&lt;{ name: string; age: number }&gt;(raw);</pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

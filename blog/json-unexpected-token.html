@@ -162,7 +162,9 @@
             <h2>How to diagnose it</h2>
             <p>The fix starts with logging what the server actually sent back. Instead of calling <code>.json()</code> blindly, always check the response status first, and if it fails, call <code>.text()</code> to see the raw response body.</p>
 
-            <pre>// Basic pattern — always check status before .json()
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Basic pattern — always check status before .json()
 const res = await fetch('/api/users');
 
 if (!res.ok) {
@@ -173,17 +175,23 @@ if (!res.ok) {
 }
 
 const data = await res.json(); // safe to call only if res.ok</pre>
+            </div>
 
             <p>When you log <code>text</code>, you'll see something like this — which immediately tells you the real problem:</p>
-            <pre>&lt;!DOCTYPE html&gt;
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>&lt;!DOCTYPE html&gt;
 &lt;html&gt;
   &lt;head&gt;&lt;title&gt;404 Not Found&lt;/title&gt;&lt;/head&gt;
   &lt;body&gt;The requested resource was not found.&lt;/body&gt;
 &lt;/html&gt;</pre>
+            </div>
 
             <h2>A more defensive fetch wrapper</h2>
             <p>Once you know the pattern, you can write a reusable helper that handles this correctly every time:</p>
-            <pre>async function fetchJSON(url, options = {}) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>async function fetchJSON(url, options = {}) {
     const res = await fetch(url, options);
 
     if (!res.ok) {
@@ -201,6 +209,7 @@ const data = await res.json(); // safe to call only if res.ok</pre>
 
 // Usage:
 const user = await fetchJSON('/api/users/42');</pre>
+            </div>
 
             <h2>Common scenarios and their specific fixes</h2>
 
@@ -209,34 +218,49 @@ const user = await fetchJSON('/api/users/42');</pre>
 
             <h3>Authentication expired (401 or 302 redirect)</h3>
             <p>If your app uses sessions and the session expires, some servers redirect to <code>/login</code> and return HTML. The fix is to check for a 401 status and redirect the user to log in, or refresh an OAuth token automatically.</p>
-            <pre>if (res.status === 401) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>if (res.status === 401) {
     window.location.href = '/login';
     return;
 }</pre>
+            </div>
 
             <h3>Server crash (500)</h3>
             <p>A 500 response means something went wrong on the server. The HTML page is the server's default error response. Fix the server-side bug — the API endpoint is throwing an unhandled exception. Check your server logs, not just the client-side error.</p>
 
             <h3>CORS issue returning a proxy error page</h3>
             <p>Some corporate proxies or load balancers return an HTML error page when a CORS preflight fails. You'll see a 200 status but get HTML. In this case, inspect the <code>Content-Type</code> header of the response before parsing:</p>
-            <pre>const contentType = res.headers.get('content-type');
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const contentType = res.headers.get('content-type');
 if (!contentType || !contentType.includes('application/json')) {
     const text = await res.text();
     console.error('Expected JSON but got:', text.slice(0, 200));
     throw new Error('Response was not JSON');
 }</pre>
+            </div>
 
             <h2>Validate your JSON manually</h2>
             <p>If you're testing an API response and aren't sure whether it's valid JSON, paste it into the <a href="../json-validator.html">JSON Validator</a>. It will parse the response and report the exact character position of any error, making it easy to confirm whether you received JSON or HTML.</p>
 
             <p>For large API responses that are hard to read, the <a href="../formatter.html">JSON Formatter</a> will pretty-print the structure and highlight any issues in the tree view.</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="json-unexpected-end-input.html">Unexpected End of JSON Input – What It Means and How to Fix It</a></li>
                 <li><a href="10-json-errors.html">10 JSON Errors I See Every Week</a></li>
                 <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -250,6 +274,22 @@ if (!contentType || !contentType.includes('application/json')) {
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 

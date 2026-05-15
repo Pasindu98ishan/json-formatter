@@ -166,7 +166,9 @@
                 <p>The timestamp prefix means that UUIDs generated later sort after UUIDs generated earlier. New rows always insert at the end of the index — same behaviour as auto-increment — while the random suffix maintains global uniqueness with no coordination required.</p>
 
                 <h3>v4 vs v7 side by side</h3>
-                <pre><code># UUID v4 — fully random, inserts anywhere in the index
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># UUID v4 — fully random, inserts anywhere in the index
 f47ac10b-58cc-4372-a567-0e02b2c3d479
 3b3a8a5d-9f2e-4b1c-a8d7-1234567890ab
 a1b2c3d4-e5f6-4789-abcd-ef0123456789
@@ -175,6 +177,7 @@ a1b2c3d4-e5f6-4789-abcd-ef0123456789
 01960a3e-bf15-7c0a-9e12-4a3d9a2f1082
 01960a3e-bf16-7f4b-8c23-5b4e0b3f2193  ← later timestamp
 01960a3e-bf17-7a8c-ad34-6c5f1c4g3204  ← even later</code></pre>
+            </div>
 
                 <h3>Collision safety</h3>
                 <p>UUID v7 retains approximately 74 random bits after the timestamp and version fields. The collision probability is comparable to UUID v4 in any realistic scenario — the timestamp prefix does not meaningfully reduce randomness at the scale of a single application.</p>
@@ -271,31 +274,42 @@ a1b2c3d4-e5f6-4789-abcd-ef0123456789
                 <h2>How to generate UUID v7 in code</h2>
 
                 <h3>JavaScript / Node.js (uuid package v9+)</h3>
-                <pre><code>import { v7 as uuidv7 } from 'uuid';
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { v7 as uuidv7 } from 'uuid';
 
 const id = uuidv7();
 console.log(id);
 // "01960a3e-bf15-7c0a-9e12-4a3d9a2f1082"</code></pre>
+            </div>
                 <p>Note: <code>crypto.randomUUID()</code> generates v4 only. There is no native browser v7 API yet.</p>
 
                 <h3>Python</h3>
-                <pre><code># pip install uuid-utils
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># pip install uuid-utils
 import uuid_utils
 
 id = uuid_utils.uuid7()
 print(str(id))
 # "01960a3e-bf15-7c0a-9e12-4a3d9a2f1082"</code></pre>
+            </div>
 
                 <h3>Go</h3>
-                <pre><code>// go get github.com/google/uuid
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// go get github.com/google/uuid
 import "github.com/google/uuid"
 
 id := uuid.New()  // v4
 id7 := uuid.Must(uuid.NewV7())  // v7 (google/uuid v1.6+)
 fmt.Println(id7.String())</code></pre>
+            </div>
 
                 <h3>PostgreSQL 17+ (native)</h3>
-                <pre><code>-- Generate a UUID v7
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- Generate a UUID v7
 SELECT uuidv7();
 
 -- Use as column default
@@ -304,14 +318,20 @@ CREATE TABLE events (
   name text NOT NULL,
   created_at timestamptz DEFAULT now()
 );</code></pre>
+            </div>
 
                 <h3>PostgreSQL pre-17 (extension workaround)</h3>
-                <pre><code>-- Install pg_uuidv7 extension
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- Install pg_uuidv7 extension
 CREATE EXTENSION IF NOT EXISTS "pg_uuidv7";
 SELECT uuid_generate_v7();</code></pre>
+            </div>
 
                 <h3>MySQL 8.4+</h3>
-                <pre><code>-- Native UUID v7
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- Native UUID v7
 SELECT UUID_V7();
 
 -- Store efficiently as BINARY(16)
@@ -319,6 +339,7 @@ CREATE TABLE events (
   id   BINARY(16) DEFAULT (UUID_TO_BIN(UUID_V7(), 0)) PRIMARY KEY,
   name VARCHAR(255) NOT NULL
 );</code></pre>
+            </div>
             </section>
 
             <section>
@@ -328,7 +349,9 @@ CREATE TABLE events (
                 <p>Run this check first: if your table has fewer than 1M rows or insert rate is under a few hundred per second, the measurable benefit is small. Migrations carry risk — only proceed if the performance gain is justified.</p>
 
                 <h3>No-downtime migration steps</h3>
-                <pre><code>-- Step 1: add new column with v7 default (does not block reads or writes)
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- Step 1: add new column with v7 default (does not block reads or writes)
 ALTER TABLE orders
   ADD COLUMN id_v7 uuid DEFAULT uuidv7();
 
@@ -344,6 +367,7 @@ LIMIT 10000;
 
 -- Step 5: drop old column
 ALTER TABLE orders DROP COLUMN id;</code></pre>
+            </div>
 
                 <h3>What you do not need to change</h3>
                 <ul>
@@ -367,33 +391,53 @@ ALTER TABLE orders DROP COLUMN id;</code></pre>
             </section>
 
             <section>
-                <h2>Frequently Asked Questions</h2>
+                        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
 
-                <h3>Is UUID v7 collision-safe?</h3>
+
+                            <details>
+                <summary>Is UUID v7 collision-safe?</summary>
                 <p>Yes. UUID v7 retains approximately 74 random bits. The probability of generating two identical UUID v7 values in the same millisecond is approximately 1 in 2⁷⁴ — negligible in any real-world application.</p>
+            </details>
 
-                <h3>Does UUID v7 reveal when a record was created?</h3>
+                            <details>
+                <summary>Does UUID v7 reveal when a record was created?</summary>
                 <p>Yes — the first 48 bits encode a Unix millisecond timestamp. Anyone who can read the UUID can extract the approximate creation time. For most data (events, orders, log entries) this is fine or even useful. For user-facing IDs where creation time is sensitive, consider keeping UUID v4 or a separate opaque ID.</p>
+            </details>
 
-                <h3>Can I mix UUID v4 and v7 in the same table?</h3>
+                            <details>
+                <summary>Can I mix UUID v4 and v7 in the same table?</summary>
                 <p>Yes. Both are valid UUID format values. A <code>uuid</code> column accepts either without schema changes. You may see slightly reduced index benefit if the table has a large proportion of v4 rows, but it works correctly.</p>
+            </details>
 
-                <h3>Does Hibernate / JPA support UUID v7?</h3>
+                            <details>
+                <summary>Does Hibernate / JPA support UUID v7?</summary>
                 <p>Yes, from Hibernate 6.2 onwards. Use <code>@UuidGenerator(style = UuidGenerator.Style.TIME)</code> on your ID field.</p>
+            </details>
             </section>
 
             <div class="article-cta">
                 <p>Generate UUID v4 values instantly — single or bulk — with the free <a href="../uuid.html">UUID Generator →</a></p>
             </div>
 
-            <section class="related-articles">
-                <h2>Related Articles</h2>
-                <ul>
-                    <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
-                    <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
-                    <li><a href="sha256-vs-sha512.html">SHA-256 vs SHA-512: Performance, Security, and When to Use Each</a></li>
-                </ul>
-            </section>
+            
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../uuid.html">UUID Generator</a></li>
+                <li><a href="../hash.html">Hash Generator</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
+                <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
+                <li><a href="sha256-vs-sha512.html">SHA-256 vs SHA-512: Performance, Security, and When to Use Each</a></li>
+            </ul>
+        </section>
         </article>
     </main>
 
@@ -406,5 +450,21 @@ ALTER TABLE orders DROP COLUMN id;</code></pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

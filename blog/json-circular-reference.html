@@ -149,7 +149,9 @@
             <p>If you call <code>JSON.stringify()</code> on an object and get <code>TypeError: Converting circular structure to JSON</code>, the object contains a reference loop — somewhere in the data, an object points back to itself. JSON is a tree format; it cannot represent cycles.</p>
 
             <h2>What a circular reference looks like</h2>
-            <pre>const parent = { name: "parent" };
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const parent = { name: "parent" };
 const child  = { name: "child" };
 
 parent.child = child;
@@ -160,6 +162,7 @@ JSON.stringify(parent);
 //   --> starting at object with constructor 'Object'
 //   |     property 'child' -> object with constructor 'Object'
 //   --- property 'parent' closes the circle</pre>
+            </div>
 
             <h2>Common sources of circular references</h2>
             <ul>
@@ -172,12 +175,17 @@ JSON.stringify(parent);
 
             <h2>Fix 1 — remove the back-reference before serializing</h2>
             <p>The cleanest solution is to not include the circular property in the output at all:</p>
-            <pre>const safeChild = { name: child.name }; // copy only what you need
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const safeChild = { name: child.name }; // copy only what you need
 JSON.stringify({ name: parent.name, child: safeChild }); // works</pre>
+            </div>
 
             <h2>Fix 2 — use a replacer function to skip seen objects</h2>
             <p>If you do not know in advance which property is circular, use a replacer that tracks visited objects and replaces any back-reference with a placeholder:</p>
-            <pre>function circularReplacer() {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>function circularReplacer() {
     const seen = new WeakSet();
     return (key, value) => {
         if (typeof value === 'object' && value !== null) {
@@ -190,18 +198,24 @@ JSON.stringify({ name: parent.name, child: safeChild }); // works</pre>
 
 JSON.stringify(parent, circularReplacer());
 // '{"name":"parent","child":{"name":"child","parent":"[Circular]"}}'</pre>
+            </div>
 
             <h2>Fix 3 — use a library for full circular serialization</h2>
             <p>If you need to serialize and then deserialize circular structures (not just log them), use the <code>flatted</code> npm package, which encodes cycles as index references:</p>
-            <pre>import { stringify, parse } from 'flatted';
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import { stringify, parse } from 'flatted';
 
 const json = stringify(parent);   // encodes cycles
 const obj  = parse(json);         // restores the circular structure</pre>
+            </div>
             <p>Note that the output format is not standard JSON — you can only parse it back with <code>flatted</code>.</p>
 
             <h2>Serializing only the data you need</h2>
             <p>In practice, the best fix for API responses is to map your internal objects to plain data transfer objects (DTOs) before serialization. This prevents accidental exposure of internal references and circular structures:</p>
-            <pre>// Internal model
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Internal model
 const user = orm.findUser(id); // has circular ORM references
 
 // Safe DTO for the API response
@@ -212,13 +226,23 @@ const dto = {
 };
 
 res.json(dto); // never pass the ORM model directly</pre>
+            </div>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="json-undefined-value.html">undefined Is Not Valid in JSON</a></li>
                 <li><a href="json-nan-infinity.html">JSON NaN and Infinity Are Not Valid</a></li>
                 <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -232,5 +256,21 @@ res.json(dto); // never pass the ORM model directly</pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

@@ -43,7 +43,7 @@
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "What is the difference between syntax validation and schema validation?",
+          "name": "Why does my JSON pass the validator but still cause errors in my application?",
           "acceptedAnswer": { "@type": "Answer", "text": "Syntax validation checks whether the JSON is structurally valid — correct quotes, commas, brackets. Schema validation checks whether the data matches an expected structure, such as required fields and correct value types." }
         },
         {
@@ -147,7 +147,9 @@
 
             <h2>3. Always use double quotes — consistently</h2>
             <p>JSON requires double quotes for all string keys and string values. This is non-negotiable. But the subtler issue is inconsistency during manual editing: switching between an IDE that auto-completes with double quotes and a terminal or text editor that doesn't.</p>
-            <pre>// Will parse successfully
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Will parse successfully
 { "status": "active", "count": 12 }
 
 // Will fail — single-quoted key
@@ -155,12 +157,15 @@
 
 // Will fail — unquoted key (valid JavaScript, invalid JSON)
 { status: "active", "count": 12 }</pre>
+            </div>
             <p>If your team generates JSON programmatically, this is not an issue — <code>JSON.stringify()</code> always outputs double-quoted keys. The risk is hand-edited JSON: config files, test fixtures, documentation examples.</p>
 
             <h2>4. Validate sections when debugging large payloads</h2>
             <p>When you have a large JSON response — thousands of lines, deeply nested — pasting the entire blob into a validator gives you one error at a time. If the first error is on line 847 and fixing it reveals another error, you can spend a long time iterating.</p>
             <p>A faster approach: isolate the section you suspect and validate that subsection first. Most validators accept any valid JSON value, not just objects — so you can paste a single array or nested object out of context and validate it independently.</p>
-            <pre>// Instead of validating this entire payload at once:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Instead of validating this entire payload at once:
 {
   "metadata": { ... },
   "results": [ ... 800 items ... ],
@@ -173,11 +178,14 @@
   "total": 824,
   "per_page": 20
 }</pre>
+            </div>
 
             <h2>5. Know the difference between syntax validation and schema validation</h2>
             <p>Syntax validation checks structure: are the quotes, commas, and brackets correct? Schema validation checks content: is the data the right shape for your application?</p>
             <p>A JSON document can be syntactically valid but semantically wrong for your use case:</p>
-            <pre>// Syntactically valid — passes any JSON validator
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Syntactically valid — passes any JSON validator
 {
   "user_id": "abc123",
   "age": "twenty-eight"
@@ -185,18 +193,25 @@
 
 // Semantically invalid — age should be a number, not a string
 // A JSON Schema validator would catch this</pre>
+            </div>
             <p>For production APIs, syntax validation catches typos. Schema validation (using JSON Schema) catches data contract violations — wrong types, missing required fields, values outside allowed ranges. Both matter, and they are different tools for different problems.</p>
 
             <h2>6. Add validation to your CI pipeline</h2>
             <p>For projects that include JSON files — config files, translation files, API fixtures, test data — add a validation step to your CI pipeline. Many CI tools support this natively. For a simple check, <code>python -m json.tool yourfile.json</code> returns a non-zero exit code if the file is invalid JSON, which is enough to block a broken merge.</p>
             <p>This removes the human from the loop entirely. No one has to remember to validate; the pipeline enforces it automatically.</p>
 
-            <h2>FAQ</h2>
-            <h3>What is the difference between syntax validation and schema validation?</h3>
-            <p>Syntax validation checks whether JSON is structurally valid — correct quotes, commas, and brackets. Schema validation checks whether the data matches an expected structure, such as required fields and correct value types.</p>
+                    <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
 
-            <h3>Should I validate JSON in development or only before deployment?</h3>
-            <p>Both. Validate during development to catch errors early. Validate in CI pipelines to block broken JSON from reaching production automatically.</p>
+                        <details>
+                <summary>Why does my JSON pass the validator but still cause errors in my application?</summary>
+                <p>Syntax validation checks whether JSON is structurally valid — correct quotes, commas, and brackets. Schema validation checks whether the data matches an expected structure, such as required fields and correct value types.</p>
+            </details>
+
+                        <details>
+                <summary>Should I validate JSON in development or only before deployment?</summary>
+                <p>Both. Validate during development to catch errors early. Validate in CI pipelines to block broken JSON from reaching production automatically.</p>
+            </details>
 
             <div class="tool-cta">
                 <h3>Validate JSON instantly</h3>
@@ -204,14 +219,24 @@
                 <a href="../json-validator.html" class="btn">Open JSON Validator</a>
             </div>
 
-            <section class="related-articles">
-                <h2>Related Articles</h2>
-                <ul>
-                    <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
-                    <li><a href="json-formatter-vs-validator.html">JSON Formatter vs JSON Validator: What Is the Difference?</a></li>
-                    <li><a href="how-to-format-json.html">How to Format JSON Properly</a></li>
-                </ul>
-            </section>
+            
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="json-formatter-vs-validator.html">JSON Formatter vs JSON Validator: What Is the Difference?</a></li>
+                <li><a href="how-to-format-json.html">How to Format JSON Properly</a></li>
+            </ul>
+        </section>
 
         </article>
     </main>
@@ -225,6 +250,22 @@
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 

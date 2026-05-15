@@ -150,7 +150,9 @@
 
             <h2>Basic pretty-printing with json.dumps</h2>
             <p>The <code>indent</code> parameter is the key. Pass an integer to specify the number of spaces per indentation level:</p>
-            <pre>import json
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import json
 
 data = {"name": "Alice", "age": 28, "roles": ["admin", "editor"], "active": True}
 
@@ -167,12 +169,15 @@ print(json.dumps(data, indent=2))
 #   ],
 #   "active": true
 # }</pre>
+            </div>
 
             <p>Use <code>indent=4</code> if your team's style guide calls for 4-space indentation. Note that Python booleans (<code>True</code>, <code>False</code>) are automatically converted to lowercase <code>true</code>/<code>false</code> as required by the JSON spec.</p>
 
             <h2>Sorting keys alphabetically</h2>
             <p>The <code>sort_keys=True</code> parameter outputs keys in alphabetical order, which makes JSON easier to compare and diff:</p>
-            <pre>import json
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import json
 
 data = {"zebra": 1, "apple": 2, "mango": 3}
 
@@ -182,10 +187,13 @@ print(json.dumps(data, indent=2, sort_keys=True))
 #   "mango": 3,
 #   "zebra": 1
 # }</pre>
+            </div>
 
             <h2>Controlling separators for compact or readable output</h2>
             <p>The <code>separators</code> parameter controls the characters used between items and between keys and values. The default for pretty-printed output adds a space after colons and commas. For the most compact (minified) output:</p>
-            <pre>import json
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import json
 
 data = {"host": "localhost", "port": 5432}
 
@@ -195,10 +203,13 @@ print(json.dumps(data, indent=2))
 # Compact minified output — no spaces at all
 print(json.dumps(data, separators=(',', ':')))
 # {"host":"localhost","port":5432}</pre>
+            </div>
 
             <h2>Reading and reformatting a JSON file</h2>
             <p>To reformat an existing JSON file — standardise indentation across a project, or convert minified JSON to readable JSON:</p>
-            <pre>import json
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import json
 
 # Read the file
 with open('data.json', 'r', encoding='utf-8') as f:
@@ -208,12 +219,15 @@ with open('data.json', 'r', encoding='utf-8') as f:
 with open('data.json', 'w', encoding='utf-8') as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
     f.write('\n')  # Add trailing newline (good practice)</pre>
+            </div>
 
             <p>The <code>ensure_ascii=False</code> flag preserves Unicode characters (accented letters, emoji, etc.) rather than escaping them as <code>\uXXXX</code> sequences. This is almost always what you want for human-readable output.</p>
 
             <h2>Pretty-printing from the command line</h2>
             <p>Python ships with a command-line JSON formatter you can pipe into:</p>
-            <pre># Format a JSON file
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre># Format a JSON file
 python -m json.tool data.json
 
 # Format JSON from an API response via curl
@@ -221,28 +235,41 @@ curl -s https://api.example.com/users | python -m json.tool
 
 # Write formatted output to a file
 python -m json.tool data.json > data-formatted.json</pre>
+            </div>
 
             <h2>Using pprint for quick debug output</h2>
             <p>The <code>pprint</code> module pretty-prints Python data structures (dicts, lists) in a readable format. It's not JSON, but it's useful for quick debugging when you don't need valid JSON output:</p>
-            <pre>from pprint import pprint
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>from pprint import pprint
 import json, urllib.request
 
 with urllib.request.urlopen('https://api.example.com/data') as res:
     data = json.load(res)
 
 pprint(data)  # Readable Python dict output for inspection</pre>
+            </div>
 
             <p>Use <code>json.dumps(data, indent=2)</code> when you need valid JSON. Use <code>pprint(data)</code> when you just want to inspect a Python dict quickly in a script.</p>
 
             <h2>Formatting JSON in the browser</h2>
             <p>If you're working with JSON responses from an API and want to format them without writing code, use the <a href="../formatter.html">JSON Formatter</a>. Paste any JSON — minified or broken — and get clean, indented output with a tree view. It's useful for inspecting API responses during development alongside your Python code.</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-minifier.html">JSON Minifier</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="pretty-print-json.html">How to Pretty Print JSON – Browser, JavaScript, Python, curl</a></li>
                 <li><a href="json-stringify-indent.html">JSON.stringify Indent – JavaScript Formatting Options Explained</a></li>
                 <li><a href="how-to-format-json.html">How to Format JSON Properly</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -256,6 +283,22 @@ pprint(data)  # Readable Python dict output for inspection</pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 

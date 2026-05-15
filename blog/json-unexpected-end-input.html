@@ -152,16 +152,21 @@
 
             <h3>1. Truncated API response</h3>
             <p>Network timeouts, response size limits, or streaming errors can cut off an API response mid-transfer. The beginning of the JSON is valid, but the document ends abruptly without all closing braces and brackets.</p>
-            <pre>// Truncated — missing the closing ] and }
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Truncated — missing the closing ] and }
 {"users": [
   {"id": 1, "name": "Alice"},
   {"id": 2, "name": "Bob"
 </pre>
+            </div>
             <p>To diagnose: log the raw response text before parsing. Check the final characters — if they don't end with a complete JSON value (<code>}</code>, <code>]</code>, a quoted string, a number, <code>true</code>, <code>false</code>, or <code>null</code>), the response was cut.</p>
 
             <h3>2. Unclosed brackets or braces in hand-written JSON</h3>
             <p>When editing JSON manually, it's easy to open a brace or bracket and forget to close it, especially in deeply nested structures.</p>
-            <pre>// Missing closing } for the "address" object and } for the outer object
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Missing closing } for the "address" object and } for the outer object
 {
   "name": "Alice",
   "address": {
@@ -169,16 +174,20 @@
     "postcode": "SW1A 1AA"
 
 </pre>
+            </div>
             <p>The parser reads the entire string, reaches the end, and realises it's still waiting for the closing tokens it expected.</p>
 
             <h3>3. Parsing an empty string</h3>
             <p>A 204 No Content API response, or an endpoint that returns nothing on success, gives you an empty body. Calling <code>JSON.parse('')</code> throws "Unexpected end of JSON input" because an empty string is not valid JSON.</p>
-            <pre>// This throws:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// This throws:
 JSON.parse('');  // SyntaxError: Unexpected end of JSON input
 
 // Guard against empty responses:
 const text = await res.text();
 const data = text ? JSON.parse(text) : null;</pre>
+            </div>
 
             <h3>4. Partial file write</h3>
             <p>If a process writing a JSON file crashes or is interrupted mid-write, the file will be incomplete. Reading and parsing an incomplete JSON file produces this error. Always write JSON files atomically: write to a temporary file, then rename it to the target filename, so readers never see a partial write.</p>
@@ -187,7 +196,9 @@ const data = text ? JSON.parse(text) : null;</pre>
             <p>For large JSON blobs, finding the missing bracket manually is tedious. The fastest approach is to paste the JSON into the <a href="../formatter.html">JSON Formatter</a>. The tree view renders each nested object and array as a collapsible node. A structure that's open but never closed will be visible in the tree as an empty or incomplete branch.</p>
 
             <p>You can also count brackets programmatically to identify the imbalance:</p>
-            <pre>function countBrackets(json) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>function countBrackets(json) {
     let braces = 0, brackets = 0;
     let inString = false;
 
@@ -209,12 +220,15 @@ const data = text ? JSON.parse(text) : null;</pre>
 // Example:
 countBrackets('{"name": "Alice", "scores": [1, 2');
 // { unclosedBraces: 1, unclosedBrackets: 1 }</pre>
+            </div>
 
             <h2>Validating before parsing</h2>
             <p>Use the <a href="../json-validator.html">JSON Validator</a> to check any JSON before you parse it in production. The validator reports the exact line and character position of the error, which is far more useful than the generic "unexpected end of input" message from most runtimes.</p>
 
             <h2>Defensive parsing in production code</h2>
-            <pre>async function safeParseResponse(res) {
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>async function safeParseResponse(res) {
     const text = await res.text();
 
     if (!text || !text.trim()) {
@@ -229,13 +243,23 @@ countBrackets('{"name": "Alice", "scores": [1, 2');
         throw err;
     }
 }</pre>
+            </div>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="json-unexpected-token.html">Unexpected token &lt; in JSON at position 0 – Cause and Fix</a></li>
                 <li><a href="json-trailing-comma.html">JSON Trailing Comma Error – Why It Happens and How to Remove It</a></li>
                 <li><a href="10-json-errors.html">10 JSON Errors I See Every Week</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -249,6 +273,22 @@ countBrackets('{"name": "Alice", "scores": [1, 2');
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 

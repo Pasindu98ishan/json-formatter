@@ -149,7 +149,9 @@
             <p>The JSON specification has a simple rule for object keys: they must be strings, and those strings must be enclosed in double quotes. This rule catches developers who write JSON by hand and forget the quotes, or who try to serialize Python dicts with integer keys or JavaScript Maps with non-string keys.</p>
 
             <h2>Valid vs invalid key syntax</h2>
-            <pre>// Invalid JSON — unquoted key
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Invalid JSON — unquoted key
 { name: "Alice" }
 
 // Invalid JSON — numeric key (bare number, not a string)
@@ -157,6 +159,7 @@
 
 // Valid JSON — all keys are double-quoted strings
 { "name": "Alice", "42": "the answer" }</pre>
+            </div>
 
             <p>The parser throws a <code>SyntaxError</code> the moment it encounters a key that is not a double-quoted string. Common error messages include: <em>Expected property name or '}'</em> or <em>Unexpected token n in JSON at position 2</em>.</p>
 
@@ -165,39 +168,60 @@
 
             <h2>JavaScript's automatic key conversion</h2>
             <p>A quirk of JavaScript is that all object keys are coerced to strings internally. If you write <code>{ 42: "value" }</code> in JavaScript, the key is actually stored as the string <code>"42"</code>. When <code>JSON.stringify()</code> serializes this object, it outputs <code>{"42":"value"}</code> — valid JSON with a quoted string key:</p>
-            <pre>const obj = { 42: "the answer" };
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const obj = { 42: "the answer" };
 console.log(JSON.stringify(obj)); // '{"42":"the answer"}'</pre>
+            </div>
 
             <p>This is why writing numeric keys in JavaScript does not cause serialization problems — they are already strings by the time <code>stringify</code> runs. The problem appears when you write JSON by hand and use a bare number as a key.</p>
 
             <h2>JavaScript Maps with non-string keys</h2>
             <p>JavaScript's <code>Map</code> supports any value as a key, including numbers and objects. But <code>JSON.stringify()</code> does not know how to serialize a <code>Map</code>:</p>
-            <pre>const map = new Map([[1, "one"], [2, "two"]]);
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const map = new Map([[1, "one"], [2, "two"]]);
 JSON.stringify(map);
 // '{}' — silently produces an empty object, no error</pre>
+            </div>
 
             <p>To serialize a Map to JSON, convert it to an object first. If the keys are numeric, they will be coerced to strings in the output:</p>
-            <pre>JSON.stringify(Object.fromEntries(map));
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>JSON.stringify(Object.fromEntries(map));
 // '{"1":"one","2":"two"}'</pre>
+            </div>
 
             <h2>Duplicate keys in JSON</h2>
             <p>The JSON spec does not forbid duplicate keys — it says behavior is undefined when two properties have the same key. Most parsers accept the document and use the last value seen for that key. This is generally a bug in the source data. Use the <a href="../json-validator.html">JSON Validator</a> to detect duplicate keys before they cause silent overwrites in your application.</p>
 
             <h2>Python dict serialization</h2>
             <p>Python's <code>json.dumps()</code> handles integer keys similarly to JavaScript — it converts them to strings:</p>
-            <pre>import json
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import json
 data = {1: "one", 2: "two"}
 print(json.dumps(data))
 # '{"1": "one", "2": "two"}'</pre>
+            </div>
 
             <p>However, <code>json.dumps()</code> will throw a <code>TypeError</code> if a key cannot be converted to a string at all (for example, if you use a tuple as a key).</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="json-single-quotes.html">JSON Single Quotes Are Not Allowed</a></li>
                 <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
                 <li><a href="json-best-practices.html">JSON Best Practices</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -211,5 +235,21 @@ print(json.dumps(data))
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

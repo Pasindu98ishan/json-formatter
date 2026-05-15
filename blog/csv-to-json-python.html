@@ -150,13 +150,18 @@
 
             <h2>Method 1 — csv.DictReader (standard library, no install)</h2>
             <p>Given a CSV file like this:</p>
-            <pre>name,age,city
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>name,age,city
 Alice,30,London
 Bob,25,Paris
 Carol,35,Berlin</pre>
+            </div>
 
             <p>Here is the conversion:</p>
-            <pre>import csv
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import csv
 import json
 
 with open('data.csv', newline='', encoding='utf-8') as f:
@@ -164,9 +169,12 @@ with open('data.csv', newline='', encoding='utf-8') as f:
     rows = list(reader)
 
 print(json.dumps(rows, indent=2))</pre>
+            </div>
 
             <p>Output:</p>
-            <pre>[
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>[
   {
     "name": "Alice",
     "age": "30",
@@ -183,18 +191,24 @@ print(json.dumps(rows, indent=2))</pre>
     "city": "Berlin"
   }
 ]</pre>
+            </div>
 
             <p>Notice that <code>age</code> is a string (<code>"30"</code>), not a number (<code>30</code>). The CSV format has no type information — everything is text. See below for how to fix this.</p>
 
             <h2>Writing the JSON to a file</h2>
-            <pre>with open('data.csv', newline='', encoding='utf-8') as infile, \
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>with open('data.csv', newline='', encoding='utf-8') as infile, \
      open('output.json', 'w', encoding='utf-8') as outfile:
     rows = list(csv.DictReader(infile))
     json.dump(rows, outfile, indent=2)</pre>
+            </div>
 
             <h2>Converting numeric fields from string to number</h2>
             <p>If you know which columns should be numbers, convert them after reading:</p>
-            <pre>import csv
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import csv
 import json
 
 numeric_columns = {'age'}
@@ -211,15 +225,19 @@ with open('data.csv', newline='', encoding='utf-8') as f:
         rows.append(row)
 
 print(json.dumps(rows, indent=2))</pre>
+            </div>
 
             <p>Now <code>age</code> appears as <code>30</code> (a number) instead of <code>"30"</code> (a string).</p>
 
             <h2>Method 2 — pandas (two lines)</h2>
             <p>If you have pandas installed, the conversion is even shorter, and pandas infers numeric types automatically:</p>
-            <pre>import pandas as pd
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import pandas as pd
 
 df = pd.read_csv('data.csv')
 print(df.to_json(orient='records', indent=2))</pre>
+            </div>
 
             <p>The <code>orient='records'</code> argument produces a JSON array where each row is an object — the most common format for API consumption. Other orient options:</p>
             <ul>
@@ -230,25 +248,40 @@ print(df.to_json(orient='records', indent=2))</pre>
 
             <h2>Handling special characters and encoding</h2>
             <p>Always specify <code>encoding='utf-8'</code> when opening CSV files, especially if they contain non-ASCII characters (accented names, Unicode symbols). For CSV files exported from Excel, you may need <code>encoding='utf-8-sig'</code> to handle the byte-order mark:</p>
-            <pre>with open('data.csv', newline='', encoding='utf-8-sig') as f:
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>with open('data.csv', newline='', encoding='utf-8-sig') as f:
     ...</pre>
+            </div>
 
             <h2>Command-line one-liner</h2>
             <p>For quick terminal use:</p>
-            <pre>python3 -c "
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>python3 -c "
 import csv, json, sys
 print(json.dumps(list(csv.DictReader(sys.stdin)), indent=2))
 " < data.csv</pre>
+            </div>
 
             <h2>No-code alternative</h2>
             <p>If you do not need to script the conversion, the <a href="../csv-to-json.html">CSV to JSON Converter</a> lets you paste or upload a CSV file and download the JSON output immediately — no Python required.</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../csv-to-json.html">CSV &#8594; JSON</a></li>
+                <li><a href="../json-to-csv.html">JSON &#8594; CSV</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="how-to-convert-json-to-csv.html">How to Convert JSON to CSV Online</a></li>
                 <li><a href="format-json-python.html">How to Format JSON in Python</a></li>
                 <li><a href="format-json-bash.html">How to Format JSON in Bash</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -262,5 +295,21 @@ print(json.dumps(list(csv.DictReader(sys.stdin)), indent=2))
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

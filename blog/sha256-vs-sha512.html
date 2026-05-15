@@ -182,7 +182,9 @@
                 </ul>
 
                 <h3>Output size in practice</h3>
-                <pre><code>SHA-256("hello") =
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>SHA-256("hello") =
   2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
   (64 hex characters = 32 bytes)
 
@@ -190,6 +192,7 @@ SHA-512("hello") =
   9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca7
   2323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043
   (128 hex characters = 64 bytes)</code></pre>
+            </div>
             </section>
 
             <section>
@@ -228,8 +231,11 @@ SHA-512("hello") =
                 <h3>The SHA-NI exception: when SHA-256 wins</h3>
                 <p>Intel (Goldmont+ architecture, 2016+) and AMD (Zen 2+, 2019+) include SHA-NI — hardware extensions that implement SHA-256 compression in dedicated silicon. On SHA-NI-enabled CPUs, SHA-256 throughput jumps to near-memory-bandwidth speeds, completely reversing the software advantage SHA-512 has.</p>
                 <p>To check if your Linux server has SHA-NI:</p>
-                <pre><code>grep -o 'sha_ni' /proc/cpuinfo | head -1
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>grep -o 'sha_ni' /proc/cpuinfo | head -1
 # outputs "sha_ni" if supported, empty if not</code></pre>
+            </div>
                 <p>AWS Graviton2/3 (ARM), most recent Intel Xeon, and AMD EPYC all support SHA-NI. If you are on modern cloud infrastructure, SHA-256 is likely the faster choice at high throughput.</p>
 
                 <h3>Where SHA-512 is definitively slower</h3>
@@ -272,12 +278,15 @@ SHA-512("hello") =
 
                 <h3>File integrity checksums</h3>
                 <p>SHA-256 is the ecosystem standard — it is what GitHub, npm, Docker Hub, and most Linux package managers publish. SHA-512 checksums appear in some Linux distributions (Fedora, Arch). Either works; prefer SHA-256 for the broadest tooling support.</p>
-                <pre><code># Verify a file checksum (Linux / macOS)
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Verify a file checksum (Linux / macOS)
 sha256sum downloaded-file.tar.gz
 sha512sum downloaded-file.tar.gz
 
 # Compare against published hash
 echo "expected_hash  downloaded-file.tar.gz" | sha256sum --check</code></pre>
+            </div>
 
                 <h3>TLS certificate fingerprints</h3>
                 <p>SHA-256 only. Browsers display certificate fingerprints in the SHA-256 format. All modern Certificate Authorities use SHA-256 for certificate signing. SHA-512 is not used in TLS certificate chains.</p>
@@ -285,7 +294,9 @@ echo "expected_hash  downloaded-file.tar.gz" | sha256sum --check</code></pre>
                 <h3>Password storage — use neither</h3>
                 <p>This is the most important point: <strong>do not use SHA-256 or SHA-512 to store passwords.</strong> Both algorithms are designed to be fast. Fast is dangerous for passwords because it means an attacker with a GPU can test billions of guesses per second against a stolen hash database.</p>
                 <p>Use a dedicated password hashing function instead:</p>
-                <pre><code>// Node.js — bcrypt (npm install bcrypt)
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Node.js — bcrypt (npm install bcrypt)
 import bcrypt from 'bcrypt';
 const hash = await bcrypt.hash(password, 12); // cost factor 12
 const valid = await bcrypt.compare(input, hash);
@@ -294,26 +305,35 @@ const valid = await bcrypt.compare(input, hash);
 import argon2 from 'argon2';
 const hash = await argon2.hash(password); // Argon2id by default
 const valid = await argon2.verify(hash, input);</code></pre>
-                <pre><code># Python — bcrypt
+            </div>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Python — bcrypt
 import bcrypt
 hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12))
 valid = bcrypt.checkpw(input.encode(), hashed)</code></pre>
+            </div>
             </section>
 
             <section>
                 <h2>How to generate SHA-256 and SHA-512 hashes in code</h2>
 
                 <h3>Node.js</h3>
-                <pre><code>import { createHash } from 'crypto';
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { createHash } from 'crypto';
 
 const h256 = createHash('sha256').update('hello').digest('hex');
 const h512 = createHash('sha512').update('hello').digest('hex');
 
 console.log(h256); // 2cf24dba...
 console.log(h512); // 9b71d224...</code></pre>
+            </div>
 
                 <h3>Browser (WebCrypto API)</h3>
-                <pre><code>async function sha(algorithm, text) {
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>async function sha(algorithm, text) {
   const data = new TextEncoder().encode(text);
   const buffer = await crypto.subtle.digest(algorithm, data);
   return [...new Uint8Array(buffer)]
@@ -322,15 +342,21 @@ console.log(h512); // 9b71d224...</code></pre>
 
 const h256 = await sha('SHA-256', 'hello');
 const h512 = await sha('SHA-512', 'hello');</code></pre>
+            </div>
 
                 <h3>Python</h3>
-                <pre><code>import hashlib
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import hashlib
 
 h256 = hashlib.sha256(b'hello').hexdigest()
 h512 = hashlib.sha512(b'hello').hexdigest()</code></pre>
+            </div>
 
                 <h3>Go</h3>
-                <pre><code>import (
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import (
   "crypto/sha256"
   "crypto/sha512"
   "fmt"
@@ -340,10 +366,14 @@ h256 := sha256.Sum256([]byte("hello"))
 h512 := sha512.Sum512([]byte("hello"))
 fmt.Printf("%x\n", h256)
 fmt.Printf("%x\n", h512)</code></pre>
+            </div>
 
                 <h3>Bash (file hash)</h3>
-                <pre><code>sha256sum file.txt
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>sha256sum file.txt
 sha512sum file.txt</code></pre>
+            </div>
             </section>
 
             <section>
@@ -352,33 +382,52 @@ sha512sum file.txt</code></pre>
             </section>
 
             <section>
-                <h2>Frequently Asked Questions</h2>
+                        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
 
-                <h3>Is SHA-512 more secure than SHA-256?</h3>
+
+                            <details>
+                <summary>Is SHA-512 more secure than SHA-256?</summary>
                 <p>Marginally — SHA-512 has a larger collision resistance (256-bit vs 128-bit) and more post-quantum margin. In practice, SHA-256's 128-bit security is far beyond any foreseeable attack. The security difference only matters in specific threat models involving nation-state adversaries or very long-term archival.</p>
+            </details>
 
-                <h3>Can I switch from SHA-256 to SHA-512 in an existing system?</h3>
+                            <details>
+                <summary>Can I switch from SHA-256 to SHA-512 in an existing system?</summary>
                 <p>Yes, but any previously computed hashes cannot be compared directly — SHA-256 and SHA-512 of the same input produce completely different outputs. You will need to re-hash all stored values and update verification logic. For HMAC-based systems (API signatures, JWTs), both sides must agree on the algorithm.</p>
+            </details>
 
-                <h3>Why does AWS use SHA-256 and not SHA-512?</h3>
+                            <details>
+                <summary>Why does AWS use SHA-256 and not SHA-512?</summary>
                 <p>Standardisation and hardware acceleration. SHA-256 benefits from SHA-NI hardware extensions on modern Intel and AMD server CPUs, making it extremely fast on AWS infrastructure. SHA-256 also has the widest client-library support, simplifying integration across SDK languages.</p>
+            </details>
 
-                <h3>Does SHA-512 produce a longer hash string?</h3>
-                <p>Yes. SHA-256 outputs 64 hex characters (32 bytes). SHA-512 outputs 128 hex characters (64 bytes). If you store hashes in a database, size the column accordingly: <code>CHAR(64)</code> for SHA-256, <code>CHAR(128)</code> for SHA-512.</p>
+                            <details>
+                <summary>Why does my database column overflow when I switch from SHA-256 to SHA-512?</summary>
+                <p>SHA-256 outputs 64 hex characters; SHA-512 outputs 128 hex characters. If your column is <code>CHAR(64)</code> or <code>VARCHAR(64)</code>, switching algorithms will silently truncate the hash — making every stored value invalid. Alter the column to <code>CHAR(128)</code> before migrating, and re-hash all existing values.</p>
+            </details>
             </section>
 
             <div class="article-cta">
                 <p>Generate and compare SHA-256 and SHA-512 hashes from any text with the free <a href="../hash.html">Hash Generator →</a></p>
             </div>
 
-            <section class="related-articles">
-                <h2>Related Articles</h2>
-                <ul>
-                    <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
-                    <li><a href="uuid-v4-vs-v7.html">UUID v4 vs UUID v7: Which Should You Use for Database Primary Keys?</a></li>
-                    <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
-                </ul>
-            </section>
+            
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../hash.html">Hash Generator</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="hash-guide.html">MD5 vs SHA-256: Which Hash Should You Use?</a></li>
+                <li><a href="uuid-v4-vs-v7.html">UUID v4 vs UUID v7: Which Should You Use for Database Primary Keys?</a></li>
+                <li><a href="uuid-guide.html">What Is a UUID and How to Generate One</a></li>
+            </ul>
+        </section>
         </article>
     </main>
 
@@ -391,5 +440,21 @@ sha512sum file.txt</code></pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

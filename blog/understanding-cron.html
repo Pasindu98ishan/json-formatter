@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -123,13 +123,16 @@
             <section>
                 <h2>The five fields</h2>
                 <p>A standard CRON expression has exactly five fields, separated by spaces:</p>
-                <pre><code>┌───────────── minute        (0–59)
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>┌───────────── minute        (0–59)
 │ ┌─────────── hour          (0–23)
 │ │ ┌───────── day of month  (1–31)
 │ │ │ ┌─────── month         (1–12)
 │ │ │ │ ┌───── day of week   (0–6, 0 = Sunday)
 │ │ │ │ │
 * * * * *</code></pre>
+            </div>
                 <p>So <code>30 8 * * 1</code> means: at minute 30, hour 8, any day of month, any month, only on Monday — which is "every Monday at 8:30 AM".</p>
             </section>
 
@@ -138,28 +141,43 @@
 
                 <h3><code>*</code> — every value</h3>
                 <p>An asterisk matches every possible value for that field.</p>
-                <pre><code>* * * * *   → runs every minute</code></pre>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>* * * * *   → runs every minute</code></pre>
+            </div>
 
                 <h3><code>*/n</code> — every n-th value (step)</h3>
                 <p>The slash means "step". <code>*/5</code> means every 5th value starting from the minimum. In the minute field that is 0, 5, 10, 15, …, 55.</p>
-                <pre><code>*/5  * * * *   → every 5 minutes
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>*/5  * * * *   → every 5 minutes
 *   */2 * * *   → every 2 hours (00:00, 02:00, 04:00, …)
 */30 * * * *   → every 30 minutes</code></pre>
+            </div>
 
                 <h3><code>n-m</code> — range</h3>
                 <p>A hyphen defines a continuous range of values, inclusive.</p>
-                <pre><code>0 9 * * 1-5   → weekdays (Mon–Fri) at 9:00 AM
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>0 9 * * 1-5   → weekdays (Mon–Fri) at 9:00 AM
 0 8-18 * * *  → every hour from 8 AM to 6 PM</code></pre>
+            </div>
 
                 <h3><code>n,m,p</code> — list</h3>
                 <p>Comma-separated values specify multiple discrete values. No spaces around the commas.</p>
-                <pre><code>0 9,17 * * *      → 9:00 AM and 5:00 PM every day
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>0 9,17 * * *      → 9:00 AM and 5:00 PM every day
 0 0 1,15 * *      → midnight on the 1st and 15th of each month</code></pre>
+            </div>
 
                 <h3><code>n-m/p</code> — range with step</h3>
                 <p>Combines a range and a step: matches every p-th value within the range n through m.</p>
-                <pre><code>0-30/10 * * * *   → minutes 0, 10, 20, 30 of every hour
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>0-30/10 * * * *   → minutes 0, 10, 20, 30 of every hour
 0 8-18/2 * * *    → every 2 hours between 8 AM and 6 PM</code></pre>
+            </div>
             </section>
 
             <section>
@@ -285,5 +303,21 @@
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

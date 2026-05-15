@@ -151,7 +151,9 @@
             <h2>The rule: double quotes everywhere</h2>
             <p>The JSON specification (RFC 8259) defines a string as a sequence of Unicode characters wrapped in <strong>double quotes</strong>. This applies to both values and object keys:</p>
 
-            <pre>// Invalid JSON — single quotes
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Invalid JSON — single quotes
 {
   'name': 'Alice',
   'age': 30
@@ -162,23 +164,33 @@
   "name": "Alice",
   "age": 30
 }</pre>
+            </div>
 
             <h2>Why does this trip developers up?</h2>
             <p>JavaScript allows both single and double quotes in object literals, so it is natural to write:</p>
-            <pre>// Valid JavaScript object literal (NOT JSON)
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Valid JavaScript object literal (NOT JSON)
 const user = { 'name': 'Alice', 'age': 30 };</pre>
+            </div>
             <p>This works fine in JavaScript code, but the moment you try to pass that string as JSON — via an API, a config file, or <code>JSON.parse()</code> — it will fail. JSON is a stricter, language-independent text format and it does not inherit JavaScript's flexibility.</p>
 
             <h2>Apostrophes inside strings</h2>
             <p>A related question: if you cannot use single quotes as delimiters, what do you do when a value contains an apostrophe?</p>
-            <pre>// An apostrophe inside a double-quoted string is fine — no escaping needed
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// An apostrophe inside a double-quoted string is fine — no escaping needed
 {
   "note": "It's a beautiful day"
 }</pre>
+            </div>
             <p>An apostrophe inside a double-quoted JSON string does not need to be escaped. Only double quotes inside a string value need a backslash escape:</p>
-            <pre>{
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
   "message": "She said \"hello\""
 }</pre>
+            </div>
 
             <h2>Converting from single to double quotes</h2>
             <p>If you have a large block of single-quoted JSON-like text from a script or log output, a simple approach in most editors is a find-and-replace, but be careful — a global replace of <code>'</code> with <code>"</code> will also replace apostrophes inside values. A more reliable approach:</p>
@@ -198,12 +210,21 @@ const user = { 'name': 'Alice', 'age': 30 };</pre>
             </ul>
             <p>When you need to serialize a JavaScript object to JSON, always use <code>JSON.stringify()</code> — it produces valid JSON with double-quoted keys and values automatically.</p>
 
-            <h2>Related articles</h2>
+                    <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
             <ul>
                 <li><a href="common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
                 <li><a href="json-comments-not-allowed.html">JSON Does Not Allow Comments</a></li>
                 <li><a href="json-object-keys-must-be-strings.html">JSON Object Keys Must Be Strings</a></li>
             </ul>
+        </section>
 
         </article>
     </main>
@@ -217,5 +238,21 @@ const user = { 'name': 'Alice', 'age': 30 };</pre>
 
     <script src="../js/nav.js"></script>
     <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
