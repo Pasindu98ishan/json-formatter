@@ -1,76 +1,41 @@
-// Loads CM6 via dynamic import so CDN failures never break the formatter.
-// Uses ?bundle so esm.sh inlines all dependencies — avoids the re-export
-// chain resolution issue that occurs when the page is served from file://.
+// Loads CM6 from a local self-hosted bundle (js/cm6.bundle.min.js).
+// Falls back gracefully if the bundle fails to load.
 async function initCM6() {
     const inputEl       = document.getElementById('inputJSON');
     const inputContainer  = document.getElementById('cmInputEditor');
     const outputContainer = document.getElementById('cmOutputEditor'); // optional
     if (!inputEl || !inputContainer) return;
 
-    // ── Load CM6 from individual scoped packages (each unambiguously CM6) ────
-    // The unscoped `codemirror` package on esm.sh is unreliable (resolves to CM5
-    // shim under ?bundle). @codemirror/* scoped packages always mean CM6.
-    let basicSetup, EditorView, EditorState, Compartment, keymap, linter, lintGutter;
-    let view, state, lint, json = null;
+    let EditorView, EditorState, Compartment, keymap;
+    let lineNumbers, highlightActiveLineGutter, highlightSpecialChars;
+    let drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine;
+    let history, historyKeymap, defaultKeymap, undo, redo, undoDepth, redoDepth;
+    let foldGutter, foldKeymap, indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching;
+    let closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap;
+    let searchKeymap, highlightSelectionMatches;
+    let linter, lintGutter, lintKeymap;
+    let json = null;
+
     try {
-        const [v, s, l, autocomplete, commands, language, search, langJsonMod] = await Promise.all([
-            import('https://esm.sh/@codemirror/view@6'),
-            import('https://esm.sh/@codemirror/state@6'),
-            import('https://esm.sh/@codemirror/lint@6'),
-            import('https://esm.sh/@codemirror/autocomplete@6'),
-            import('https://esm.sh/@codemirror/commands@6'),
-            import('https://esm.sh/@codemirror/language@6'),
-            import('https://esm.sh/@codemirror/search@6'),
-            import('https://esm.sh/@codemirror/lang-json@6').catch(e => { console.error('lang-json load failed:', e); return null; })
-        ]);
-        view = v; state = s; lint = l;
-        if (langJsonMod && typeof langJsonMod.json === 'function') json = langJsonMod.json;
-
-        ({ EditorView, keymap } = v);
-        ({ EditorState, Compartment } = s);
-        ({ linter, lintGutter } = l);
-
-        // Reconstruct basicSetup manually — it's just the standard extension array.
-        basicSetup = [
-            v.lineNumbers(),
-            v.highlightActiveLineGutter(),
-            v.highlightSpecialChars(),
-            commands.history(),
-            language.foldGutter(),
-            v.drawSelection(),
-            v.dropCursor(),
-            s.EditorState.allowMultipleSelections.of(true),
-            language.indentOnInput(),
-            language.syntaxHighlighting(language.defaultHighlightStyle, { fallback: true }),
-            language.bracketMatching(),
-            autocomplete.closeBrackets(),
-            autocomplete.autocompletion(),
-            v.rectangularSelection(),
-            v.crosshairCursor(),
-            v.highlightActiveLine(),
-            search.highlightSelectionMatches(),
-            v.keymap.of([
-                ...autocomplete.closeBracketsKeymap,
-                ...commands.defaultKeymap,
-                ...search.searchKeymap,
-                ...commands.historyKeymap,
-                ...language.foldKeymap,
-                ...autocomplete.completionKeymap,
-                ...l.lintKeymap
-            ])
-        ];
+        const mod = await import('./cm6.bundle.min.js');
+        ({
+            EditorView, EditorState, Compartment, keymap,
+            lineNumbers, highlightActiveLineGutter, highlightSpecialChars,
+            drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine,
+            history, historyKeymap, defaultKeymap, undo, redo, undoDepth, redoDepth,
+            foldGutter, foldKeymap, indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching,
+            closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap,
+            searchKeymap, highlightSelectionMatches,
+            linter, lintGutter, lintKeymap,
+            json
+        } = mod);
     } catch (e) {
-        console.warn('CodeMirror 6 load failed — using native fallback:', e);
+        console.warn('CodeMirror 6 bundle load failed — using native fallback:', e);
         return;
     }
 
     if (!EditorView || !EditorState) {
-        console.warn('=== CM6 DIAGNOSTIC ===');
-        console.warn('view keys:', view ? Object.keys(view).slice(0, 30) : 'null');
-        console.warn('state keys:', state ? Object.keys(state).slice(0, 20) : 'null');
-        console.warn('view.EditorView:', view?.EditorView);
-        console.warn('state.EditorState:', state?.EditorState);
-        console.warn('=== Falling back to native textarea ===');
+        console.warn('CM6 bundle missing core exports — using native fallback');
         return;
     }
 
@@ -96,12 +61,40 @@ async function initCM6() {
         const themeInput  = new Compartment();
         const themeOutput = new Compartment();
 
+        const basicSetup = [
+            lineNumbers(),
+            highlightActiveLineGutter(),
+            highlightSpecialChars(),
+            history(),
+            foldGutter(),
+            drawSelection(),
+            dropCursor(),
+            EditorState.allowMultipleSelections.of(true),
+            indentOnInput(),
+            syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+            bracketMatching(),
+            closeBrackets(),
+            autocompletion(),
+            rectangularSelection(),
+            crosshairCursor(),
+            highlightActiveLine(),
+            highlightSelectionMatches(),
+            keymap.of([
+                ...closeBracketsKeymap,
+                ...defaultKeymap,
+                ...searchKeymap,
+                ...historyKeymap,
+                ...foldKeymap,
+                ...completionKeymap,
+                ...lintKeymap
+            ])
+        ];
+
         const jsonLinter = linter((view) => {
             const fullText = view.state.doc.toString();
             if (!fullText.trim()) return [];
             try { JSON.parse(fullText); return []; }
             catch (e) {
-                // Use the global normalizer (validator.js) when available, fall back otherwise
                 const norm = (typeof window.normalizeJSONError === 'function')
                     ? window.normalizeJSONError(fullText, e.message)
                     : { title: e.message, hint: '', position: 0, rawMessage: e.message };
@@ -127,9 +120,7 @@ async function initCM6() {
                 keymap.of([{
                     key: 'Mod-Enter',
                     run: () => {
-                        // Page-specific submit handler (formatter)
                         if (typeof window.handleFormat === 'function') { window.handleFormat(); return true; }
-                        // Generic fallback: click whatever the page's primary button is (validator, etc.)
                         const btn = document.querySelector('.btn-primary');
                         if (btn) { btn.click(); return true; }
                         return false;
@@ -146,6 +137,10 @@ async function initCM6() {
                             localStorage.setItem('formatterInput', update.state.doc.toString());
                         }, 500);
                     }
+                    const undoBtn = document.getElementById('undoBtn');
+                    const redoBtn = document.getElementById('redoBtn');
+                    if (undoBtn) undoBtn.disabled = undoDepth(update.state) === 0;
+                    if (redoBtn) redoBtn.disabled = redoDepth(update.state) === 0;
                 }),
                 themeInput.of(isDark() ? darkTheme : []),
                 monoStyle
@@ -159,13 +154,17 @@ async function initCM6() {
                 state: EditorState.create({ doc: inputEl.value, extensions: buildInputExtensions() })
             });
         } catch (_) {
-            // json() conflicted with the core bundle — retry without it
+            // json() conflicted — retry without it
             json = null;
             inputView = new EditorView({
                 parent: inputContainer,
                 state: EditorState.create({ doc: inputEl.value, extensions: buildInputExtensions() })
             });
         }
+
+        // Expose undo/redo for the UI buttons in app.js
+        window.cmUndo = () => { undo(inputView); };
+        window.cmRedo = () => { redo(inputView); };
 
         // Proxy #inputJSON .value → all existing app.js reads/writes work unchanged
         Object.defineProperty(inputEl, 'value', {

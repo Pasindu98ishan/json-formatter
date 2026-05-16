@@ -43,6 +43,9 @@ function initializeEventListeners() {
     const fetchBtn = document.getElementById('fetchBtn');
     const sampleBtn = document.getElementById('sampleBtn');
     const shareBtn = document.getElementById('shareBtn');
+    const repairBtn = document.getElementById('repairBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
 
     if (formatBtn) formatBtn.addEventListener('click', handleFormat);
     if (minifyBtn) minifyBtn.addEventListener('click', handleMinify);
@@ -55,6 +58,9 @@ function initializeEventListeners() {
     if (fetchBtn) fetchBtn.addEventListener('click', handleFetch);
     if (sampleBtn) sampleBtn.addEventListener('click', handleSample);
     if (shareBtn) shareBtn.addEventListener('click', handleShare);
+    if (repairBtn) repairBtn.addEventListener('click', handleRepair);
+    if (undoBtn) undoBtn.addEventListener('click', () => window.cmUndo?.());
+    if (redoBtn) redoBtn.addEventListener('click', () => window.cmRedo?.());
 
     const jsonFileInput = document.getElementById('jsonFileInput');
     if (jsonFileInput) {
@@ -192,6 +198,44 @@ function handleValidate() {
         const norm = normalizeJSONError(input, error.message);
         showError(norm.title, norm.hint, norm.rawMessage);
         treeViewer.clear();
+    }
+}
+
+let _jsonrepair = null;
+async function handleRepair() {
+    const repairBtn = document.getElementById('repairBtn');
+    try {
+        clearError();
+        const input = document.getElementById('inputJSON').value.trim();
+        if (!input) { showError('Please enter JSON to repair'); return; }
+
+        if (!_jsonrepair) {
+            if (repairBtn) { repairBtn.textContent = 'Loading…'; repairBtn.disabled = true; }
+            const mod = await import('https://esm.sh/jsonrepair@3');
+            _jsonrepair = mod.jsonrepair;
+            if (repairBtn) { repairBtn.textContent = 'Repair'; repairBtn.disabled = false; }
+        }
+
+        const repaired = _jsonrepair(input);
+        document.getElementById('inputJSON').value = repaired;
+
+        // On formatter page: format and show output
+        if (typeof beautifyJSON === 'function') {
+            const indent = parseInt(document.getElementById('indentSelect')?.value || '2');
+            const formatted = beautifyJSON(repaired, indent);
+            setOutput(formatted);
+            if (treeViewer) treeViewer.render(formatted);
+        }
+        // On validator page: re-validate automatically
+        if (typeof handleValidate === 'function' && !document.getElementById('outputJSON')) {
+            handleValidate();
+        }
+
+        showSuccess('✓ JSON repaired successfully.');
+        trackEvent('repair_json');
+    } catch (e) {
+        if (repairBtn) { repairBtn.textContent = 'Repair'; repairBtn.disabled = false; }
+        showError('Could not repair JSON', e.message);
     }
 }
 
