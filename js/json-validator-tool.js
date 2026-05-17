@@ -135,7 +135,16 @@ document.addEventListener('DOMContentLoaded', function () {
         inputJSON.addEventListener('paste', () => trackEvent('tool_start', { tool: 'json_validator' }));
     }
 
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    if (undoBtn) undoBtn.addEventListener('click', () => window.cmUndo?.());
+    if (redoBtn) redoBtn.addEventListener('click', () => window.cmRedo?.());
+
     const jsonFileInput = document.getElementById('jsonFileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    if (uploadBtn && jsonFileInput) {
+        uploadBtn.addEventListener('click', () => jsonFileInput.click());
+    }
     if (jsonFileInput) {
         jsonFileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];

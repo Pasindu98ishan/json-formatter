@@ -63,6 +63,10 @@ function initializeEventListeners() {
     if (redoBtn) redoBtn.addEventListener('click', () => window.cmRedo?.());
 
     const jsonFileInput = document.getElementById('jsonFileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    if (uploadBtn && jsonFileInput) {
+        uploadBtn.addEventListener('click', () => jsonFileInput.click());
+    }
     if (jsonFileInput) {
         jsonFileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
