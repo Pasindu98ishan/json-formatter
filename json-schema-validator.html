@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Validate JSON against a JSON Schema online. Paste your JSON and schema, click Validate, and get detailed error messages with exact paths. Free, browser-only, no signup. Six built-in samples to learn from.">
+    <meta name="keywords" content="json schema validator, validate json against schema, json schema validator online, json schema test, ajv online, json schema required, json schema type">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/json-schema-validator.html">
+    <meta property="og:title" content="JSON Schema Validator – Validate JSON Against a Schema Online">
+    <meta property="og:description" content="Free online JSON Schema validator with detailed error messages, JSON-path location, and six built-in samples covering required fields, enums, nested objects, and oneOf patterns.">
+    <meta property="og:url" content="https://jsondevtools.org/json-schema-validator.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON Schema Validator – Validate JSON Against a Schema Online</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ajv@6.12.6/dist/ajv.min.js"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "JSON Schema Validator", "item": "https://jsondevtools.org/json-schema-validator.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "JSON Schema Validator Online",
+      "url": "https://jsondevtools.org/json-schema-validator.html",
+      "description": "Free online JSON Schema validator. Validate any JSON document against a JSON Schema and get detailed errors with exact JSON paths.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is JSON Schema validation?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON Schema validation checks whether a JSON document matches the rules described in a JSON Schema — the required keys, the types of each value, allowed enums, regex patterns for strings, minimum and maximum for numbers, and so on. It is the standard way to confirm that API requests, configuration files, or stored documents have the structure your code expects." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which JSON Schema drafts does this validator support?",
+          "acceptedAnswer": { "@type": "Answer", "text": "This tool uses Ajv 8, which supports drafts 06, 07, 2019-09, and 2020-12. The samples on this page use draft-07 (the most widely used) but you can declare a different $schema and Ajv will use the matching draft." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my JSON sent to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Validation runs entirely in your browser using JavaScript. Your JSON and your schema never leave your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my schema with $ref to another file not work?",
+          "acceptedAnswer": { "@type": "Answer", "text": "This online tool does not fetch external $ref targets from the network. Inline your referenced schemas into a single document, or pass the referenced schema separately via the data panel (combine them into one schema using definitions and local $ref)." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does the Path column in the error table mean?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The Path is a JSON Pointer to the exact location in your data where validation failed. For example, /users/0/age means the age field inside the first item of the users array. An empty path (/) means the root of the document." }
+        }
+      ]
+    }
+    </script>
+    <style>
+        /* ── Toolbar (instruction + example dropdown) ───────────────── */
+        .tool-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .tool-instruction {
+            margin: 0;
+            font-size: 13.5px;
+            color: var(--text-light);
+            line-height: 1.5;
+        }
+        .tool-instruction strong { color: #0056b3; font-weight: 600; }
+        body.dark-mode .tool-instruction strong { color: #66b2ff; }
+
+        /* Example dropdown button */
+        .example-menu-wrap { position: relative; flex-shrink: 0; }
+        .example-menu-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-light);
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 7px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+        .example-menu-btn:hover {
+            background: #f6f8fa;
+            border-color: #b0b8c4;
+        }
+        .example-menu-btn[aria-expanded="true"] {
+            background: #f0f4f8;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+        }
+        .example-menu-btn .caret {
+            font-size: 10px;
+            opacity: 0.7;
+            transition: transform 0.18s ease;
+        }
+        .example-menu-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+        body.dark-mode .example-menu-btn {
+            background: #2d2d2d; color: #e0e0e0; border-color: #444;
+        }
+        body.dark-mode .example-menu-btn:hover { background: #353535; border-color: #555; }
+        body.dark-mode .example-menu-btn[aria-expanded="true"] {
+            background: rgba(102, 178, 255, 0.12); border-color: #66b2ff;
+        }
+
+        .example-menu {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            min-width: 260px;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            padding: 6px;
+            z-index: 100;
+            opacity: 0;
+            transform: translateY(-4px);
+            pointer-events: none;
+            transition: opacity 0.14s ease, transform 0.14s ease;
+        }
+        .example-menu[data-open="true"] {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .example-menu-item {
+            display: block;
+            width: 100%;
+            padding: 9px 12px;
+            font-size: 13px;
+            text-align: left;
+            color: var(--text-light);
+            background: transparent;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .example-menu-item:hover { background: #f0f4f8; }
+        .example-menu-item.active {
+            background: #e7f1ff;
+            color: #0056b3;
+            font-weight: 600;
+        }
+        .example-menu-item .desc {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 400;
+            color: var(--secondary-color);
+            margin-top: 2px;
+        }
+        body.dark-mode .example-menu {
+            background: #2d2d2d; border-color: #444;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+        body.dark-mode .example-menu-item { color: #e0e0e0; }
+        body.dark-mode .example-menu-item:hover { background: #383838; }
+        body.dark-mode .example-menu-item.active {
+            background: rgba(102, 178, 255, 0.15);
+            color: #99c8ff;
+        }
+        body.dark-mode .example-menu-item .desc { color: #9aa5b3; }
+
+        /* ── Two-panel input layout ─────────────────────────────────── */
+        .schema-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+        .schema-panel label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 6px;
+        }
+        .schema-panel textarea {
+            width: 100%;
+            min-height: 320px;
+            padding: 12px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            resize: vertical;
+            background: #fff;
+            color: var(--text-light);
+            box-sizing: border-box;
+        }
+        body.dark-mode .schema-panel textarea {
+            background: #2d2d2d; color: #e0e0e0; border-color: #444;
+        }
+        @media (max-width: 720px) {
+            .schema-panels { grid-template-columns: 1fr; }
+        }
+
+        /* ── Result panel ───────────────────────────────────────────── */
+        #resultBox { margin-top: 16px; }
+        .schema-result-ok {
+            padding: 14px 16px;
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+        .schema-result-err {
+            padding: 14px 16px;
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+            border-radius: 6px;
+            font-size: 15px;
+            margin-bottom: 10px;
+        }
+        body.dark-mode .schema-result-ok { background: #1a3d26; color: #6fd98a; }
+        body.dark-mode .schema-result-err { background: #3d1a1a; color: #f08080; }
+        .schema-error-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 4px;
+            font-size: 13px;
+        }
+        .schema-error-table th,
+        .schema-error-table td {
+            text-align: left;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+        .schema-error-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        body.dark-mode .schema-error-table th { background: #2a2a2a; }
+        body.dark-mode .schema-error-table th,
+        body.dark-mode .schema-error-table td { border-color: #444; }
+        .schema-error-table code {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            background: rgba(0,0,0,0.05);
+            padding: 1px 5px;
+            border-radius: 3px;
+        }
+        body.dark-mode .schema-error-table code { background: rgba(255,255,255,0.08); }
+        .err-detail { color: var(--secondary-color); font-size: 12px; }
+
+        /* ── Keyword cheatsheet ─────────────────────────────────────── */
+        .schema-keyword-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .schema-keyword-table th,
+        .schema-keyword-table td {
+            padding: 9px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+        .schema-keyword-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        body.dark-mode .schema-keyword-table th { background: #2a2a2a; }
+        body.dark-mode .schema-keyword-table th,
+        body.dark-mode .schema-keyword-table td { border-color: #444; }
+        .schema-keyword-table code {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            background: rgba(0,123,255,0.08);
+            padding: 1px 6px;
+            border-radius: 3px;
+            color: #0056b3;
+        }
+        body.dark-mode .schema-keyword-table code { background: rgba(102,178,255,0.15); color: #66b2ff; }
+
+        /* ── Code-snippet copy buttons ──────────────────────────────── */
+        .code-block { position: relative; margin: 12px 0; }
+        .code-block pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 14px 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12.5px;
+            line-height: 1.55;
+            margin: 0;
+        }
+        .copy-code-btn {
+            position: absolute; top: 8px; right: 8px;
+            padding: 4px 10px; font-size: 11px; font-weight: 600;
+            background: rgba(255,255,255,0.12); color: #cbd5e1;
+            border: 1px solid rgba(255,255,255,0.18); border-radius: 4px;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .copy-code-btn:hover { background: rgba(255,255,255,0.22); color: #fff; }
+        .copy-code-btn.copied { background: #28a745; color: #fff; border-color: #28a745; }
+    </style>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="formatter.html" class="nav-cta">JSON Formatter</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="json-validator.html">JSON Validator</a></li>
+                            <li><a href="json-schema-validator.html">JSON Schema Validator</a></li>
+                            <li><a href="json-minifier.html">JSON Minifier</a></li>
+                            <li><a href="json-viewer.html">JSON Viewer</a></li>
+                            <li><a href="json-beautifier.html">JSON Beautifier</a></li>
+                            <li><a href="json-diff.html">JSON Diff</a></li>
+                            <li><a href="jsonpath.html">JSONPath Tester</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="json-to-csv.html">JSON &#8594; CSV</a></li>
+                            <li><a href="csv-to-json.html">CSV &#8594; JSON</a></li>
+                            <li><a href="json-to-yaml.html">JSON &#8594; YAML</a></li>
+                            <li><a href="yaml-to-json.html">YAML &#8594; JSON</a></li>
+                            <li><a href="json-to-xml.html">JSON &#8594; XML</a></li>
+                            <li><a href="xml-to-json.html">XML &#8594; JSON</a></li>
+                            <li><a href="json-to-typescript.html">JSON &#8594; TypeScript</a></li>
+                            <li><a href="px-to-rem.html">Px &#8596; Rem</a></li>
+                            <li><a href="timestamp.html">Timestamp</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="base64.html">Base64</a></li>
+                            <li><a href="url-encoder.html">URL Encoder</a></li>
+                            <li><a href="jwt-decoder.html">JWT Decoder</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="uuid.html">UUID Generator</a></li>
+                            <li><a href="hash.html">Hash Generator</a></li>
+                            <li><a href="cron.html">CRON Generator</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>JSON Schema Validator</h1>
+            <p>Validate any JSON document against a JSON Schema. Get clear, path-specific errors instantly.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+
+            <div class="tool-toolbar">
+                <p class="tool-instruction">
+                    Put your <strong>schema</strong> on the left, your <strong>JSON data</strong> on the right, then click Validate.
+                </p>
+                <div class="example-menu-wrap">
+                    <button type="button" id="exampleMenuBtn" class="example-menu-btn" aria-haspopup="true" aria-expanded="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <span id="exampleMenuLabel">Load example</span>
+                        <span class="caret">&#9662;</span>
+                    </button>
+                    <div class="example-menu" id="exampleMenu" role="menu"></div>
+                </div>
+            </div>
+
+            <div class="schema-panels">
+                <div class="schema-panel">
+                    <label for="schemaInput">JSON Schema &mdash; the rules</label>
+                    <textarea id="schemaInput" spellcheck="false" placeholder='Paste your JSON Schema here, e.g.&#10;{&#10;  "type": "object",&#10;  "required": ["name"],&#10;  "properties": {&#10;    "name": { "type": "string" }&#10;  }&#10;}'></textarea>
+                </div>
+                <div class="schema-panel">
+                    <label for="jsonInput">JSON data &mdash; what you want to validate</label>
+                    <textarea id="jsonInput" spellcheck="false" placeholder='Paste your JSON data here, e.g.&#10;{&#10;  "name": "Alice",&#10;  "age": 30&#10;}'></textarea>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="validateBtn" class="btn btn-primary" type="button">Validate</button>
+                <button id="clearBtn" class="btn btn-secondary" type="button">Clear</button>
+            </div>
+
+            <div id="resultBox" role="status" aria-live="polite"></div>
+        </section>
+
+        <section class="info-section">
+            <h2>How JSON Schema validation works</h2>
+            <p>A JSON Schema is itself a JSON document that describes the shape of other JSON documents. It says things like "this must be an object", "the <code>name</code> field is required", "the <code>age</code> field must be a non-negative integer", or "the <code>email</code> field must match a regular expression". A validator reads the schema and walks through your data, reporting every place where the data does not match the rules.</p>
+            <p>Validators are most commonly used at three places in real systems:</p>
+            <ul>
+                <li><strong>API request validation</strong> — reject malformed requests before they reach your business logic, returning clear errors to the client.</li>
+                <li><strong>Configuration file validation</strong> — catch typos and missing fields at startup instead of at the moment the value is read.</li>
+                <li><strong>Test fixtures</strong> — assert that mock responses still match the contract your code expects.</li>
+            </ul>
+            <p>This tool uses <a href="https://ajv.js.org/" rel="noopener" target="_blank">Ajv 8</a>, the most widely used JSON Schema validator in the JavaScript ecosystem. It supports drafts 06, 07, 2019-09, and 2020-12. All validation runs in your browser — your JSON and schema never leave your device.</p>
+        </section>
+
+        <section class="info-section">
+            <h2>Common JSON Schema keywords — quick reference</h2>
+            <p>These are the keywords you will use 90% of the time. Click a sample above to see most of them in action.</p>
+            <table class="schema-keyword-table">
+                <thead>
+                    <tr><th>Keyword</th><th>Applies to</th><th>What it does</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>type</code></td><td>any</td><td>Restricts the JSON type. Allowed values: <code>"string"</code>, <code>"number"</code>, <code>"integer"</code>, <code>"boolean"</code>, <code>"object"</code>, <code>"array"</code>, <code>"null"</code>. Can be an array for unions.</td></tr>
+                    <tr><td><code>required</code></td><td>object</td><td>Array of property names that must be present. <strong>Presence only</strong> — does not check for non-empty values.</td></tr>
+                    <tr><td><code>properties</code></td><td>object</td><td>Object mapping property names to their sub-schemas.</td></tr>
+                    <tr><td><code>additionalProperties</code></td><td>object</td><td><code>false</code> rejects any property not in <code>properties</code>. A schema value validates extras.</td></tr>
+                    <tr><td><code>items</code></td><td>array</td><td>Sub-schema each array element must match.</td></tr>
+                    <tr><td><code>minItems</code> / <code>maxItems</code></td><td>array</td><td>Minimum / maximum number of elements.</td></tr>
+                    <tr><td><code>minLength</code> / <code>maxLength</code></td><td>string</td><td>Minimum / maximum character count.</td></tr>
+                    <tr><td><code>pattern</code></td><td>string</td><td>A regular expression the string must match.</td></tr>
+                    <tr><td><code>format</code></td><td>string</td><td>Named format like <code>email</code>, <code>uri</code>, <code>date</code>, <code>date-time</code>, <code>uuid</code>.</td></tr>
+                    <tr><td><code>minimum</code> / <code>maximum</code></td><td>number</td><td>Inclusive numeric bounds. Use <code>exclusiveMinimum</code> / <code>exclusiveMaximum</code> for strict bounds.</td></tr>
+                    <tr><td><code>enum</code></td><td>any</td><td>Array of allowed values. The instance must equal one of them exactly.</td></tr>
+                    <tr><td><code>const</code></td><td>any</td><td>Like <code>enum</code> but only one allowed value. Common in discriminator patterns.</td></tr>
+                    <tr><td><code>oneOf</code></td><td>any</td><td>Array of sub-schemas. The instance must match <strong>exactly one</strong>.</td></tr>
+                    <tr><td><code>anyOf</code></td><td>any</td><td>Array of sub-schemas. The instance must match <strong>at least one</strong>.</td></tr>
+                    <tr><td><code>allOf</code></td><td>any</td><td>Array of sub-schemas. The instance must match <strong>all of them</strong>.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="info-section">
+            <h2>How to read validation errors</h2>
+            <p>When validation fails, the result table shows three columns for each error:</p>
+            <ul>
+                <li><strong>Path</strong> — a JSON Pointer to the exact location in your data. <code>/users/0/age</code> means the <code>age</code> field inside the first item of the <code>users</code> array. An empty path (<code>/</code>) means the root.</li>
+                <li><strong>Message</strong> — a human-readable description of what went wrong, plus a small detail in parentheses (the missing property name, the expected type, the allowed enum values, etc.).</li>
+                <li><strong>Keyword</strong> — which JSON Schema keyword produced the error. Useful when you have several rules on the same field and want to know exactly which one failed.</li>
+            </ul>
+            <p>For example, validating <code>{"name": 42}</code> against <code>{"properties": {"name": {"type": "string"}}}</code> produces:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>Path: /name
+Message: must be string (expected string)
+Keyword: type</pre>
+            </div>
+            <p>The path tells you exactly which field, the message tells you what was wrong, and the keyword tells you which rule fired. Read errors in that order and the fix is usually obvious.</p>
+        </section>
+
+        <section class="info-section">
+            <h2>Common validation patterns</h2>
+
+            <h3>Make a field required but allow null</h3>
+            <p>JSON Schema treats <code>null</code> as a distinct type. To accept either a string or null:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "type": "object",
+  "required": ["nickname"],
+  "properties": {
+    "nickname": { "type": ["string", "null"] }
+  }
+}</pre>
+            </div>
+
+            <h3>Validate an email</h3>
+            <p>Use the <code>format</code> keyword. This tool supports the most common formats (<code>email</code>, <code>uri</code>, <code>date</code>, <code>date-time</code>, <code>uuid</code>) inline:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "type": "string",
+  "format": "email"
+}</pre>
+            </div>
+
+            <h3>Restrict a string to a small set of values</h3>
+            <p>Use <code>enum</code> when there is a fixed list. Use <code>pattern</code> when there is a rule:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "type": "string",
+  "enum": ["small", "medium", "large"]
+}</pre>
+            </div>
+
+            <h3>Forbid unexpected keys</h3>
+            <p>By default, JSON Schema accepts any extra properties not listed in <code>properties</code>. Add <code>"additionalProperties": false</code> to reject them — useful for config files where typos should fail loudly:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "host": { "type": "string" },
+    "port": { "type": "integer" }
+  }
+}</pre>
+            </div>
+
+            <h3>Polymorphic data with oneOf</h3>
+            <p>When a value can be one of several shapes, use <code>oneOf</code> with a discriminator field (often called <code>kind</code> or <code>type</code>) backed by <code>const</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "oneOf": [
+    { "type": "object", "required": ["kind", "last4"],
+      "properties": { "kind": { "const": "card" }, "last4": { "type": "string" } } },
+    { "type": "object", "required": ["kind", "iban"],
+      "properties": { "kind": { "const": "bank" }, "iban": { "type": "string" } } }
+  ]
+}</pre>
+            </div>
+
+            <h3>Reuse a sub-schema with $ref</h3>
+            <p>Define repeated sub-schemas once in <code>definitions</code> and reference them with <code>$ref</code>. <strong>Note:</strong> this tool resolves local references but does not fetch external URLs.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "definitions": {
+    "address": {
+      "type": "object",
+      "required": ["line1", "city"],
+      "properties": {
+        "line1": { "type": "string" },
+        "city":  { "type": "string" }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "billing":  { "$ref": "#/definitions/address" },
+    "shipping": { "$ref": "#/definitions/address" }
+  }
+}</pre>
+            </div>
+        </section>
+
+        <section class="info-section">
+            <h2>Tips and common mistakes</h2>
+            <ul>
+                <li><strong><code>required</code> checks presence, not non-emptiness.</strong> A field set to <code>""</code>, <code>null</code>, or <code>0</code> still satisfies <code>required</code>. Combine with <code>minLength</code> or <code>type</code> to enforce real values. Read more in the companion post: <a href="blog/json-schema-required-keyword.html">JSON Schema required keyword explained</a>.</li>
+                <li><strong><code>"type": "number"</code> accepts integers.</strong> Use <code>"type": "integer"</code> if you specifically want whole numbers (e.g., IDs, counts).</li>
+                <li><strong>Default values are documentation, not validation.</strong> The <code>default</code> keyword does not insert a value or change validation behaviour — it just tells readers what a sensible default is.</li>
+                <li><strong>Regular expressions in <code>pattern</code> are unanchored.</strong> <code>"^foo$"</code> matches only "foo"; <code>"foo"</code> matches "foo", "foobar", "barfoo", etc. Always anchor patterns when you want exact-match.</li>
+                <li><strong><code>additionalProperties: false</code> only checks the current object</strong>, not nested objects. Apply it at every level you want strict.</li>
+                <li><strong>Test failure cases too.</strong> A schema that accepts everything is just as bug-prone as one that rejects valid input. Pick a sample above, then deliberately break it (change a type, remove a required field) and click Validate to see the error.</li>
+            </ul>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+
+            <details>
+                <summary>What is JSON Schema validation?</summary>
+                <p>JSON Schema validation checks whether a JSON document matches the rules described in a JSON Schema — required keys, types, enums, regex patterns, numeric bounds, and so on. It is the standard way to confirm that API requests, configuration files, or stored documents have the structure your code expects.</p>
+            </details>
+
+            <details>
+                <summary>Which JSON Schema drafts does this validator support?</summary>
+                <p>This tool uses Ajv 8, which supports drafts 06, 07, 2019-09, and 2020-12. The samples on this page use draft-07 (the most widely used) but you can declare a different <code>$schema</code> and Ajv will use the matching draft.</p>
+            </details>
+
+            <details>
+                <summary>Is my JSON sent to a server?</summary>
+                <p>No. Validation runs entirely in your browser using JavaScript. Your JSON and your schema never leave your device.</p>
+            </details>
+
+            <details>
+                <summary>Why does my schema with $ref to another file not work?</summary>
+                <p>This online tool does not fetch external <code>$ref</code> targets from the network. Inline your referenced schemas into a single document using <code>definitions</code> and local <code>$ref</code> like <code>#/definitions/address</code>.</p>
+            </details>
+
+            <details>
+                <summary>What does the Path column in the error table mean?</summary>
+                <p>The <strong>Path</strong> is a JSON Pointer to the exact location in your data where validation failed. <code>/users/0/age</code> means the <code>age</code> field inside the first item of the <code>users</code> array. An empty path (<code>/</code>) means the root of the document.</p>
+            </details>
+
+            <details>
+                <summary>How is JSON Schema different from TypeScript types?</summary>
+                <p>TypeScript types disappear at runtime — they check your code as you write it but cannot validate data coming in from the network or a file. JSON Schema validates real values at runtime, so it complements TypeScript: use TypeScript for compile-time safety, use JSON Schema at the boundary where untrusted data enters your system.</p>
+            </details>
+
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="json-validator.html">JSON Validator</a> — check that JSON is syntactically valid</li>
+                <li><a href="formatter.html">JSON Formatter</a> — pretty-print and minify JSON</li>
+                <li><a href="json-to-typescript.html">JSON to TypeScript</a> — generate TS interfaces from JSON</li>
+                <li><a href="json-diff.html">JSON Diff</a> — compare two JSON documents</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/json-schema-validator-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

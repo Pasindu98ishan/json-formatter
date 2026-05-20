@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="The JSON Schema required keyword controls which properties must be present in an object — but it does NOT check for non-empty values. Learn the exact behaviour, common pitfalls, and how to combine required with other keywords to enforce real values.">
+    <meta name="keywords" content="json schema required, json schema required vs optional, json schema required example, json schema required not working, json schema make field required, required not empty json schema">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-schema-required-keyword.html">
+    <meta property="og:title" content="JSON Schema required Keyword Explained – Presence, Not Non-Empty">
+    <meta property="og:description" content="The required keyword in JSON Schema checks presence only, not non-empty values. Learn the exact behaviour, common confusion with optional and nullable, and how to combine it with other keywords.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-schema-required-keyword.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON Schema required Keyword Explained – Presence, Not Non-Empty | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON Schema required Keyword", "item": "https://jsondevtools.org/blog/json-schema-required-keyword.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON Schema required Keyword Explained – Presence, Not Non-Empty",
+      "description": "How the required keyword actually works in JSON Schema, why it does not check for non-empty values, and how to combine it with type and minLength to enforce real data.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan" },
+      "datePublished": "2026-05-19",
+      "dateModified": "2026-05-19",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why is my required field accepting an empty string?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because required only checks that the property is present, not that its value is non-empty. An empty string, null, or zero all satisfy required. To enforce a non-empty value, combine required with minLength (for strings) or with a type restriction that excludes null." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between required and optional in JSON Schema?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Properties are optional by default in JSON Schema. To make one or more properties required, list their names in the required array at the object level. There is no opposite keyword called optional — anything not in the required array is automatically optional." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is required listed at the object level instead of inside each property?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because required is a property of the parent object, not of the property itself. Each sub-schema describes one value in isolation, so it has no way to know whether its key is mandatory. The parent object decides which of its children are required." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I make a field required in some cases but not others?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes — use oneOf, anyOf, or if/then/else to express conditional requirements. For example, you can require an iban field only when the kind discriminator equals 'bank', and require a card_number field only when kind equals 'card'." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
+        <div class="container">
+            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
+            <div class="nav-actions">
+                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-links">
+                    <li><a href="../formatter.html" class="nav-cta">JSON Formatter</a></li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../json-validator.html">JSON Validator</a></li>
+                            <li><a href="../json-schema-validator.html">JSON Schema Validator</a></li>
+                            <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                            <li><a href="../json-viewer.html">JSON Viewer</a></li>
+                            <li><a href="../json-beautifier.html">JSON Beautifier</a></li>
+                            <li><a href="../json-diff.html">JSON Diff</a></li>
+                            <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../json-to-csv.html">JSON &#8594; CSV</a></li>
+                            <li><a href="../csv-to-json.html">CSV &#8594; JSON</a></li>
+                            <li><a href="../json-to-yaml.html">JSON &#8594; YAML</a></li>
+                            <li><a href="../yaml-to-json.html">YAML &#8594; JSON</a></li>
+                            <li><a href="../json-to-xml.html">JSON &#8594; XML</a></li>
+                            <li><a href="../xml-to-json.html">XML &#8594; JSON</a></li>
+                            <li><a href="../json-to-typescript.html">JSON &#8594; TypeScript</a></li>
+                            <li><a href="../px-to-rem.html">Px &#8596; Rem</a></li>
+                            <li><a href="../timestamp.html">Timestamp</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../base64.html">Base64</a></li>
+                            <li><a href="../url-encoder.html">URL Encoder</a></li>
+                            <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-dropdown">
+                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
+                        <ul class="dropdown-menu">
+                            <li><a href="../uuid.html">UUID Generator</a></li>
+                            <li><a href="../hash.html">Hash Generator</a></li>
+                            <li><a href="../cron.html">CRON Generator</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSON Schema <code>required</code> Keyword</span>
+            </nav>
+            <h1>JSON Schema <code>required</code> Keyword Explained: Presence, Not Non-Empty</h1>
+            <div class="article-meta">May 2026 &middot; 6 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>The <code>required</code> keyword in JSON Schema is one of the most-used keywords in the spec — and one of the most misunderstood. Developers reach for it expecting "this field must have a real value", then are surprised when validation passes for objects containing <code>""</code>, <code>null</code>, or <code>0</code>.</p>
+
+            <p>This post explains exactly what <code>required</code> does, what it doesn't do, and how to combine it with other keywords to actually enforce non-empty values.</p>
+
+            <h2>What <code>required</code> actually does</h2>
+            <p><code>required</code> is an array of property names placed at the object level. A document is valid only if every name in that array is <strong>present as a property key</strong> in the object.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "type": "object",
+  "required": ["name", "email"],
+  "properties": {
+    "name":  { "type": "string" },
+    "email": { "type": "string" }
+  }
+}</pre>
+            </div>
+
+            <p>This schema rejects <code>{"name": "Alice"}</code> (missing <code>email</code>) and rejects <code>{"email": "a@b.com"}</code> (missing <code>name</code>). It accepts <code>{"name": "Alice", "email": "a@b.com"}</code>.</p>
+
+            <h2>What <code>required</code> does NOT do</h2>
+            <p>It does not look inside the value. As long as the key exists, the value can be anything that the property's own sub-schema allows. All of these documents pass the schema above:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{ "name": "",        "email": ""        }
+{ "name": " ",       "email": " "       }
+{ "name": "Alice",   "email": "not-an-email" }</pre>
+            </div>
+
+            <p>And these documents pass when the sub-schema permits <code>null</code> or other types:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Schema where type allows null
+{ "name": null, "email": null }
+
+// Schema with no type restriction
+{ "name": 0, "email": false }</pre>
+            </div>
+
+            <p>The key was present in every case. That is the entire contract of <code>required</code>.</p>
+
+            <h2>How to actually enforce non-empty values</h2>
+            <p>Combine <code>required</code> with the sub-schema's own rules. Three patterns cover almost every case:</p>
+
+            <h3>1. Non-empty string</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 }
+  }
+}</pre>
+            </div>
+            <p>Now <code>{"name": ""}</code> fails with two helpful pieces of information: the path (<code>/name</code>) and the keyword (<code>minLength</code>).</p>
+
+            <h3>2. Non-blank string (whitespace-only is rejected)</h3>
+            <p><code>minLength: 1</code> still accepts <code>" "</code>. To reject whitespace-only, use a regex:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "type": "string",
+  "pattern": "\\S"
+}</pre>
+            </div>
+            <p><code>\S</code> means "any non-whitespace character" — the value must contain at least one of them.</p>
+
+            <h3>3. Forbid null on a required field</h3>
+            <p>If the sub-schema's <code>type</code> permits <code>null</code> (either explicitly or via the absence of a type restriction), <code>required</code> won't reject <code>null</code>. To forbid it, narrow the type:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "type": "object",
+  "required": ["userId"],
+  "properties": {
+    "userId": { "type": "string" }    // does NOT allow null
+  }
+}</pre>
+            </div>
+
+            <h2>Why <code>required</code> lives at the object level, not inside each property</h2>
+            <p>Beginners often try to write something like:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// This does NOT work — required is not a keyword on individual properties
+{
+  "properties": {
+    "name": { "type": "string", "required": true }
+  }
+}</pre>
+            </div>
+            <p>The reason: a sub-schema describes a single value in isolation. It has no way to know whether its key is mandatory because the same sub-schema could be reused in many places where it's required in some and optional in others. The decision belongs to the parent object that owns the property.</p>
+
+            <h2>Required vs optional vs nullable — three different ideas</h2>
+            <p>These three concepts are independent and combine in eight different ways:</p>
+            <table>
+                <thead>
+                    <tr><th>Required?</th><th>Allows null?</th><th>Behaviour</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Yes</td><td>No</td><td>Property must be present and must not be null. Most common.</td></tr>
+                    <tr><td>Yes</td><td>Yes</td><td>Property must be present but can be null. Useful for "explicitly unset" semantics.</td></tr>
+                    <tr><td>No</td><td>No</td><td>Property may be absent; if present, must not be null. Common for optional config.</td></tr>
+                    <tr><td>No</td><td>Yes</td><td>Property may be absent or null. Maximum flexibility, minimum guarantees.</td></tr>
+                </tbody>
+            </table>
+            <p>Required vs optional is controlled by the parent object's <code>required</code> array. Allowing null is controlled by the property's <code>type</code> (e.g., <code>["string", "null"]</code>).</p>
+
+            <h2>Conditionally required fields</h2>
+            <p>Sometimes a field is required only when another field has a specific value. Use <code>oneOf</code> with discriminators, or <code>if/then/else</code>:</p>
+
+            <h3>With oneOf</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["kind", "last4"],
+      "properties": {
+        "kind":  { "const": "card" },
+        "last4": { "type": "string" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["kind", "iban"],
+      "properties": {
+        "kind": { "const": "bank" },
+        "iban": { "type": "string" }
+      }
+    }
+  ]
+}</pre>
+            </div>
+            <p>A card payment requires <code>last4</code>; a bank payment requires <code>iban</code>. Neither is required when the other is selected.</p>
+
+            <h3>With if/then</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>{
+  "type": "object",
+  "required": ["kind"],
+  "properties": {
+    "kind":  { "enum": ["card", "bank"] },
+    "last4": { "type": "string" },
+    "iban":  { "type": "string" }
+  },
+  "if":   { "properties": { "kind": { "const": "card" } } },
+  "then": { "required": ["last4"] },
+  "else": { "required": ["iban"] }
+}</pre>
+            </div>
+
+            <h2>How <code>required</code> errors look</h2>
+            <p>When a required field is missing, a validator produces an error like this:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>Path: /
+Message: must have required property 'email' (missing: email)
+Keyword: required</pre>
+            </div>
+            <p>The path is the parent object that owns the missing property (<code>/</code> for the root, <code>/users/0</code> for a nested case). The keyword is always <code>required</code>. The detail in parentheses tells you exactly which property is missing — useful when several are required in the same array.</p>
+
+            <div class="tool-cta">
+                <h3>Try it on real schemas</h3>
+                <p>Open the JSON Schema Validator, load one of the six built-in samples, and add or remove a name from the <code>required</code> array to see the error firsthand.</p>
+                <a href="../json-schema-validator.html" class="btn" style="margin-right:0.75rem;">JSON Schema Validator</a>
+                <a href="what-is-json-schema.html" class="btn" style="background:var(--bg-secondary,#f0f0f0);color:var(--text-primary,#333);border:1px solid var(--border-color,#ddd);">What Is JSON Schema?</a>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>Why is my required field accepting an empty string?</summary>
+                    <p>Because <code>required</code> only checks that the property is present, not that its value is non-empty. An empty string, <code>null</code>, or zero all satisfy <code>required</code>. To enforce a non-empty value, combine <code>required</code> with <code>minLength</code> (for strings) or with a <code>type</code> restriction that excludes <code>null</code>.</p>
+                </details>
+
+                <details>
+                    <summary>What is the difference between required and optional in JSON Schema?</summary>
+                    <p>Properties are optional by default. To make one or more properties required, list their names in the <code>required</code> array at the object level. There is no opposite keyword called <code>optional</code> — anything not in the <code>required</code> array is automatically optional.</p>
+                </details>
+
+                <details>
+                    <summary>Why is required listed at the object level instead of inside each property?</summary>
+                    <p>Because <code>required</code> is a property of the parent object, not of the property itself. Each sub-schema describes one value in isolation, so it has no way to know whether its key is mandatory. The parent object decides which of its children are required.</p>
+                </details>
+
+                <details>
+                    <summary>Can I make a field required in some cases but not others?</summary>
+                    <p>Yes — use <code>oneOf</code>, <code>anyOf</code>, or <code>if/then/else</code> to express conditional requirements. For example, you can require an <code>iban</code> field only when the <code>kind</code> discriminator equals <code>"bank"</code>, and require a <code>card_number</code> field only when <code>kind</code> equals <code>"card"</code>.</p>
+                </details>
+
+                <details>
+                    <summary>Does required care about the order of property names?</summary>
+                    <p>No. <code>["name", "email"]</code> and <code>["email", "name"]</code> are equivalent. The array is treated as a set.</p>
+                </details>
+
+            </section>
+
+            <section class="related-tools">
+                <h2>Related Tools</h2>
+                <ul>
+                    <li><a href="../json-schema-validator.html">JSON Schema Validator</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                </ul>
+            </section>
+            <section class="related-articles">
+                <h2>Related Articles</h2>
+                <ul>
+                    <li><a href="what-is-json-schema.html">What Is JSON Schema? A Complete Guide with Examples</a></li>
+                    <li><a href="validate-json-schema.html">How to Validate JSON Against a Schema</a></li>
+                    <li><a href="json-date-format.html">JSON Date Format – ISO 8601, Timezones, and the Right Way to Store Dates</a></li>
+                    <li><a href="json-best-practices.html">JSON Best Practices for Developers</a></li>
+                </ul>
+            </section>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
