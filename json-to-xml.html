@@ -65,6 +65,16 @@
           "@type": "Question",
           "name": "Is my JSON data sent to a server?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. All conversion happens entirely in your browser using JavaScript. Your data never leaves your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I control the root element name in the XML output?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The tool wraps all output in a <root> element by default. To use a custom root name, wrap your JSON in an object with the desired root key before converting — for example {\"myRoot\": { ...your data... }}." }
+        },
+        {
+          "@type": "Question",
+          "name": "Are XML namespaces supported?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. This tool generates plain XML without namespace declarations. If you need namespace support, add the namespace attributes manually to the output." }
         }
       ]
     }
@@ -72,62 +82,7 @@
 </head>
 <body>
     <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
-    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
-        <div class="container">
-            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
-            <div class="nav-actions">
-                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
-                    <span></span><span></span><span></span>
-                </button>
-                <ul class="nav-links">
-                    <li><a href="formatter.html" class="nav-cta">JSON Formatter</a></li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-validator.html">JSON Validator</a></li>
-                            <li><a href="json-schema-validator.html">JSON Schema Validator</a></li>
-                            <li><a href="json-minifier.html">JSON Minifier</a></li>
-                            <li><a href="json-viewer.html">JSON Viewer</a></li>
-                            <li><a href="json-beautifier.html">JSON Beautifier</a></li>
-                            <li><a href="json-diff.html">JSON Diff</a></li>
-                            <li><a href="jsonpath.html">JSONPath Tester</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-to-csv.html">JSON &#8594; CSV</a></li>
-                            <li><a href="csv-to-json.html">CSV &#8594; JSON</a></li>
-                            <li><a href="json-to-yaml.html">JSON &#8594; YAML</a></li>
-                            <li><a href="yaml-to-json.html">YAML &#8594; JSON</a></li>
-                            <li><a href="json-to-xml.html">JSON &#8594; XML</a></li>
-                            <li><a href="xml-to-json.html">XML &#8594; JSON</a></li>
-                            <li><a href="json-to-typescript.html">JSON &#8594; TypeScript</a></li>
-                            <li><a href="px-to-rem.html">Px &#8596; Rem</a></li>
-                            <li><a href="timestamp.html">Timestamp</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="base64.html">Base64</a></li>
-                            <li><a href="url-encoder.html">URL Encoder</a></li>
-                            <li><a href="jwt-decoder.html">JWT Decoder</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="uuid.html">UUID Generator</a></li>
-                            <li><a href="hash.html">Hash Generator</a></li>
-                            <li><a href="cron.html">CRON Generator</a></li>
-                        </ul>
-                    </li>
-                </ul>
-                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
-            </div>
-        </div>
-    </nav>
+    <div id="nav-placeholder" data-root=""></div>
 
     <header class="header header-compact">
         <div class="container">
@@ -155,24 +110,26 @@
                 <button id="clearBtn" class="btn btn-secondary">Clear</button>
             </div>
 
-            <div class="info-section">
-                <h3>How JSON to XML conversion works</h3>
-                <p>JSON objects become XML elements. Each JSON key becomes an XML tag, and each value becomes the tag's content. Arrays are expanded into repeated elements.</p>
-                <h4>Example</h4>
-                <p><strong>Input JSON:</strong></p>
-                <pre>{"name": "John", "age": 30, "skills": ["JS", "Python"]}</pre>
-                <p><strong>Output XML:</strong></p>
-                <pre>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
-&lt;root&gt;
-  &lt;name&gt;John&lt;/name&gt;
-  &lt;age&gt;30&lt;/age&gt;
-  &lt;skills&gt;JS&lt;/skills&gt;
-  &lt;skills&gt;Python&lt;/skills&gt;
-&lt;/root&gt;</pre>
-                <p>Need a different format? Try <a href="json-to-yaml.html">JSON to YAML</a> or <a href="json-to-csv.html">JSON to CSV</a>.</p>
-            </div>
         </section>
 
+        <section class="info-section">
+            <h2>How This Tool Converts JSON to XML</h2>
+            <ul>
+                <li>Each JSON key becomes an XML element tag; the value becomes the element's text content or nested child elements.</li>
+                <li>JSON arrays are expanded into repeated sibling elements sharing the same tag name — <code>["JS","Python"]</code> under key <code>skills</code> becomes two <code>&lt;skills&gt;</code> elements.</li>
+                <li>All output is wrapped in a <code>&lt;root&gt;</code> element with an XML declaration header (<code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;</code>).</li>
+                <li>To use a custom root tag name, wrap your JSON in an object with the desired key: <code>{"person": {...}}</code> produces <code>&lt;person&gt;...&lt;/person&gt;</code> inside root.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>When to Use JSON to XML</h2>
+            <ul>
+                <li>When integrating with a SOAP web service or legacy system that only accepts XML payloads.</li>
+                <li>When generating RSS/Atom feeds or sitemap XML from a JSON data source.</li>
+                <li>When a config system (Maven <code>pom.xml</code>, Android manifest) requires XML and you are starting from a JSON template.</li>
+                <li>When exporting data to an XML-based reporting tool or BI platform.</li>
+            </ul>
+        </section>
         <section class="faq-section">
             <h2>Frequently Asked Questions</h2>
             <details>
@@ -187,15 +144,31 @@
                 <summary>Is my data sent to a server?</summary>
                 <p>No. All conversion happens entirely in your browser using JavaScript. Your data never leaves your device.</p>
             </details>
+            <details>
+                <summary>Can I control the root element name?</summary>
+                <p>The tool wraps all output in a <code>&lt;root&gt;</code> element by default. To use a custom root name, wrap your JSON in an object with the desired key before converting: <code>{"person": {...}}</code> produces <code>&lt;person&gt;...&lt;/person&gt;</code>.</p>
+            </details>
+            <details>
+                <summary>Are XML namespaces supported?</summary>
+                <p>No. This tool generates plain XML without namespace declarations. If your target system requires namespaces, add them manually to the output after converting.</p>
+            </details>
         </section>
 
         <section class="related-tools">
             <h2>Related Tools</h2>
             <ul>
+                <li><a href="xml-to-json.html">XML to JSON</a></li>
                 <li><a href="json-to-yaml.html">JSON to YAML</a></li>
                 <li><a href="json-to-csv.html">JSON to CSV</a></li>
                 <li><a href="formatter.html">JSON Formatter</a></li>
                 <li><a href="json-tools.html">All JSON Tools</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/how-to-convert-json-to-xml.html">How to Convert JSON to XML</a></li>
+                <li><a href="blog/json-vs-xml.html">JSON vs XML</a></li>
             </ul>
         </section>
     </main>
@@ -207,6 +180,7 @@
         </div>
     </footer>
 
+    <script src="js/navbar-component.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/json-to-xml-tool.js"></script>

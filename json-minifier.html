@@ -64,6 +64,16 @@
           "@type": "Question",
           "name": "Is minified JSON good for production?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes. Minified JSON is ideal for production because it reduces payload size and improves transfer speed." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I minify JSON during development?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Keep JSON formatted during development so it is easy to read and debug. Minify only as part of your build or deploy step before shipping to production." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does minifying JSON make it invalid?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Minified JSON is always valid JSON as long as the input was valid. Whitespace is optional in the JSON specification — removing it does not affect parsers." }
         }
       ]
     }
@@ -71,62 +81,7 @@
 </head>
 <body>
     <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
-    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
-        <div class="container">
-            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
-            <div class="nav-actions">
-                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
-                    <span></span><span></span><span></span>
-                </button>
-                <ul class="nav-links">
-                    <li><a href="formatter.html" class="nav-cta">JSON Formatter</a></li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-validator.html">JSON Validator</a></li>
-                            <li><a href="json-schema-validator.html">JSON Schema Validator</a></li>
-                            <li><a href="json-minifier.html">JSON Minifier</a></li>
-                            <li><a href="json-viewer.html">JSON Viewer</a></li>
-                            <li><a href="json-beautifier.html">JSON Beautifier</a></li>
-                            <li><a href="json-diff.html">JSON Diff</a></li>
-                            <li><a href="jsonpath.html">JSONPath Tester</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-to-csv.html">JSON &#8594; CSV</a></li>
-                            <li><a href="csv-to-json.html">CSV &#8594; JSON</a></li>
-                            <li><a href="json-to-yaml.html">JSON &#8594; YAML</a></li>
-                            <li><a href="yaml-to-json.html">YAML &#8594; JSON</a></li>
-                            <li><a href="json-to-xml.html">JSON &#8594; XML</a></li>
-                            <li><a href="xml-to-json.html">XML &#8594; JSON</a></li>
-                            <li><a href="json-to-typescript.html">JSON &#8594; TypeScript</a></li>
-                            <li><a href="px-to-rem.html">Px &#8596; Rem</a></li>
-                            <li><a href="timestamp.html">Timestamp</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="base64.html">Base64</a></li>
-                            <li><a href="url-encoder.html">URL Encoder</a></li>
-                            <li><a href="jwt-decoder.html">JWT Decoder</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="uuid.html">UUID Generator</a></li>
-                            <li><a href="hash.html">Hash Generator</a></li>
-                            <li><a href="cron.html">CRON Generator</a></li>
-                        </ul>
-                    </li>
-                </ul>
-                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
-            </div>
-        </div>
-    </nav>
+    <div id="nav-placeholder" data-root=""></div>
 
     <header class="header header-compact">
         <div class="container">
@@ -155,16 +110,24 @@
                 <button id="clearBtn" class="btn btn-secondary">Clear</button>
             </div>
             <div id="errorContainer" class="error-container" style="display:none;"></div>
-            <div class="info-section">
-                <h3>Why Minify JSON?</h3>
-                <p>Minified JSON removes whitespace and line breaks so APIs, web apps, and services can transfer data faster and use less bandwidth.</p>
-                <ul>
-                    <li>Reduce payload size for faster downloads</li>
-                    <li>Use compact JSON in production environments</li>
-                    <li>Keep your data valid while removing unnecessary spaces</li>
-                </ul>
-                <p>Want readable JSON again? Use the <a href="formatter.html">JSON Formatter</a>. Need to validate before minifying? Use <a href="json-validator.html">JSON Validator</a>.</p>
-            </div>
+        </section>
+        <section class="info-section">
+            <h2>How JSON Minification Works</h2>
+            <ul>
+                <li>Your JSON is first parsed with <code>JSON.parse()</code> — if the input is invalid, minification fails and the error is shown so you can fix it first.</li>
+                <li>The parsed result is then serialised with <code>JSON.stringify(parsed)</code> using no indentation argument, producing the most compact valid JSON string.</li>
+                <li>All whitespace between tokens — spaces, tabs, and newlines — is stripped. No data values, keys, or structure are changed.</li>
+                <li>Everything runs in your browser; no data leaves your machine.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>When to Minify JSON</h2>
+            <ul>
+                <li>When deploying a JSON payload to a production API endpoint where every kilobyte affects response time and bandwidth cost.</li>
+                <li>When storing JSON in a database column or cache key to reduce storage overhead.</li>
+                <li>When embedding JSON in JavaScript source files or HTML pages and bundle size matters.</li>
+                <li>When serving static JSON files over a CDN — minifying first, then enabling gzip compression at the server level gives the best results.</li>
+            </ul>
         </section>
         <section class="faq-section">
             <h2>Frequently Asked Questions</h2>
@@ -180,6 +143,14 @@
                 <summary>Is minified JSON good for production?</summary>
                 <p>Yes. Minified JSON is ideal for production because it reduces payload size and improves transfer speed.</p>
             </details>
+            <details>
+                <summary>Should I minify JSON during development?</summary>
+                <p>No — keep JSON formatted and readable during development so you can inspect and debug it easily. Minify only as part of your build or deploy step before shipping to production.</p>
+            </details>
+            <details>
+                <summary>Does minifying JSON make it invalid?</summary>
+                <p>No. Minified JSON is always valid JSON as long as the input was valid. Whitespace between tokens is optional according to the JSON specification — removing it does not affect any parser.</p>
+            </details>
         </section>
         <section class="related-tools">
             <h2>Related Tools</h2>
@@ -191,6 +162,14 @@
                 <li><a href="json-to-yaml.html">JSON to YAML</a></li>
             </ul>
         </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/json-minify-json-for-production.html">How to Minify JSON for Production</a></li>
+                <li><a href="blog/how-to-format-json.html">How to Format JSON</a></li>
+                <li><a href="blog/json-best-practices.html">JSON Best Practices</a></li>
+            </ul>
+        </section>
     </main>
 
     <footer class="footer">
@@ -200,6 +179,7 @@
         </div>
     </footer>
 
+    <script src="js/navbar-component.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/formatter.js"></script>

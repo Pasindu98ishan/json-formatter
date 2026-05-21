@@ -64,6 +64,16 @@
           "@type": "Question",
           "name": "Is my YAML data sent to a server?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. All conversion happens entirely in your browser using JavaScript. Your YAML data never leaves your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens to YAML anchors and aliases?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Anchors (&) and aliases (*) are resolved during parsing. The output JSON contains the fully expanded values — the anchor references are not preserved as-is, they become duplicated data." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does multi-document YAML work?",
+          "acceptedAnswer": { "@type": "Answer", "text": "This tool converts a single YAML document. Multi-document YAML files (separated by ---) should be split and each document converted separately." }
         }
       ]
     }
@@ -71,62 +81,7 @@
 </head>
 <body>
     <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
-    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
-        <div class="container">
-            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
-            <div class="nav-actions">
-                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
-                    <span></span><span></span><span></span>
-                </button>
-                <ul class="nav-links">
-                    <li><a href="formatter.html" class="nav-cta">JSON Formatter</a></li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-validator.html">JSON Validator</a></li>
-                            <li><a href="json-schema-validator.html">JSON Schema Validator</a></li>
-                            <li><a href="json-minifier.html">JSON Minifier</a></li>
-                            <li><a href="json-viewer.html">JSON Viewer</a></li>
-                            <li><a href="json-beautifier.html">JSON Beautifier</a></li>
-                            <li><a href="json-diff.html">JSON Diff</a></li>
-                            <li><a href="jsonpath.html">JSONPath Tester</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-to-csv.html">JSON &#8594; CSV</a></li>
-                            <li><a href="csv-to-json.html">CSV &#8594; JSON</a></li>
-                            <li><a href="json-to-yaml.html">JSON &#8594; YAML</a></li>
-                            <li><a href="yaml-to-json.html">YAML &#8594; JSON</a></li>
-                            <li><a href="json-to-xml.html">JSON &#8594; XML</a></li>
-                            <li><a href="xml-to-json.html">XML &#8594; JSON</a></li>
-                            <li><a href="json-to-typescript.html">JSON &#8594; TypeScript</a></li>
-                            <li><a href="px-to-rem.html">Px &#8596; Rem</a></li>
-                            <li><a href="timestamp.html">Timestamp</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="base64.html">Base64</a></li>
-                            <li><a href="url-encoder.html">URL Encoder</a></li>
-                            <li><a href="jwt-decoder.html">JWT Decoder</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="uuid.html">UUID Generator</a></li>
-                            <li><a href="hash.html">Hash Generator</a></li>
-                            <li><a href="cron.html">CRON Generator</a></li>
-                        </ul>
-                    </li>
-                </ul>
-                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
-            </div>
-        </div>
-    </nav>
+    <div id="nav-placeholder" data-root=""></div>
 
     <header class="header header-compact">
         <div class="container">
@@ -162,33 +117,27 @@ address:
                 <button id="clearBtn" class="btn btn-secondary">Clear</button>
             </div>
 
-            <div class="info-section">
-                <h3>How YAML Maps to JSON</h3>
-                <p>YAML and JSON represent the same data model. The conversion is lossless for standard YAML documents:</p>
-                <ul>
-                    <li>YAML key-value pairs → JSON object properties</li>
-                    <li>YAML sequences (<code>- item</code>) → JSON arrays (<code>[]</code>)</li>
-                    <li>YAML strings, integers, floats, booleans, and null → equivalent JSON types</li>
-                    <li>Indented YAML blocks → nested JSON objects</li>
-                </ul>
-                <h4>Example</h4>
-                <p><strong>Input YAML:</strong></p>
-                <pre>name: John Smith
-age: 30
-skills:
-  - JavaScript
-  - Python</pre>
-                <p><strong>Output JSON:</strong></p>
-                <pre>{
-  "name": "John Smith",
-  "age": 30,
-  "skills": [
-    "JavaScript",
-    "Python"
-  ]
-}</pre>
-                <p>Need to go the other direction? Use <a href="json-to-yaml.html">JSON to YAML Converter</a>. Or validate your output with <a href="json-validator.html">JSON Validator</a>.</p>
-            </div>
+        </section>
+
+        <section class="info-section">
+            <h2>How This Tool Converts YAML to JSON</h2>
+            <ul>
+                <li>YAML key-value pairs become JSON object properties — each <code>key: value</code> line maps directly to <code>"key": value</code> in the JSON output.</li>
+                <li>YAML sequences (lines prefixed with <code>- </code>) become JSON arrays. Each list item becomes one array element, preserving order.</li>
+                <li>YAML strings, integers, floats, booleans (<code>true</code>/<code>false</code>), and <code>null</code> are converted to their equivalent JSON types — the conversion is type-safe and lossless for standard YAML.</li>
+                <li>YAML anchors (<code>&amp;name</code>) and aliases (<code>*name</code>) are resolved during parsing. The output JSON contains the fully expanded values; anchor references are not preserved in the output.</li>
+                <li>Indented YAML blocks become nested JSON objects, with each indentation level corresponding to one level of nesting in the JSON output.</li>
+            </ul>
+        </section>
+
+        <section class="info-section">
+            <h2>When to Use YAML to JSON</h2>
+            <ul>
+                <li>When an API, database, or tool only accepts JSON payloads but your source config is a YAML file (Kubernetes manifest, Docker Compose, Ansible playbook).</li>
+                <li>When you want to inspect or query Kubernetes or Helm values with a JSON-aware tool like <a href="jsonpath.html">JSONPath Tester</a> or <code>jq</code>.</li>
+                <li>When a CI/CD pipeline outputs YAML and you need to extract specific values programmatically using a JSON parser.</li>
+                <li>When migrating infrastructure-as-code from YAML-based tooling to a JSON-accepting pipeline or configuration system.</li>
+            </ul>
         </section>
 
         <section class="faq-section">
@@ -205,6 +154,22 @@ skills:
                 <summary>Is my YAML data sent to a server?</summary>
                 <p>No. All conversion happens entirely in your browser. Your data never leaves your device.</p>
             </details>
+            <details>
+                <summary>What happens to YAML anchors and aliases?</summary>
+                <p>Anchors (<code>&amp;name</code>) and aliases (<code>*name</code>) are resolved during parsing. The output JSON contains the fully expanded values — the anchor references themselves are not preserved. If a value is referenced via three aliases, it will appear as three copies in the JSON output.</p>
+            </details>
+            <details>
+                <summary>Does this tool handle multi-document YAML?</summary>
+                <p>This tool converts a single YAML document at a time. Multi-document YAML files that use <code>---</code> as a separator should be split into individual documents before converting each one separately.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/yaml-vs-json.html">YAML vs JSON — Key Differences</a></li>
+                <li><a href="blog/how-to-convert-json-to-yaml.html">How to Convert JSON to YAML</a></li>
+            </ul>
         </section>
 
         <section class="related-tools">
@@ -227,6 +192,7 @@ skills:
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="js/navbar-component.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/yaml-to-json-tool.js"></script>

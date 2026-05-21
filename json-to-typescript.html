@@ -64,6 +64,16 @@
           "@type": "Question",
           "name": "Is my JSON data sent to a server?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. All TypeScript generation happens entirely in your browser using JavaScript. Your JSON data never leaves your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "How are optional fields handled?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Fields whose value is null are typed as 'null' (e.g. field: null). To mark a field as optional (field?: string), edit the generated interface manually — the tool infers types from the sample JSON you provide, so a null value does not automatically mean the field is optional in your schema." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use the output with Zod or other validation libraries?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The generated output is a standard TypeScript interface, not a Zod schema. TypeScript interfaces are compile-time only. To get runtime validation with Zod, you would need to manually translate the generated interface into a z.object() schema — or use a tool like json-to-zod for that step." }
         }
       ]
     }
@@ -71,62 +81,7 @@
 </head>
 <body>
     <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
-    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
-        <div class="container">
-            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
-            <div class="nav-actions">
-                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
-                    <span></span><span></span><span></span>
-                </button>
-                <ul class="nav-links">
-                    <li><a href="formatter.html" class="nav-cta">JSON Formatter</a></li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-validator.html">JSON Validator</a></li>
-                            <li><a href="json-schema-validator.html">JSON Schema Validator</a></li>
-                            <li><a href="json-minifier.html">JSON Minifier</a></li>
-                            <li><a href="json-viewer.html">JSON Viewer</a></li>
-                            <li><a href="json-beautifier.html">JSON Beautifier</a></li>
-                            <li><a href="json-diff.html">JSON Diff</a></li>
-                            <li><a href="jsonpath.html">JSONPath Tester</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-to-csv.html">JSON &#8594; CSV</a></li>
-                            <li><a href="csv-to-json.html">CSV &#8594; JSON</a></li>
-                            <li><a href="json-to-yaml.html">JSON &#8594; YAML</a></li>
-                            <li><a href="yaml-to-json.html">YAML &#8594; JSON</a></li>
-                            <li><a href="json-to-xml.html">JSON &#8594; XML</a></li>
-                            <li><a href="xml-to-json.html">XML &#8594; JSON</a></li>
-                            <li><a href="json-to-typescript.html">JSON &#8594; TypeScript</a></li>
-                            <li><a href="px-to-rem.html">Px &#8596; Rem</a></li>
-                            <li><a href="timestamp.html">Timestamp</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="base64.html">Base64</a></li>
-                            <li><a href="url-encoder.html">URL Encoder</a></li>
-                            <li><a href="jwt-decoder.html">JWT Decoder</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="uuid.html">UUID Generator</a></li>
-                            <li><a href="hash.html">Hash Generator</a></li>
-                            <li><a href="cron.html">CRON Generator</a></li>
-                        </ul>
-                    </li>
-                </ul>
-                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
-            </div>
-        </div>
-    </nav>
+    <div id="nav-placeholder" data-root=""></div>
 
     <header class="header header-compact">
         <div class="container">
@@ -189,6 +144,16 @@
             </div>
         </section>
 
+        <section class="info-section">
+            <h2>When to Use JSON to TypeScript</h2>
+            <ul>
+                <li>When you receive a new API response and want to type it immediately without writing interfaces by hand — paste the sample JSON, copy the generated interfaces, and add them to your <code>.ts</code> file.</li>
+                <li>When onboarding to an existing codebase and need to understand the shape of an unfamiliar JSON payload before writing code against it.</li>
+                <li>When building a frontend application that consumes a REST API and you want full IDE autocomplete and type checking on the response data.</li>
+                <li>When prototyping quickly — generate a rough interface from a real API response and refine it (mark fields optional, adjust union types) as you iterate.</li>
+            </ul>
+        </section>
+
         <section class="faq-section">
             <h2>Frequently Asked Questions</h2>
             <details>
@@ -207,6 +172,21 @@
                 <summary>Is my JSON data sent to a server?</summary>
                 <p>No. All TypeScript generation runs entirely in your browser using JavaScript. Your JSON data never leaves your device.</p>
             </details>
+            <details>
+                <summary>How are optional fields handled?</summary>
+                <p>Fields whose value is <code>null</code> are typed as <code>null</code> (e.g. <code>field: null</code>). To mark a field as optional (<code>field?: string</code>), edit the generated interface manually — the tool infers types from the JSON you provide, so a null value does not automatically imply the field is optional in your schema.</p>
+            </details>
+            <details>
+                <summary>Can I use the output with Zod or other validation libraries?</summary>
+                <p>The generated output is a standard TypeScript <code>interface</code>, not a Zod schema. TypeScript interfaces are compile-time only and provide no runtime validation. To use Zod, translate the generated interface into a <code>z.object()</code> schema manually — the type mapping table above shows the equivalents.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/json-to-typescript.html">JSON to TypeScript — Complete Guide</a></li>
+            </ul>
         </section>
 
         <section class="related-tools">
@@ -228,6 +208,7 @@
         </div>
     </footer>
 
+    <script src="js/navbar-component.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/json-to-typescript-tool.js"></script>

@@ -64,6 +64,16 @@
           "@type": "Question",
           "name": "Why is my CSV missing fields?",
           "acceptedAnswer": { "@type": "Answer", "text": "CSV rows are built from object keys. If some objects have different keys, missing values will appear as empty cells." }
+        },
+        {
+          "@type": "Question",
+          "name": "What delimiter does the CSV output use?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The output uses commas as the delimiter (standard CSV). Any values that contain a comma are automatically wrapped in double quotes so they are parsed correctly by Excel, Google Sheets, and other tools." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens to null or missing values in JSON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON null values become empty cells in the CSV. If an object is missing a key that other objects in the array have, that cell is also left empty." }
         }
       ]
     }
@@ -72,62 +82,7 @@
 <body>
     <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
     <!-- Navigation -->
-    <nav class="navbar" role="navigation" aria-label="Primary site navigation">
-        <div class="container">
-            <div class="logo"><a href="/">🔧 JSON Dev Tools</a></div>
-            <div class="nav-actions">
-                <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
-                    <span></span><span></span><span></span>
-                </button>
-                <ul class="nav-links">
-                    <li><a href="formatter.html" class="nav-cta">JSON Formatter</a></li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-validator.html">JSON Validator</a></li>
-                            <li><a href="json-schema-validator.html">JSON Schema Validator</a></li>
-                            <li><a href="json-minifier.html">JSON Minifier</a></li>
-                            <li><a href="json-viewer.html">JSON Viewer</a></li>
-                            <li><a href="json-beautifier.html">JSON Beautifier</a></li>
-                            <li><a href="json-diff.html">JSON Diff</a></li>
-                            <li><a href="jsonpath.html">JSONPath Tester</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Converters &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="json-to-csv.html">JSON &#8594; CSV</a></li>
-                            <li><a href="csv-to-json.html">CSV &#8594; JSON</a></li>
-                            <li><a href="json-to-yaml.html">JSON &#8594; YAML</a></li>
-                            <li><a href="yaml-to-json.html">YAML &#8594; JSON</a></li>
-                            <li><a href="json-to-xml.html">JSON &#8594; XML</a></li>
-                            <li><a href="xml-to-json.html">XML &#8594; JSON</a></li>
-                            <li><a href="json-to-typescript.html">JSON &#8594; TypeScript</a></li>
-                            <li><a href="px-to-rem.html">Px &#8596; Rem</a></li>
-                            <li><a href="timestamp.html">Timestamp</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Encoders &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="base64.html">Base64</a></li>
-                            <li><a href="url-encoder.html">URL Encoder</a></li>
-                            <li><a href="jwt-decoder.html">JWT Decoder</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-dropdown">
-                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Generators &#9662;</button>
-                        <ul class="dropdown-menu">
-                            <li><a href="uuid.html">UUID Generator</a></li>
-                            <li><a href="hash.html">Hash Generator</a></li>
-                            <li><a href="cron.html">CRON Generator</a></li>
-                        </ul>
-                    </li>
-                </ul>
-                <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">🌙 Dark</button>
-            </div>
-        </div>
-    </nav>
+    <div id="nav-placeholder" data-root=""></div>
 
     <!-- Header -->
     <header class="header header-compact">
@@ -176,27 +131,24 @@
                 </div>
             </div>
 
-            <!-- Info Section -->
-            <div class="info-section">
-                <h3>About JSON to CSV Conversion</h3>
-                <p>This tool converts JSON arrays into CSV (Comma-Separated Values) format. It's useful for:</p>
-                <ul>
-                    <li>Importing JSON data into Excel or Sheets</li>
-                    <li>Database bulk imports</li>
-                    <li>Data analysis and reporting</li>
-                    <li>Data migration between systems</li>
-                </ul>
-                <h4>Example — nested object flattened automatically:</h4>
-                <p><strong>Input JSON:</strong></p>
-                <pre>{
-  "name": "John",
-  "address": { "city": "NYC", "country": "US" },
-  "roles": ["admin", "editor"]
-}</pre>
-                <p><strong>Output CSV:</strong></p>
-                <pre>name,address.city,address.country,roles
-John,NYC,US,admin | editor</pre>
-            </div>
+        </section>
+        <section class="info-section">
+            <h2>How This Tool Converts JSON to CSV</h2>
+            <ul>
+                <li>Accepts a JSON array of objects or a single object; each array element becomes one CSV row.</li>
+                <li>Column headers are collected from all unique keys across every object — if objects have different keys, missing cells are left empty.</li>
+                <li>Nested objects are flattened automatically using dot notation: <code>address.city</code> and <code>address.country</code> each become their own column.</li>
+                <li>Array values inside objects (e.g. <code>"roles": ["admin","editor"]</code>) are joined with <code> | </code> into a single cell value.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>When to Use JSON to CSV</h2>
+            <ul>
+                <li>When you need to open API response data in Excel or Google Sheets for review or sharing.</li>
+                <li>When preparing data for bulk import into a database, CRM, or data warehouse that expects CSV format.</li>
+                <li>When building a report and your data source is a JSON API response array.</li>
+                <li>When handing structured data to a non-technical stakeholder who prefers a spreadsheet view.</li>
+            </ul>
         </section>
         <section class="faq-section">
             <h2>Frequently Asked Questions</h2>
@@ -212,14 +164,29 @@ John,NYC,US,admin | editor</pre>
                 <summary>Why is my CSV missing fields?</summary>
                 <p>CSV rows are built from object keys. If some objects have different keys, missing values will appear as empty cells.</p>
             </details>
+            <details>
+                <summary>What delimiter does the CSV output use?</summary>
+                <p>The output uses commas as the delimiter (standard CSV). Any values that contain a comma are automatically wrapped in double quotes so they are parsed correctly by Excel, Google Sheets, and other tools.</p>
+            </details>
+            <details>
+                <summary>What happens to null or missing values?</summary>
+                <p>JSON <code>null</code> values become empty cells in the CSV. If an object is missing a key that other objects in the array have, that cell is also left empty.</p>
+            </details>
         </section>
         <section class="related-tools">
             <h2>Related Tools</h2>
             <ul>
-                <li><a href="json-to-yaml.html">JSON to YAML</a></li>
+                <li><a href="csv-to-json.html">CSV to JSON</a></li>
                 <li><a href="formatter.html">JSON Formatter</a></li>
                 <li><a href="json-validator.html">JSON Validator</a></li>
                 <li><a href="json-schema-validator.html">JSON Schema Validator</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/how-to-convert-json-to-csv.html">How to Convert JSON to CSV</a></li>
+                <li><a href="blog/csv-to-json-python.html">CSV to JSON in Python</a></li>
             </ul>
         </section>
     </main>
@@ -232,6 +199,7 @@ John,NYC,US,admin | editor</pre>
         </div>
     </footer>
 
+    <script src="js/navbar-component.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/json-to-csv-tool.js"></script>
