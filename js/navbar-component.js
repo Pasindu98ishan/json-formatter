@@ -4,7 +4,7 @@
     var r = p.getAttribute('data-root') || '';
     p.outerHTML = '<nav class="navbar" role="navigation" aria-label="Primary site navigation">\n' +
         '    <div class="container">\n' +
-        '        <div class="logo"><a href="' + r + '">&#128295; JSON Dev Tools</a></div>\n' +
+        '        <div class="logo"><a href="' + r + 'index.html">&#128295; JSON Dev Tools</a></div>\n' +
         '        <div class="nav-actions">\n' +
         '            <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">\n' +
         '                <span></span><span></span><span></span>\n' +
