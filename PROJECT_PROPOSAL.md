@@ -1043,7 +1043,8 @@ This updated proposal transforms your JSON Formatter from a simple tool into a *
 
 ---
 
-**Document Version**: 4.0 - Phases 1–4 complete, Phase 5 Week 3/4 done
-**Last Updated**: May 9, 2026
-**Status**: Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 🔄 Week 3/4 complete
-**Next Step**: Phase 5 Week 4 — `cron.html` + `blog/understanding-cron.html` + Product Hunt / Hacker News (user-action)
+**Document Version**: 5.0 - Phases 1–4 complete, Phase 5 in progress
+**Last Updated**: May 14, 2026
+**Status**: Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 🔄 | Phase 6 📋 Planned
+**Next Step**: Complete Phase 5 (Repair button, YAML Validator, XML Validator, .env Parser) → then Phase 6
+**Phase 6 details**: See [PHASE_6_PROPOSAL.md](PHASE_6_PROPOSAL.md) — blog posts B1–B5, new tools (JSON Schema Validator/Generator, Text Diff, String Escape, TOML→JSON, HTTP Status Codes, Chmod Calculator, Markdown→HTML), content enrichment for Base64/UUID/JWT/Timestamp/Hash pages
