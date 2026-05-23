@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,12 +9,12 @@
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jsondevtools.org/blog/json-nan-infinity.html">
-    <meta property="og:title" content="JSON NaN and Infinity Are Not Valid – How to Handle Them">
+    <meta property="og:title" content="JSON NaN and Infinity Are Not Valid â€“ How to Handle Them">
     <meta property="og:description" content="NaN and Infinity are JavaScript values with no JSON equivalent. JSON.stringify converts them to null silently. Learn how to detect and handle this.">
     <meta property="og:url" content="https://jsondevtools.org/blog/json-nan-infinity.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <title>JSON NaN and Infinity Are Not Valid – How to Handle Them | JSON Dev Tools Blog</title>
+    <title>JSON NaN and Infinity Are Not Valid â€“ How to Handle Them | JSON Dev Tools Blog</title>
     <link rel="stylesheet" href="../css/styles.css">
     <link rel="stylesheet" href="../css/dark-mode.css">
     <link rel="stylesheet" href="../css/blog.css">
@@ -41,7 +41,7 @@
     {
       "@context": "https://schema.org",
       "@type": "Article",
-      "headline": "JSON NaN and Infinity Are Not Valid – How to Handle Them",
+      "headline": "JSON NaN and Infinity Are Not Valid â€“ How to Handle Them",
       "description": "NaN and Infinity are JavaScript values with no equivalent in the JSON specification. JSON.stringify converts them to null silently.",
       "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
       "datePublished": "2026-05-05",
@@ -57,7 +57,7 @@
         {
           "@type": "Question",
           "name": "What does JSON.stringify do with NaN?",
-          "acceptedAnswer": { "@type": "Answer", "text": "JSON.stringify converts NaN to null without throwing an error. This means your receiver gets null where you had NaN — a silent data change. Always check for NaN before serializing numeric values." }
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON.stringify converts NaN to null without throwing an error. This means your receiver gets null where you had NaN â€” a silent data change. Always check for NaN before serializing numeric values." }
         },
         {
           "@type": "Question",
@@ -81,10 +81,10 @@
         <div class="container">
             <nav class="breadcrumb" aria-label="Breadcrumb">
                 <a href="/">Home</a> &rsaquo;
-                <a href="index.html">Blog</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
                 <span>JSON NaN and Infinity Are Not Valid</span>
             </nav>
-            <h1>JSON NaN and Infinity Are Not Valid – How to Handle Them</h1>
+            <h1>JSON NaN and Infinity Are Not Valid â€“ How to Handle Them</h1>
             <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
             <div class="article-meta">Published May 2026 &middot; 5 min read</div>
         </div>
@@ -94,7 +94,7 @@
         <article class="blog-article">
 
 
-            <p><code>NaN</code> (Not a Number) and <code>Infinity</code> are valid JavaScript number values, but they have no representation in the JSON specification. If you try to serialize them with <code>JSON.stringify()</code>, you will not get an error — you will get silent data corruption. Understanding this behavior is essential for building reliable APIs.</p>
+            <p><code>NaN</code> (Not a Number) and <code>Infinity</code> are valid JavaScript number values, but they have no representation in the JSON specification. If you try to serialize them with <code>JSON.stringify()</code>, you will not get an error â€” you will get silent data corruption. Understanding this behavior is essential for building reliable APIs.</p>
 
             <h2>What JSON.stringify does with NaN and Infinity</h2>
             <div class="code-block">
@@ -104,7 +104,7 @@ JSON.stringify({ max: Infinity });    // '{"max":null}'
 JSON.stringify({ min: -Infinity });   // '{"min":null}'</pre>
             </div>
 
-            <p>No exception is thrown. The values become <code>null</code>. The receiver on the other end of the API gets <code>null</code> where you intended a numeric special value — and may have no way to tell the difference between "this was NaN" and "this field was genuinely missing."</p>
+            <p>No exception is thrown. The values become <code>null</code>. The receiver on the other end of the API gets <code>null</code> where you intended a numeric special value â€” and may have no way to tell the difference between "this was NaN" and "this field was genuinely missing."</p>
 
             <h2>Why JSON does not support them</h2>
             <p>The JSON number grammar covers finite decimal numbers only. <code>NaN</code> and <code>Infinity</code> are IEEE 754 floating-point sentinels. Many languages that consume JSON (Python, Java, Go, Ruby) represent these differently or not at all. Including them in JSON would break cross-language interoperability, which is the core purpose of the format.</p>
@@ -130,7 +130,7 @@ const json = JSON.stringify(data, (key, value) => {
             <h2>Representing these values in JSON</h2>
             <p>If you genuinely need to convey NaN or Infinity through JSON, a few patterns are used in practice:</p>
 
-            <h3>Option 1 — use a string sentinel</h3>
+            <h3>Option 1 â€” use a string sentinel</h3>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre>{
@@ -141,7 +141,7 @@ const json = JSON.stringify(data, (key, value) => {
             </div>
             <p>The consumer must know to parse these strings back to the appropriate numeric type. Document this convention in your API spec.</p>
 
-            <h3>Option 2 — use null with a separate flag</h3>
+            <h3>Option 2 â€” use null with a separate flag</h3>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre>{
@@ -150,7 +150,7 @@ const json = JSON.stringify(data, (key, value) => {
 }</pre>
             </div>
 
-            <h3>Option 3 — use a large finite sentinel number</h3>
+            <h3>Option 3 â€” use a large finite sentinel number</h3>
             <p>Some scientific APIs use <code>1e308</code> (near JavaScript's <code>Number.MAX_VALUE</code>) as a stand-in for Infinity. This is fragile and not recommended unless the domain makes it unambiguous.</p>
 
             <h2>Parsing JSON that contains these strings</h2>
@@ -169,10 +169,10 @@ parsed.ratio = parseSpecialNumber(parsed.ratio);</pre>
             </div>
 
             <h2>Validating numeric JSON data</h2>
-            <p>If you receive JSON from an external source and want to confirm it contains only finite numbers before processing, paste it into the <a href="../json-validator.html">JSON Validator</a>. A properly formed JSON document will never contain the literal text <code>NaN</code> or <code>Infinity</code> — if you see those tokens outside a string, the source serializer is non-compliant.</p>
+            <p>If you receive JSON from an external source and want to confirm it contains only finite numbers before processing, paste it into the <a href="../json-validator.html">JSON Validator</a>. A properly formed JSON document will never contain the literal text <code>NaN</code> or <code>Infinity</code> â€” if you see those tokens outside a string, the source serializer is non-compliant.</p>
 
                 <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
-                    <p style="margin:0 0 0.75rem;"><strong>Try it directly in your browser — free, no signup:</strong></p>
+                    <p style="margin:0 0 0.75rem;"><strong>Try it directly in your browser â€” free, no signup:</strong></p>
                     <a href="../json-validator.html" class="btn btn-primary" style="display:inline-block;">Open JSON Validator &rarr;</a>
                 </div>                    <section class="related-tools">
             <h2>Related Tools</h2>
