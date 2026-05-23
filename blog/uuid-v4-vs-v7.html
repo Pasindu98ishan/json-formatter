@@ -48,6 +48,34 @@
       "url": "https://jsondevtools.org/blog/uuid-v4-vs-v7.html"
     }
     </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the difference between UUID v4 and UUID v7?",
+          "acceptedAnswer": { "@type": "Answer", "text": "UUID v4 is fully random — 122 bits of randomness with no meaningful structure. UUID v7 embeds a 48-bit millisecond Unix timestamp in the most significant bits, followed by random bits. This makes UUID v7 monotonically increasing within each millisecond and sortable by creation time, while UUID v4 is completely random with no ordering." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is UUID v7 better for database primary keys?",
+          "acceptedAnswer": { "@type": "Answer", "text": "UUID v4's random distribution causes B-tree index fragmentation — each new insert lands at a random position in the index, forcing expensive page splits and leaving pages half-full. UUID v7's timestamp prefix means new rows are always appended near the end of the index, the same pattern as auto-increment integers. This results in much better write performance and cache locality at scale." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is UUID v7 widely supported?",
+          "acceptedAnswer": { "@type": "Answer", "text": "UUID v7 was standardized in RFC 9562 (2024) and is gaining support rapidly. PostgreSQL 17 added native uuid_generate_v7(). JavaScript has the 'uuidv7' npm package. Python has uuid7 on PyPI. Go has github.com/google/uuid v7 support. Most databases can store UUID v7 as a standard UUID column — it is fully compatible with UUID storage." }
+        },
+        {
+          "@type": "Question",
+          "name": "When should I still use UUID v4?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use UUID v4 when you need maximum randomness with no temporal information (e.g. session tokens where time-based guessing is a concern), when your database or ORM does not yet support UUID v7, or when you are using UUIDs purely as identifiers in a context where sequential ordering does not matter and write volume is low." }
+        }
+      ]
+    }
+    </script>
 </head>
 <body>
     <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
