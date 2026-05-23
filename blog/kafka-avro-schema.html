@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Learn Kafka Avro Schema from scratch: what Avro is, how schema evolution works, backward and forward compatibility rules, and how to avoid breaking your consumers.">
+    <meta name="keywords" content="kafka avro schema, avro schema backward compatibility, avro schema evolution, kafka schema registry, avro schema example, confluent schema registry, avro vs json kafka">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/kafka-avro-schema.html">
+    <meta property="og:title" content="Kafka Avro Schema: Backward Compatibility Explained for Developers">
+    <meta property="og:description" content="A practical guide to Kafka Avro schemas for new and mid-level devs. Covers schema structure, backward/forward/full compatibility, Schema Registry, and common pitfalls.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/kafka-avro-schema.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Kafka Avro Schema: Backward Compatibility Explained for Developers | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Kafka Avro Schema", "item": "https://jsondevtools.org/blog/kafka-avro-schema.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Kafka Avro Schema: Backward Compatibility Explained for Developers",
+      "description": "Learn Kafka Avro Schema from scratch: what Avro is, how schema evolution works, backward and forward compatibility rules, and how to avoid breaking your consumers.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-05-23",
+      "dateModified": "2026-05-23",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is an Avro schema in Kafka?",
+          "acceptedAnswer": { "@type": "Answer", "text": "An Avro schema is a JSON document that describes the structure of messages sent through a Kafka topic. It defines field names, types, and default values. Producers serialize messages using the schema; consumers deserialize them. The schema is stored in a Schema Registry so both sides stay in sync." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is backward compatibility in Avro?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Backward compatibility means a new schema version can read data written by the old schema version. You achieve this by only adding new fields with default values, or removing fields that had defaults. Never add a new required field (no default) — old producers will not include it, breaking new consumers." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between backward and forward compatibility?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Backward compatibility: new readers can read old data. Forward compatibility: old readers can read new data. Full compatibility is both at once. Backward is the most common requirement because you typically upgrade consumers before producers." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can you rename a field in an Avro schema?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not directly. Renaming a field breaks compatibility because Avro matches fields by name, not position. The safe approach is to add an 'aliases' array to the new field name pointing to the old name. This lets new readers map old data using the alias." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens if you change a field type in Avro?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Changing a field type almost always breaks compatibility. Avro does allow type promotion (int to long, float to double, string to bytes) but most type changes will cause deserialization errors. Instead, add a new field with the new type and deprecate the old one over time." }
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to evolve a Kafka Avro schema safely",
+      "description": "Steps to add a new field to an existing Avro schema without breaking consumers.",
+      "step": [
+        { "@type": "HowToStep", "position": 1, "name": "Add the new field with a default value", "text": "Add your new field to the schema. Always provide a 'default' so old messages that lack the field can still be deserialized by new consumers." },
+        { "@type": "HowToStep", "position": 2, "name": "Register the new schema version", "text": "Submit the updated schema to the Schema Registry. It will validate compatibility against the existing version before accepting it." },
+        { "@type": "HowToStep", "position": 3, "name": "Deploy new consumers first", "text": "Roll out consumers that understand the new schema before updating producers. This keeps backward compatibility — consumers can handle both old and new messages." },
+        { "@type": "HowToStep", "position": 4, "name": "Deploy new producers", "text": "Once consumers are running, update producers to send the new schema. Consumers already know how to handle it." }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>Kafka Avro Schema</span>
+            </nav>
+            <h1>Kafka Avro Schema: Backward Compatibility Explained for Developers</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published May 2026 &middot; 9 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">If you are working with Apache Kafka and someone mentions "Avro schema" or "Schema Registry," this guide is for you. We will cover what Avro is, why Kafka teams use it, what backward compatibility actually means in practice, and what changes to a schema will break your pipeline versus what is safe.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:center;">
+                <p style="margin:0 0 0.9rem;font-weight:600;">Avro schemas are JSON — work with them in your browser:</p>
+                <div style="display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;">
+                    <a href="../json-schema-generator.html" class="btn btn-primary" style="display:inline-block;">Generate JSON Schema →</a>
+                    <a href="../json-schema-validator.html" class="btn btn-primary" style="display:inline-block;background:#28a745;border-color:#28a745;">Validate a Schema →</a>
+                </div>
+            </div>
+
+            <h2>What is Apache Avro?</h2>
+
+            <p>Avro is a data serialization framework created by the Apache Hadoop project. It compresses data into a compact binary format for transport and stores the schema separately (usually in a Schema Registry). This is the opposite of JSON, which is self-describing — every message carries its own field names.</p>
+
+            <p>The tradeoffs look like this:</p>
+
+            <table>
+                <thead>
+                    <tr><th>Property</th><th>JSON in Kafka</th><th>Avro in Kafka</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Message size</td><td>Large — field names repeated every message</td><td>Small — binary, schema stored separately</td></tr>
+                    <tr><td>Schema enforcement</td><td>None — any JSON passes</td><td>Strong — rejects messages that do not match schema</td></tr>
+                    <tr><td>Schema evolution</td><td>Manual, no tooling</td><td>Managed — Schema Registry enforces compatibility</td></tr>
+                    <tr><td>Human-readable</td><td>Yes</td><td>No — binary on the wire</td></tr>
+                    <tr><td>Cross-language support</td><td>Universal</td><td>Good — Java, Python, Go, C#, and more</td></tr>
+                </tbody>
+            </table>
+
+            <p>Kafka teams adopt Avro when they want schema enforcement, smaller message sizes at scale, and a formal contract between producers and consumers.</p>
+
+            <h2>What an Avro schema looks like</h2>
+
+            <p>An Avro schema is itself a JSON document. Here is a complete schema for a user event:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "record",
+  "name": "UserCreated",
+  "namespace": "com.example.events",
+  "doc": "Fired when a new user account is created.",
+  "fields": [
+    {
+      "name": "userId",
+      "type": "string",
+      "doc": "UUID of the new user account."
+    },
+    {
+      "name": "email",
+      "type": "string"
+    },
+    {
+      "name": "createdAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Unix timestamp in milliseconds."
+    },
+    {
+      "name": "plan",
+      "type": {
+        "type": "enum",
+        "name": "PlanType",
+        "symbols": ["FREE", "PRO", "ENTERPRISE"]
+      },
+      "default": "FREE"
+    }
+  ]
+}</code></pre>
+            </div>
+
+            <p>Key things to notice:</p>
+            <ul>
+                <li><code>type: "record"</code> is the top-level type for structured data (equivalent to a JSON object).</li>
+                <li><code>namespace</code> helps avoid naming conflicts across teams.</li>
+                <li>Every field has a <code>name</code> and a <code>type</code>. Types can be primitives (<code>string</code>, <code>long</code>, <code>int</code>, <code>boolean</code>, <code>float</code>, <code>double</code>, <code>bytes</code>, <code>null</code>), complex types (<code>record</code>, <code>array</code>, <code>map</code>, <code>enum</code>, <code>fixed</code>), or unions.</li>
+                <li>Fields with a <code>default</code> are optional during deserialization — critical for schema evolution.</li>
+            </ul>
+
+            <h2>Unions — the nullable field pattern</h2>
+
+            <p>In Avro, a field is not nullable by default. To allow <code>null</code>, you use a union type. The conventional pattern is to put <code>null</code> first and set it as the default:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "name": "middleName",
+  "type": ["null", "string"],
+  "default": null,
+  "doc": "Optional middle name. null if not provided."
+}</code></pre>
+            </div>
+
+            <p>The order in a union matters: the default value must match the first type in the array. If you write <code>["string", "null"]</code> with <code>"default": null</code>, Avro will reject the schema.</p>
+
+            <h2>What is schema evolution?</h2>
+
+            <p>Schema evolution is the process of changing an Avro schema over time without breaking existing producers or consumers. In a Kafka system, producers and consumers are deployed independently — different teams, different release cycles. A change to the schema must be handled carefully so that:</p>
+
+            <ul>
+                <li>Old consumers can still read new messages from updated producers.</li>
+                <li>New consumers can still read old messages that are already in Kafka (retention can be days or weeks).</li>
+            </ul>
+
+            <p>This is where backward, forward, and full compatibility come in.</p>
+
+            <h2>Backward compatibility (most common)</h2>
+
+            <p><strong>Definition:</strong> A new schema version can read data written with the old schema version.</p>
+            <p><strong>Typical scenario:</strong> You update consumers first (they get the new schema), then producers gradually roll out. During rollout, consumers receive messages encoded with the old schema and must handle them correctly.</p>
+
+            <h3>What is safe (backward compatible)</h3>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// SAFE: Add a new field with a default value
+// Old messages won't have this field — the default fills it in
+{
+  "name": "referralCode",
+  "type": ["null", "string"],
+  "default": null
+}
+
+// SAFE: Remove a field that already has a default
+// Consumers won't find the field in the schema but can use the default
+// (removing fields without defaults is NOT safe)</code></pre>
+            </div>
+
+            <h3>What breaks backward compatibility</h3>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// BREAKING: Add a new required field (no default)
+// Old messages don't have this field — deserialization fails
+{
+  "name": "phoneNumber",
+  "type": "string"
+  // No "default" — this breaks old consumers reading old messages
+}
+
+// BREAKING: Remove a field that has no default
+// Consumers expecting the field get an error
+
+// BREAKING: Change a field's type (most cases)
+// "userId" was "string", changed to "int" — deserialization fails</code></pre>
+            </div>
+
+            <h2>Forward compatibility</h2>
+
+            <p><strong>Definition:</strong> An old schema version can read data written with a new schema version.</p>
+            <p><strong>Typical scenario:</strong> Producers are updated first and start sending new fields. Old consumers (not yet updated) receive these messages and must not crash — they just ignore unknown fields.</p>
+
+            <h3>What is safe (forward compatible)</h3>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// SAFE: Add a new field (with or without default)
+// Old consumers simply ignore the unknown field
+
+// SAFE: Remove a field with a default
+// Old consumers that expect the field can fall back to the default</code></pre>
+            </div>
+
+            <h3>What breaks forward compatibility</h3>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// BREAKING: Remove a field that old consumers require (no default)
+// Old code that reads schema.fields.userId will fail
+
+// BREAKING: Change a field type
+// Old code expects "userId" to be a string, new data sends an int</code></pre>
+            </div>
+
+            <h2>Full compatibility</h2>
+
+            <p>Full compatibility requires both backward AND forward compatibility simultaneously. This is the strictest mode and the hardest to maintain. In practice, the only completely safe operations under full compatibility are:</p>
+
+            <ul>
+                <li>Adding a new field with a default value.</li>
+                <li>Removing a field that has a default value.</li>
+            </ul>
+
+            <p>Any other change — renaming, type changes, removing required fields — breaks at least one direction.</p>
+
+            <h2>Compatibility modes side-by-side</h2>
+
+            <table>
+                <thead>
+                    <tr><th>Change</th><th>Backward</th><th>Forward</th><th>Full</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Add field <em>with</em> default</td><td>✓ Safe</td><td>✓ Safe</td><td>✓ Safe</td></tr>
+                    <tr><td>Add field <em>without</em> default</td><td>✗ Breaks</td><td>✓ Safe</td><td>✗ Breaks</td></tr>
+                    <tr><td>Remove field <em>with</em> default</td><td>✓ Safe</td><td>✓ Safe</td><td>✓ Safe</td></tr>
+                    <tr><td>Remove field <em>without</em> default</td><td>✓ Safe*</td><td>✗ Breaks</td><td>✗ Breaks</td></tr>
+                    <tr><td>Rename a field</td><td>✗ Breaks</td><td>✗ Breaks</td><td>✗ Breaks</td></tr>
+                    <tr><td>Change field type</td><td>✗ Breaks</td><td>✗ Breaks</td><td>✗ Breaks</td></tr>
+                    <tr><td>Widen type (int → long)</td><td>✓ Safe</td><td>✗ Breaks</td><td>✗ Breaks</td></tr>
+                </tbody>
+            </table>
+            <p style="font-size:0.85rem;color:#6b7280;">*Backward safe only if new consumers don't need the removed field.</p>
+
+            <h2>Kafka Schema Registry</h2>
+
+            <p>The Schema Registry (Confluent or AWS Glue SR) is a service that stores versioned schemas and enforces compatibility rules before a new schema is accepted. Producers must register their schema before publishing; the Registry responds with a schema ID that gets embedded in the message header.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Register a schema (Confluent REST API)
+curl -X POST \
+  http://localhost:8081/subjects/user-created-value/versions \
+  -H 'Content-Type: application/vnd.schemaregistry.v1+json' \
+  -d '{
+    "schema": "{\"type\":\"record\",\"name\":\"UserCreated\",\"fields\":[...]}"
+  }'
+
+# Response — schema accepted and assigned version 1
+{ "id": 1 }
+
+# If the new schema breaks compatibility, the API returns:
+{ "error_code": 409, "message": "Schema being registered is incompatible with an earlier schema" }</code></pre>
+            </div>
+
+            <p>The registry supports four compatibility settings per subject (topic):</p>
+            <ul>
+                <li><code>BACKWARD</code> (default) — new schema must be readable by old consumers.</li>
+                <li><code>FORWARD</code> — new schema must be writable by old producers.</li>
+                <li><code>FULL</code> — both directions.</li>
+                <li><code>NONE</code> — no compatibility checks. Dangerous in production.</li>
+            </ul>
+
+            <h2>Renaming a field safely with aliases</h2>
+
+            <p>You cannot rename a field directly without breaking compatibility. The safe pattern uses the <code>aliases</code> array to map the old name to the new one. Avro readers will try the new name first, then fall back to the alias when reading old data.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Old schema had: "name": "userId"
+// New schema renames it to "accountId" using aliases
+
+{
+  "name": "accountId",
+  "type": "string",
+  "aliases": ["userId"],   // old readers look for "userId", find it under "accountId"
+  "doc": "Renamed from userId in v3."
+}</code></pre>
+            </div>
+
+            <p>Note: aliases require the Schema Registry to be configured with <code>BACKWARD</code> or <code>FULL</code> mode to validate them correctly. Not all SR versions handle aliases transparently — test this in a staging environment before relying on it in production.</p>
+
+            <h2>A real schema evolution example</h2>
+
+            <p>Starting schema (v1):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "record",
+  "name": "OrderPlaced",
+  "namespace": "com.example.orders",
+  "fields": [
+    { "name": "orderId",    "type": "string" },
+    { "name": "customerId", "type": "string" },
+    { "name": "totalCents", "type": "long" }
+  ]
+}</code></pre>
+            </div>
+
+            <p>v2 — Add currency support (backward safe):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "record",
+  "name": "OrderPlaced",
+  "namespace": "com.example.orders",
+  "fields": [
+    { "name": "orderId",    "type": "string" },
+    { "name": "customerId", "type": "string" },
+    { "name": "totalCents", "type": "long" },
+    {
+      "name": "currency",
+      "type": { "type": "enum", "name": "Currency", "symbols": ["USD", "EUR", "GBP"] },
+      "default": "USD",
+      "doc": "Added in v2. Old messages default to USD."
+    }
+  ]
+}</code></pre>
+            </div>
+
+            <p>v3 — Add optional discount (backward safe):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "name": "discountCents",
+  "type": ["null", "long"],
+  "default": null,
+  "doc": "Discount applied in cents. null if no discount."
+}</code></pre>
+            </div>
+
+            <p>Each version added fields with defaults. Old consumers reading v1 messages still work because the new fields fall back to their defaults. New consumers reading v1 messages get <code>currency = "USD"</code> and <code>discountCents = null</code> automatically.</p>
+
+            <h2>Working with Avro schemas using JSON tools</h2>
+
+            <p>Because Avro schemas are JSON documents, you can use standard JSON tools to work with them:</p>
+
+            <ul>
+                <li><strong>Format a schema for readability</strong> — paste a minified schema into the <a href="../formatter.html">JSON Formatter</a> to pretty-print it with proper indentation before committing to version control.</li>
+                <li><strong>Generate a schema from a sample</strong> — if you have a sample JSON message, use the <a href="../json-schema-generator.html">JSON Schema Generator</a> to auto-generate a draft JSON Schema, then adapt it to Avro format by replacing JSON Schema types with Avro types.</li>
+                <li><strong>Validate schema syntax</strong> — the <a href="../json-schema-validator.html">JSON Schema Validator</a> can validate that an Avro schema document is structurally correct JSON before you submit it to the Schema Registry.</li>
+                <li><strong>Compare schema versions</strong> — paste two versions of a schema into the <a href="../json-diff.html">JSON Diff</a> tool to see exactly what changed between v1 and v2.</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>Validate your Avro schema structure</h3>
+                <p>Format, diff, and validate Avro schemas (which are JSON) directly in your browser — no installation, no data sent to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">JSON Formatter</a>
+                    <a href="../json-diff.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">JSON Diff</a>
+                    <a href="../json-schema-generator.html" class="btn btn-primary">Schema Generator</a>
+                </div>
+            </div>
+
+            <h2>Common mistakes and how to avoid them</h2>
+
+            <h3>1. Adding a required field to an existing schema</h3>
+            <p>This is the most common breaking change. If you add a field without a default, old messages lack the field entirely. New consumers fail to deserialize them. The fix: always add a default, even if it is <code>null</code> via a union type.</p>
+
+            <h3>2. Changing a field's type</h3>
+            <p>Changing <code>"type": "string"</code> to <code>"type": "int"</code> is always breaking. Old messages contain a string value, new consumers try to read it as an integer, and deserialization fails. Avro allows type promotion (int → long, float → double) but nothing else.</p>
+
+            <h3>3. Removing a field without checking its default</h3>
+            <p>Removing a field with no default breaks forward compatibility. Old consumers that reference that field directly in code will now get <code>null</code> or throw a deserialization error, depending on the language library.</p>
+
+            <h3>4. Using NONE compatibility mode in production</h3>
+            <p>Setting <code>NONE</code> skips all compatibility checks. Any schema is accepted regardless of breaking changes. This is sometimes used in development for speed, but must never reach production for topics with multiple consumers.</p>
+
+            <h3>5. Not testing deserialization of old messages</h3>
+            <p>Even if the Schema Registry accepts the new schema, test that a message serialized with the old schema can be deserialized with the new one in your consumer code. Library behavior varies — some raise exceptions, others silently apply defaults. Always verify both directions in staging.</p>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>What is an Avro schema in Kafka?</summary>
+                    <p>An Avro schema is a JSON document that describes the structure of messages on a Kafka topic. Producers serialize messages to binary using the schema; consumers deserialize them. Both sides reference the same schema version, usually stored in a Schema Registry. The result is smaller messages and a formal contract between producer and consumer teams.</p>
+                </details>
+
+                <details>
+                    <summary>What is backward compatibility in Avro?</summary>
+                    <p>Backward compatibility means a new schema version can read data written with the old version. In practice: add new fields with defaults, and you can remove fields that already have defaults. Never add a new field without a default — old messages won't contain it, and new consumers will fail to deserialize them.</p>
+                </details>
+
+                <details>
+                    <summary>What is the difference between backward and forward compatibility?</summary>
+                    <p>Backward: new readers can read old data. Forward: old readers can read new data. Full: both simultaneously. Backward is the most common requirement because you typically deploy consumers before producers. Forward is needed when producers are updated first.</p>
+                </details>
+
+                <details>
+                    <summary>Can you rename a field in an Avro schema?</summary>
+                    <p>Not directly — renaming breaks compatibility because Avro matches fields by name. The safe approach is to add an <code>aliases</code> array to the new field pointing to the old name. New readers find the field under the new name; old data is mapped using the alias. Test this in staging before relying on it.</p>
+                </details>
+
+                <details>
+                    <summary>What happens if you change a field type in Avro?</summary>
+                    <p>Most type changes break compatibility — old data contains one binary encoding, new readers expect another, and deserialization fails. Avro only allows safe type promotions: <code>int</code> → <code>long</code>, <code>float</code> → <code>double</code>, <code>string</code> → <code>bytes</code>. For any other type change, add a new field with the new type and deprecate the old field over time.</p>
+                </details>
+            </section>
+
+            <div class="article-cta">
+                <p>Ready to work with schemas? Generate one from a sample JSON message.</p>
+                <a href="../json-schema-generator.html" class="btn btn-primary">Open JSON Schema Generator →</a>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-schema-generator.html">JSON Schema Generator</a> — auto-generate a schema from a JSON sample</li>
+                <li><a href="../json-schema-validator.html">JSON Schema Validator</a> — validate JSON against a schema</li>
+                <li><a href="../formatter.html">JSON Formatter</a> — pretty-print Avro schema JSON</li>
+                <li><a href="../json-diff.html">JSON Diff</a> — compare two schema versions</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="what-is-json-schema.html">What Is JSON Schema? A Complete Guide with Examples</a></li>
+                <li><a href="yaml-vs-json.html">YAML vs JSON — When to Use Each Format</a></li>
+                <li><a href="json-best-practices.html">JSON Best Practices for APIs</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

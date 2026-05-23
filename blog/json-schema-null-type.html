@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Why JSON Schema generators output type: null for null fields — and why that's wrong for real APIs. Learn nullable union types and how to generate production-ready schemas.">
+    <meta name="keywords" content="json schema null type, json schema nullable field, json schema type null, nullable json schema, type array json schema">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-schema-null-type.html">
+    <meta property="og:title" content="JSON Schema type: null — Why It's Wrong for Real APIs">
+    <meta property="og:description" content="Most JSON Schema generators output {type: 'null'} for null fields. This breaks real validation. Learn the correct nullable union type pattern.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-schema-null-type.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON Schema type: null — Why It's Wrong for Real APIs | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON Schema type: null", "item": "https://jsondevtools.org/blog/json-schema-null-type.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON Schema type: null — Why It's Wrong for Real APIs and How to Fix It",
+      "description": "Why JSON Schema generators output type: null and why that breaks real API validation. Learn the correct nullable union type pattern used in production.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-05-23",
+      "dateModified": "2026-05-23",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does type: null mean in JSON Schema?",
+          "acceptedAnswer": { "@type": "Answer", "text": "{\"type\": \"null\"} means the field must always be the literal JSON null value — nothing else passes validation. This is rarely useful for APIs, where null usually means 'no value right now' but the field could be a string, number, or object when populated." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I make a field nullable in JSON Schema?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use a type array: {\"type\": [\"string\", \"null\"]}. This accepts either a string or null. You can combine any type with null: [\"integer\", \"null\"], [\"object\", \"null\"], etc. This syntax is supported in JSON Schema draft-04 and later." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do generators output type: null?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Generators infer strictly from samples. If they see null, they output {\"type\": \"null\"} because that is what they observed. They cannot know what the field would be when non-null. Smart generators output a broad nullable union and ask you to refine it with real data." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is nullable: true in OpenAPI?",
+          "acceptedAnswer": { "@type": "Answer", "text": "OpenAPI 3.0 uses nullable: true as a separate property. OpenAPI 3.1 aligns with JSON Schema draft 2020-12 and uses type arrays instead. If writing raw JSON Schema draft-07, use the type array form." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="index.html">Blog</a> &rsaquo;
+                <span>JSON Schema type: null</span>
+            </nav>
+            <h1>JSON Schema <code>type: null</code> — Why It's Wrong for Real APIs and How to Fix It</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Developer</div>
+            <div class="article-meta">Published May 2026 &middot; 6 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">You generate a JSON Schema from a sample where one field is <code>null</code>. The tool spits back <code>"type": "null"</code>. You copy the schema, run validation against a real API response — and every non-null value fails. Your schema now only accepts the literal <code>null</code>, which is almost never what an API field means.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:center;">
+                <p style="margin:0 0 0.9rem;font-weight:600;">Generate production-ready schemas with nullable union types:</p>
+                <div style="display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;">
+                    <a href="../json-schema-generator.html" class="btn btn-primary" style="display:inline-block;">Try Smart Mode →</a>
+                    <a href="../json-schema-validator.html" class="btn btn-primary" style="display:inline-block;background:#28a745;border-color:#28a745;">Validate a Schema →</a>
+                </div>
+            </div>
+
+            <h2>What <code>{"type": "null"}</code> actually means</h2>
+
+            <p>In JSON Schema, <code>type</code> is a validation keyword that restricts what values are allowed. The value <code>null</code> is one of seven primitive types in JSON Schema (along with string, number, integer, boolean, object, array). So:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{ "type": "null" }</code></pre>
+            </div>
+
+            <p>…means exactly this: <strong>the field must be the JSON literal <code>null</code>. Always. No other value passes.</strong></p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Schema: { "type": "null" }
+
+null       ✓ valid
+"Alice"    ✗ invalid
+42         ✗ invalid
+true       ✗ invalid</code></pre>
+            </div>
+
+            <p>This is useful in exactly one scenario: a field that is <em>always</em> <code>null</code> by design. In practice, almost no API field works like that. Null in an API means "this optional value is not set right now." When the value exists, it will be a string, number, object, or whatever the actual type is.</p>
+
+            <h2>Why generators output it anyway</h2>
+
+            <p>Generators infer types strictly from what they observe in your sample. If they see:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{ "userId": 42, "deletedAt": null }</code></pre>
+            </div>
+
+            <p>…they see <code>deletedAt</code> is <code>null</code> and faithfully record that as <code>"type": "null"</code>. They cannot know what <code>deletedAt</code> would be when the user <em>is</em> deleted — that information is not in the sample. This is a fundamental limitation of single-sample inference.</p>
+
+            <p>Most tools (jsonlint, quicktype, and others) simply output what they observed. <strong>A smarter approach</strong> is to recognize that a null-only field likely needs refinement and output a union type instead.</p>
+
+            <h2>The correct pattern: nullable union types</h2>
+
+            <p>JSON Schema supports type arrays since draft-04. Instead of a single type string, you pass an array of types:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Nullable string — accepts "2026-05-23T14:00:00Z" OR null
+{ "type": ["string", "null"] }
+
+// Nullable integer — accepts 42 OR null
+{ "type": ["integer", "null"] }
+
+// Nullable object — accepts {...} OR null
+{ "type": ["object", "null"] }</code></pre>
+            </div>
+
+            <p>This is the standard way to express nullable fields in JSON Schema draft-07 and later. A validator will accept any value that matches at least one of the listed types:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Schema: { "type": ["string", "null"] }
+
+null           ✓ valid
+"2026-05-23"   ✓ valid
+42             ✗ invalid (not string or null)</code></pre>
+            </div>
+
+            <h2>Simple vs Smart Mode in our generator</h2>
+
+            <p>Our <a href="../json-schema-generator.html">JSON Schema Generator</a> gives you a choice via the <strong>Simple / Smart Mode toggle</strong>.</p>
+
+            <table>
+                <thead>
+                    <tr><th>Aspect</th><th>Simple Mode</th><th>⚡ Smart Mode</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Null field output</td><td><code>{"type":"null"}</code></td><td><code>{"type":["null","string",…]}</code> + description</td></tr>
+                    <tr><td>Mixed array <code>[1, null]</code></td><td><code>anyOf</code> union</td><td><code>{"type":["integer","null"]}</code></td></tr>
+                    <tr><td>Spec compliance</td><td>Strict draft-07</td><td>Valid draft-07, production-style</td></tr>
+                    <tr><td>Best for</td><td>Documentation, tooling</td><td>Real API validation</td></tr>
+                </tbody>
+            </table>
+
+            <p>In Smart Mode, null object fields get a description annotation:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "deletedAt": {
+    "type": ["null","string","number","boolean","object","array"],
+    "description": "Type inferred as null only — refine after seeing non-null samples"
+  }
+}</code></pre>
+            </div>
+
+            <p>Once you have real data where <code>deletedAt</code> is an ISO 8601 timestamp, you refine it to:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "deletedAt": {
+    "type": ["string", "null"],
+    "format": "date-time"
+  }
+}</code></pre>
+            </div>
+
+            <h2>Recommended workflow</h2>
+
+            <ol>
+                <li>Paste your JSON sample into the <a href="../json-schema-generator.html">JSON Schema Generator</a></li>
+                <li>Switch to <strong>Smart Mode</strong> using the toggle</li>
+                <li>Generate — null fields show all possible types with a refine hint</li>
+                <li>Find a real record where those null fields have actual values</li>
+                <li>Replace the broad union with the specific type: <code>["string","null"]</code>, <code>["integer","null"]</code>, etc.</li>
+                <li>Paste the refined schema into the <a href="../json-schema-validator.html">JSON Schema Validator</a> to confirm it works</li>
+            </ol>
+
+            <h2>When <code>type: null</code> IS correct</h2>
+
+            <p>There are legitimate uses:</p>
+
+            <ul>
+                <li><strong>Explicit null branch in anyOf</strong> — if one variant of a discriminated union is "no value": <code>anyOf: [{type: "object", ...}, {type: "null"}]</code></li>
+                <li><strong>Sentinel fields</strong> — a field that signals "deleted" by being literally null in every instance of this record type</li>
+                <li><strong>Generated discriminators</strong> — some code generators use it as a placeholder for unresolved types</li>
+            </ul>
+
+            <p>If your use case fits one of these, Simple Mode gives you strict <code>type: null</code> output.</p>
+
+            <h2 style="margin-top:2.5rem;">Frequently Asked Questions</h2>
+
+            <details open>
+                <summary>What does <code>type: null</code> mean in JSON Schema?</summary>
+                <p>It means the field must be the literal JSON <code>null</code> value — always. No other value (string, number, boolean) is accepted. This is technically valid but rarely what an API field needs. Most null fields should use a union type like <code>["string","null"]</code> instead.</p>
+            </details>
+
+            <details>
+                <summary>How do I make a field nullable in JSON Schema draft-07?</summary>
+                <p>Use a type array: <code>{"type": ["string","null"]}</code>. This accepts either a string or null. Any type can be combined with null this way: <code>["integer","null"]</code>, <code>["object","null"]</code>, etc. This syntax is supported in draft-04 and later.</p>
+            </details>
+
+            <details>
+                <summary>Why do most JSON Schema generators output <code>type: null</code>?</summary>
+                <p>Generators infer strictly from samples. If the sample has null, they record <code>type: null</code> because that is what they observed. They cannot know what the field's "real" type would be when populated. The Smart Mode in our generator solves this by outputting a broad nullable union and asking you to refine it.</p>
+            </details>
+
+            <details>
+                <summary>What is <code>nullable: true</code> in OpenAPI?</summary>
+                <p>OpenAPI 3.0 uses <code>nullable: true</code> as a custom extension to express nullable fields. OpenAPI 3.1 aligns with JSON Schema 2020-12 and uses type arrays instead: <code>{"type": ["string", "null"]}</code>. If you are writing raw JSON Schema draft-07, always use the type array form.</p>
+            </details>
+
+        </article>
+
+        <aside class="blog-sidebar">
+            <div class="sidebar-widget">
+                <h3>Related Tools</h3>
+                <ul>
+                    <li><a href="../json-schema-generator.html">JSON Schema Generator</a></li>
+                    <li><a href="../json-schema-validator.html">JSON Schema Validator</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-widget">
+                <h3>Related Guides</h3>
+                <ul>
+                    <li><a href="kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility</a></li>
+                    <li><a href="what-is-json-schema.html">What Is JSON Schema?</a></li>
+                </ul>
+            </div>
+        </aside>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
