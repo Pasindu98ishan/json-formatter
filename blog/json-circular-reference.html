@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,12 +9,12 @@
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jsondevtools.org/blog/json-circular-reference.html">
-    <meta property="og:title" content="JSON Circular Reference Error â€“ Cause and Fix">
+    <meta property="og:title" content="JSON Circular Reference Error &ndash; Cause and Fix">
     <meta property="og:description" content="'Converting circular structure to JSON' means your object has a self-reference loop. Learn how circular references form and how to break them.">
     <meta property="og:url" content="https://jsondevtools.org/blog/json-circular-reference.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <title>JSON Circular Reference Error â€“ Cause and Fix | JSON Dev Tools Blog</title>
+    <title>JSON Circular Reference Error &ndash; Cause and Fix | JSON Dev Tools Blog</title>
     <link rel="stylesheet" href="../css/styles.css">
     <link rel="stylesheet" href="../css/dark-mode.css">
     <link rel="stylesheet" href="../css/blog.css">
@@ -41,7 +41,7 @@
     {
       "@context": "https://schema.org",
       "@type": "Article",
-      "headline": "JSON Circular Reference Error â€“ Cause and Fix",
+      "headline": "JSON Circular Reference Error &ndash; Cause and Fix",
       "description": "Circular references occur when an object references itself, making it impossible to serialize to JSON. Learn the causes and solutions.",
       "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
       "datePublished": "2026-05-05",
@@ -84,7 +84,7 @@
                 <a href="./">Blog</a> &rsaquo;
                 <span>JSON Circular Reference Error</span>
             </nav>
-            <h1>JSON Circular Reference Error â€“ Cause and Fix</h1>
+            <h1>JSON Circular Reference Error &ndash; Cause and Fix</h1>
             <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
             <div class="article-meta">Published May 2026 &middot; 5 min read</div>
         </div>
@@ -94,7 +94,7 @@
         <article class="blog-article">
 
 
-            <p>If you call <code>JSON.stringify()</code> on an object and get <code>TypeError: Converting circular structure to JSON</code>, the object contains a reference loop â€” somewhere in the data, an object points back to itself. JSON is a tree format; it cannot represent cycles.</p>
+            <p>If you call <code>JSON.stringify()</code> on an object and get <code>TypeError: Converting circular structure to JSON</code>, the object contains a reference loop &mdash; somewhere in the data, an object points back to itself. JSON is a tree format; it cannot represent cycles.</p>
 
             <h2>What a circular reference looks like</h2>
             <div class="code-block">
@@ -114,14 +114,14 @@ JSON.stringify(parent);
 
             <h2>Common sources of circular references</h2>
             <ul>
-                <li><strong>ORM / database model instances</strong> â€” when an entity has a <code>parent</code> or <code>author</code> back-reference that points to the root object.</li>
-                <li><strong>Express.js <code>req</code> and <code>res</code> objects</strong> â€” these contain many internal circular references. Never try to stringify them directly.</li>
-                <li><strong>DOM nodes stored in JS objects</strong> â€” a DOM node's <code>parentNode</code> and <code>childNodes</code> form a tree with back-pointers.</li>
-                <li><strong>Event emitter instances</strong> â€” many Node.js EventEmitter-based objects hold internal references that loop back.</li>
-                <li><strong>Linked lists and graphs</strong> â€” any data structure where nodes reference each other.</li>
+                <li><strong>ORM / database model instances</strong> &mdash; when an entity has a <code>parent</code> or <code>author</code> back-reference that points to the root object.</li>
+                <li><strong>Express.js <code>req</code> and <code>res</code> objects</strong> &mdash; these contain many internal circular references. Never try to stringify them directly.</li>
+                <li><strong>DOM nodes stored in JS objects</strong> &mdash; a DOM node's <code>parentNode</code> and <code>childNodes</code> form a tree with back-pointers.</li>
+                <li><strong>Event emitter instances</strong> &mdash; many Node.js EventEmitter-based objects hold internal references that loop back.</li>
+                <li><strong>Linked lists and graphs</strong> &mdash; any data structure where nodes reference each other.</li>
             </ul>
 
-            <h2>Fix 1 â€” remove the back-reference before serializing</h2>
+            <h2>Fix 1 &mdash; remove the back-reference before serializing</h2>
             <p>The cleanest solution is to not include the circular property in the output at all:</p>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -129,7 +129,7 @@ JSON.stringify(parent);
 JSON.stringify({ name: parent.name, child: safeChild }); // works</pre>
             </div>
 
-            <h2>Fix 2 â€” use a replacer function to skip seen objects</h2>
+            <h2>Fix 2 &mdash; use a replacer function to skip seen objects</h2>
             <p>If you do not know in advance which property is circular, use a replacer that tracks visited objects and replaces any back-reference with a placeholder:</p>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -148,7 +148,7 @@ JSON.stringify(parent, circularReplacer());
 // '{"name":"parent","child":{"name":"child","parent":"[Circular]"}}'</pre>
             </div>
 
-            <h2>Fix 3 â€” use a library for full circular serialization</h2>
+            <h2>Fix 3 &mdash; use a library for full circular serialization</h2>
             <p>If you need to serialize and then deserialize circular structures (not just log them), use the <code>flatted</code> npm package, which encodes cycles as index references:</p>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -157,7 +157,7 @@ JSON.stringify(parent, circularReplacer());
 const json = stringify(parent);   // encodes cycles
 const obj  = parse(json);         // restores the circular structure</pre>
             </div>
-            <p>Note that the output format is not standard JSON â€” you can only parse it back with <code>flatted</code>.</p>
+            <p>Note that the output format is not standard JSON &mdash; you can only parse it back with <code>flatted</code>.</p>
 
             <h2>Serializing only the data you need</h2>
             <p>In practice, the best fix for API responses is to map your internal objects to plain data transfer objects (DTOs) before serialization. This prevents accidental exposure of internal references and circular structures:</p>
@@ -177,7 +177,7 @@ res.json(dto); // never pass the ORM model directly</pre>
             </div>
 
                 <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
-                    <p style="margin:0 0 0.75rem;"><strong>Try it directly in your browser â€” free, no signup:</strong></p>
+                    <p style="margin:0 0 0.75rem;"><strong>Try it directly in your browser &mdash; free, no signup:</strong></p>
                     <a href="../json-validator.html" class="btn btn-primary" style="display:inline-block;">Open JSON Validator &rarr;</a>
                 </div>                    <section class="related-tools">
             <h2>Related Tools</h2>
