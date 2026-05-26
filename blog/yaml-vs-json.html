@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="YAML vs JSON: understand the key differences, when to use each format, and how to choose between them for config files, APIs, and data exchange.">
-    <meta name="keywords" content="yaml vs json, yaml or json, yaml json difference, when to use yaml, when to use json, yaml json comparison">
+    <meta name="description" content="YAML vs JSON: side-by-side syntax comparison, speed differences, common YAML pitfalls including the Norway problem, and a decision guide for config files, APIs, and developer tooling.">
+    <meta name="keywords" content="yaml vs json, yaml vs json which is better, yaml vs json speed, yaml or json, yaml json difference, yaml pitfalls, yaml norway problem, when to use yaml, when to use json">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jsondevtools.org/blog/yaml-vs-json.html">
@@ -44,7 +44,7 @@
       "description": "Understand the key differences between YAML and JSON, when each format excels, and how to choose between them.",
       "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
       "datePublished": "2026-05-07",
-      "dateModified": "2026-05-07",
+      "dateModified": "2026-05-26",
       "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
     }
     </script>
@@ -62,6 +62,16 @@
           "@type": "Question",
           "name": "Why can't I use YAML for my REST API responses instead of JSON?",
           "acceptedAnswer": { "@type": "Answer", "text": "YAML is a superset of JSON, so any valid JSON is also valid YAML. However, YAML should not replace JSON for APIs and data exchange. JSON parsing is significantly faster, JSON is simpler and harder to break, and JSON has no whitespace-sensitivity issues. YAML is best suited for configuration files that humans write and read." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is YAML faster or slower than JSON to parse?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON is significantly faster to parse than YAML. JSON's grammar is small and unambiguous; a full parser can be implemented in a few hundred lines of code. YAML's specification is hundreds of pages long and includes implicit type coercion, anchors, aliases, multiple scalar styles, and multi-document streams — all requiring more CPU work per byte. For high-throughput APIs and message processing, JSON's performance advantage is measurable. YAML's parsing overhead only matters at startup time when config files are read once per process run." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the YAML Norway problem?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The Norway problem is a well-known YAML 1.1 quirk where the bare value NO — the ISO 3166-1 country code for Norway — is parsed as the boolean false. YAML 1.1 treats yes, no, on, off, true, false, and their capitalized variants as booleans. Kubernetes uses a YAML 1.1 parser, so this affects Kubernetes configs. The fix is to always quote values that could be misinterpreted: country: \"NO\" instead of country: NO. YAML 1.2 corrected this — only true and false are booleans — but many parsers still default to 1.1 behavior." }
         }
       ]
     }
@@ -80,7 +90,7 @@
             </nav>
             <h1>YAML vs JSON: When to Use Each Format</h1>
             <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
-            <div class="article-meta">May 2026 &middot; 5 min read</div>
+            <div class="article-meta">May 2026 &middot; 8 min read</div>
         </div>
     </header>
 
@@ -207,6 +217,26 @@ server:
             </ul>
             <p>There are exceptions &mdash; some tools use JSON for config (<code>package.json</code>, <code>tsconfig.json</code>) and some APIs return YAML &mdash; but the rule covers the overwhelming majority of real-world cases.</p>
 
+            <h2>Which should you use? A decision guide</h2>
+
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Use</th><th>Reason</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>REST API request / response body</td><td><strong>JSON</strong></td><td>Universal support, native browser parsing, fast</td></tr>
+                    <tr><td>Kubernetes / Helm manifest</td><td><strong>YAML</strong></td><td>Ecosystem standard, comments essential</td></tr>
+                    <tr><td>Docker Compose file</td><td><strong>YAML</strong></td><td>Ecosystem standard</td></tr>
+                    <tr><td>GitHub Actions / GitLab CI workflow</td><td><strong>YAML</strong></td><td>Ecosystem standard, anchors reduce repetition</td></tr>
+                    <tr><td>Ansible playbook</td><td><strong>YAML</strong></td><td>Ecosystem standard</td></tr>
+                    <tr><td>Application config (human-maintained)</td><td><strong>YAML</strong></td><td>Comments, readability, no trailing-comma bugs</td></tr>
+                    <tr><td>Database serialization</td><td><strong>JSON</strong></td><td>Native DB support (PostgreSQL jsonb, MongoDB)</td></tr>
+                    <tr><td>Message queue payloads</td><td><strong>JSON</strong></td><td>Speed and universal consumer support</td></tr>
+                    <tr><td>package.json / tsconfig.json</td><td><strong>JSON</strong></td><td>Node.js ecosystem convention</td></tr>
+                    <tr><td>OpenAPI / Swagger spec</td><td><strong>Either</strong></td><td>Both supported; YAML preferred for hand-authoring</td></tr>
+                </tbody>
+            </table>
+
             <h2>Is YAML a superset of JSON?</h2>
             <p>Yes &mdash; YAML 1.2 is a strict superset of JSON. Every valid JSON document is also valid YAML 1.2. This means you can feed JSON directly into a YAML parser and it will parse correctly. The reverse is not true: YAML documents that use comments, anchors (<code>&amp;</code>), aliases (<code>*</code>), or implicit type coercion are not valid JSON. The superset relationship makes conversion from JSON to YAML always lossless, but YAML to JSON conversion discards any YAML-only features.</p>
 
@@ -215,6 +245,31 @@ server:
 
             <h2>Converting between them</h2>
             <p>Because YAML 1.2 is a superset of JSON, conversion is straightforward and lossless for standard documents. The main exception is YAML-specific features like comments, anchors, and aliases, which have no JSON equivalent and are discarded during conversion.</p>
+
+            <h2>Common YAML pitfalls to avoid</h2>
+
+            <p>YAML&rsquo;s flexibility comes with sharp edges. These are the bugs most likely to reach production undetected.</p>
+
+            <h3>The Norway problem &mdash; unexpected boolean coercion</h3>
+            <p>In YAML 1.1 (the version Kubernetes uses), bare values like <code>yes</code>, <code>no</code>, <code>on</code>, <code>off</code>, and their capitalized variants all parse as booleans. The ISO 3166-1 country code for Norway (<code>NO</code>) evaluates to <code>false</code> in a YAML 1.1 config &mdash; a real-world bug that has broken production pipelines at multiple organizations. YAML 1.2 fixed this (only <code>true</code> and <code>false</code> are booleans), but most parsers still default to 1.1 behavior.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>country: NO         # parsed as false (boolean) in YAML 1.1
+enabled: yes        # parsed as true (boolean)
+mode: on            # parsed as true (boolean)
+
+# Fix: always quote values that could be misinterpreted
+country: "NO"
+enabled: "yes"
+mode: "on"</pre>
+            </div>
+
+            <h3>Tabs are not allowed for indentation</h3>
+            <p>YAML forbids tab characters &mdash; only spaces are valid for indentation. Most editors handle this automatically, but copy-pasting YAML from shell scripts, Stack Overflow, or certain IDEs can silently introduce tabs. The resulting parse error is frustrating to debug because tabs are invisible in most editors.</p>
+
+            <h3>Accidental number coercion</h3>
+            <p>Values that look like numbers are parsed as numbers. A version string <code>version: 1.10</code> becomes the float <code>1.1</code>. A leading-zero value like <code>port: 08080</code> may parse as octal in YAML 1.1. Quote any value that should be treated as a string: <code>version: "1.10"</code>.</p>
 
             <div class="tool-cta">
                 <h3>Convert between YAML and JSON</h3>
@@ -242,7 +297,16 @@ server:
                 <p>Kubernetes and Docker Compose configs are files that DevOps engineers write, read, and maintain by hand. YAML's support for comments (to explain deployment decisions), its cleaner syntax for nested objects, and its multiline string support make it far more ergonomic than JSON for this use case. Kubernetes also accepts JSON internally &mdash; YAML manifests are converted to JSON before being sent to the API server.</p>
             </details>
 
-            
+            <details>
+                <summary>Is YAML faster or slower than JSON to parse?</summary>
+                <p>JSON is significantly faster. JSON&rsquo;s grammar is small and unambiguous; a full parser can be written in a few hundred lines of code. YAML&rsquo;s specification runs to hundreds of pages and includes implicit type coercion, anchors, aliases, multiple scalar styles, and multi-document streams &mdash; all requiring more CPU work per byte. For high-throughput APIs, JSON is always the right choice. YAML&rsquo;s parsing overhead is negligible for config files that are read once at startup.</p>
+            </details>
+
+            <details>
+                <summary>What is the YAML Norway problem?</summary>
+                <p>The Norway problem is a well-known YAML 1.1 quirk where the bare value <code>NO</code> &mdash; the ISO 3166-1 country code for Norway &mdash; is parsed as the boolean <code>false</code>. YAML 1.1 treats <code>yes</code>, <code>no</code>, <code>on</code>, <code>off</code>, <code>true</code>, <code>false</code>, and their capitalized variants as booleans. Kubernetes uses a YAML 1.1 parser, so this affects Kubernetes configs too. The fix is to always quote values that could be misinterpreted: <code>country: "NO"</code> instead of <code>country: NO</code>. YAML 1.2 corrected this &mdash; only <code>true</code> and <code>false</code> are booleans &mdash; but many parsers still default to 1.1 behavior.</p>
+            </details>
+
         </section>
 
         <section class="related-tools">

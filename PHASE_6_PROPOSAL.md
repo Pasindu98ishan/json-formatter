@@ -81,7 +81,7 @@ Every `<pre><code>` block in new blog posts must have a "Copy" button. Implement
 
 ### Priority 1 — Highest Value (build first)
 
-#### T1 — JSON Schema Validator
+#### T1 — JSON Schema Validator  ✅ Done
 - **File:** `json-schema-validator.html`
 - **Keyword:** "validate json against schema" — ~5k/mo
 - **Why:** No dominant easy online tool for this; pairs directly with blog B1
