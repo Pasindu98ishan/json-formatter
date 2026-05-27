@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Convert Java objects to JSON and back with Jackson's ObjectMapper — serialization, deserialization, annotations, Java 8 dates, and fixes for common Jackson exceptions.">
+    <meta name="keywords" content="java json serialization, jackson objectmapper, jackson serialization, deserialize json java, java object to json, jackson annotations, jackson example, jackson readvalue, jackson writevalueasstring">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/jackson-json-serialization.html">
+    <meta property="og:title" content="Java JSON Serialization & Deserialization with Jackson">
+    <meta property="og:description" content="A practical guide to Jackson's ObjectMapper: serialize Java objects to JSON, deserialize JSON to objects, key annotations, Java 8 dates, and fixes for the exceptions everyone hits.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/jackson-json-serialization.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Java JSON Serialization & Deserialization with Jackson: Complete Guide | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Java JSON Serialization with Jackson", "item": "https://jsondevtools.org/blog/jackson-json-serialization.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Java JSON Serialization & Deserialization with Jackson: Complete Guide",
+      "description": "Convert Java objects to JSON and back with Jackson's ObjectMapper — serialization, deserialization, annotations, Java 8 dates, and fixes for common Jackson exceptions.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-05-27",
+      "dateModified": "2026-05-27",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the difference between serialization and deserialization in Jackson?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Serialization converts a Java object into a JSON string — in Jackson, objectMapper.writeValueAsString(obj). Deserialization is the reverse: it parses a JSON string into a Java object — objectMapper.readValue(json, Pojo.class). Both are handled by the same ObjectMapper instance. Serialization reads your object's getters (or fields); deserialization writes into the object via its no-argument constructor and setters, or via a constructor annotated with @JsonCreator." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does Jackson throw UnrecognizedPropertyException?",
+          "acceptedAnswer": { "@type": "Answer", "text": "UnrecognizedPropertyException means the JSON contains a field that does not map to any property on your Java class, and Jackson is configured to fail on unknown fields by default. Fix it by adding @JsonIgnoreProperties(ignoreUnknown = true) to the class, or by disabling the feature globally: objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false). This is common when consuming third-party APIs that add new fields over time." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does Jackson need a no-argument constructor?",
+          "acceptedAnswer": { "@type": "Answer", "text": "By default Jackson creates an instance with the no-argument constructor and then populates fields via setters or direct field access. If your class only has a constructor that takes arguments, Jackson cannot instantiate it and throws InvalidDefinitionException (\"no Creators, like default constructor, exist\"). Fix it by adding a no-arg constructor, or annotate your argument constructor with @JsonCreator and mark each parameter with @JsonProperty. Java records are handled natively from Jackson 2.12 without extra annotations." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I serialize Java 8 LocalDate and LocalDateTime with Jackson?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Add the jackson-datatype-jsr310 dependency and register its module: objectMapper.registerModule(new JavaTimeModule()). Then disable timestamp output so dates serialize as ISO 8601 strings: objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS). Without the module, Jackson throws InvalidDefinitionException saying Java 8 date/time is not supported by default. In Spring Boot the module is auto-registered, so LocalDate works out of the box." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I deserialize a JSON array into a List in Jackson?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Generic types like List<User> are erased at runtime, so passing List.class loses the element type. Use a TypeReference to preserve it: objectMapper.readValue(json, new TypeReference<List<User>>(){}). Alternatively, build a CollectionType with the type factory. Either approach tells Jackson to deserialize each array element into a User instead of a generic LinkedHashMap." }
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to deserialize JSON into a Java object with Jackson",
+      "description": "Steps to parse a JSON string into a typed Java object using Jackson's ObjectMapper.",
+      "step": [
+        { "@type": "HowToStep", "position": 1, "name": "Add the jackson-databind dependency", "text": "Add com.fasterxml.jackson.core:jackson-databind to your Maven or Gradle build. Spring Boot already includes it." },
+        { "@type": "HowToStep", "position": 2, "name": "Create a matching POJO", "text": "Create a Java class whose property names match the JSON field names. Give it a public no-argument constructor and getters/setters, or use a record." },
+        { "@type": "HowToStep", "position": 3, "name": "Call objectMapper.readValue", "text": "Construct an ObjectMapper and call readValue(json, Pojo.class). For a JSON array, pass a TypeReference<List<Pojo>> to preserve the generic element type." },
+        { "@type": "HowToStep", "position": 4, "name": "Handle unknown fields", "text": "If the JSON has fields your class does not declare, add @JsonIgnoreProperties(ignoreUnknown = true) or disable FAIL_ON_UNKNOWN_PROPERTIES to avoid UnrecognizedPropertyException." }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>Java JSON Serialization with Jackson</span>
+            </nav>
+            <h1>Java JSON Serialization &amp; Deserialization with Jackson: Complete Guide</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published May 2026 &middot; 10 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">Jackson is the de facto standard for JSON in Java and the library Spring Boot uses under the hood. Its central class, <code>ObjectMapper</code>, converts Java objects to JSON (serialization) and JSON back into Java objects (deserialization). This guide covers the full round-trip, the annotations you will actually use, how to handle Java 8 dates, and clear fixes for the exceptions every Jackson user eventually hits.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:center;">
+                <p style="margin:0 0 0.9rem;font-weight:600;">Inspecting Jackson's output? Format and validate it in your browser:</p>
+                <div style="display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;">
+                    <a href="../formatter.html" class="btn btn-primary" style="display:inline-block;">JSON Formatter &rarr;</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="display:inline-block;background:#28a745;border-color:#28a745;">JSON Validator &rarr;</a>
+                </div>
+            </div>
+
+            <h2>What is serialization and deserialization?</h2>
+
+            <p><strong>Serialization</strong> is the process of converting an in-memory object into a format that can be stored or sent across a network &mdash; here, a JSON string. <strong>Deserialization</strong> is the reverse: rebuilding the in-memory object from that stored or received representation.</p>
+
+            <p>Why this matters in Java specifically: a Java object lives on the heap as a graph of references that only the JVM understands. You cannot put that graph onto an HTTP connection, write it to a file, or store it in a cache as-is. Serialization flattens the object into JSON text that any system &mdash; a browser, another microservice, a database &mdash; can read. When the data comes back, deserialization turns it into a typed Java object you can call methods on again.</p>
+
+            <p>Common places a Java application serializes and deserializes JSON:</p>
+            <ul>
+                <li><strong>REST APIs</strong> &mdash; a Spring controller returns a Java object and Jackson serializes it into the JSON response body; incoming request bodies are deserialized into method parameters.</li>
+                <li><strong>Messaging</strong> &mdash; producing and consuming JSON messages on Kafka, RabbitMQ, or SQS.</li>
+                <li><strong>Configuration and files</strong> &mdash; reading a JSON config file into a settings object at startup.</li>
+                <li><strong>Caching</strong> &mdash; storing objects as JSON strings in Redis and reading them back later.</li>
+            </ul>
+
+            <p>Java has a built-in <code>java.io.Serializable</code> mechanism that does something similar, but it produces an opaque binary format only other JVMs can read. JSON is human-readable and language-agnostic, which is why libraries like Jackson have become the standard for almost all modern Java applications.</p>
+
+            <h2>What is Jackson?</h2>
+
+            <p>Jackson is a high-performance JSON library for Java built around three modules: <code>jackson-core</code> (low-level streaming), <code>jackson-annotations</code> (the annotation set), and <code>jackson-databind</code> (the <code>ObjectMapper</code> that ties objects to JSON). Adding <code>jackson-databind</code> pulls in the other two transitively, so it is the only dependency most projects declare.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>&lt;!-- Maven --&gt;
+&lt;dependency&gt;
+  &lt;groupId&gt;com.fasterxml.jackson.core&lt;/groupId&gt;
+  &lt;artifactId&gt;jackson-databind&lt;/artifactId&gt;
+  &lt;version&gt;2.17.1&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+            </div>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Gradle (build.gradle)
+implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.1'</code></pre>
+            </div>
+
+            <p>If you are using Spring Boot, Jackson is already on the classpath via <code>spring-boot-starter-web</code> &mdash; you do not need to add it yourself, and a pre-configured <code>ObjectMapper</code> bean is available for injection.</p>
+
+            <p>The <code>ObjectMapper</code> is thread-safe once configured. Create one instance and reuse it across your application rather than constructing a new one per request &mdash; instantiation is relatively expensive.</p>
+
+            <h2>How do you serialize a Java object to JSON?</h2>
+
+            <p>Serialization turns a Java object into a JSON string. The core method is <code>writeValueAsString()</code>. Jackson reads your object's public getters (or fields) to build the JSON.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>public class User {
+    private long id;
+    private String name;
+    private String email;
+
+    // constructors, getters, and setters omitted for brevity
+}
+
+ObjectMapper mapper = new ObjectMapper();
+User user = new User(42, "Alice", "alice@example.com");
+
+String json = mapper.writeValueAsString(user);
+// {"id":42,"name":"Alice","email":"alice@example.com"}</code></pre>
+            </div>
+
+            <p>For readable output &mdash; logs, fixtures, or files a human will inspect &mdash; use the pretty printer:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>String pretty = mapper.writerWithDefaultPrettyPrinter()
+                      .writeValueAsString(user);
+// {
+//   "id" : 42,
+//   "name" : "Alice",
+//   "email" : "alice@example.com"
+// }
+
+// Write straight to a file instead of a String
+mapper.writeValue(new File("user.json"), user);</code></pre>
+            </div>
+
+            <h2>How do you deserialize JSON to a Java object?</h2>
+
+            <p>Deserialization parses a JSON string into a typed Java object with <code>readValue()</code>. The target class needs a public no-argument constructor (Jackson uses it to instantiate the object, then fills in fields via setters or direct field access).</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>String json = "{\"id\":42,\"name\":\"Alice\",\"email\":\"alice@example.com\"}";
+
+ObjectMapper mapper = new ObjectMapper();
+User user = mapper.readValue(json, User.class);
+
+user.getName(); // "Alice"</code></pre>
+            </div>
+
+            <h3>Deserializing a JSON array into a List</h3>
+
+            <p>Java erases generic types at runtime, so <code>List.class</code> cannot tell Jackson what the elements are &mdash; you would get a <code>List&lt;LinkedHashMap&gt;</code> instead of a <code>List&lt;User&gt;</code>. Use a <code>TypeReference</code> to preserve the element type:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>String jsonArray = "[{\"id\":1,\"name\":\"Alice\"},{\"id\":2,\"name\":\"Bob\"}]";
+
+List&lt;User&gt; users = mapper.readValue(
+    jsonArray,
+    new TypeReference&lt;List&lt;User&gt;&gt;() {}
+);
+
+users.get(0).getName(); // "Alice"</code></pre>
+            </div>
+
+            <h2>Essential Jackson annotations</h2>
+
+            <p>Annotations let you control the mapping between JSON fields and Java properties without writing custom code. These are the ones you will reach for most often.</p>
+
+            <table>
+                <thead>
+                    <tr><th>Annotation</th><th>What it does</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>@JsonProperty("name")</code></td><td>Maps a field to a different JSON key (e.g. Java <code>userName</code> &harr; JSON <code>user_name</code>)</td></tr>
+                    <tr><td><code>@JsonIgnore</code></td><td>Excludes a property from both serialization and deserialization</td></tr>
+                    <tr><td><code>@JsonInclude(NON_NULL)</code></td><td>Omits properties that are <code>null</code> from the output JSON</td></tr>
+                    <tr><td><code>@JsonFormat</code></td><td>Controls date/number formatting (pattern, timezone)</td></tr>
+                    <tr><td><code>@JsonAlias</code></td><td>Accepts multiple JSON key names when reading (useful for renamed API fields)</td></tr>
+                    <tr><td><code>@JsonCreator</code></td><td>Marks a constructor or factory method Jackson should use to build the object</td></tr>
+                    <tr><td><code>@JsonIgnoreProperties(ignoreUnknown = true)</code></td><td>Ignores JSON fields with no matching property instead of failing</td></tr>
+                </tbody>
+            </table>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>@JsonIgnoreProperties(ignoreUnknown = true)
+public class Account {
+
+    @JsonProperty("account_id")
+    private long id;
+
+    @JsonAlias({"fullName", "displayName"})
+    private String name;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String nickname; // dropped from JSON when null
+
+    @JsonIgnore
+    private String passwordHash; // never serialized or read
+
+    // getters and setters
+}</code></pre>
+            </div>
+
+            <h3>Excluding a property: @JsonIgnore vs transient</h3>
+
+            <p>Most objects hold fields that should never appear in JSON &mdash; a cached value, a derived helper, an internal token. There are two ways to keep one out of the output.</p>
+
+            <p>The idiomatic Jackson approach is <code>@JsonIgnore</code>. It excludes the property from both serialization and deserialization, and it works no matter how the property is accessed (field, getter, or setter):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>@JsonIgnore
+private String passwordHash; // never serialized or read back</code></pre>
+            </div>
+
+            <p>You can also use Java's built-in <code>transient</code> keyword. It was designed for Java's native <code>Serializable</code> mechanism rather than for Jackson, so its effect here is narrower. Jackson honors <code>transient</code> on a field it would otherwise auto-detect &mdash; but a public getter takes precedence. If a getter exists for the property, Jackson still serializes it and you must use <code>@JsonIgnore</code> instead:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>public class Session {
+    public String userId;
+    public transient String cacheKey; // skipped: transient field, no getter
+}
+
+// mapper.writeValueAsString(session)
+// {"userId":"u-123"}   — cacheKey is omitted</code></pre>
+            </div>
+
+            <p><strong>Recommendation:</strong> use <code>@JsonIgnore</code> for anything you want out of the JSON &mdash; it is explicit and getter-proof. Reach for <code>transient</code> only when a field also genuinely needs to be excluded from Java's native object serialization.</p>
+
+            <h2>How do you serialize Java 8 dates and records?</h2>
+
+            <p>Out of the box, plain Jackson does not know how to handle <code>java.time</code> types like <code>LocalDate</code> and <code>LocalDateTime</code> &mdash; it throws <code>InvalidDefinitionException</code> saying "Java 8 date/time type ... not supported by default." The fix is the <code>jackson-datatype-jsr310</code> module.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>&lt;!-- Maven --&gt;
+&lt;dependency&gt;
+  &lt;groupId&gt;com.fasterxml.jackson.datatype&lt;/groupId&gt;
+  &lt;artifactId&gt;jackson-datatype-jsr310&lt;/artifactId&gt;
+  &lt;version&gt;2.17.1&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+            </div>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>ObjectMapper mapper = new ObjectMapper();
+mapper.registerModule(new JavaTimeModule());
+
+// Write dates as ISO 8601 strings ("2026-05-27") instead of numeric arrays
+mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+String json = mapper.writeValueAsString(event);
+// {"title":"Launch","date":"2026-05-27"}</code></pre>
+            </div>
+
+            <p>Spring Boot auto-registers <code>JavaTimeModule</code>, so <code>LocalDate</code> works without configuration there. For date-storage conventions across languages, see the <a href="json-date-format.html">JSON date format guide</a> &mdash; ISO 8601 is the cross-platform standard Jackson emits by default once the module is registered.</p>
+
+            <p><strong>Java records</strong> (Java 16+) are supported natively from Jackson 2.12 &mdash; no extra annotations or constructors required:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>public record Point(int x, int y) {}
+
+Point p = mapper.readValue("{\"x\":3,\"y\":7}", Point.class);
+p.x(); // 3</code></pre>
+            </div>
+
+            <h2>Common Jackson exceptions and how to fix them</h2>
+
+            <p>Most Jackson frustration comes from a handful of exceptions. Here is what each one means and the exact fix.</p>
+
+            <h3>1. UnrecognizedPropertyException &mdash; unknown JSON field</h3>
+            <p><code>com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException</code> is thrown when the JSON contains a field your class does not declare. By default Jackson treats unknown fields as an error. This is extremely common when consuming third-party APIs that add fields over time.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Fix 1 — per class
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class User { /* ... */ }
+
+// Fix 2 — globally on the mapper
+mapper.configure(
+    DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);</code></pre>
+            </div>
+
+            <h3>2. InvalidDefinitionException &mdash; no default constructor</h3>
+            <p>The message reads "Cannot construct instance ... no Creators, like default constructor, exist." Jackson cannot instantiate a class that only has an argument-taking constructor. Either add a no-arg constructor, or tell Jackson to use the existing one with <code>@JsonCreator</code>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>public class User {
+    private final long id;
+    private final String name;
+
+    @JsonCreator
+    public User(@JsonProperty("id") long id,
+                @JsonProperty("name") String name) {
+        this.id = id;
+        this.name = name;
+    }
+    // getters
+}</code></pre>
+            </div>
+
+            <h3>3. InvalidDefinitionException &mdash; Java 8 date/time not supported</h3>
+            <p>"Java 8 date/time type <code>java.time.LocalDate</code> not supported by default" means you forgot to register the JSR-310 module. Register <code>JavaTimeModule</code> as shown in the dates section above.</p>
+
+            <h3>4. InvalidFormatException &mdash; type mismatch</h3>
+            <p><code>InvalidFormatException</code> fires when a JSON value cannot be coerced into the target type &mdash; for example the JSON has <code>"age": "thirty"</code> but the field is an <code>int</code>. The fix is on the data side: correct the JSON, or change the field type to <code>String</code> if the value is genuinely textual. Validate the payload first with the <a href="../json-validator.html">JSON Validator</a> when a malformed response is the suspected cause.</p>
+
+            <h3>5. Infinite recursion / StackOverflowError on bidirectional relationships</h3>
+            <p>When two entities reference each other (an <code>Order</code> has a <code>Customer</code>, and the <code>Customer</code> has a <code>List&lt;Order&gt;</code>), Jackson loops forever and throws <code>StackOverflowError</code>. Break the cycle with managed/back references, or annotate one side with <code>@JsonIgnore</code>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>public class Customer {
+    @JsonManagedReference
+    private List&lt;Order&gt; orders; // serialized normally
+}
+
+public class Order {
+    @JsonBackReference
+    private Customer customer; // omitted during serialization to break the loop
+}</code></pre>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>What is the difference between serialization and deserialization in Jackson?</summary>
+                    <p>Serialization converts a Java object into a JSON string &mdash; in Jackson, <code>objectMapper.writeValueAsString(obj)</code>. Deserialization is the reverse: it parses a JSON string into a Java object &mdash; <code>objectMapper.readValue(json, Pojo.class)</code>. Both are handled by the same <code>ObjectMapper</code> instance. Serialization reads your object's getters (or fields); deserialization writes into the object via its no-argument constructor and setters, or via a constructor annotated with <code>@JsonCreator</code>.</p>
+                </details>
+
+                <details>
+                    <summary>Why does Jackson throw UnrecognizedPropertyException?</summary>
+                    <p><code>UnrecognizedPropertyException</code> means the JSON contains a field that does not map to any property on your Java class, and Jackson is configured to fail on unknown fields by default. Fix it by adding <code>@JsonIgnoreProperties(ignoreUnknown = true)</code> to the class, or by disabling the feature globally: <code>objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)</code>. This is common when consuming third-party APIs that add new fields over time.</p>
+                </details>
+
+                <details>
+                    <summary>Why does Jackson need a no-argument constructor?</summary>
+                    <p>By default Jackson creates an instance with the no-argument constructor and then populates fields via setters or direct field access. If your class only has a constructor that takes arguments, Jackson cannot instantiate it and throws <code>InvalidDefinitionException</code> ("no Creators, like default constructor, exist"). Fix it by adding a no-arg constructor, or annotate your argument constructor with <code>@JsonCreator</code> and mark each parameter with <code>@JsonProperty</code>. Java records are handled natively from Jackson 2.12 without extra annotations.</p>
+                </details>
+
+                <details>
+                    <summary>How do I serialize Java 8 LocalDate and LocalDateTime with Jackson?</summary>
+                    <p>Add the <code>jackson-datatype-jsr310</code> dependency and register its module: <code>objectMapper.registerModule(new JavaTimeModule())</code>. Then disable timestamp output so dates serialize as ISO 8601 strings: <code>objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)</code>. Without the module, Jackson throws <code>InvalidDefinitionException</code> saying Java 8 date/time is not supported by default. In Spring Boot the module is auto-registered, so <code>LocalDate</code> works out of the box.</p>
+                </details>
+
+                <details>
+                    <summary>How do I deserialize a JSON array into a List in Jackson?</summary>
+                    <p>Generic types like <code>List&lt;User&gt;</code> are erased at runtime, so passing <code>List.class</code> loses the element type. Use a <code>TypeReference</code> to preserve it: <code>objectMapper.readValue(json, new TypeReference&lt;List&lt;User&gt;&gt;(){})</code>. Alternatively, build a <code>CollectionType</code> with the type factory. Either approach tells Jackson to deserialize each array element into a <code>User</code> instead of a generic <code>LinkedHashMap</code>.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Format and validate the JSON your Jackson code produces</h3>
+                <p>Paste serialized output to pretty-print it, or validate a payload before <code>readValue</code> &mdash; entirely in your browser, no data sent to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../json-to-typescript.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">JSON to TypeScript</a>
+                </div>
+            </div>
+
+            <div class="article-cta">
+                <p>Need to inspect a Jackson payload right now? Pretty-print it in the browser.</p>
+                <a href="../formatter.html" class="btn btn-primary">Open JSON Formatter &rarr;</a>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; pretty-print Jackson output instantly</li>
+                <li><a href="../json-validator.html">JSON Validator</a> &mdash; check a payload before deserializing</li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a> &mdash; generate types from JSON, like POJOs for the frontend</li>
+                <li><a href="../json-minifier.html">JSON Minifier</a> &mdash; compact JSON for production payloads</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a></li>
+                <li><a href="json-date-format.html">JSON Date Format: ISO 8601 and the Right Way to Store Dates</a></li>
+                <li><a href="json-best-practices.html">JSON Best Practices for APIs</a></li>
+                <li><a href="json-stringify-indent.html">JSON.stringify() Complete Guide (JavaScript)</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
