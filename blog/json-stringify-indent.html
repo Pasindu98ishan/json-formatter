@@ -4,17 +4,17 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Complete breakdown of JSON.stringify(value, replacer, space) — the indent parameter, replacer function, replacer array, and real examples with 2-space, 4-space, and tab indentation.">
-    <meta name="keywords" content="json stringify indent, json.stringify space, json.stringify replacer, json stringify formatting, json.stringify options, json stringify tabs">
+    <meta name="description" content="Complete guide to JSON.stringify() and JSON.parse(): the space indent parameter, replacer and reviver functions, toJSON(), values silently dropped (undefined, NaN, Map), and the deep-clone pattern gotchas.">
+    <meta name="keywords" content="json stringify indent, json.stringify space, json.stringify replacer, json stringify options, json parse reviver, json stringify undefined, json stringify nan, json deep clone, json tojson, json stringify complete guide">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jsondevtools.org/blog/json-stringify-indent.html">
-    <meta property="og:title" content="JSON.stringify Indent – Formatting Options Explained">
+    <meta property="og:title" content="JSON.stringify Indent &ndash; Formatting Options Explained">
     <meta property="og:description" content="Full breakdown of the JSON.stringify space and replacer parameters with practical examples for filtering keys and controlling output format.">
     <meta property="og:url" content="https://jsondevtools.org/blog/json-stringify-indent.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <title>JSON.stringify Indent – Formatting Options Explained | JSON Dev Tools Blog</title>
+    <title>JSON.stringify() Complete Guide: indent, replacer, reviver, and edge cases | JSON Dev Tools Blog</title>
     <link rel="stylesheet" href="../css/styles.css">
     <link rel="stylesheet" href="../css/dark-mode.css">
     <link rel="stylesheet" href="../css/blog.css">
@@ -33,7 +33,7 @@
       "itemListElement": [
         { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
         { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
-        { "@type": "ListItem", "position": 3, "name": "JSON.stringify Indent – Formatting Options Explained", "item": "https://jsondevtools.org/blog/json-stringify-indent.html" }
+        { "@type": "ListItem", "position": 3, "name": "JSON.stringify Indent &ndash; Formatting Options Explained", "item": "https://jsondevtools.org/blog/json-stringify-indent.html" }
       ]
     }
     </script>
@@ -41,11 +41,11 @@
     {
       "@context": "https://schema.org",
       "@type": "Article",
-      "headline": "JSON.stringify Indent – Formatting Options Explained",
-      "description": "Full breakdown of the JSON.stringify space and replacer parameters with practical examples.",
+      "headline": "JSON.stringify() Complete Guide: indent, replacer, reviver, and silently dropped values",
+      "description": "Complete guide to JSON.stringify() and JSON.parse(): the space indent parameter, replacer and reviver functions, toJSON(), values silently dropped, and the deep-clone pattern gotchas.",
       "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
       "datePublished": "2026-05-04",
-      "dateModified": "2026-05-04",
+      "dateModified": "2026-05-27",
       "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
     }
     </script>
@@ -68,6 +68,16 @@
           "@type": "Question",
           "name": "How do I use JSON.stringify to exclude sensitive fields?",
           "acceptedAnswer": { "@type": "Answer", "text": "Use a replacer function that returns undefined for keys you want to exclude. For example: JSON.stringify(user, (key, val) => key === 'password' ? undefined : val, 2) will serialize the user object but omit the password field from the output." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does JSON.stringify do with undefined, NaN, and Infinity?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON.stringify silently converts NaN and Infinity to null. Properties whose value is undefined are dropped entirely from the output object. If undefined appears inside an array, it becomes null to preserve array indices. Functions and Symbol-keyed properties are also silently dropped from objects. BigInt throws a TypeError. No warning is raised for any of these — the data simply disappears." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the reviver argument in JSON.parse?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The reviver is the second argument to JSON.parse(text, reviver). It is called for every key-value pair in the parsed result, from the deepest nested values outward. Whatever it returns replaces that value. The most common use is restoring Date objects — JSON serializes them as ISO 8601 strings, and the reviver converts them back to Date instances during parsing." }
         }
       ]
     }
@@ -81,12 +91,12 @@
         <div class="container">
             <nav class="breadcrumb" aria-label="Breadcrumb">
                 <a href="/">Home</a> &rsaquo;
-                <a href="index.html">Blog</a> &rsaquo;
-                <span>JSON.stringify Indent – Formatting Options Explained</span>
+                <a href="./">Blog</a> &rsaquo;
+                <span>JSON.stringify Indent &ndash; Formatting Options Explained</span>
             </nav>
-            <h1>JSON.stringify Indent – Formatting Options Explained</h1>
+            <h1>JSON.stringify() Complete Guide: indent, replacer, reviver, and edge cases</h1>
             <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
-            <div class="article-meta">Published May 2026 &middot; 6 min read</div>
+            <div class="article-meta">Published May 2026 &middot; 10 min read</div>
         </div>
     </header>
 
@@ -94,22 +104,22 @@
         <article class="blog-article">
 
 
-            <p class="article-lede"><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify" rel="noopener noreferrer"><code>JSON.stringify(value, replacer, space)</code></a> — the third argument, <code>space</code>, controls indentation: pass <code>2</code> for 2-space indent, <code>4</code> for 4-space, or <code>'\t'</code> for tabs. The second argument, <code>replacer</code>, filters which keys are included. Pass <code>null</code> to include all keys. Most developers only use <code>JSON.stringify(data, null, 2)</code> for pretty-printing.</p>
+            <p class="article-lede"><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify" rel="noopener noreferrer"><code>JSON.stringify(value, replacer, space)</code></a> &mdash; the third argument, <code>space</code>, controls indentation: pass <code>2</code> for 2-space indent, <code>4</code> for 4-space, or <code>'\t'</code> for tabs. The second argument, <code>replacer</code>, filters which keys are included. Pass <code>null</code> to include all keys. Most developers only use <code>JSON.stringify(data, null, 2)</code> for pretty-printing.</p>
 
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre>JSON.stringify(value, replacer, space)</pre>
             </div>
 
-            <h2>The space parameter — controlling indentation</h2>
+            <h2>The space parameter &mdash; controlling indentation</h2>
             <p>The third argument, <code>space</code>, controls the indentation of the formatted output. It accepts either a number or a string:</p>
 
-            <h3>Number — spaces per indent level</h3>
+            <h3>Number &mdash; spaces per indent level</h3>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre>const data = { name: "Alice", address: { city: "London", zip: "SW1A" } };
 
-// No indent (minified) — default when space is 0, null, or omitted
+// No indent (minified) &mdash; default when space is 0, null, or omitted
 JSON.stringify(data);
 // {"name":"Alice","address":{"city":"London","zip":"SW1A"}}
 
@@ -136,7 +146,7 @@ JSON.stringify(data, null, 4);
 
             <p>Values larger than 10 are clamped to 10. Negative values are treated as 0 (minified output).</p>
 
-            <h3>String — custom indent character</h3>
+            <h3>String &mdash; custom indent character</h3>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre>// Tab indentation (useful for some file formats)
@@ -160,10 +170,10 @@ JSON.stringify(data, null, '--');
 // }</pre>
             </div>
 
-            <h2>The replacer parameter — filtering and transforming output</h2>
+            <h2>The replacer parameter &mdash; filtering and transforming output</h2>
             <p>The second argument controls which keys appear in the output and what their values are. It can be an array (allowlist) or a function (transformation).</p>
 
-            <h3>Replacer as an array — include only specific keys</h3>
+            <h3>Replacer as an array &mdash; include only specific keys</h3>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre>const user = {
@@ -182,7 +192,7 @@ JSON.stringify(user, ['id', 'name'], 2);
 // }</pre>
             </div>
 
-            <h3>Replacer as a function — exclude or transform values</h3>
+            <h3>Replacer as a function &mdash; exclude or transform values</h3>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre>// Exclude sensitive fields
@@ -200,7 +210,7 @@ JSON.stringify(user, (key, value) => {
 
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
-<pre>// Transform values — convert Date objects to ISO strings
+<pre>// Transform values &mdash; convert Date objects to ISO strings
 const event = {
     title: "Conference",
     date: new Date('2026-06-15'),
@@ -223,15 +233,15 @@ JSON.stringify(event, (key, value) => {
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre>JSON.stringify({ a: 1, b: 2 }, (key, value) => {
-    console.log(JSON.stringify(key), '→', value);
+    console.log(JSON.stringify(key), '&rarr;', value);
     return value;
 });
-// "" → { a: 1, b: 2 }   (root call, key is empty string)
-// "a" → 1
-// "b" → 2</pre>
+// "" &rarr; { a: 1, b: 2 }   (root call, key is empty string)
+// "a" &rarr; 1
+// "b" &rarr; 2</pre>
             </div>
 
-            <h2>toJSON() — custom serialization on objects</h2>
+            <h2>toJSON() &mdash; custom serialization on objects</h2>
             <p>If an object has a <code>toJSON()</code> method, <code>JSON.stringify()</code> calls it and serializes the returned value instead of the object itself:</p>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -252,11 +262,144 @@ const user = new User(1, 'Alice', 'secret');
 JSON.stringify(user); // '{"id":1,"name":"Alice"}'</pre>
             </div>
 
+            <h2>Values that JSON.stringify() silently drops</h2>
+
+            <p>This is the most common source of serialization data-loss bugs. JSON has no representation for several JavaScript types, and <code>JSON.stringify()</code> handles them without any error or warning — data simply disappears.</p>
+
+            <table>
+                <thead>
+                    <tr><th>Value type</th><th>In an object property</th><th>In an array</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>undefined</code></td><td>Property omitted entirely</td><td>Converted to <code>null</code></td></tr>
+                    <tr><td><code>function</code></td><td>Property omitted entirely</td><td>Converted to <code>null</code></td></tr>
+                    <tr><td><code>Symbol</code> value</td><td>Property omitted entirely</td><td>Converted to <code>null</code></td></tr>
+                    <tr><td>Symbol-keyed property</td><td>Always omitted</td><td>N/A</td></tr>
+                    <tr><td><code>NaN</code></td><td>Converted to <code>null</code></td><td>Converted to <code>null</code></td></tr>
+                    <tr><td><code>Infinity</code></td><td>Converted to <code>null</code></td><td>Converted to <code>null</code></td></tr>
+                    <tr><td><code>BigInt</code></td><td colspan="2">Throws <code>TypeError: Do not know how to serialize a BigInt</code></td></tr>
+                    <tr><td><code>Date</code></td><td colspan="2">Calls <code>.toJSON()</code> &rarr; ISO 8601 string (survives, but type is lost)</td></tr>
+                    <tr><td><code>Map</code>, <code>Set</code></td><td colspan="2">Converted to <code>{}</code> — all data lost silently</td></tr>
+                    <tr><td>Circular reference</td><td colspan="2">Throws <code>TypeError: Converting circular structure to JSON</code></td></tr>
+                </tbody>
+            </table>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const data = {
+  name: "Alice",
+  score: NaN,             // → null
+  rank: Infinity,         // → null
+  fn: () => {},           // → omitted
+  tags: [1, undefined, 3] // undefined in array → null
+};
+
+JSON.stringify(data);
+// '{"name":"Alice","score":null,"rank":null,"tags":[1,null,3]}'
+
+// BigInt — fix with a replacer
+const safeReplacer = (key, val) =>
+  typeof val === "bigint" ? val.toString() : val;
+JSON.stringify({ count: 9007199254740993n }, safeReplacer);
+// '{"count":"9007199254740993"}'</pre>
+            </div>
+
+            <h2>JSON.parse() and the reviver function</h2>
+
+            <p>The reviver is the second argument to <code>JSON.parse(text, reviver)</code> — the exact counterpart to the replacer in <code>JSON.stringify()</code>. It is called for every key-value pair in the parsed result, from the deepest nested values up to the root. Whatever it returns replaces that value.</p>
+
+            <p>The most common use is restoring <code>Date</code> objects. JSON has no native date type, so dates serialize to ISO 8601 strings. Without a reviver, <code>JSON.parse()</code> gives you a plain string. With a reviver, you convert it back to a <code>Date</code> instance during parsing.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const json = '{"name":"Alice","createdAt":"2026-01-15T09:00:00.000Z","score":42}';
+
+// Without reviver — createdAt is a plain string
+const plain = JSON.parse(json);
+console.log(typeof plain.createdAt); // "string"
+
+// With reviver — createdAt becomes a Date instance
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+
+const parsed = JSON.parse(json, (key, value) => {
+  if (typeof value === "string" && ISO_DATE.test(value)) {
+    return new Date(value);
+  }
+  return value;
+});
+
+console.log(parsed.createdAt instanceof Date); // true
+console.log(parsed.createdAt.getFullYear());   // 2026</pre>
+            </div>
+
+            <p>Reviver call order: children before parents. By the time the reviver sees an object, all its nested values have already been processed. The very last call has an empty string key and the fully-transformed root value.</p>
+
+            <h2>The JSON.parse(JSON.stringify(obj)) deep-clone pattern</h2>
+
+            <p>This one-liner is widely used for deep-cloning plain objects. It works correctly for objects containing only JSON-safe types (strings, numbers, booleans, null, nested plain objects, and arrays of those).</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const original = { name: "Alice", address: { city: "London" } };
+const clone = JSON.parse(JSON.stringify(original));
+
+clone.address.city = "Paris";
+console.log(original.address.city); // "London" — true deep clone</pre>
+            </div>
+
+            <p>What it silently destroys:</p>
+            <ul>
+                <li><code>undefined</code> properties — dropped, not in the clone</li>
+                <li><code>Date</code> instances — become ISO 8601 strings in the clone</li>
+                <li><code>Map</code> and <code>Set</code> — become empty objects <code>{}</code></li>
+                <li>Class instances — prototype chain is lost; clone is a plain object</li>
+                <li>Circular references — throw <code>TypeError</code> immediately</li>
+            </ul>
+
+            <p>For modern environments (Node.js 17+, Chrome 98+, Firefox 94+), use <strong><code>structuredClone()</code></strong> instead. It correctly handles <code>Date</code>, <code>Map</code>, <code>Set</code>, <code>ArrayBuffer</code>, and circular references:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>const obj = {
+  date: new Date("2026-01-15"),
+  map: new Map([["key", "value"]]),
+  nested: { arr: [1, 2, 3] }
+};
+
+const clone = structuredClone(obj);
+console.log(clone.date instanceof Date); // true — Date preserved
+console.log(clone.map.get("key"));       // "value" — Map preserved</pre>
+            </div>
+
             <h2>Browser alternative for one-off formatting</h2>
-            <p>If you need to format a JSON string without writing code, paste it into the <a href="../formatter.html">JSON Formatter</a>. It supports 2-space and 4-space indentation, a tree view for navigation, and key sorting — equivalent to <code>JSON.stringify(data, null, 2)</code> with the sort-keys option.</p>
+            <p>If you need to format a JSON string without writing code, paste it into the <a href="../formatter.html">JSON Formatter</a>. It supports 2-space and 4-space indentation, a tree view for navigation, and key sorting &mdash; equivalent to <code>JSON.stringify(data, null, 2)</code> with the sort-keys option.</p>
+
+                <section class="faq-section">
+                    <h2>Frequently Asked Questions</h2>
+                    <details>
+                        <summary>What does the third argument to JSON.stringify do?</summary>
+                        <p>The third argument (<code>space</code>) controls indentation. Pass a number for that many space characters per indent level (clamped to 10), or a string to use that string as the indent (e.g. <code>'\t'</code> for tabs). Omitting it or passing <code>null</code> produces compact output with no whitespace.</p>
+                    </details>
+                    <details>
+                        <summary>What is the replacer argument in JSON.stringify?</summary>
+                        <p>The second argument (<code>replacer</code>) can be an array or a function. An array of key names acts as an allowlist — only those keys appear in the output. A function is called for every key-value pair; whatever it returns is serialized, and returning <code>undefined</code> omits the property. Pass <code>null</code> to include all keys unchanged.</p>
+                    </details>
+                    <details>
+                        <summary>How do I exclude sensitive fields with JSON.stringify?</summary>
+                        <p>Use a function replacer that returns <code>undefined</code> for keys to exclude: <code>JSON.stringify(user, (key, val) =&gt; key === 'password' ? undefined : val, 2)</code>. For multiple fields, use a <code>Set</code>: <code>(key, val) =&gt; sensitiveKeys.has(key) ? undefined : val</code>. Alternatively, use an array replacer to whitelist only the keys you want to include.</p>
+                    </details>
+                    <details>
+                        <summary>What does JSON.stringify do with undefined, NaN, and Infinity?</summary>
+                        <p><code>NaN</code> and <code>Infinity</code> are converted to <code>null</code>. Object properties whose value is <code>undefined</code> are dropped silently. <code>undefined</code> inside an array becomes <code>null</code> to preserve indices. Functions and Symbol-keyed properties are also dropped from objects. <code>BigInt</code> throws a <code>TypeError</code>. No warning is raised for any silent conversion — data just disappears.</p>
+                    </details>
+                    <details>
+                        <summary>What is the reviver argument in JSON.parse?</summary>
+                        <p>The reviver is the second argument to <code>JSON.parse(text, reviver)</code>. It is called for every key-value pair in the parsed result, from the deepest nested values up to the root. Whatever it returns replaces that parsed value. The most common use is restoring <code>Date</code> objects from ISO 8601 strings, or reconstructing custom types like <code>Map</code> that JSON cannot represent natively.</p>
+                    </details>
+                </section>
 
                 <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
-                    <p style="margin:0 0 0.75rem;"><strong>Try it directly in your browser — free, no signup:</strong></p>
+                    <p style="margin:0 0 0.75rem;"><strong>Try it directly in your browser &mdash; free, no signup:</strong></p>
                     <a href="../json-beautifier.html" class="btn btn-primary" style="display:inline-block;">Open JSON Beautifier &rarr;</a>
                 </div>                    <section class="related-tools">
             <h2>Related Tools</h2>
@@ -268,9 +411,9 @@ JSON.stringify(user); // '{"id":1,"name":"Alice"}'</pre>
         <section class="related-articles">
             <h2>Related Articles</h2>
             <ul>
-                <li><a href="pretty-print-json.html">How to Pretty Print JSON – Browser, JavaScript, Python, curl</a></li>
-                <li><a href="format-json-python.html">How to Format JSON in Python – json.dumps with indent</a></li>
-                <li><a href="json-trailing-comma.html">JSON Trailing Comma Error – Why It Happens and How to Fix It</a></li>
+                <li><a href="pretty-print-json.html">How to Pretty Print JSON &ndash; Browser, JavaScript, Python, curl</a></li>
+                <li><a href="format-json-python.html">How to Format JSON in Python &ndash; json.dumps with indent</a></li>
+                <li><a href="json-trailing-comma.html">JSON Trailing Comma Error &ndash; Why It Happens and How to Fix It</a></li>
             </ul>
         </section>
 

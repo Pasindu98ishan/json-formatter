@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TOON (Token-Oriented Object Notation) is an emerging compact serialization style that can shrink JSON payloads sent to LLMs. How it works, and when it helps.">
+    <meta name="keywords" content="json to toon, toon format, token-oriented object notation, llm prompt compression, save llm tokens, compact json, ai agent payload, prompt engineering">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-to-toon.html">
+    <meta property="og:title" content="JSON to TOON: A Compact Format for LLM Prompts &ndash; and When to Use It">
+    <meta property="og:description" content="TOON is an emerging compact serialization style. How it works, a measured comparison with explicit methodology, and an honest take on when it actually helps.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-to-toon.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON to TOON: A Compact Format for LLM Prompts &ndash; and When to Use It | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON to TOON", "item": "https://jsondevtools.org/blog/json-to-toon.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON to TOON: A Compact Format for LLM Prompts &ndash; and When to Use It",
+      "description": "TOON (Token-Oriented Object Notation) is an emerging compact serialization style that can shrink JSON payloads sent to LLMs. How it works, a measured comparison, and when it actually helps.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-05-26",
+      "dateModified": "2026-05-26",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is TOON format?",
+          "acceptedAnswer": { "@type": "Answer", "text": "TOON stands for Token-Oriented Object Notation. It is an emerging, experimental serialization style that grew out of the prompt-engineering community as a way to fit more structured data into LLM context windows. Its lineage is closest to YAML — it uses indentation rather than braces — but it adds one important idea: when an array contains many objects with the same shape, the keys are written once as a header and the values follow as compact rows. TOON is not an industry standard, has no governing body, and is not a replacement for JSON in machine-to-machine APIs. Treat it as one optional tool in your prompt-optimization toolkit." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I convert JSON to TOON with this tool?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Open the JSON to TOON Converter, paste your JSON into the left panel (or click Load Example to see a built-in payload), then click Convert to TOON. The TOON output appears on the right along with a savings indicator that shows how many characters were saved versus the minified JSON. Copy moves the result to your clipboard; Download saves it as a .toon file. Everything runs in your browser, so no JSON or TOON ever leaves your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "Will TOON actually reduce my OpenAI or Anthropic token bill?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sometimes yes, sometimes barely. Token savings depend on three things: how repetitive your payload is, what tokenizer the model uses, and how the structural characters of TOON (commas, brackets, colons) tokenize relative to JSON's. Highly repetitive arrays of uniform objects — agent tool call lists, RAG context chunks, batch evaluation inputs — typically see the largest reductions because the repeated key names collapse into a single header row. Small payloads, deeply nested non-uniform structures, and payloads with little repetition often see little or no benefit, and occasionally TOON is even slightly larger. The only way to know for your data is to measure with the tokenizer your model actually uses." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does this tool send my JSON to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. The JSON to TOON converter is a client-side JavaScript tool — the conversion runs entirely in your browser, and your JSON is never transmitted to any server. Every other tool on JSON Dev Tools (the JSON Formatter, JSON Validator, JWT Decoder, and the various format converters) follows the same browser-only design, which is why none of them require an account or store any of your input data." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I convert TOON back to JSON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not in this tool today — the converter is one-way. TOON's spec is still evolving and there is not yet a single canonical parser the way there is for JSON. If round-tripping matters to you, the safer pattern is to keep the original JSON as your source of truth, generate TOON only at the moment you build the LLM prompt, and parse the model's response back as JSON. A few open-source TOON parsers are starting to appear if you do want to read TOON back, but their behaviour around quoting and tabular arrays varies — verify with your own samples before depending on one." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>JSON to TOON</span>
+            </nav>
+            <h1>JSON to TOON: A Compact Format for LLM Prompts &ndash; and When to Use It</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published May 2026 &middot; 7 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p>If you send the same JSON shape to an LLM over and over &mdash; agent tool calls, RAG context chunks, batch evaluations, fine-tuning samples &mdash; every repeated <code>"name":</code> and <code>"price":</code> and <code>"in_stock":</code> costs you tokens. Over millions of calls, those tokens add up to real money. TOON (Token-Oriented Object Notation) is an experimental format designed to attack exactly that problem: write each object key once, then list the values in compact rows below it.</p>
+
+            <p><em>One thing up front:</em> TOON is not an industry standard, has no RFC, and is not a replacement for JSON in production APIs. Treat it as one tool in your prompt-optimization toolkit, alongside minification, schema simplification, and prompt-side dedup. This guide explains what TOON is, exactly how the savings are measured, where they show up, and where they don't.</p>
+
+            <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                <p style="margin:0 0 0.75rem;"><strong>Try the converter in your browser &mdash; free, no signup:</strong></p>
+                <a href="../json-to-toon.html" class="btn btn-primary" style="display:inline-block;">Open JSON to TOON Converter &rarr;</a>
+            </div>
+
+            <h2>What is TOON?</h2>
+            <p>TOON stands for <strong>Token-Oriented Object Notation</strong>. It is a recent, community-driven serialization style that grew out of prompt-engineering practice. Its lineage is closest to YAML &mdash; indentation rather than braces, colons after keys &mdash; but it adds one distinctive idea: when an array contains many objects with the same shape, the keys are written once as a header and the values follow as compact comma-separated rows.</p>
+            <p>Here is the same data in JSON and in TOON, side by side:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// JSON
+{
+  "users": [
+    {"id": 1, "name": "Alice", "age": 30},
+    {"id": 2, "name": "Bob",   "age": 25}
+  ],
+  "settings": {"theme": "dark", "beta": true},
+  "tags": ["alpha", "beta", "gamma"],
+  "notes": ""
+}</pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre># TOON
+users[2]{id,name,age}:
+  1,Alice,30
+  2,Bob,25
+settings:
+  theme: dark
+  beta: true
+tags: [alpha, beta, gamma]
+notes: ""</pre>
+            </div>
+            <p>The structural braces, the repeated quote characters around every key, and the repeated key names themselves are all gone from the <code>users</code> array. That is where most of the savings come from. Scalar arrays compact inline (<code>tags: [alpha, beta, gamma]</code>), nested objects use plain indentation, and empty strings stay explicit (<code>""</code>) so they can be distinguished from missing values.</p>
+
+            <h2>Why TOON can save tokens (when it does)</h2>
+            <p>To understand where savings come from, it helps to remember that LLM tokenizers do not count characters &mdash; they count tokens, which are sub-word units produced by a Byte-Pair Encoding (BPE) algorithm. A common English word like <code>name</code> is typically one token. The string <code>"name":</code> in JSON, however, is usually two or three tokens because the quote characters and the colon push it across BPE boundaries.</p>
+            <p>Multiply that across an array of 50 user objects with five fields each, and JSON's repeated key syntax has just spent roughly <em>50 &times; 5 &times; (2 to 3)</em> = 500 to 750 tokens on key names alone &mdash; before any of your actual data. TOON collapses every one of those repetitions into one header row of about 10 tokens.</p>
+            <p><strong>Important caveat:</strong> character count and token count are correlated but not identical. A 40 percent reduction in characters does not automatically mean a 40 percent reduction in tokens. TOON's comma-separated rows and bracket-and-brace tokens may tokenize differently on OpenAI's <code>o200k_base</code>, Anthropic's tokenizer, Gemini's tokenizer, and local model tokenizers. The two numbers tend to move in the same direction, but the ratio between them varies.</p>
+
+            <h2>A measured comparison</h2>
+            <p><em>Methodology: Character counts are measured directly from the JSON and TOON strings using <code>string.length</code>. JSON is compared in its minified form (the smallest fair baseline). Token estimates use OpenAI's <code>o200k_base</code> BPE tokenizer as a representative reference. Actual savings vary by tokenizer (OpenAI vs Anthropic vs Gemini vs local models), payload structure, and content. The first two rows below come from the Load Example payloads in the converter, so you can reproduce the numbers yourself.</em></p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Payload type</th>
+                        <th>JSON chars</th>
+                        <th>TOON chars</th>
+                        <th>Char saving</th>
+                        <th>~ Token reduction (o200k_base)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>3-product catalog (4 fields each)</td>
+                        <td>214</td>
+                        <td>126</td>
+                        <td>~41%</td>
+                        <td>~25&ndash;30%</td>
+                    </tr>
+                    <tr>
+                        <td>Service config (5 keys, 2 nested objects)</td>
+                        <td>178</td>
+                        <td>159</td>
+                        <td>~11%</td>
+                        <td>negligible</td>
+                    </tr>
+                    <tr>
+                        <td>50 user records (uniform 5-field array)</td>
+                        <td>~4,060</td>
+                        <td>~2,090</td>
+                        <td>~48%</td>
+                        <td>~30&ndash;35%</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>The shape of the result is consistent: repetitive uniform arrays of objects benefit the most, nested non-repetitive configs benefit little. The 50-row case is the realistic "agent tool result" or "RAG context chunk" pattern, and it is where TOON earns its keep.</p>
+
+            <h2>When TOON is the right choice &mdash; and when it isn't</h2>
+            <p><strong>Right choice:</strong></p>
+            <ul>
+                <li>Arrays of uniform records inside LLM prompts &mdash; user lists, product catalogs, log lines, search results.</li>
+                <li>RAG context windows where you are bumping against the model's input limit and need to fit more retrieved chunks per call.</li>
+                <li>Agent tool inputs and outputs where the same JSON shape repeats across many tool invocations.</li>
+                <li>Fine-tuning datasets with a repeated record schema, where every token saved per example multiplies across the whole training run.</li>
+                <li>Batch evaluation prompts that include large fixed reference tables.</li>
+            </ul>
+            <p><strong>Wrong choice:</strong></p>
+            <ul>
+                <li>Public REST APIs &mdash; clients expect JSON, and the broader tooling ecosystem (linters, validators, schema generators, IDE plugins) is built around it.</li>
+                <li>Anything consumed by non-LLM code &mdash; databases, message queues, logging pipelines, telemetry systems.</li>
+                <li>Small payloads &mdash; if your prompt only contains a few dozen tokens of structured data, the cognitive overhead of teaching your team a new format outweighs the savings.</li>
+                <li>Payloads with no repetition &mdash; a single configuration object benefits very little, as the comparison table shows.</li>
+                <li>Anywhere you need round-tripping through a stable, well-documented parser ecosystem &mdash; that ecosystem doesn't exist yet for TOON.</li>
+            </ul>
+
+            <h2>How to use the converter</h2>
+            <p>The <a href="../json-to-toon.html">JSON to TOON Converter</a> is the fastest way to experiment. Paste a JSON payload into the left panel and click Convert to TOON. The result appears on the right, with a savings indicator showing exact character counts and an estimated token-reduction range. If you do not have a payload handy, click Load Example to cycle through a built-in product catalog (the tabular case) and a nested service config (the non-tabular case) so you can see the difference between the two.</p>
+            <p>Once you have a TOON string, dropping it into a prompt is straightforward. With the OpenAI Node SDK it looks like this:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import OpenAI from 'openai';
+const client = new OpenAI();
+
+const toonContext = await fetch('/api/users')
+    .then(r =&gt; r.json())
+    .then(jsonToToon); // your conversion helper
+
+const res = await client.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+        { role: 'system', content: 'You are a data summarizer.' },
+        { role: 'user', content: `Summarize this user list:\n${toonContext}` }
+    ]
+});</pre>
+            </div>
+            <p>If you want to validate the underlying JSON before converting, paste it into the <a href="../json-validator.html">JSON Validator</a> first &mdash; the converter will reject invalid JSON, but the validator gives more precise error positions. For very large payloads, the <a href="../json-minifier.html">JSON Minifier</a> is also worth a look as a complementary technique: minifying alone often gets you 10&ndash;20 percent without changing the format at all.</p>
+
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>What is TOON format?</summary>
+                <p>TOON stands for Token-Oriented Object Notation. It is an emerging, experimental serialization style that grew out of the prompt-engineering community as a way to fit more structured data into LLM context windows. Its lineage is closest to YAML &mdash; it uses indentation rather than braces &mdash; but it adds one important idea: when an array contains many objects with the same shape, the keys are written once as a header and the values follow as compact rows. TOON is not an industry standard, has no governing body, and is not a replacement for JSON in machine-to-machine APIs. Treat it as one optional tool in your prompt-optimization toolkit.</p>
+            </details>
+            <details>
+                <summary>How do I convert JSON to TOON with this tool?</summary>
+                <p>Open the <a href="../json-to-toon.html">JSON to TOON Converter</a>, paste your JSON into the left panel (or click Load Example to see a built-in payload), then click Convert to TOON. The TOON output appears on the right along with a savings indicator that shows how many characters were saved versus the minified JSON. Copy moves the result to your clipboard; Download saves it as a <code>.toon</code> file. Everything runs in your browser, so no JSON or TOON ever leaves your device.</p>
+            </details>
+            <details>
+                <summary>Will TOON actually reduce my OpenAI or Anthropic token bill?</summary>
+                <p>Sometimes yes, sometimes barely. Token savings depend on three things: how repetitive your payload is, what tokenizer the model uses, and how the structural characters of TOON (commas, brackets, colons) tokenize relative to JSON's. Highly repetitive arrays of uniform objects &mdash; agent tool call lists, RAG context chunks, batch evaluation inputs &mdash; typically see the largest reductions because the repeated key names collapse into a single header row. Small payloads, deeply nested non-uniform structures, and payloads with little repetition often see little or no benefit, and occasionally TOON is even slightly larger. The only way to know for your data is to measure with the tokenizer your model actually uses.</p>
+            </details>
+            <details>
+                <summary>Does this tool send my JSON to a server?</summary>
+                <p>No. The JSON to TOON converter is a client-side JavaScript tool &mdash; the conversion runs entirely in your browser, and your JSON is never transmitted to any server. Every other tool on JSON Dev Tools (the <a href="../formatter.html">JSON Formatter</a>, <a href="../json-validator.html">JSON Validator</a>, <a href="../jwt-decoder.html">JWT Decoder</a>, and the various format converters) follows the same browser-only design, which is why none of them require an account or store any of your input data.</p>
+            </details>
+            <details>
+                <summary>Can I convert TOON back to JSON?</summary>
+                <p>Not in this tool today &mdash; the converter is one-way. TOON's spec is still evolving and there is not yet a single canonical parser the way there is for JSON. If round-tripping matters to you, the safer pattern is to keep the original JSON as your source of truth, generate TOON only at the moment you build the LLM prompt, and parse the model's response back as JSON. A few open-source TOON parsers are starting to appear if you do want to read TOON back, but their behaviour around quoting and tabular arrays varies &mdash; verify with your own samples before depending on one.</p>
+            </details>
+
+            <div class="tool-cta">
+                <h3>JSON to TOON Converter</h3>
+                <p>Paste any JSON, click Convert, and see the TOON output with a real character-savings number. Browser-only, no signup, no data leaves your device.</p>
+                <a href="../json-to-toon.html" class="btn">Open JSON to TOON Converter</a>
+            </div>
+
+            <section class="related-tools">
+                <h2>Related Tools</h2>
+                <ul>
+                    <li><a href="../json-to-yaml.html">JSON to YAML</a></li>
+                    <li><a href="../json-minifier.html">JSON Minifier</a></li>
+                    <li><a href="../formatter.html">JSON Formatter</a></li>
+                    <li><a href="../json-validator.html">JSON Validator</a></li>
+                </ul>
+            </section>
+            <section class="related-articles">
+                <h2>Related Articles</h2>
+                <ul>
+                    <li><a href="json-minify-json-for-production.html">Minify JSON for Production</a></li>
+                    <li><a href="yaml-vs-json.html">YAML vs JSON: When to Use Each Format</a></li>
+                    <li><a href="json-best-practices.html">JSON Naming Conventions and Best Practices for APIs</a></li>
+                    <li><a href="developer-tools-api-testing.html">Best Free Developer Tools for API Testing</a></li>
+                    <li><a href="best-json-tools-2026.html">Best Free Online JSON Tools in 2026</a></li>
+                </ul>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

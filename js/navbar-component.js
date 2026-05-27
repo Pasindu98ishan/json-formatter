@@ -4,7 +4,7 @@
     var r = p.getAttribute('data-root') || '';
     p.outerHTML = '<nav class="navbar" role="navigation" aria-label="Primary site navigation">\n' +
         '    <div class="container">\n' +
-        '        <div class="logo"><a href="' + r + 'index.html">&#128295; JSON Dev Tools</a></div>\n' +
+        '        <div class="logo"><a href="' + (r || './') + '">&#128295; JSON Dev Tools</a></div>\n' +
         '        <div class="nav-actions">\n' +
         '            <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">\n' +
         '                <span></span><span></span><span></span>\n' +
@@ -16,6 +16,7 @@
         '                    <ul class="dropdown-menu">\n' +
         '                        <li><a href="' + r + 'json-validator.html">JSON Validator</a></li>\n' +
         '                        <li><a href="' + r + 'json-schema-validator.html">JSON Schema Validator</a></li>\n' +
+        '                        <li><a href="' + r + 'json-schema-generator.html">JSON Schema Generator</a></li>\n' +
         '                        <li><a href="' + r + 'json-minifier.html">JSON Minifier</a></li>\n' +
         '                        <li><a href="' + r + 'json-viewer.html">JSON Viewer</a></li>\n' +
         '                        <li><a href="' + r + 'json-beautifier.html">JSON Beautifier</a></li>\n' +
@@ -33,6 +34,7 @@
         '                        <li><a href="' + r + 'json-to-xml.html">JSON &#8594; XML</a></li>\n' +
         '                        <li><a href="' + r + 'xml-to-json.html">XML &#8594; JSON</a></li>\n' +
         '                        <li><a href="' + r + 'json-to-typescript.html">JSON &#8594; TypeScript</a></li>\n' +
+        '                        <li><a href="' + r + 'json-to-toon.html">JSON &#8594; TOON</a></li>\n' +
         '                        <li><a href="' + r + 'px-to-rem.html">Px &#8596; Rem</a></li>\n' +
         '                        <li><a href="' + r + 'timestamp.html">Timestamp</a></li>\n' +
         '                    </ul>\n' +

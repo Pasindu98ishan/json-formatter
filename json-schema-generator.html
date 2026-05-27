@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Generate a JSON Schema (draft-07) from any JSON sample automatically. Paste your JSON, click Generate, and get a ready-to-use schema with inferred types, required fields, and format hints. Free, browser-only.">
+    <meta name="keywords" content="json schema generator, generate json schema from json, json schema from example, auto generate json schema, json to json schema, draft-07 schema generator">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/json-schema-generator.html">
+    <meta property="og:title" content="JSON Schema Generator – Generate a Schema from Any JSON Sample">
+    <meta property="og:description" content="Paste any JSON object or array and instantly generate a draft-07 JSON Schema with inferred types, required fields, nested object support, and format hints.">
+    <meta property="og:url" content="https://jsondevtools.org/json-schema-generator.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON Schema Generator – Generate Schema from JSON Online | JSON Dev Tools</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "JSON Schema Generator", "item": "https://jsondevtools.org/json-schema-generator.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "JSON Schema Generator",
+      "url": "https://jsondevtools.org/json-schema-generator.html",
+      "description": "Generate a JSON Schema (draft-07) automatically from any JSON sample. Infers types, required fields, nested objects, arrays, and common formats like email, date-time, and UUID.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is a JSON Schema generator?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A JSON Schema generator reads a sample JSON document and automatically produces a JSON Schema that describes its structure — the type of each field, which fields are required, nested object shapes, and array item types. It saves you writing the schema by hand. The generated schema is a starting point: review it and add constraints like minLength, enum, or pattern before using it in production." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which JSON Schema draft does this tool output?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The generator outputs JSON Schema draft-07, the most widely supported draft. It sets $schema to https://json-schema.org/draft-07/schema# in the output. Draft-07 is compatible with Ajv 6+, OpenAPI 3.0, and most validation libraries." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the generator handle nested objects and arrays?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. The generator recursively walks any depth of nesting. For objects, it produces a properties map with required listing all non-null fields. For arrays, it samples all elements to infer the item schema, merging them into an anyOf union if they have mixed types." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does the tool detect formats like email and date-time?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The generator applies lightweight regex heuristics to string values: ISO 8601 date-time patterns produce format: date-time, UUID patterns produce format: uuid, HTTP URLs produce format: uri, and basic email patterns produce format: email. These are hints — validate them in your actual schema validator before using in production." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use the generated schema with Kafka Avro?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The generated output is a JSON Schema, not an Avro schema — they are different formats. However, JSON Schema is useful as a starting point to understand the structure before writing the Avro schema by hand. The type mappings are similar: JSON Schema string maps to Avro string, integer to int or long, number to float or double, boolean to boolean." }
+        }
+      ]
+    }
+    </script>
+    <style>
+        /* ── Two-panel layout ───────────────────────────────────────────── */
+        .gen-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+        @media (max-width: 720px) {
+            .gen-panels { grid-template-columns: 1fr; }
+        }
+        .gen-panel label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 6px;
+        }
+        .gen-panel textarea {
+            width: 100%;
+            min-height: 340px;
+            padding: 12px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            resize: vertical;
+            background: #fff;
+            color: var(--text-light);
+            box-sizing: border-box;
+        }
+        body.dark-mode .gen-panel textarea {
+            background: #2d2d2d; color: #e0e0e0; border-color: #444;
+        }
+
+        /* ── Toolbar ────────────────────────────────────────────────────── */
+        .tool-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .tool-instruction {
+            margin: 0;
+            font-size: 13.5px;
+            color: var(--text-light);
+            line-height: 1.5;
+        }
+        .tool-instruction strong { color: #0056b3; font-weight: 600; }
+        body.dark-mode .tool-instruction strong { color: #66b2ff; }
+
+        .example-menu-wrap { position: relative; flex-shrink: 0; }
+        .example-menu-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-light);
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 7px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .example-menu-btn:hover { background: #f6f8fa; border-color: #b0b8c4; }
+        .example-menu-btn[aria-expanded="true"] {
+            background: #f0f4f8;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.15);
+        }
+        .example-menu-btn .caret { font-size: 10px; opacity: 0.7; transition: transform 0.18s; }
+        .example-menu-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+        body.dark-mode .example-menu-btn { background:#2d2d2d; color:#e0e0e0; border-color:#444; }
+        body.dark-mode .example-menu-btn:hover { background:#353535; border-color:#555; }
+
+        .example-menu {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            min-width: 270px;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            padding: 6px;
+            z-index: 100;
+            opacity: 0;
+            transform: translateY(-4px);
+            pointer-events: none;
+            transition: opacity 0.14s, transform 0.14s;
+        }
+        .example-menu[data-open="true"] { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .example-menu-item {
+            display: block;
+            width: 100%;
+            padding: 9px 12px;
+            font-size: 13px;
+            text-align: left;
+            color: var(--text-light);
+            background: transparent;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .example-menu-item:hover { background: #f0f4f8; }
+        .example-menu-item .desc {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 400;
+            color: var(--secondary-color);
+            margin-top: 2px;
+        }
+        body.dark-mode .example-menu { background:#2d2d2d; border-color:#444; box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+        body.dark-mode .example-menu-item { color:#e0e0e0; }
+        body.dark-mode .example-menu-item:hover { background:#383838; }
+        body.dark-mode .example-menu-item .desc { color:#9aa5b3; }
+
+        /* ── Output label + copy row ────────────────────────────────────── */
+        .output-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            min-height: 30px;
+        }
+        .output-header label { margin: 0; font-weight: 600; font-size: 13px; color: var(--text-light); }
+        #copyOutputBtn {
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #fff;
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        #copyOutputBtn:hover { background: #f0f4f8; border-color: #007bff; color: #007bff; }
+        #copyOutputBtn.copied { background: #28a745; color: #fff; border-color: #28a745; }
+        body.dark-mode #copyOutputBtn { background:#2d2d2d; color:#e0e0e0; border-color:#444; }
+        body.dark-mode #copyOutputBtn:hover { background:#353535; border-color:#388bfd; color:#66b2ff; }
+
+        /* ── Result banner ──────────────────────────────────────────────── */
+        #resultBox { margin-top: 14px; display: none; }
+        .schema-result-ok {
+            padding: 12px 16px;
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .schema-result-err {
+            padding: 12px 16px;
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        body.dark-mode .schema-result-ok { background:#1a3d26; color:#6fd98a; }
+        body.dark-mode .schema-result-err { background:#3d1a1a; color:#f08080; }
+
+        /* ── Code blocks ────────────────────────────────────────────────── */
+        .code-block { position: relative; margin: 12px 0; }
+        .code-block pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 14px 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12.5px;
+            line-height: 1.55;
+            margin: 0;
+        }
+        .copy-code-btn {
+            position: absolute; top: 8px; right: 8px;
+            padding: 4px 10px; font-size: 11px; font-weight: 600;
+            background: rgba(255,255,255,0.12); color: #cbd5e1;
+            border: 1px solid rgba(255,255,255,0.18); border-radius: 4px;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .copy-code-btn:hover { background: rgba(255,255,255,0.22); color: #fff; }
+        .copy-code-btn.copied { background: #28a745; color: #fff; border-color: #28a745; }
+
+        /* ── Mode toggle ────────────────────────────────────────────────────── */
+        .mode-toggle {
+            display: inline-flex;
+            border: 1px solid var(--border-color);
+            border-radius: 7px;
+            overflow: hidden;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .mode-btn {
+            padding: 6px 14px;
+            font-size: 12.5px;
+            font-weight: 600;
+            background: #fff;
+            color: var(--text-light);
+            border: none;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .mode-btn + .mode-btn { border-left: 1px solid var(--border-color); }
+        .mode-btn.active { background: #007bff; color: #fff; }
+        .mode-btn:not(.active):hover { background: #f0f4f8; }
+        body.dark-mode .mode-btn { background: #2d2d2d; color: #e0e0e0; }
+        body.dark-mode .mode-btn + .mode-btn { border-color: #444; }
+        body.dark-mode .mode-btn.active { background: #1a6fc4; color: #fff; }
+        body.dark-mode .mode-btn:not(.active):hover { background: #383838; }
+
+        /* ── Smart mode badge ───────────────────────────────────────────────── */
+        #smartModeBadge {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 8px 14px;
+            background: #e8f4fd;
+            color: #0056b3;
+            border-left: 3px solid #007bff;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+        body.dark-mode #smartModeBadge { background: #0d2137; color: #66b2ff; border-color: #1a6fc4; }
+
+        /* ── Inferred type table ────────────────────────────────────────── */
+        .type-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin: 16px 0;
+        }
+        .type-table th, .type-table td {
+            padding: 9px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .type-table th { background: #f8f9fa; font-weight: 600; }
+        body.dark-mode .type-table th { background: #2a2a2a; }
+        body.dark-mode .type-table th, body.dark-mode .type-table td { border-color: #444; }
+        .type-table code {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            background: rgba(0,123,255,0.08);
+            padding: 1px 6px;
+            border-radius: 3px;
+            color: #0056b3;
+        }
+        body.dark-mode .type-table code { background: rgba(102,178,255,0.15); color: #66b2ff; }
+    </style>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>JSON Schema Generator</h1>
+            <p>Paste any JSON sample and generate a draft-07 JSON Schema instantly — types, required fields, nested objects, and format hints included.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+
+            <div class="tool-toolbar">
+                <p class="tool-instruction">
+                    Paste your <strong>JSON sample</strong> on the left. Click <strong>Generate Schema</strong>. Copy the schema on the right.
+                </p>
+                <div class="example-menu-wrap">
+                    <button type="button" id="sampleMenuBtn" class="example-menu-btn" aria-haspopup="true" aria-expanded="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Load sample
+                        <span class="caret">&#9662;</span>
+                    </button>
+                    <div class="example-menu" id="sampleMenu" role="menu"></div>
+                </div>
+            </div>
+
+            <div class="gen-panels">
+                <!-- Left: JSON input -->
+                <div class="gen-panel">
+                    <div class="output-header">
+                        <label for="jsonInput">JSON sample — your data</label>
+                    </div>
+                    <textarea id="jsonInput" spellcheck="false" placeholder='Paste any JSON here, e.g.&#10;{&#10;  "id": 1,&#10;  "name": "Alice",&#10;  "email": "alice@example.com",&#10;  "active": true&#10;}'></textarea>
+                </div>
+                <!-- Right: Schema output -->
+                <div class="gen-panel">
+                    <div class="output-header">
+                        <label for="schemaOutput">Generated JSON Schema (draft-07)</label>
+                        <button id="copyOutputBtn" type="button">Copy Schema</button>
+                    </div>
+                    <textarea id="schemaOutput" spellcheck="false" readonly placeholder="Generated schema will appear here…"></textarea>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="generateBtn" class="btn btn-primary" type="button">Generate Schema</button>
+                <button id="clearBtn" class="btn btn-secondary" type="button">Clear</button>
+                <a href="json-schema-validator.html" class="btn btn-secondary" style="text-decoration:none;">Validate the schema →</a>
+                <div class="mode-toggle" role="group" aria-label="Output mode">
+                    <button id="modeSimple" class="mode-btn active" aria-pressed="true"
+                            title="Strict JSON Schema — type: null for null values (spec-correct)">Simple</button>
+                    <button id="modeSmart"  class="mode-btn"        aria-pressed="false"
+                            title="Production-friendly — nullable union types, type arrays instead of anyOf">Smart</button>
+                </div>
+            </div>
+
+            <div id="resultBox" role="status" aria-live="polite"></div>
+            <div id="smartModeBadge" role="status">
+                <strong>⚡ Smart Mode</strong> — null fields show all possible types with a refine hint. Mixed arrays use <code style="font-size:12px;background:rgba(0,86,179,0.1);padding:1px 5px;border-radius:3px;">type: [...]</code> instead of <code style="font-size:12px;background:rgba(0,86,179,0.1);padding:1px 5px;border-radius:3px;">anyOf</code>.
+            </div>
+        </section>
+
+        <section class="info-section">
+            <h2>What the generator infers</h2>
+            <p>The generator walks your JSON sample recursively and infers a schema for each value. Here is exactly what each JSON value becomes:</p>
+
+            <table class="type-table">
+                <thead>
+                    <tr><th>JSON value</th><th>Generated schema</th><th>Notes</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>true</code> / <code>false</code></td><td><code>{ "type": "boolean" }</code></td><td></td></tr>
+                    <tr><td><code>1</code>, <code>42</code> (whole numbers)</td><td><code>{ "type": "integer" }</code></td><td>Uses <code>integer</code>, not <code>number</code></td></tr>
+                    <tr><td><code>3.14</code>, <code>9.99</code> (decimals)</td><td><code>{ "type": "number" }</code></td><td></td></tr>
+                    <tr><td><code>null</code></td><td>Simple: <code>{ "type": "null" }</code><br>Smart: <code>{ "type": ["null","string",…] }</code></td><td>Smart Mode adds a refine hint</td></tr>
+                    <tr><td><code>"hello"</code></td><td><code>{ "type": "string" }</code></td><td>With format hints — see below</td></tr>
+                    <tr><td><code>"2026-05-23T14:00:00Z"</code></td><td><code>{ "type": "string", "format": "date-time" }</code></td><td>ISO 8601 pattern</td></tr>
+                    <tr><td><code>"2026-05-23"</code></td><td><code>{ "type": "string", "format": "date" }</code></td><td>YYYY-MM-DD pattern</td></tr>
+                    <tr><td><code>"550e8400-..."</code></td><td><code>{ "type": "string", "format": "uuid" }</code></td><td>UUID v4 pattern</td></tr>
+                    <tr><td><code>"alice@example.com"</code></td><td><code>{ "type": "string", "format": "email" }</code></td><td></td></tr>
+                    <tr><td><code>"https://..."</code></td><td><code>{ "type": "string", "format": "uri" }</code></td><td></td></tr>
+                    <tr><td><code>{ ... }</code> (object)</td><td><code>{ "type": "object", "properties": {...}, "required": [...] }</code></td><td>All non-null fields become required</td></tr>
+                    <tr><td><code>[...]</code> (array)</td><td><code>{ "type": "array", "items": ... }</code></td><td>Samples all elements; Simple uses <code>anyOf</code>, Smart uses <code>type: [...]</code> for mixed types</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="info-section">
+            <h2>The generated schema is a starting point</h2>
+            <p>Auto-inference from a single sample is fast but not complete. A sample with one object cannot tell you which fields are truly optional, what the minimum/maximum values should be, or what the allowed enum values are. After generating, review and tighten the schema:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Generated from: { "status": "active", "age": 28 }
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "status": { "type": "string" },   // ← tighten: add "enum": ["active","inactive","pending"]
+    "age":    { "type": "integer" }   // ← tighten: add "minimum": 0, "maximum": 120
+  },
+  "required": ["status", "age"]       // ← review: is "age" truly required?
+}</pre>
+            </div>
+
+            <p>Once you have reviewed the schema, paste both the JSON and the schema into the <a href="json-schema-validator.html">JSON Schema Validator</a> to confirm the validation works as expected.</p>
+        </section>
+
+        <section class="info-section">
+            <h2>Using the schema with Kafka Avro</h2>
+            <p>JSON Schema and Avro schema are different formats — this tool generates JSON Schema, not Avro. However, the output is useful as a structure reference when writing Avro schemas by hand. The type mapping is:</p>
+            <table class="type-table">
+                <thead>
+                    <tr><th>JSON Schema type</th><th>Avro equivalent</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>"type": "string"</code></td><td><code>"type": "string"</code></td></tr>
+                    <tr><td><code>"type": "integer"</code></td><td><code>"type": "int"</code> or <code>"long"</code></td></tr>
+                    <tr><td><code>"type": "number"</code></td><td><code>"type": "float"</code> or <code>"double"</code></td></tr>
+                    <tr><td><code>"type": "boolean"</code></td><td><code>"type": "boolean"</code></td></tr>
+                    <tr><td><code>"type": "null"</code></td><td><code>"type": "null"</code></td></tr>
+                    <tr><td><code>"type": "object"</code></td><td><code>"type": "record"</code> with <code>"fields"</code></td></tr>
+                    <tr><td><code>"type": "array"</code></td><td><code>"type": "array"</code> with <code>"items"</code></td></tr>
+                </tbody>
+            </table>
+            <p>Read the companion guide: <a href="blog/kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a>.</p>
+        </section>
+
+        <section class="info-section">
+            <h2>Understanding the Generator Modes</h2>
+            <p>The generator has two modes to handle <code>null</code> values in your JSON sample:</p>
+
+            <h3 style="font-size:15px;margin-top:18px;">Simple Mode (default)</h3>
+            <p>Outputs strict JSON Schema draft-07 that matches jsonlint and most other tools. When a field is <code>null</code>, it becomes <code>{"type":"null"}</code> — technically valid but rarely useful for APIs.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Input: { "deletedAt": null }
+// Simple Mode output:
+"deletedAt": { "type": "null" }
+
+// Problem: ✗ Rejects any non-null value, even if the API sends a timestamp string</pre>
+            </div>
+
+            <h3 style="font-size:15px;margin-top:18px;">⚡ Smart Mode (production-ready)</h3>
+            <p>Outputs nullable union types — the pattern real APIs use. Null fields get all possible types plus a description telling you to refine once you have real data.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Input: { "deletedAt": null }
+// Smart Mode output:
+"deletedAt": {
+  "type": ["null","string","number","boolean","object","array"],
+  "description": "Type inferred as null only — refine after seeing non-null samples"
+}
+
+// Advantage: ✓ Accepts any type while you're building the schema
+// Next step: Once you see { "deletedAt": "2026-05-23T14:00:00Z" }, refine to:
+//   "type": ["string","null"],
+//   "format": "date-time"</pre>
+            </div>
+
+            <p><strong>Smart Mode is unique to JSON Dev Tools</strong> — it solves the null-type trap that every other generator falls into. For a detailed explanation of why <code>type: null</code> is problematic and when to use each mode, see <a href="blog/json-schema-null-type.html">JSON Schema type: null — Why It's Wrong for Real APIs</a>.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+
+            <details>
+                <summary>What is a JSON Schema generator?</summary>
+                <p>A JSON Schema generator reads a sample JSON document and automatically produces a JSON Schema describing its structure — field types, required fields, nested shapes, and array item types. The generated schema is a starting point: add constraints like <code>minLength</code>, <code>enum</code>, or <code>pattern</code> before using it in production.</p>
+            </details>
+
+            <details>
+                <summary>Which JSON Schema draft does this tool output?</summary>
+                <p>The generator outputs JSON Schema draft-07, the most widely supported draft. It sets <code>$schema</code> to <code>https://json-schema.org/draft-07/schema#</code> in every output. Draft-07 is compatible with Ajv 6+, OpenAPI 3.0, and most validation libraries.</p>
+            </details>
+
+            <details>
+                <summary>Does the generator handle nested objects and arrays?</summary>
+                <p>Yes. The generator recursively walks any depth of nesting. For objects it produces a <code>properties</code> map with <code>required</code> listing all non-null fields. For arrays it samples all elements and merges their schemas into an <code>anyOf</code> union if they have mixed types.</p>
+            </details>
+
+            <details>
+                <summary>How does the tool detect formats like email and date-time?</summary>
+                <p>The generator applies lightweight regex heuristics to string values: ISO 8601 date-time patterns produce <code>format: date-time</code>, UUID patterns produce <code>format: uuid</code>, HTTP URLs produce <code>format: uri</code>, and basic email patterns produce <code>format: email</code>. These are hints — validate them in the Schema Validator before using in production.</p>
+            </details>
+
+            <details>
+                <summary>Can I use the generated schema with Kafka Avro?</summary>
+                <p>The generated output is a JSON Schema, not an Avro schema. However it is useful as a structure reference when writing Avro schemas by hand — the field names, nesting depth, and nullability hints all transfer. See the <a href="blog/kafka-avro-schema.html">Kafka Avro Schema guide</a> for the type mapping between the two formats.</p>
+            </details>
+
+            <details>
+                <summary>Is my JSON sent to a server?</summary>
+                <p>No. All inference runs entirely in your browser using JavaScript. Your JSON never leaves your device.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="json-schema-validator.html">JSON Schema Validator</a> — validate JSON against the generated schema</li>
+                <li><a href="json-validator.html">JSON Validator</a> — check JSON syntax before generating</li>
+                <li><a href="formatter.html">JSON Formatter</a> — pretty-print JSON samples</li>
+                <li><a href="json-to-typescript.html">JSON to TypeScript</a> — generate TS interfaces instead</li>
+                <li><a href="json-diff.html">JSON Diff</a> — compare two schema versions</li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/json-schema-null-type.html">JSON Schema type: null — Why It's Wrong for Real APIs</a></li>
+                <li><a href="blog/what-is-json-schema.html">What Is JSON Schema? A Complete Guide</a></li>
+                <li><a href="blog/kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a></li>
+                <li><a href="blog/validate-json-schema.html">How to Validate JSON Against a Schema</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/dark-mode.js"></script>
+    <script src="js/json-schema-generator-tool.js"></script>
+</body>
+</html>
