@@ -21,6 +21,7 @@
         '                        <li><a href="' + r + 'json-viewer.html">JSON Viewer</a></li>\n' +
         '                        <li><a href="' + r + 'json-beautifier.html">JSON Beautifier</a></li>\n' +
         '                        <li><a href="' + r + 'json-diff.html">JSON Diff</a></li>\n' +
+        '                        <li><a href="' + r + 'text-diff.html">Text Diff</a></li>\n' +
         '                        <li><a href="' + r + 'jsonpath.html">JSONPath Tester</a></li>\n' +
         '                    </ul>\n' +
         '                </li>\n' +

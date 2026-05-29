@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSON has null but no undefined. Learn exactly what happens when you JSON.stringify undefined values, how they are silently dropped, and how to handle them safely in JavaScript, Python, and Java.">
+    <meta name="keywords" content="json null vs undefined, undefined in json, json stringify undefined, json null value, undefined json javascript, json null type, missing values in json">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-null-vs-undefined.html">
+    <meta property="og:title" content="JSON null vs undefined: What Happens When You Stringify undefined?">
+    <meta property="og:description" content="JSON has null but no undefined. Learn why undefined values are silently dropped, what null means in JSON, and how to handle both safely across JavaScript, Python, and Java.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-null-vs-undefined.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON null vs undefined – What Happens When You Stringify undefined? | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON null vs undefined", "item": "https://jsondevtools.org/blog/json-null-vs-undefined.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON null vs undefined – What Happens When You Stringify undefined?",
+      "description": "JSON has null but no undefined. Learn exactly what happens when you JSON.stringify undefined values, how they are silently dropped, and how to handle them safely.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-05-29",
+      "dateModified": "2026-05-29",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does JSON support undefined?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. The JSON specification defines exactly six value types: string, number, boolean (true/false), null, object, and array. undefined is a JavaScript language construct — it does not exist in JSON and cannot be represented in a JSON document." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens when you JSON.stringify undefined?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The behaviour depends on where the undefined appears. If it is a top-level value, JSON.stringify(undefined) returns undefined (the JS primitive, not a string). If it is an object property value, the key is silently omitted from the output. If it is an array element, it is replaced with null to preserve array indices." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between null and undefined in JSON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "null is a valid JSON value — it explicitly represents 'no value'. undefined does not exist in JSON. When a JavaScript object has a property set to undefined and is serialised with JSON.stringify, that property is dropped entirely from the resulting JSON string." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I keep undefined values in JSON output?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use a JSON.stringify replacer function that converts undefined to null: JSON.stringify(obj, (key, val) => val === undefined ? null : val). This preserves all keys, replacing undefined with the JSON-legal null." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does null mean in JSON Schema?",
+          "acceptedAnswer": { "@type": "Answer", "text": "In JSON Schema you declare a nullable field using type: ['string', 'null'] (draft-07). There is no undefined keyword in JSON Schema — optional fields are expressed by omitting them from the required array." }
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to preserve undefined values when using JSON.stringify",
+      "description": "Steps to convert undefined properties to null so no keys are silently dropped during JSON serialisation.",
+      "step": [
+        { "@type": "HowToStep", "position": 1, "name": "Identify undefined properties", "text": "Run JSON.stringify on your object and compare the output to the source. Any key that disappeared had an undefined value." },
+        { "@type": "HowToStep", "position": 2, "name": "Add a replacer function", "text": "Pass a replacer as the second argument to JSON.stringify: (key, val) => val === undefined ? null : val." },
+        { "@type": "HowToStep", "position": 3, "name": "Verify all keys are present", "text": "Check the resulting JSON string — every key should now appear, with null where undefined was." },
+        { "@type": "HowToStep", "position": 4, "name": "Use 'key in obj' after parsing", "text": "When you parse JSON back, use 'key in obj' to distinguish a key explicitly set to null from a key that was never included." }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>JSON null vs undefined</span>
+            </nav>
+            <h1>JSON <code>null</code> vs <code>undefined</code>: What Happens When You Stringify <code>undefined</code>?</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published May 2026 &middot; 6 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">JSON has <code>null</code>. JSON does not have <code>undefined</code>. This single fact causes a class of bugs where fields silently vanish from API payloads, objects arrive with missing keys, or arrays gain unexpected <code>null</code> slots &mdash; and no error is ever thrown.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:center;">
+                <p style="margin:0 0 0.9rem;font-weight:600;">Inspecting a JSON payload with null values? Format and validate it instantly:</p>
+                <div style="display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;">
+                    <a href="../formatter.html" class="btn btn-primary" style="display:inline-block;">JSON Formatter &rarr;</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="display:inline-block;background:#28a745;border-color:#28a745;">JSON Validator &rarr;</a>
+                </div>
+            </div>
+
+            <h2>The six value types JSON defines</h2>
+
+            <p>The <a href="https://www.rfc-editor.org/rfc/rfc8259" rel="noopener noreferrer" target="_blank">JSON specification (RFC 8259)</a> defines exactly six value types: <code>string</code>, <code>number</code>, <code>boolean</code> (<code>true</code>/<code>false</code>), <code>null</code>, <code>object</code>, and <code>array</code>. <code>undefined</code> is not on this list.</p>
+
+            <p><code>undefined</code> is a JavaScript-specific primitive that means "a variable was declared but never assigned." Because JSON must be portable across every programming language, it can only carry concepts every language can represent. <code>undefined</code> has no equivalent in Python, Java, Go, or Rust &mdash; so it was intentionally excluded from the spec.</p>
+
+            <h2>What <code>JSON.stringify</code> does with <code>undefined</code></h2>
+
+            <p>There are three different places an <code>undefined</code> can appear, and <code>JSON.stringify</code> handles each differently.</p>
+
+            <h3>Case 1 &mdash; top-level <code>undefined</code></h3>
+
+            <p><code>JSON.stringify</code> returns the JS primitive <code>undefined</code> &mdash; not the string <code>"undefined"</code>, not <code>"null"</code>, not an empty string. Nothing is serialised.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JSON.stringify(undefined);  // → undefined  (not a string!)
+typeof JSON.stringify(undefined);  // → "undefined"
+
+// This means it cannot be used as a fetch body:
+const body = JSON.stringify(undefined);
+console.log(body);  // undefined — nothing useful is sent</code></pre>
+            </div>
+
+            <h3>Case 2 &mdash; object property with an <code>undefined</code> value</h3>
+
+            <p>The key is <strong>silently omitted</strong> from the output. No error, no warning. This is the most common source of bugs &mdash; a field is set to <code>undefined</code> expecting it to be included in a request body, but it never reaches the server.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const user = {
+  name: "Alice",
+  age: undefined,      // ← will be dropped
+  role: "admin",
+  token: undefined,    // ← will be dropped
+};
+
+JSON.stringify(user);
+// → '{"name":"Alice","role":"admin"}'
+// age and token are gone silently</code></pre>
+            </div>
+
+            <h3>Case 3 &mdash; array element is <code>undefined</code></h3>
+
+            <p>Array elements are replaced with <code>null</code> to preserve the array's indices. The length of the output array matches the original.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JSON.stringify([1, undefined, 3, undefined]);
+// → '[1,null,3,null]'
+
+// Also happens with holes in sparse arrays:
+const sparse = [1,,3];
+JSON.stringify(sparse);
+// → '[1,null,3]'</code></pre>
+            </div>
+
+            <h3>Summary table</h3>
+
+            <table>
+                <thead>
+                    <tr><th>Location of <code>undefined</code></th><th>JSON.stringify output</th><th>Effect</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Top-level value</td><td><code>undefined</code> (JS primitive)</td><td>Nothing serialised</td></tr>
+                    <tr><td>Object property value</td><td>Key omitted entirely</td><td>Silent data loss</td></tr>
+                    <tr><td>Array element</td><td>Replaced with <code>null</code></td><td>Length preserved; value lost</td></tr>
+                    <tr><td>Property returned by <code>toJSON()</code></td><td>Key omitted entirely</td><td>Same as object property rule</td></tr>
+                </tbody>
+            </table>
+
+            <h2><code>null</code> vs <code>undefined</code> in JavaScript</h2>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let a;           // declared but not assigned → undefined
+let b = null;    // explicitly assigned "no value"
+
+typeof a;  // "undefined"
+typeof b;  // "object"  ← historical quirk of JS
+
+a == b;    // true  (loose equality — both are "nothing")
+a === b;   // false (strict equality — different types)</code></pre>
+            </div>
+
+            <p>In JSON terms: <code>null</code> serialises cleanly to <code>null</code>; <code>undefined</code> triggers the silent-drop behaviour above.</p>
+
+            <h2>What about <code>JSON.parse</code>?</h2>
+
+            <p><code>JSON.parse</code> can never produce <code>undefined</code> as a value &mdash; because <code>undefined</code> is not in the JSON spec. If the JSON text contains <code>null</code>, you get JavaScript <code>null</code>. If a key is simply absent, accessing it on the resulting object gives you JavaScript <code>undefined</code> (the language's default for missing keys), but that is not something JSON put there.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const parsed = JSON.parse('{"name":"Alice","age":null}');
+
+parsed.age;       // null  ← JSON null, parsed as JS null
+parsed.email;     // undefined ← key absent; JS default for missing keys
+
+parsed.age === null;        // true
+parsed.email === undefined; // true — but the key was never in the JSON</code></pre>
+            </div>
+
+            <h2>How to preserve <code>undefined</code> values &mdash; convert to <code>null</code></h2>
+
+            <p>If you want every key sent &mdash; even those currently <code>undefined</code> &mdash; convert them to <code>null</code> using a <strong>replacer function</strong>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const user = {
+  name: "Alice",
+  age: undefined,
+  role: "admin",
+};
+
+const json = JSON.stringify(user, (key, value) =>
+  value === undefined ? null : value
+);
+
+console.log(json);
+// → '{"name":"Alice","age":null,"role":"admin"}'
+// All keys present; undefined replaced with null</code></pre>
+            </div>
+
+            <p>The server now receives every field. It can distinguish "not provided" (<code>null</code>) from "field was removed from the schema" (key absent) &mdash; important for PATCH endpoints.</p>
+
+            <h2>Detecting <code>null</code> vs missing key in parsed JSON</h2>
+
+            <p>Once you have parsed a JSON payload, use <code>key in obj</code> &mdash; not <code>obj[key] !== undefined</code> &mdash; to tell whether a field was explicitly set to <code>null</code> or simply not sent:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const a = JSON.parse('{"name":"Alice","age":null}');
+const b = JSON.parse('{"name":"Alice"}');
+
+"age" in a;  // true  — key was sent, value is null
+"age" in b;  // false — key was never included
+
+a.age;  // null
+b.age;  // undefined ← JS default, not from JSON</code></pre>
+            </div>
+
+            <h2>How other languages handle JSON <code>null</code></h2>
+
+            <table>
+                <thead>
+                    <tr><th>Language</th><th>JSON <code>null</code> maps to</th><th>Equivalent of JS <code>undefined</code></th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>JavaScript</td><td><code>null</code></td><td><code>undefined</code> (absent key)</td></tr>
+                    <tr><td>Python</td><td><code>None</code></td><td>No equivalent &mdash; absent key raises <code>KeyError</code></td></tr>
+                    <tr><td>Java (Jackson)</td><td><code>null</code></td><td>No equivalent &mdash; absent key = default field value</td></tr>
+                    <tr><td>Go</td><td><code>nil</code> (pointer/interface)</td><td>No equivalent &mdash; absent key = zero value</td></tr>
+                    <tr><td>Rust (serde)</td><td><code>None</code> (<code>Option&lt;T&gt;</code>)</td><td>No equivalent &mdash; absent key = <code>None</code></td></tr>
+                </tbody>
+            </table>
+
+            <h3>Python</h3>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+data = {"name": "Alice", "age": None}
+print(json.dumps(data))
+# → '{"name": "Alice", "age": null}'
+
+parsed = json.loads('{"name": "Alice", "age": null}')
+print(parsed["age"])        # None
+print("missing" in parsed)  # False — use `in` to distinguish absent from null</code></pre>
+            </div>
+
+            <h3>Java + Jackson</h3>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Jackson serialises Java null → JSON null
+// Use @JsonInclude to control whether null fields are sent:
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class User {
+    public String name;
+    public Integer age;  // null → field omitted from JSON output
+}</code></pre>
+            </div>
+
+            <h2>Common bugs caused by this distinction</h2>
+
+            <h3>Bug 1 &mdash; optional field never reaches the server</h3>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ Bug: clearing a field by setting it to undefined
+const patch = { name: "Alice", nickname: undefined };
+await fetch("/api/user/1", { method: "PATCH", body: JSON.stringify(patch) });
+// Server receives: {"name":"Alice"} — nickname was never sent
+
+// ✅ Fix: use null to explicitly signal "clear this field"
+const patch = { name: "Alice", nickname: null };
+// Server receives: {"name":"Alice","nickname":null} — field cleared</code></pre>
+            </div>
+
+            <h3>Bug 2 &mdash; short-circuit expression produces <code>undefined</code></h3>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ Bug: if discount is null, discount.code is never reached,
+//         the && returns null, which is fine — but what if discount
+//         is an object without a .code property? Returns undefined.
+const payload = {
+  userId: 42,
+  couponCode: discount && discount.code,  // could be undefined!
+};
+JSON.stringify(payload);
+// → '{"userId":42}'  — couponCode silently dropped
+
+// ✅ Fix: default to null
+const payload = {
+  userId: 42,
+  couponCode: (discount && discount.code) ?? null,
+};</code></pre>
+            </div>
+
+            <h3>Bug 3 &mdash; loose equality check conflates null and undefined</h3>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const data = JSON.parse('{"name":"Alice"}');
+
+// ⚠️ Both null and undefined pass == null — you can't tell which
+if (data.age == null) {
+  console.log("age is null or undefined");  // true — but which?
+}
+
+// ✅ Be explicit
+if (data.age === null) {
+  console.log("age was sent as null");
+} else if (!("age" in data)) {
+  console.log("age was not included in the response");
+}</code></pre>
+            </div>
+
+            <h2><code>null</code> in JSON Schema</h2>
+
+            <p>JSON Schema has a <code>null</code> type for nullable fields. There is no <code>undefined</code> keyword &mdash; optional fields are expressed by omitting them from <code>required</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "age":  { "type": ["integer", "null"] }  // integer or explicitly null
+  },
+  "required": ["name"]
+  // "age" is optional — if absent, key simply does not appear
+}</code></pre>
+            </div>
+
+            <h2>Quick reference</h2>
+
+            <table>
+                <thead>
+                    <tr><th>Scenario</th><th>Result</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>JSON.stringify(undefined)</code></td><td><code>undefined</code> (JS primitive, not a string)</td></tr>
+                    <tr><td><code>JSON.stringify({a: undefined})</code></td><td><code>'{}'</code> &mdash; key silently dropped</td></tr>
+                    <tr><td><code>JSON.stringify([undefined])</code></td><td><code>'[null]'</code> &mdash; replaced to preserve index</td></tr>
+                    <tr><td><code>JSON.stringify(null)</code></td><td><code>'null'</code> &mdash; valid JSON</td></tr>
+                    <tr><td><code>JSON.parse('null')</code></td><td><code>null</code> (JS)</td></tr>
+                    <tr><td>Access absent key after <code>JSON.parse</code></td><td><code>undefined</code> &mdash; JS default, not from JSON</td></tr>
+                    <tr><td>Convert <code>undefined</code> &rarr; <code>null</code></td><td><code>JSON.stringify(obj, (k, v) =&gt; v === undefined ? null : v)</code></td></tr>
+                    <tr><td>Distinguish absent vs null in parsed object</td><td><code>'key' in obj</code> (not <code>obj.key !== undefined</code>)</td></tr>
+                </tbody>
+            </table>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>Does JSON support undefined?</summary>
+                    <p>No. The JSON specification defines exactly six value types: string, number, boolean (<code>true</code>/<code>false</code>), <code>null</code>, object, and array. <code>undefined</code> is a JavaScript concept &mdash; it does not exist in JSON and cannot be represented in a JSON document.</p>
+                </details>
+
+                <details>
+                    <summary>What happens when you JSON.stringify undefined?</summary>
+                    <p>It depends on location. At the top level, <code>JSON.stringify(undefined)</code> returns the JS primitive <code>undefined</code> (not a string). As an object property, the key is silently omitted. As an array element, it is replaced with <code>null</code> to preserve the array's length.</p>
+                </details>
+
+                <details>
+                    <summary>What is the difference between null and undefined in JSON?</summary>
+                    <p><code>null</code> is a valid JSON value &mdash; it explicitly represents "no value." <code>undefined</code> does not exist in JSON. When a JavaScript object has a property set to <code>undefined</code> and is serialised with <code>JSON.stringify</code>, that property is dropped entirely from the output string.</p>
+                </details>
+
+                <details>
+                    <summary>How do I keep undefined values in JSON output?</summary>
+                    <p>Use a replacer function: <code>JSON.stringify(obj, (key, val) => val === undefined ? null : val)</code>. This converts all <code>undefined</code> values to <code>null</code>, keeping every key in the output.</p>
+                </details>
+
+                <details>
+                    <summary>What does null mean in JSON Schema?</summary>
+                    <p>JSON Schema has a <code>null</code> type for nullable fields: <code>type: ["string", "null"]</code>. There is no <code>undefined</code> keyword &mdash; optional fields are expressed by omitting them from the <code>required</code> array.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Format and validate your JSON in the browser</h3>
+                <p>Paste any JSON payload to pretty-print it, spot null fields, or validate the structure &mdash; no data is sent to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../json-schema-generator.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Schema Generator</a>
+                </div>
+            </div>
+
+            <div class="article-cta">
+                <p>Need to inspect a payload with null values right now? Pretty-print it in the browser.</p>
+                <a href="../formatter.html" class="btn btn-primary">Open JSON Formatter &rarr;</a>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; format and inspect JSON, spot missing or null fields</li>
+                <li><a href="../json-validator.html">JSON Validator</a> &mdash; validate syntax and structure</li>
+                <li><a href="../json-schema-generator.html">JSON Schema Generator</a> &mdash; generate a schema that documents which fields are required vs optional</li>
+                <li><a href="../json-schema-validator.html">JSON Schema Validator</a> &mdash; validate a JSON document against a schema with null-type support</li>
+            </ul>
+        </section>
+
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="json-stringify-indent.html">JSON.stringify() Complete Guide: indent, replacer, reviver</a></li>
+                <li><a href="json-date-format.html">JSON Date Format: ISO 8601 and How to Handle Dates Correctly</a></li>
+                <li><a href="what-is-json-schema.html">What is JSON Schema?</a></li>
+                <li><a href="jackson-json-serialization.html">Java JSON Serialization with Jackson</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

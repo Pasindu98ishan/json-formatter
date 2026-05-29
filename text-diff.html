@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free online text diff tool. Compare two blocks of text side by side and instantly see every added, removed, and changed line. No signup required — runs entirely in your browser.">
+    <meta name="keywords" content="text diff online, compare two texts online, diff checker, text comparison tool, find differences between texts, line diff tool, diff two strings">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/text-diff.html">
+    <meta property="og:title" content="Text Diff Online – Compare Two Texts Free">
+    <meta property="og:description" content="Paste two blocks of text and instantly see every line that was added, removed, or changed. Free, private, no signup.">
+    <meta property="og:url" content="https://jsondevtools.org/text-diff.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Text Diff Online – Compare Two Texts, Find Differences Free</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Text Diff", "item": "https://jsondevtools.org/text-diff.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Text Diff Online",
+      "url": "https://jsondevtools.org/text-diff.html",
+      "description": "Free online text diff tool. Compare two blocks of text and highlight every line that was added, removed, or changed.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How does the text diff tool work?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The tool splits both texts into lines and computes a longest-common-subsequence (LCS) diff. Lines present only in Text B are shown in green (added); lines present only in Text A are shown in red (removed); lines present in both are shown in white (unchanged). The result is a unified side-by-side view similar to git diff output." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my text sent to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. All comparison happens entirely in your browser using JavaScript. Your text never leaves your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "What kinds of text can I compare?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Any plain text: code files, JSON, YAML, Markdown, config files, SQL queries, log files, CSV, or prose. The tool is language-agnostic." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it ignore whitespace or case differences?",
+          "acceptedAnswer": { "@type": "Answer", "text": "By default comparison is exact — whitespace and case are significant. Use the 'Ignore whitespace' and 'Ignore case' toggles to relax these constraints when needed." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between Text Diff and JSON Diff?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON Diff understands JSON structure — it compares objects key-by-key and shows semantic differences even if the key order changes. Text Diff is line-based and works on any text, but it treats the input as plain characters, not structured data." }
+        }
+      ]
+    }
+    </script>
+
+    <style>
+        .td-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+        @media (max-width: 700px) {
+            .td-panels { grid-template-columns: 1fr; }
+        }
+        .td-panel label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .td-panel textarea {
+            width: 100%;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        .td-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .td-options label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .td-options input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+        }
+
+        /* Diff output */
+        .td-output {
+            margin-top: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12.5px;
+            line-height: 1.6;
+        }
+        body.dark-mode .td-output { border-color: #444; }
+
+        .td-output-header {
+            display: grid;
+            grid-template-columns: 48px 1fr 48px 1fr;
+            background: var(--light-bg);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            font-size: 12px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        body.dark-mode .td-output-header { background: #2a2a2a; border-color: #444; }
+        .td-output-header span {
+            padding: 7px 10px;
+        }
+        .td-output-header span:nth-child(3) { border-left: 1px solid var(--border-color); }
+        body.dark-mode .td-output-header span:nth-child(3) { border-color: #444; }
+
+        .td-row {
+            display: grid;
+            grid-template-columns: 48px 1fr 48px 1fr;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        body.dark-mode .td-row { border-bottom-color: #333; }
+        .td-row:last-child { border-bottom: none; }
+
+        .td-ln {
+            padding: 2px 8px;
+            text-align: right;
+            color: #aaa;
+            font-size: 11px;
+            background: #fafafa;
+            border-right: 1px solid #eee;
+            user-select: none;
+            min-width: 48px;
+        }
+        body.dark-mode .td-ln { background: #222; border-right-color: #333; color: #666; }
+
+        .td-cell {
+            padding: 2px 8px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .td-cell-right { border-left: 1px solid #eee; }
+        body.dark-mode .td-cell-right { border-left-color: #333; }
+
+        .td-row-added .td-cell-right { background: #f0fff4; }
+        .td-row-added .td-ln-right { background: #e6ffe9; color: #22863a; }
+        .td-row-removed .td-cell-left { background: #fff5f5; }
+        .td-row-removed .td-ln-left { background: #ffe8e8; color: #b31d28; }
+
+        body.dark-mode .td-row-added .td-cell-right { background: #0d2618; }
+        body.dark-mode .td-row-added .td-ln-right { background: #0a1f10; color: #56d364; }
+        body.dark-mode .td-row-removed .td-cell-left { background: #2d0f0f; }
+        body.dark-mode .td-row-removed .td-ln-left { background: #240a0a; color: #f85149; }
+
+        .td-sign {
+            font-weight: 700;
+            margin-right: 4px;
+        }
+        .td-sign-add { color: #22863a; }
+        .td-sign-rem { color: #b31d28; }
+        body.dark-mode .td-sign-add { color: #56d364; }
+        body.dark-mode .td-sign-rem { color: #f85149; }
+
+        .td-summary {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .td-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 13px;
+        }
+        .td-badge-added   { background: #d4edda; color: #155724; }
+        .td-badge-removed { background: #f8d7da; color: #721c24; }
+        .td-badge-equal   { background: #e2e3e5; color: #383d41; }
+        body.dark-mode .td-badge-added   { background: #1a3d26; color: #6fd98a; }
+        body.dark-mode .td-badge-removed { background: #3d1a1a; color: #f08080; }
+        body.dark-mode .td-badge-equal   { background: #2d2d2d; color: #aaa; }
+
+        .td-identical {
+            color: #155724;
+            background: #d4edda;
+            border-radius: 6px;
+            padding: 14px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+        body.dark-mode .td-identical { background: #1a3d26; color: #6fd98a; }
+
+        .td-copy-btn {
+            margin-left: auto;
+            background: none;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 4px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: background 0.15s;
+        }
+        .td-copy-btn:hover { background: var(--light-bg); }
+        body.dark-mode .td-copy-btn { border-color: #444; color: #ccc; }
+        body.dark-mode .td-copy-btn:hover { background: #2a2a2a; }
+    </style>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>Text Diff</h1>
+            <p>Paste two texts and instantly see every line that was added, removed, or unchanged — like a git diff in your browser.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+
+            <div class="td-panels">
+                <div class="td-panel">
+                    <label for="textA">Text A — Original</label>
+                    <textarea id="textA" rows="14" placeholder="Paste original text here…" aria-label="Original text input" spellcheck="false"></textarea>
+                </div>
+                <div class="td-panel">
+                    <label for="textB">Text B — Modified</label>
+                    <textarea id="textB" rows="14" placeholder="Paste modified text here…" aria-label="Modified text input" spellcheck="false"></textarea>
+                </div>
+            </div>
+
+            <div class="td-options">
+                <label><input type="checkbox" id="ignoreCase"> Ignore case</label>
+                <label><input type="checkbox" id="ignoreWhitespace"> Ignore leading/trailing whitespace</label>
+            </div>
+
+            <div class="button-group">
+                <button id="compareBtn" class="btn btn-primary">Compare</button>
+                <button id="swapBtn" class="btn btn-secondary">&#8644; Swap A / B</button>
+                <button id="clearBtn" class="btn btn-secondary">Clear</button>
+            </div>
+
+            <div id="diffResult"></div>
+
+        </section>
+
+        <section class="info-section">
+            <h2>How Text Diff Works</h2>
+            <p>The tool splits each input into lines and runs an <strong>LCS (longest-common-subsequence)</strong> algorithm — the same algorithm used by <code>git diff</code> — to find the minimum set of edits that transforms Text A into Text B.</p>
+            <ul>
+                <li><strong style="color:#155724;">+ Green lines</strong> — lines present in Text B but not in A (added)</li>
+                <li><strong style="color:#b31d28;">– Red lines</strong> — lines present in Text A but not in B (removed)</li>
+                <li>White lines — identical in both (unchanged)</li>
+            </ul>
+            <p>Line numbers are shown for both sides so you can navigate directly to the change in your editor. The <strong>Ignore case</strong> toggle normalises both sides to lowercase before comparison, so <code>Hello</code> and <code>hello</code> count as equal. The <strong>Ignore whitespace</strong> toggle trims leading and trailing spaces from each line before comparing — useful for config files where indentation varies between environments.</p>
+            <p>Works on any plain text: source code, JSON, YAML, SQL queries, log files, config files, Markdown, CSV, or plain prose. For structured JSON comparison with key-by-key analysis that ignores key ordering, use the <a href="json-diff.html">JSON Diff</a> tool instead.</p>
+        </section>
+
+        <section class="info-section">
+            <h2>When to Use Text Diff</h2>
+            <p>Any time you have two versions of the same file and need to know <em>exactly</em> what changed:</p>
+            <ul>
+                <li><strong>Config file review</strong> — compare <code>nginx.conf</code>, <code>docker-compose.yml</code>, or <code>.env</code> before and after a change before pushing to production.</li>
+                <li><strong>Log analysis</strong> — paste two log snapshots and instantly spot lines that appeared or disappeared between them.</li>
+                <li><strong>AI-generated code review</strong> — compare an AI-suggested snippet against your existing code to see what was added or removed.</li>
+                <li><strong>Search-and-replace audit</strong> — verify a bulk find-and-replace only touched what you intended and didn't silently alter other lines.</li>
+                <li><strong>SQL query comparison</strong> — diff two versions of a long query to catch a missing <code>WHERE</code> clause or an accidental column rename.</li>
+                <li><strong>Documentation comparison</strong> — compare two Markdown drafts to see what copy was added, reworded, or cut.</li>
+                <li><strong>Contract or spec review</strong> — compare two versions of an OpenAPI or JSON Schema spec to see which endpoints or fields changed.</li>
+            </ul>
+        </section>
+
+        <section class="info-section">
+            <h2>Text Diff vs JSON Diff — Which Should You Use?</h2>
+            <div class="table-container" style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <thead>
+                        <tr style="background:var(--light-bg);">
+                            <th style="padding:10px 14px;border:1px solid var(--border-color);text-align:left;">Feature</th>
+                            <th style="padding:10px 14px;border:1px solid var(--border-color);text-align:left;">Text Diff</th>
+                            <th style="padding:10px 14px;border:1px solid var(--border-color);text-align:left;">JSON Diff</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="padding:9px 14px;border:1px solid var(--border-color);">Input type</td><td style="padding:9px 14px;border:1px solid var(--border-color);">Any plain text</td><td style="padding:9px 14px;border:1px solid var(--border-color);">Valid JSON only</td></tr>
+                        <tr><td style="padding:9px 14px;border:1px solid var(--border-color);">Comparison method</td><td style="padding:9px 14px;border:1px solid var(--border-color);">Line-by-line LCS</td><td style="padding:9px 14px;border:1px solid var(--border-color);">Recursive key-by-key</td></tr>
+                        <tr><td style="padding:9px 14px;border:1px solid var(--border-color);">Handles key reordering</td><td style="padding:9px 14px;border:1px solid var(--border-color);">No — shows as change</td><td style="padding:9px 14px;border:1px solid var(--border-color);">Yes — order-independent</td></tr>
+                        <tr><td style="padding:9px 14px;border:1px solid var(--border-color);">Nested path display</td><td style="padding:9px 14px;border:1px solid var(--border-color);">No</td><td style="padding:9px 14px;border:1px solid var(--border-color);">Yes (e.g. user.address.city)</td></tr>
+                        <tr><td style="padding:9px 14px;border:1px solid var(--border-color);">Ignore whitespace option</td><td style="padding:9px 14px;border:1px solid var(--border-color);">Yes</td><td style="padding:9px 14px;border:1px solid var(--border-color);">N/A (parsed before compare)</td></tr>
+                        <tr><td style="padding:9px 14px;border:1px solid var(--border-color);">Best for</td><td style="padding:9px 14px;border:1px solid var(--border-color);">Code, configs, logs, Markdown</td><td style="padding:9px 14px;border:1px solid var(--border-color);">API responses, JSON data</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>How does the text diff tool work?</summary>
+                <p>It splits both texts into lines and runs an LCS diff — the same algorithm behind <code>git diff</code>. Lines only in B are green (added); lines only in A are red (removed); shared lines are white (unchanged).</p>
+            </details>
+            <details>
+                <summary>Is my text sent to a server?</summary>
+                <p>No. Everything runs in your browser with JavaScript. Your text never leaves your device.</p>
+            </details>
+            <details>
+                <summary>What kinds of text can I compare?</summary>
+                <p>Any plain text: source code, JSON, YAML, Markdown, config files, SQL queries, log output, CSV, or prose. The tool is completely language-agnostic.</p>
+            </details>
+            <details>
+                <summary>Does it ignore whitespace or case?</summary>
+                <p>By default, comparison is exact. Use the <strong>Ignore case</strong> and <strong>Ignore leading/trailing whitespace</strong> checkboxes to relax those constraints.</p>
+            </details>
+            <details>
+                <summary>What is the difference between Text Diff and JSON Diff?</summary>
+                <p>JSON Diff is structure-aware: it parses both inputs as JSON and compares objects key-by-key, so reordered keys don't produce false positives. Text Diff is line-based and works on any text, but treats input as plain characters — not structured data.</p>
+            </details>
+            <details>
+                <summary>Is there a character or line limit?</summary>
+                <p>There is no hard limit. Very large files (tens of thousands of lines) may take a moment to compare, since LCS runs in the browser.</p>
+            </details>
+            <details>
+                <summary>Can I diff JSON files with Text Diff?</summary>
+                <p>Yes — JSON is plain text, so Text Diff works on it. However if the same data is formatted differently (different indentation, reordered keys) Text Diff will show many false-positive changes. For JSON-specific comparison, use <a href="json-diff.html">JSON Diff</a> which parses the structure before comparing.</p>
+            </details>
+            <details>
+                <summary>Why does swapping A and B show the same number of changes?</summary>
+                <p>By design — a diff is symmetric. Lines added going from A→B become lines removed going from B→A, and vice versa. The totals stay the same; only the green/red colouring is mirrored.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="json-diff.html">JSON Diff</a></li>
+                <li><a href="formatter.html">JSON Formatter</a></li>
+                <li><a href="json-validator.html">JSON Validator</a></li>
+                <li><a href="json-to-yaml.html">JSON to YAML</a></li>
+                <li><a href="yaml-to-json.html">YAML to JSON</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/dark-mode.js"></script>
+    <script>
+    (function () {
+        var textA      = document.getElementById('textA');
+        var textB      = document.getElementById('textB');
+        var compareBtn = document.getElementById('compareBtn');
+        var swapBtn    = document.getElementById('swapBtn');
+        var clearBtn   = document.getElementById('clearBtn');
+        var resultDiv  = document.getElementById('diffResult');
+        var ignoreCase = document.getElementById('ignoreCase');
+        var ignoreWs   = document.getElementById('ignoreWhitespace');
+
+        /* ── LCS diff engine ─────────────────── */
+        function lcs(a, b) {
+            var m = a.length, n = b.length;
+            var dp = [];
+            for (var i = 0; i <= m; i++) { dp[i] = []; for (var j = 0; j <= n; j++) dp[i][j] = 0; }
+            for (var i = 1; i <= m; i++)
+                for (var j = 1; j <= n; j++)
+                    dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+            var result = [], i = m, j = n;
+            while (i > 0 || j > 0) {
+                if (i > 0 && j > 0 && a[i-1] === b[j-1]) { result.unshift({ type: 'equal', a: a[i-1], b: b[j-1] }); i--; j--; }
+                else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { result.unshift({ type: 'add', b: b[j-1] }); j--; }
+                else { result.unshift({ type: 'remove', a: a[i-1] }); i--; }
+            }
+            return result;
+        }
+
+        function normalise(line) {
+            var s = ignoreWs.checked ? line.trim() : line;
+            return ignoreCase.checked ? s.toLowerCase() : s;
+        }
+
+        function escape(str) {
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function runDiff() {
+            var rawA = textA.value, rawB = textB.value;
+            if (!rawA.trim() && !rawB.trim()) { resultDiv.innerHTML = ''; return; }
+
+            var linesA = rawA === '' ? [] : rawA.split('\n');
+            var linesB = rawB === '' ? [] : rawB.split('\n');
+            var normA  = linesA.map(normalise);
+            var normB  = linesB.map(normalise);
+
+            /* Map normalised lines to original indices */
+            var changes = lcs(normA, normB);
+
+            var added = 0, removed = 0;
+            var rows = '', lnA = 0, lnB = 0;
+
+            changes.forEach(function (c) {
+                if (c.type === 'equal') {
+                    lnA++; lnB++;
+                    rows += '<div class="td-row">' +
+                        '<div class="td-ln td-ln-left">' + lnA + '</div>' +
+                        '<div class="td-cell td-cell-left">' + escape(linesA[lnA-1]) + '</div>' +
+                        '<div class="td-ln td-ln-right">' + lnB + '</div>' +
+                        '<div class="td-cell td-cell-right">' + escape(linesB[lnB-1]) + '</div>' +
+                        '</div>';
+                } else if (c.type === 'remove') {
+                    lnA++; removed++;
+                    rows += '<div class="td-row td-row-removed">' +
+                        '<div class="td-ln td-ln-left">' + lnA + '</div>' +
+                        '<div class="td-cell td-cell-left"><span class="td-sign td-sign-rem">&minus;</span>' + escape(linesA[lnA-1]) + '</div>' +
+                        '<div class="td-ln td-ln-right"></div>' +
+                        '<div class="td-cell td-cell-right"></div>' +
+                        '</div>';
+                } else {
+                    lnB++; added++;
+                    rows += '<div class="td-row td-row-added">' +
+                        '<div class="td-ln td-ln-left"></div>' +
+                        '<div class="td-cell td-cell-left"></div>' +
+                        '<div class="td-ln td-ln-right">' + lnB + '</div>' +
+                        '<div class="td-cell td-cell-right"><span class="td-sign td-sign-add">+</span>' + escape(linesB[lnB-1]) + '</div>' +
+                        '</div>';
+                }
+            });
+
+            if (added === 0 && removed === 0) {
+                resultDiv.innerHTML = '<div class="td-identical">✓ Both texts are identical.</div>';
+                return;
+            }
+
+            var summary = '<div class="td-summary">' +
+                '<span class="td-badge td-badge-added">+' + added + ' added</span>' +
+                '<span class="td-badge td-badge-removed">&minus;' + removed + ' removed</span>' +
+                '<button class="td-copy-btn" id="copyDiffBtn">Copy diff</button>' +
+                '</div>';
+
+            resultDiv.innerHTML = summary +
+                '<div class="td-output">' +
+                '<div class="td-output-header"><span>A</span><span>Original</span><span>B</span><span>Modified</span></div>' +
+                rows +
+                '</div>';
+
+            document.getElementById('copyDiffBtn').addEventListener('click', function () {
+                var lines = [];
+                changes.forEach(function (c) {
+                    if (c.type === 'equal')   lines.push('  ' + (ignoreWs.checked ? linesA[normA.indexOf(c.a)] : c.a));
+                    else if (c.type === 'remove') lines.push('- ' + linesA[lnA]);
+                    else lines.push('+ ' + linesB[lnB]);
+                });
+                navigator.clipboard.writeText(lines.join('\n')).then(function () {
+                    var btn = document.getElementById('copyDiffBtn');
+                    if (btn) { btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = 'Copy diff'; }, 1500); }
+                });
+            });
+        }
+
+        compareBtn.addEventListener('click', runDiff);
+
+        swapBtn.addEventListener('click', function () {
+            var tmp = textA.value;
+            textA.value = textB.value;
+            textB.value = tmp;
+            if (resultDiv.innerHTML) runDiff();
+        });
+
+        clearBtn.addEventListener('click', function () {
+            textA.value = '';
+            textB.value = '';
+            resultDiv.innerHTML = '';
+        });
+
+        /* Auto-run on checkbox change if a diff already showing */
+        [ignoreCase, ignoreWhitespace].forEach(function (cb) {
+            cb.addEventListener('change', function () { if (resultDiv.innerHTML) runDiff(); });
+        });
+    })();
+    </script>
+</body>
+</html>
