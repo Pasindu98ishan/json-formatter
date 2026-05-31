@@ -56,22 +56,32 @@
         {
           "@type": "Question",
           "name": "Does this tool verify JWT signatures?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. This tool decodes the header and payload only. It does not verify the signature. Never trust decoded data from an unverified token." }
+          "acceptedAnswer": { "@type": "Answer", "text": "No. This tool decodes the header and payload only — it does not verify the signature. Signature verification requires the secret or public key, which must stay server-side. Never trust decoded claims without server-side verification." }
         },
         {
           "@type": "Question",
           "name": "Is my JWT sent to a server?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. Decoding happens entirely in your browser using JavaScript. Your token never leaves your device." }
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Decoding happens entirely in your browser using JavaScript. The JWT is split on dots and each part is Base64URL-decoded locally. Your token never leaves your device." }
         },
         {
           "@type": "Question",
           "name": "What is the exp field in a JWT?",
-          "acceptedAnswer": { "@type": "Answer", "text": "exp is the expiry time as a Unix timestamp. This tool converts it to a human-readable date so you can see when the token expires." }
+          "acceptedAnswer": { "@type": "Answer", "text": "exp is the expiration time claim, stored as a Unix timestamp (seconds since January 1 1970 UTC). This tool converts it to a human-readable date so you can instantly see when the token expires and whether it is still valid." }
         },
         {
           "@type": "Question",
           "name": "Why does my JWT have 3 parts?",
-          "acceptedAnswer": { "@type": "Answer", "text": "A JWT has three base64url-encoded parts separated by dots: header (algorithm), payload (claims), and signature (verification data)." }
+          "acceptedAnswer": { "@type": "Answer", "text": "A JWT (RFC 7519) has three Base64URL-encoded parts separated by dots: (1) the header with the algorithm (alg) and token type (typ), (2) the payload with claims like sub, iat, exp, and custom data, and (3) the signature that proves the token was issued by a trusted party and has not been tampered with." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between HS256 and RS256 in a JWT?",
+          "acceptedAnswer": { "@type": "Answer", "text": "HS256 (HMAC-SHA256) uses a shared secret — both the issuer and verifier use the same key. RS256 (RSA-SHA256) uses a private/public key pair — the issuer signs with the private key and verifiers check with the public key. RS256 is preferred when you cannot share a secret (e.g. third-party APIs, OAuth 2.0), because the public key can be distributed without compromising security." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it safe to paste a JWT into an online decoder?",
+          "acceptedAnswer": { "@type": "Answer", "text": "With this tool, yes — decoding is entirely client-side and nothing is transmitted. However, many online JWT tools do send your token to a server for processing. If you use a tool that sends data to a server, avoid pasting production tokens with sensitive claims; rotate any token you paste into an untrusted tool." }
         }
       ]
     }
@@ -203,21 +213,36 @@
                 </div>
             </div>
 
-            <div class="info-section" style="margin-top: 24px;">
-                <h3>About JWT Decoding</h3>
-                <p>A JSON Web Token (JWT) has three base64url-encoded parts separated by dots:</p>
+            <div class="info-section">
+                <p style="margin:0;"><strong>JWT</strong> (JSON Web Token, <a href="https://www.rfc-editor.org/rfc/rfc7519" rel="noopener noreferrer" target="_blank">RFC 7519</a>) is a compact, URL-safe token made of three Base64URL-encoded parts separated by dots: a <strong>header</strong> (algorithm), a <strong>payload</strong> (claims), and a <strong>signature</strong>. This tool decodes the header and payload so you can inspect the claims — it does not verify the signature.</p>
+            </div>
+
+            <div class="info-section" style="margin-top: 1.5rem;">
+                <h2>JWT structure explained</h2>
+                <p>Every JWT has three parts separated by <code>.</code>:</p>
                 <ul>
-                    <li><strong>Header</strong> — algorithm and token type (e.g., HS256, RS256)</li>
-                    <li><strong>Payload</strong> — claims: user data, roles, expiry (exp), issued-at (iat)</li>
-                    <li><strong>Signature</strong> — cryptographic proof; requires a secret/public key to verify</li>
+                    <li><strong>Header</strong> — algorithm (<code>alg</code>) and token type (<code>typ</code>), e.g. <code>{"alg":"HS256","typ":"JWT"}</code></li>
+                    <li><strong>Payload</strong> — claims: user data, roles, and standard fields like <code>exp</code>, <code>iat</code>, <code>sub</code></li>
+                    <li><strong>Signature</strong> — cryptographic proof; requires the secret or public key to verify — cannot be done client-side</li>
                 </ul>
-                <p>Common payload fields this tool highlights:</p>
-                <ul>
-                    <li><code>exp</code> — expiry timestamp (Unix epoch seconds)</li>
-                    <li><code>iat</code> — issued-at timestamp</li>
-                    <li><code>nbf</code> — not-before timestamp (token not valid until this time)</li>
-                </ul>
-                <p>Need to work with JSON? Try the <a href="formatter.html">JSON Formatter</a> or <a href="json-validator.html">JSON Validator</a>.</p>
+
+                <h2>Standard JWT claims</h2>
+                <table>
+                    <thead><tr><th>Claim</th><th>Name</th><th>Type</th><th>Meaning</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>sub</code></td><td>Subject</td><td>string</td><td>The user or entity the token is about</td></tr>
+                        <tr><td><code>iss</code></td><td>Issuer</td><td>string</td><td>Who created and signed the token</td></tr>
+                        <tr><td><code>exp</code></td><td>Expiration</td><td>Unix timestamp</td><td>Token must be rejected after this time</td></tr>
+                        <tr><td><code>iat</code></td><td>Issued At</td><td>Unix timestamp</td><td>When the token was created</td></tr>
+                        <tr><td><code>nbf</code></td><td>Not Before</td><td>Unix timestamp</td><td>Token must not be accepted before this time</td></tr>
+                        <tr><td><code>aud</code></td><td>Audience</td><td>string / array</td><td>Who the token is intended for</td></tr>
+                    </tbody>
+                </table>
+
+                <h2>HS256 vs RS256</h2>
+                <p><strong>HS256</strong> uses a shared secret — both issuer and verifier must know the same key, making it unsuitable when you cannot share secrets. <strong>RS256</strong> uses a private/public key pair — the issuer signs with a private key and any verifier checks with the public key. RS256 is preferred for third-party APIs and OAuth 2.0, because you can distribute the public key openly without compromising security.</p>
+
+                <p>Need to work with the JSON inside a token? Try the <a href="formatter.html">JSON Formatter</a> or <a href="json-validator.html">JSON Validator</a>. Timestamps in <code>exp</code>/<code>iat</code>? Use the <a href="timestamp.html">Unix Timestamp Converter</a>.</p>
             </div>
         </section>
 
@@ -225,30 +250,40 @@
             <h2>Frequently Asked Questions</h2>
             <details>
                 <summary>Does this tool verify JWT signatures?</summary>
-                <p>No. This tool decodes the header and payload only. It does not verify the signature. Never trust decoded data from an unverified token.</p>
+                <p>No. This tool decodes the header and payload only — it does not verify the signature. Signature verification requires the secret or public key, which must stay server-side. Never trust decoded claims without server-side verification.</p>
             </details>
             <details>
                 <summary>Is my JWT sent to a server?</summary>
-                <p>No. Decoding happens entirely in your browser using JavaScript. Your token never leaves your device.</p>
+                <p>No. Decoding happens entirely in your browser using JavaScript. The JWT is split on dots and each part is Base64URL-decoded locally. Your token never leaves your device.</p>
             </details>
             <details>
                 <summary>What is the exp field in a JWT?</summary>
-                <p><code>exp</code> is the expiry time as a Unix timestamp. This tool converts it to a human-readable date so you can see exactly when the token expires.</p>
+                <p><code>exp</code> is the expiration time claim, stored as a Unix timestamp (seconds since January 1 1970 UTC). This tool converts it to a human-readable date so you can instantly see when the token expires and whether it is still valid.</p>
             </details>
             <details>
                 <summary>Why does my JWT have 3 parts?</summary>
-                <p>A JWT has three base64url-encoded parts separated by dots: header (algorithm), payload (claims), and signature (verification data).</p>
+                <p>A JWT (<a href="https://www.rfc-editor.org/rfc/rfc7519" rel="noopener noreferrer" target="_blank">RFC 7519</a>) has three Base64URL-encoded parts separated by dots: (1) the header with the algorithm and token type, (2) the payload with claims like <code>sub</code>, <code>iat</code>, <code>exp</code>, and custom data, and (3) the signature that proves the token was issued by a trusted party and has not been tampered with.</p>
+            </details>
+            <details>
+                <summary>What is the difference between HS256 and RS256 in a JWT?</summary>
+                <p>HS256 (HMAC-SHA256) uses a shared secret — both the issuer and verifier use the same key. RS256 (RSA-SHA256) uses a private/public key pair — the issuer signs with the private key and verifiers check with the public key. RS256 is preferred when you cannot share a secret, because the public key can be distributed openly without compromising security.</p>
+            </details>
+            <details>
+                <summary>Is it safe to paste a JWT into an online decoder?</summary>
+                <p>With this tool, yes — decoding is entirely client-side and nothing is transmitted. However, many online JWT tools send your token to a server. If you use a tool that transmits data, avoid pasting production tokens; rotate any token you paste into an untrusted tool.</p>
             </details>
         </section>
+
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: May 2026</p>
 
         <section class="related-tools">
             <h2>Related Tools</h2>
             <ul>
                 <li><a href="formatter.html">JSON Formatter</a></li>
                 <li><a href="json-validator.html">JSON Validator</a></li>
-                <li><a href="json-schema-validator.html">JSON Schema Validator</a></li>
-                <li><a href="base64.html">Base64 Encoder & Decoder</a></li>
-                <li><a href="url-encoder.html">URL Encoder & Decoder</a></li>
+                <li><a href="base64.html">Base64 Encoder &amp; Decoder</a> &mdash; JWTs are Base64URL-encoded</li>
+                <li><a href="timestamp.html">Unix Timestamp Converter</a> &mdash; decode exp/iat fields</li>
+                <li><a href="url-encoder.html">URL Encoder &amp; Decoder</a></li>
             </ul>
         </section>
     </main>

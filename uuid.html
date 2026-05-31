@@ -55,12 +55,27 @@
         {
           "@type": "Question",
           "name": "What is a UUID v4?",
-          "acceptedAnswer": { "@type": "Answer", "text": "UUID v4 is a randomly generated 128-bit identifier formatted as 8-4-4-4-12 hexadecimal characters separated by hyphens. It is the most commonly used UUID version for generating unique IDs without a central registry." }
+          "acceptedAnswer": { "@type": "Answer", "text": "UUID v4 is a randomly generated 128-bit identifier formatted as five hyphen-separated groups of hexadecimal characters (e.g. 550e8400-e29b-41d4-a716-446655440000). All 122 variable bits are randomly generated, making it the most commonly used UUID version for generating unique IDs without a central registry." }
         },
         {
           "@type": "Question",
           "name": "Are the generated UUIDs truly unique?",
-          "acceptedAnswer": { "@type": "Answer", "text": "UUID v4 values are generated using a cryptographically secure random number generator (crypto.randomUUID in the browser). The probability of a collision across all generated UUIDs ever is astronomically small — effectively zero in practice." }
+          "acceptedAnswer": { "@type": "Answer", "text": "UUID v4 values are generated using the browser's built-in crypto.randomUUID(), which uses a cryptographically secure random number generator. The probability of generating two identical UUID v4 values is approximately 1 in 5.3 × 10³⁶ — effectively zero in practice." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between UUID and GUID?",
+          "acceptedAnswer": { "@type": "Answer", "text": "GUID (Globally Unique Identifier) is Microsoft's name for the same concept. UUID and GUID refer to the same 128-bit identifier format defined by RFC 4122. The terms are interchangeable in practice." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is UUID v7 and how is it different from v4?",
+          "acceptedAnswer": { "@type": "Answer", "text": "UUID v7 encodes a millisecond-precision Unix timestamp in the first 48 bits, making UUIDs time-sortable. This improves database index performance because new rows are always appended at the end of an index rather than inserted in random positions. UUID v4 is fully random and has no ordering. Use v7 when you need sortable IDs; use v4 when ordering does not matter." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use a UUID as a database primary key?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. UUID v4 is widely used as a primary key in PostgreSQL (uuid type), MySQL, and MongoDB. The main trade-off is index fragmentation — because v4 values are random, each insert goes to a random position in a B-tree index, which can slow inserts at high volume. UUID v7 avoids this by being time-sortable." }
         },
         {
           "@type": "Question",
@@ -293,8 +308,11 @@
 
             <div id="errorContainer" style="display:none; margin-top:10px; padding:10px 14px; border-radius:6px; border:1px solid #f5c6cb; background:#f8d7da; color:#721c24;"></div>
 
-            <div class="info-section" style="margin-top:32px;">
-                <h3>What is a UUID?</h3>
+            <div class="info-section">
+                <p style="margin:0;"><strong>UUID</strong> (Universally Unique Identifier, <a href="https://www.rfc-editor.org/rfc/rfc4122" rel="noopener noreferrer" target="_blank">RFC 4122</a>) is a 128-bit identifier displayed as 32 hexadecimal digits in five groups: <code>xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx</code>. UUID v4 generates all 122 variable bits randomly, making it the standard choice for unique IDs that require no central registry.</p>
+            </div>
+            <div class="info-section" style="margin-top:1.5rem;">
+                <h2>What is a UUID?</h2>
                 <p>A UUID (Universally Unique Identifier) is a 128-bit label used to identify information in computer systems. The standard format is 32 hexadecimal digits displayed in five groups separated by hyphens:</p>
                 <pre>xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx</pre>
                 <p>UUID v4 is the most widely used version. All 122 variable bits are randomly generated, making collisions statistically impossible in practice. It is used for database primary keys, session tokens, file names, and distributed system IDs.</p>
@@ -322,21 +340,31 @@
             <h2>Frequently Asked Questions</h2>
             <details>
                 <summary>What is a UUID v4?</summary>
-                <p>UUID v4 is a randomly generated 128-bit identifier formatted as five hyphen-separated groups of hexadecimal characters (e.g. <code>550e8400-e29b-41d4-a716-446655440000</code>). It is the most commonly used UUID version for generating unique IDs without a central registry.</p>
+                <p>UUID v4 is a randomly generated 128-bit identifier formatted as five hyphen-separated groups of hexadecimal characters (e.g. <code>550e8400-e29b-41d4-a716-446655440000</code>). All 122 variable bits are randomly generated, making it the most commonly used UUID version for generating unique IDs without a central registry.</p>
             </details>
             <details>
                 <summary>Are the generated UUIDs truly unique?</summary>
                 <p>Yes. This tool uses <code>crypto.randomUUID()</code>, which relies on the browser's cryptographically secure random number generator. The theoretical chance of generating two identical UUID v4 values is approximately 1 in 5.3 × 10³⁶ — effectively zero in any practical scenario.</p>
             </details>
             <details>
+                <summary>What is the difference between UUID and GUID?</summary>
+                <p>GUID (Globally Unique Identifier) is Microsoft's name for the same concept. UUID and GUID refer to the same 128-bit identifier format defined by <a href="https://www.rfc-editor.org/rfc/rfc4122" rel="noopener noreferrer" target="_blank">RFC 4122</a>. The terms are interchangeable in practice.</p>
+            </details>
+            <details>
+                <summary>What is UUID v7 and how is it different from v4?</summary>
+                <p>UUID v7 encodes a millisecond-precision Unix timestamp in the first 48 bits, making UUIDs time-sortable. This improves database index performance because new rows are always appended at the end of an index rather than inserted in random positions. Use v7 when you need sortable IDs; use v4 when ordering does not matter. Read more: <a href="blog/uuid-v4-vs-v7.html">UUID v4 vs v7 explained</a>.</p>
+            </details>
+            <details>
+                <summary>Can I use a UUID as a database primary key?</summary>
+                <p>Yes. UUID v4 is widely used as a primary key in PostgreSQL (<code>uuid</code> type), MySQL, and MongoDB. The main trade-off is index fragmentation — because v4 values are random, each insert goes to a random B-tree position, which can slow inserts at high volume. UUID v7 avoids this by being time-sortable.</p>
+            </details>
+            <details>
                 <summary>Is my data sent to a server?</summary>
                 <p>No. UUID generation happens entirely in your browser using the native <code>crypto.randomUUID()</code> API. Nothing is transmitted to any server.</p>
             </details>
-            <details>
-                <summary>What is the difference between UUID and GUID?</summary>
-                <p>GUID (Globally Unique Identifier) is Microsoft's name for the same concept. UUID and GUID refer to the same 128-bit identifier format defined by RFC 4122. The terms are interchangeable in practice.</p>
-            </details>
         </section>
+
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: May 2026</p>
 
         <section class="related-tools">
             <h2>Related Tools</h2>
@@ -345,6 +373,13 @@
                 <li><a href="base64.html">Base64 Encoder &amp; Decoder</a></li>
                 <li><a href="jwt-decoder.html">JWT Decoder</a></li>
                 <li><a href="formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/uuid-v4-vs-v7.html">UUID v4 vs v7: Which Should You Use?</a></li>
+                <li><a href="blog/uuid-guide.html">UUID Complete Guide</a></li>
             </ul>
         </section>
     </main>

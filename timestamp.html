@@ -55,22 +55,32 @@
         {
           "@type": "Question",
           "name": "What is a Unix timestamp?",
-          "acceptedAnswer": { "@type": "Answer", "text": "A Unix timestamp is the number of seconds elapsed since January 1, 1970 00:00:00 UTC (the Unix epoch). It is a timezone-independent way to represent a precise moment in time, used in databases, APIs, and system logs worldwide." }
+          "acceptedAnswer": { "@type": "Answer", "text": "A Unix timestamp is the number of seconds elapsed since January 1, 1970 00:00:00 UTC — called the Unix epoch. It is a timezone-independent integer that represents any moment in time precisely, used in databases, APIs, JWT tokens (exp/iat fields), log files, and system clocks worldwide." }
         },
         {
           "@type": "Question",
           "name": "How do I get the current Unix timestamp in JavaScript?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Use Math.floor(Date.now() / 1000) for seconds, or Date.now() for milliseconds. Date.now() is the most reliable cross-browser method." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Use Math.floor(Date.now() / 1000) for seconds, or Date.now() for milliseconds. Date.now() is the most reliable cross-browser method. In Node.js you can also use process.hrtime() for high-resolution nanosecond timestamps." }
         },
         {
           "@type": "Question",
           "name": "What is the difference between seconds and milliseconds timestamps?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Unix timestamps are traditionally in seconds (10 digits, e.g. 1715000000). JavaScript's Date.now() returns milliseconds (13 digits, e.g. 1715000000000). Many APIs expect seconds — divide by 1000 when sending from JavaScript." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Unix timestamps are traditionally in seconds (10 digits, e.g. 1715000000). JavaScript's Date.now() returns milliseconds (13 digits, e.g. 1715000000000). Many APIs and databases expect seconds — divide by 1000 when sending from JavaScript. You can usually tell which is which by the digit count: 10 digits = seconds, 13 digits = milliseconds." }
         },
         {
           "@type": "Question",
           "name": "What is the Year 2038 problem?",
-          "acceptedAnswer": { "@type": "Answer", "text": "32-bit signed integers can only represent timestamps up to January 19, 2038. Systems storing timestamps in a 32-bit integer will overflow on that date. Modern systems use 64-bit integers, which won't overflow for billions of years." }
+          "acceptedAnswer": { "@type": "Answer", "text": "32-bit signed integers can only store values up to 2,147,483,647, which corresponds to January 19, 2038 at 03:14:07 UTC. Systems that store Unix timestamps in a 32-bit integer will overflow on that date and roll back to 1901. Modern systems use 64-bit integers, which can represent dates billions of years into the future." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I get the current Unix timestamp in Python?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use import time; int(time.time()) for seconds, or time.time() for a float with sub-second precision. For milliseconds: int(time.time() * 1000). The datetime module also provides timezone-aware timestamps via datetime.datetime.now(datetime.timezone.utc).timestamp()." }
+        },
+        {
+          "@type": "Question",
+          "name": "Are Unix timestamps affected by daylight saving time?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Unix timestamps are always in UTC and have no concept of timezones or daylight saving time. They count seconds from the epoch in UTC. Timezone conversion only happens when you display a timestamp as a human-readable date." }
         }
       ]
     }
@@ -121,7 +131,24 @@
 
         <p style="margin:0.5rem 0 1.5rem; font-size:0.9rem; color:var(--secondary-color);"><strong>Current Unix Timestamp:</strong> <span id="currentTimestamp">-</span></p>
 
-        <section class="info-section">
+        <div class="info-section">
+            <p style="margin:0;">A <strong>Unix timestamp</strong> is the number of seconds elapsed since January 1, 1970 00:00:00 UTC (the Unix epoch). It is a timezone-independent integer that represents any point in time precisely — used in APIs, databases, JWT tokens, and log files worldwide.</p>
+        </div>
+
+        <section class="info-section" style="margin-top:1.5rem;">
+            <h2>Unix timestamps in common languages</h2>
+            <table>
+                <thead><tr><th>Language</th><th>Get current timestamp (seconds)</th></tr></thead>
+                <tbody>
+                    <tr><td>JavaScript</td><td><code>Math.floor(Date.now() / 1000)</code></td></tr>
+                    <tr><td>Python</td><td><code>import time; int(time.time())</code></td></tr>
+                    <tr><td>Go</td><td><code>time.Now().Unix()</code></td></tr>
+                    <tr><td>Java</td><td><code>Instant.now().getEpochSecond()</code></td></tr>
+                    <tr><td>PHP</td><td><code>time()</code></td></tr>
+                    <tr><td>Bash</td><td><code>date +%s</code></td></tr>
+                </tbody>
+            </table>
+
             <h2>When to Use the Timestamp Converter</h2>
             <ul>
                 <li>When an API returns a Unix timestamp and you need to verify it represents the date you expect before using it in your application.</li>
@@ -135,29 +162,38 @@
             <h2>Frequently Asked Questions</h2>
             <details>
                 <summary>What is a Unix timestamp?</summary>
-                <p>A Unix timestamp is the number of seconds elapsed since January 1, 1970 00:00:00 UTC (the Unix epoch). It is a timezone-independent way to represent a precise moment in time, used in databases, APIs, and system logs worldwide.</p>
+                <p>A Unix timestamp is the number of seconds elapsed since January 1, 1970 00:00:00 UTC (the Unix epoch). It is a timezone-independent integer that represents any moment in time precisely, used in databases, APIs, JWT tokens (<code>exp</code>/<code>iat</code> fields), log files, and system clocks worldwide.</p>
             </details>
             <details>
                 <summary>How do I get the current Unix timestamp in JavaScript?</summary>
-                <p>Use <code>Math.floor(Date.now() / 1000)</code> for seconds, or <code>Date.now()</code> for milliseconds. <code>Date.now()</code> is the most reliable cross-browser method.</p>
+                <p>Use <code>Math.floor(Date.now() / 1000)</code> for seconds, or <code>Date.now()</code> for milliseconds. <code>Date.now()</code> is the most reliable cross-browser method. In Node.js you can also use <code>process.hrtime()</code> for nanosecond precision.</p>
             </details>
             <details>
                 <summary>What is the difference between seconds and milliseconds timestamps?</summary>
-                <p>Unix timestamps are traditionally in seconds (10 digits, e.g. <code>1715000000</code>). JavaScript's <code>Date.now()</code> returns milliseconds (13 digits, e.g. <code>1715000000000</code>). Many APIs expect seconds — divide by 1000 when sending from JavaScript.</p>
+                <p>Unix timestamps are traditionally in seconds (10 digits, e.g. <code>1715000000</code>). JavaScript's <code>Date.now()</code> returns milliseconds (13 digits, e.g. <code>1715000000000</code>). Many APIs expect seconds — divide by 1000 when sending from JavaScript. You can usually tell which is which by digit count: 10 digits = seconds, 13 digits = milliseconds.</p>
             </details>
             <details>
                 <summary>What is the Year 2038 problem?</summary>
-                <p>32-bit signed integers can only represent timestamps up to January 19, 2038. Systems storing timestamps in a 32-bit integer will overflow on that date. Modern systems use 64-bit integers, which won't overflow for billions of years.</p>
+                <p>32-bit signed integers can only store values up to 2,147,483,647, which corresponds to January 19, 2038 at 03:14:07 UTC. Systems that store Unix timestamps in a 32-bit integer will overflow on that date and roll back to 1901. Modern systems use 64-bit integers, which can represent dates billions of years into the future.</p>
+            </details>
+            <details>
+                <summary>How do I get the current Unix timestamp in Python?</summary>
+                <p>Use <code>import time; int(time.time())</code> for seconds, or <code>time.time()</code> for a float with sub-second precision. For milliseconds: <code>int(time.time() * 1000)</code>.</p>
+            </details>
+            <details>
+                <summary>Are Unix timestamps affected by daylight saving time?</summary>
+                <p>No. Unix timestamps are always in UTC and have no concept of timezones or daylight saving. They count seconds from the epoch in UTC. Timezone conversion only happens when you display a timestamp as a human-readable date.</p>
             </details>
         </section>
+
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: May 2026</p>
 
         <section class="related-tools">
             <h2>Related Tools</h2>
             <ul>
                 <li><a href="formatter.html">JSON Formatter</a></li>
-                <li><a href="jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="jwt-decoder.html">JWT Decoder</a> &mdash; <code>exp</code> and <code>iat</code> are Unix timestamps</li>
                 <li><a href="json-validator.html">JSON Validator</a></li>
-                <li><a href="json-schema-validator.html">JSON Schema Validator</a></li>
                 <li><a href="url-encoder.html">URL Encoder</a></li>
             </ul>
         </section>

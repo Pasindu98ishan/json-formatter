@@ -1,7 +1,7 @@
 # Phase 6 — Blog Expansion & New Tools
 
 **Status**: In progress  
-**Last Updated**: 2026-05-23
+**Last Updated**: 2026-05-29
 
 ---
 
@@ -15,9 +15,23 @@
 
 ## Completed in Phase 6
 
+### Tools
 - `json-schema-generator.html` ✅ — T2 tool, pure JS type inference, draft-07 output, 4 samples, format hints (email/uuid/date-time/uri), anyOf for mixed arrays
 - `js/json-schema-generator-tool.js` ✅ — standalone tool JS, no CDN dependency
-- `blog/kafka-avro-schema.html` ✅ — Kafka + Avro schema deep-dive: what Avro is, backward/forward/full compatibility tables, aliases rename pattern, Schema Registry API, real evolution example. Targets new + mid-level devs. Links to json-schema-generator, json-schema-validator, formatter, json-diff. Full AEO/GEO structured data: Article, FAQPage (5 Q&A), BreadcrumbList, HowTo (4 steps).
+- `text-diff.html` ✅ — T3 tool, pure JS LCS diff engine (no CDN), two-panel side-by-side output with line numbers, green/red row highlighting, ignore-case + ignore-whitespace toggles, Copy diff button, summary badges; added to navbar under "JSON Tools → Text Diff"; sitemap updated
+
+### Blog Posts
+- `blog/kafka-avro-schema.html` ✅ — Kafka + Avro schema deep-dive; Article, FAQPage (5 Q&A), BreadcrumbList, HowTo (4 steps)
+- `blog/yaml-vs-json.html` ✅ — B2, enhanced with decision table, YAML pitfalls (Norway problem, tabs, number coercion), 2 extra FAQ items; dateModified 2026-05-26
+- `blog/json-stringify-indent.html` ✅ — B3, merged with json-stringify-options (reviver, dropped-values table, deep-clone); retitled "Complete Guide"
+- `blog/jackson-json-serialization.html` ✅ — Java Jackson serialization/deserialization, TypeReference for lists, @JsonIgnore vs transient, Java 8 dates/records, 5 common exceptions; full structured data
+- `blog/json-null-vs-undefined.html` ✅ — C1, covers all 3 undefined cases, replacer pattern, key-in-obj detection, Python/Java/Go/Rust table, 3 common bug examples, JSON Schema null; matches article-header / blog-article structure
+- `blog/compare-two-text-files.html` ✅ — Text Diff supporting post; long-tail "how to compare two text files online", "diff checker online", "find difference between two texts"; HowTo (4 steps) + Article + BreadcrumbList + FAQPage (6 Q&A, synced to visible FAQ); links to text-diff.html + json-diff.html; cross-linked from text-diff.html "Related Guides"
+- `blog/protobuf-vs-json.html` ✅ — comparison post; "protobuf vs json", "is protobuf faster than json", "protocol buffers vs json size"; Article + BreadcrumbList + FAQPage (6 Q&A, synced to visible FAQ); quick-comparison + when-to-use tables, side-by-side .proto/JSON example, accurate size/speed claims; extends comparison cluster (json-vs-xml, yaml-vs-json)
+
+### Homepage & UI
+- Hero section redesigned: compact two-column layout, mini formatter terminal, blue gradient CTA button, plain trust badges, blinking caret hint, centered grid with `minmax(0,460px) minmax(0,520px)`, "Save for later" bookmark nudge (4s delay, bottom-right, localStorage gate)
+- Mobile: terminal hidden on mobile, navbar fixed to single row (logo left, hamburger+Dark right), hero headline scales up, 2-column tool cards
 
 ---
 
@@ -31,45 +45,33 @@ Every `<pre><code>` block in new blog posts must have a "Copy" button. Implement
 
 ### P1 Blog Posts — Write These First
 
-#### B1 — `what-is-json-schema.html`
+#### B1 — `what-is-json-schema.html` ✅ Done
 - **Target keywords:** "what is json schema", "json schema example", "json schema tutorial"
-- **Est. volume:** ~8k/mo — no single tool page dominates
-- **Internal links:** `json-validator.html`, `formatter.html`
-- **Pairs with:** JSON Schema Validator tool (see Part B)
-- **Angle:** Explain what JSON Schema is, why it matters for API validation, show $schema, type, required, properties with real examples
+- **Est. volume:** ~8k/mo
 
-#### B2 — `yaml-vs-json.html`
+#### B2 — `yaml-vs-json.html` ✅ Done
 - **Target keywords:** "yaml vs json", "yaml vs json which is better", "yaml vs json speed"
-- **Est. volume:** ~15k/mo — comparison articles rank well for this query
-- **Internal links:** `yaml-to-json.html`, `json-to-yaml.html`, `yaml-validator.html` (Phase 5)
-- **Angle:** Side-by-side syntax comparison, readability, use cases (config files vs APIs), when to use each
+- **Est. volume:** ~15k/mo
 
-#### B3 — `json-stringify-options.html`
-- **Target keywords:** "json stringify pretty print", "JSON.stringify indent", "JSON.stringify replacer", "JSON.stringify space"
-- **Est. volume:** ~5k/mo — developers look this up constantly
-- **Internal links:** `formatter.html`
-- **Angle:** Full breakdown of all 3 arguments (value, replacer, space); show indent=2 trick, array replacer, function replacer, and reviver in JSON.parse
+#### B3 — `json-stringify-indent.html` ✅ Done (merged with json-stringify-options)
+- **Target keywords:** "JSON.stringify indent", "JSON.stringify replacer", "json stringify pretty print"
+- **Est. volume:** ~5k/mo
 
-#### B4 — `fix-json-trailing-comma.html`
-- **Target keywords:** "json trailing comma error", "remove trailing comma json", "json trailing comma not allowed"
-- **Est. volume:** ~3k/mo — exact-match error message searches
-- **Internal links:** `formatter.html`, `json-validator.html`
-- **Pairs with:** Repair button (Phase 5 Task 3)
-- **Angle:** Why JSON doesn't allow trailing commas, how to spot them, automated fix using the Repair tool
+#### B4 — `json-trailing-comma.html` ✅ Done
+- **Target keywords:** "json trailing comma error", "remove trailing comma json"
+- **Est. volume:** ~3k/mo
 
-#### B5 — `env-file-format.html`
-- **Target keywords:** ".env file format", "dotenv file syntax", "what is .env file", "how to write .env file"
+#### B5 — `env-file-format.html` ✅ Done
+- **Target keywords:** ".env file format", "dotenv file syntax"
 - **Est. volume:** ~4k/mo
-- **Internal links:** `env-parser.html` (Phase 5 Task 6)
-- **Angle:** Full .env syntax guide: KEY=VALUE, comments, quotes, multiline, special characters; common mistakes; Docker vs Node.js loading
 
 ---
 
 ### P2/P3 Blog Posts — Lower Priority (write after B1–B5)
 
-#### C1 — `json-null-vs-undefined.html`
+#### C1 — `json-null-vs-undefined.html` ✅ Done
 - **Target:** "json null vs undefined", "undefined in json"
-- **Angle:** JSON has no `undefined` — what happens when you stringify `undefined`, how to handle it
+- **Angle:** JSON has no `undefined` — all 3 stringify cases, replacer pattern, key-in-obj detection, cross-language table, 3 bug examples
 
 #### C2 — `json-date-format.html`
 - **Target:** "json date format", "how to store dates in json", "iso 8601 json"
@@ -98,16 +100,10 @@ Every `<pre><code>` block in new blog posts must have a "Copy" button. Implement
 - **Completed:** 2026-05-23
 - **Features built:** recursive type inference, format hints (email/uuid/date-time/uri), anyOf for mixed arrays, 4 samples, Copy Schema button, links to Schema Validator and Kafka Avro blog post
 
-#### T3 — Text Diff Tool
+#### T3 — Text Diff Tool ✅ Done
 - **File:** `text-diff.html`
 - **Keyword:** "text diff online", "compare two strings online", "diff checker" — ~15k/mo
-- **Why:** Extends existing `json-diff.html` to generic text; much broader audience; easy to build
-- **Library:** `diff` by kpdecker from CDN: `https://cdn.jsdelivr.net/npm/diff@5/dist/diff.min.js`
-- **What it does:**
-  - Two text panels (no JSON requirement)
-  - Diff button → line-by-line diff with added/removed highlighting
-  - Reuse diff CSS from `json-diff.html`
-- **Nav:** Add to "JSON Tools" dropdown as "Text Diff"
+- **Built:** Pure JS LCS engine (no CDN), ignore-case + ignore-whitespace toggles, side-by-side line-numbered output, Copy diff button, summary badges; added to navbar + sitemap
 
 #### T3b — Schema from Multiple JSON Samples *(planned 2026-05-24)*
 - **File:** `json-schema-multi-generator.html` + `js/json-schema-multi-generator.js`
@@ -214,10 +210,11 @@ These tools already exist but their pages are thin. Adding more content = higher
 
 ## Execution Order
 
-1. **Blog posts first** (B1–B5) — builds internal link targets for new tools
-2. **T1 + T2** — JSON Schema Validator + Generator (paired with blog B1)
-3. **T3** — Text Diff (broad audience, fast to build)
-4. **T4** — String Escape/Unescape (exact-match keyword, 1 hour to build)
-5. **Content enrichment** — Base64, UUID, JWT, Timestamp, Hash pages
-6. **T5–T8** — TOML, HTTP Status, Chmod, Markdown (in priority order)
-7. **C1, C2 blog posts** — after tools are live (internal links ready)
+1. ✅ **Blog posts B1–B5** — complete
+2. ✅ **T1 + T2** — JSON Schema Validator + Generator — complete
+3. ✅ **T3** — Text Diff — complete
+4. ✅ **C1** — json-null-vs-undefined — complete
+5. ⬜ **T4** — String Escape/Unescape (`string-escape.html`) — next tool
+7. ⬜ **Content enrichment** — Base64, UUID, JWT, Timestamp, Hash pages
+8. ⬜ **T3b** — Schema from Multiple JSON Samples
+9. ⬜ **T5–T8** — TOML, HTTP Status, Chmod, Markdown (in priority order)

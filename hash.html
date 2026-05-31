@@ -55,17 +55,32 @@
         {
           "@type": "Question",
           "name": "What is the difference between MD5 and SHA-256?",
-          "acceptedAnswer": { "@type": "Answer", "text": "MD5 produces a 128-bit (32 hex character) hash and is fast but cryptographically broken — do not use it for passwords or security. SHA-256 produces a 256-bit (64 hex character) hash and is part of the SHA-2 family, which is considered secure for most cryptographic purposes." }
+          "acceptedAnswer": { "@type": "Answer", "text": "MD5 produces a 128-bit (32 hex character) hash and is fast but cryptographically broken — intentional collisions can be generated. SHA-256 produces a 256-bit (64 hex character) hash and is part of the SHA-2 family, considered secure for digital signatures, integrity checks, and most cryptographic purposes." }
         },
         {
           "@type": "Question",
           "name": "Which hash algorithm should I use?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Use SHA-256 for general-purpose integrity checks, digital signatures, and security. Use SHA-512 for highest security. Use MD5 or SHA-1 only for non-security purposes like checksums or cache keys where speed matters and collision resistance is not required." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Use SHA-256 for general-purpose integrity checks, API signatures, and security. Use SHA-512 for maximum security margin. Use MD5 only for non-security purposes like cache keys or deduplication where collision resistance is not required. Never use MD5 or SHA-1 for passwords or any security-sensitive purpose." }
         },
         {
           "@type": "Question",
           "name": "Is my text sent to a server when hashing?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. All hashing is performed entirely in your browser. SHA-1, SHA-256, and SHA-512 use the browser's built-in WebCrypto API (crypto.subtle.digest). MD5 uses a client-side JavaScript library. Your text never leaves your device." }
+          "acceptedAnswer": { "@type": "Answer", "text": "No. All hashing runs in your browser. SHA-1, SHA-256, and SHA-512 use the browser's built-in WebCrypto API (crypto.subtle.digest). MD5 uses a JavaScript library running entirely in your browser tab. Your text never leaves your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I reverse a hash to get the original text?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Hash functions are one-way — there is no algorithm to derive the input from the hash output. For common short inputs, attackers use precomputed rainbow tables, which is why passwords must always be salted before hashing and why dedicated password hashing functions (bcrypt, Argon2, PBKDF2) should be used instead of raw SHA-256." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is a hash collision?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A hash collision is when two different inputs produce the same hash output. MD5 and SHA-1 are considered broken because researchers have demonstrated practical collision attacks. SHA-256 and SHA-512 have no known practical collisions." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I use hashing for passwords?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not with a general-purpose hash like SHA-256 directly. Password hashing requires a function specifically designed to be slow and to include a unique salt per password — use bcrypt, Argon2, or PBKDF2. These prevent brute-force and rainbow table attacks. SHA-256 is too fast to be used for passwords on its own." }
         }
       ]
     }
@@ -171,8 +186,22 @@
 
             <div id="errorContainer" style="display:none; margin-top:10px; padding:10px 14px; border-radius:6px; border:1px solid #f5c6cb;"></div>
 
-            <div class="info-section" style="margin-top:32px;">
-                <h3>When to use each algorithm</h3>
+            <div class="info-section">
+                <p style="margin:0;">A <strong>hash function</strong> converts any input into a fixed-length output (the hash). The same input always produces the same hash, but it is computationally infeasible to reverse the process. Even a single character change produces a completely different hash — this is called the avalanche effect.</p>
+            </div>
+            <div class="info-section" style="margin-top:1.5rem;">
+                <h2>Hash algorithm comparison</h2>
+                <table>
+                    <thead><tr><th>Algorithm</th><th>Output size</th><th>Security</th><th>Best used for</th></tr></thead>
+                    <tbody>
+                        <tr><td>MD5</td><td>128-bit (32 hex)</td><td>Broken — collisions possible</td><td>Checksums, cache keys (not security)</td></tr>
+                        <tr><td>SHA-1</td><td>160-bit (40 hex)</td><td>Weak — avoid for new systems</td><td>Legacy systems, Git commit IDs</td></tr>
+                        <tr><td>SHA-256</td><td>256-bit (64 hex)</td><td>Secure</td><td>Integrity checks, JWT, TLS, Bitcoin</td></tr>
+                        <tr><td>SHA-512</td><td>512-bit (128 hex)</td><td>Secure (higher margin)</td><td>High-security signatures, HMAC</td></tr>
+                    </tbody>
+                </table>
+
+                <h2>When to use each algorithm</h2>
                 <ul>
                     <li><strong>MD5</strong> — Fast, 32-character hex output. Cryptographically broken (collisions are possible). Use only for checksums, cache keys, or non-security purposes.</li>
                     <li><strong>SHA-1</strong> — 40-character hex output. Also considered weak for security. Still used in Git commit IDs and some legacy systems.</li>
@@ -190,11 +219,11 @@
             <h2>Frequently Asked Questions</h2>
             <details>
                 <summary>What is the difference between MD5 and SHA-256?</summary>
-                <p>MD5 produces a 128-bit (32 hex characters) hash and is fast but cryptographically broken — collisions can be generated intentionally. SHA-256 produces a 256-bit (64 hex characters) hash and is part of the SHA-2 family, considered secure for most cryptographic purposes including digital signatures and integrity checks.</p>
+                <p>MD5 produces a 128-bit (32 hex characters) hash and is fast but cryptographically broken — intentional collisions can be generated. SHA-256 produces a 256-bit (64 hex characters) hash and is part of the SHA-2 family, considered secure for digital signatures, integrity checks, and most cryptographic purposes.</p>
             </details>
             <details>
                 <summary>Which algorithm should I use?</summary>
-                <p>Use <strong>SHA-256</strong> for integrity checks, API signatures, JWTs, and general security. Use <strong>SHA-512</strong> when you need maximum security margin. Use <strong>MD5</strong> only for non-security use cases like quick checksums or deduplication keys. Do not use MD5 or SHA-1 for any security-sensitive purpose.</p>
+                <p>Use <strong>SHA-256</strong> for integrity checks, API signatures, JWTs, and general security. Use <strong>SHA-512</strong> for maximum security margin. Use <strong>MD5</strong> only for non-security purposes like cache keys or checksums where collision resistance is not required. Never use MD5 or SHA-1 for passwords or any security-sensitive purpose.</p>
             </details>
             <details>
                 <summary>Is my text sent to a server when hashing?</summary>
@@ -202,9 +231,19 @@
             </details>
             <details>
                 <summary>Can I reverse a hash to get the original text?</summary>
-                <p>No. Hash functions are one-way — there is no algorithm to reverse a hash to its input. For common passwords, attackers use precomputed rainbow tables, which is why passwords must always be salted before hashing.</p>
+                <p>No. Hash functions are one-way — there is no algorithm to derive the input from the hash output. For common short inputs, attackers use precomputed rainbow tables, which is why passwords must always be salted and why dedicated password hashing functions (bcrypt, Argon2, PBKDF2) should be used instead of raw SHA-256.</p>
+            </details>
+            <details>
+                <summary>What is a hash collision?</summary>
+                <p>A collision is when two different inputs produce the same hash output. MD5 and SHA-1 are considered broken because researchers have demonstrated practical collision attacks against them. SHA-256 and SHA-512 have no known practical collisions.</p>
+            </details>
+            <details>
+                <summary>Should I use hashing for passwords?</summary>
+                <p>Not with a general-purpose hash like SHA-256 directly. Password hashing requires a function specifically designed to be slow and to include a unique salt per password — use <strong>bcrypt</strong>, <strong>Argon2</strong>, or <strong>PBKDF2</strong>. These prevent brute-force and rainbow table attacks. SHA-256 is too fast for passwords on its own.</p>
             </details>
         </section>
+
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: May 2026</p>
 
         <section class="related-tools">
             <h2>Related Tools</h2>
@@ -213,6 +252,13 @@
                 <li><a href="base64.html">Base64 Encoder &amp; Decoder</a></li>
                 <li><a href="jwt-decoder.html">JWT Decoder</a></li>
                 <li><a href="url-encoder.html">URL Encoder &amp; Decoder</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/sha256-vs-sha512.html">SHA-256 vs SHA-512: Which Should You Use?</a></li>
+                <li><a href="blog/hash-guide.html">Hash Functions: A Complete Guide</a></li>
             </ul>
         </section>
     </main>
