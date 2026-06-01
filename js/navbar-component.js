@@ -46,6 +46,7 @@
         '                        <li><a href="' + r + 'base64.html">Base64</a></li>\n' +
         '                        <li><a href="' + r + 'url-encoder.html">URL Encoder</a></li>\n' +
         '                        <li><a href="' + r + 'jwt-decoder.html">JWT Decoder</a></li>\n' +
+        '                        <li><a href="' + r + 'string-escape.html">String Escape</a></li>\n' +
         '                    </ul>\n' +
         '                </li>\n' +
         '                <li class="nav-dropdown">\n' +

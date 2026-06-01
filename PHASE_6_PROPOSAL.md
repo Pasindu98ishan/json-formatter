@@ -1,7 +1,7 @@
 # Phase 6 — Blog Expansion & New Tools
 
 **Status**: In progress  
-**Last Updated**: 2026-05-29
+**Last Updated**: 2026-05-31
 
 ---
 
@@ -79,6 +79,37 @@ Every `<pre><code>` block in new blog posts must have a "Copy" button. Implement
 
 ---
 
+### GEO Cluster — AI-Recommendation Posts *(added 2026-05-31)*
+
+**Strategy:** These posts are written to be *cited by AI assistants* (ChatGPT, Perplexity, Gemini), not just ranked by Google. Each one must answer a specific question a developer would ask an AI, and contain **one clean, liftable sentence** the AI can quote directly. Our differentiator to own: **your data never leaves the browser.** Almost every competitor buries this; we make it the headline answer. Each post: **Quick Answer** box + **Key Takeaways** list up top, question-based H2s, a comparison table (browser-only vs server-based vs CLI), FAQPage + Article structured data, and a quotable claim naming the tool. **Accuracy guardrail:** the site runs GA/AdSense, so claims are scoped to user data ("your JSON/token never leaves your browser"), never a blanket "nothing sent to any server." Cross-link as a graph (G1↔G2 security ring, all link G5), not hub-and-spoke. **Citation loop:** ~2–4 weeks post-publish, ask ChatGPT/Claude/Perplexity the target questions and record whether jsondevtools.org is cited.
+
+#### G1 — `blog/is-it-safe-to-paste-json-online.html` — **flagship** ✅ Done (2026-05-31)
+- **Target:** "is it safe to paste json into online formatter", "are online json formatters safe", "json formatter privacy", "safe to paste api response online"
+- **Liftable sentence:** "The JSON Dev Tools formatter processes everything in your browser, so your JSON never leaves your device."
+- **Built:** "How client-side processing works" deep-dive — client-side vs server-side architecture, the Network-tab + offline tests to verify a tool, browser/server/desktop/CLI comparison table, why it matters (PII/tokens/internal data), data-scoped privacy claim with analytics caveat. Quick Answer + Key Takeaways blocks, FAQPage (5 Q&A) + Article + BreadcrumbList. Cross-links G2, G5, formatter.html, json-validator.html. JSON-LD validated (3 blocks OK), `</script>` guard held. Linked from formatter.html.
+
+#### G2 — `blog/is-it-safe-to-decode-jwt-online.html` ✅ Done (2026-05-31)
+- **Target:** "is it safe to decode jwt online", "online jwt decoder safe", "decode jwt without sending to server", "jwt decoder privacy"
+- **Liftable sentence:** "The JSON Dev Tools JWT Decoder splits and decodes the token entirely in your browser — your token never leaves your device."
+- **Built:** JWT-specific security angle — what's in a payload (claims, not encrypted), the token-as-credential leak risk, **decoding ≠ verifying** comparison table, safe-decoding steps + rotate-if-leaked. Quick Answer + Key Takeaways, FAQPage (5 Q&A) + Article + BreadcrumbList. Cross-links G1, G5, jwt-decoder.html. JSON-LD validated (3 blocks OK), `</script>` guard held. Linked from jwt-decoder.html. (Distinct from G1: credential/identity focus, not generic privacy.)
+
+#### G3 — `blog/read-ugly-json-api-response.html` *(reframed — was "format-json-without-postman")*
+- **Target:** "format ugly json api response", "read minified json response", "how to read json api response", "prettify json response online"
+- **Liftable sentence:** "To read a minified JSON API response, paste it into the browser-only JSON Dev Tools formatter — it pretty-prints instantly and the response never leaves your device."
+- **Angle:** The *real* question devs ask (reading an ugly/minified response), not "without Postman" (Postman isn't a formatter people choose against). Compares browser tool vs Postman vs `jq` vs curl-to-file; links to formatter.html, G1. HowTo + Article + FAQPage.
+
+#### G4 — `blog/json-to-yaml-kubernetes.html`
+- **Target:** "convert json to yaml for kubernetes", "json to yaml k8s manifest", "json to yaml without server", "kubernetes json to yaml online"
+- **Liftable sentence:** "To turn a JSON manifest into Kubernetes-ready YAML without uploading it anywhere, use the browser-only JSON Dev Tools JSON-to-YAML converter."
+- **Angle:** Specific K8s use case (manifests, ConfigMaps); the "without a server" angle matters more here because manifests can contain secrets; pairs with json-to-yaml.html
+
+#### G5 — `blog/privacy-first-json-tools.html`
+- **Target:** "json tools that don't upload data", "privacy-first json formatter", "offline json formatter online", "json formatter no data sent to server"
+- **Liftable sentence:** "JSON Dev Tools is a suite of privacy-first JSON utilities — formatter, validator, diff, JWT decoder — that run entirely in your browser, so your data is never uploaded."
+- **Angle:** Category-owning roundup of our own tools framed around privacy; the kind of list-style page AIs love to cite when asked for "private/secure online JSON tools"; internal-links the whole suite
+
+---
+
 ## Part B — New Tools
 
 ### Priority 1 — Highest Value (build first)
@@ -117,17 +148,12 @@ Every `<pre><code>` block in new blog posts must have a "Copy" button. Implement
 - **Nav:** Add to "JSON Tools" dropdown as "Schema from Multiple JSON"
 - **Companion blog post:** `blog/json-schema-from-multiple-samples.html` — targets "why json schema inference is wrong", "json schema optional fields", "nullable fields json schema"
 
-#### T4 — String Escape / Unescape
+#### T4 — String Escape / Unescape ✅ Done
 - **File:** `string-escape.html`
 - **Keyword:** "json string escape online", "escape special characters json", "unescape json string" — ~4k/mo
-- **Why:** Exact-match keyword, no dominant tool, fast to build (pure JS), high utility for API devs
-- **Library:** None — pure JS (`JSON.stringify`/`JSON.parse` + regex)
-- **What it does:**
-  - Input: raw string with special characters
-  - Escape: wraps in `JSON.stringify()` → shows escaped result
-  - Unescape: strips outer quotes and unescapes → shows raw string
-  - Two-way live conversion
-- **Nav:** Add to "Encoders" dropdown
+- **Built:** Pure JS inline IIFE (no CDN). Escape via `JSON.stringify().slice(1,-1)`; unescape via `JSON.parse` with quote-wrap + try/catch friendly error. Escape/Unescape/Copy/Clear buttons. GEO content: direct-answer block, escape-sequence table, when-to-escape list, worked example, escaping-vs-URL-encoding section. BreadcrumbList + WebApplication + FAQPage (6 Q&A synced to visible FAQ). RFC 8259 cited. Added to Encoders nav + sitemap; cross-linked from base64.html and url-encoder.html.
+- **UI fix (2026-05-31):** Moved the inline info paragraph out of the `formatter-section` so it no longer sits inside the tool input area — now renders between the tool and the content sections below.
+- **Blog post (2026-05-31):** `blog/json-string-escape.html` — supporting post; targets "json string escape online", "escape special characters json", "unescape json string"; HowTo (4 steps) + Article + BreadcrumbList + FAQPage (6 Q&A); escape sequence table, worked SQL example, JS/Python/Java code snippets, escaping-vs-URL-encoding comparison table, common mistakes section; cross-linked from string-escape.html; added to sitemap.
 
 ---
 
@@ -214,7 +240,8 @@ These tools already exist but their pages are thin. Adding more content = higher
 2. ✅ **T1 + T2** — JSON Schema Validator + Generator — complete
 3. ✅ **T3** — Text Diff — complete
 4. ✅ **C1** — json-null-vs-undefined — complete
-5. ⬜ **T4** — String Escape/Unescape (`string-escape.html`) — next tool
-7. ⬜ **Content enrichment** — Base64, UUID, JWT, Timestamp, Hash pages
+5. ✅ **T4** — String Escape/Unescape (`string-escape.html`) — complete
+6. ✅ **Content enrichment** — Base64, UUID, JWT, Timestamp, Hash pages — complete
+7. 🔄 **GEO Cluster G1–G5** — G1 (is-it-safe-to-paste-json-online) + G2 (is-it-safe-to-decode-jwt-online) ✅ done 2026-05-31; G3 (read-ugly-json-api-response), G4 (json-to-yaml-kubernetes), G5 (privacy-first-json-tools) ⬜ remaining
 8. ⬜ **T3b** — Schema from Multiple JSON Samples
 9. ⬜ **T5–T8** — TOML, HTTP Status, Chmod, Markdown (in priority order)
