@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="How to convert JSON to YAML for Kubernetes — with a real Deployment example, the string-boolean trap that silently breaks k8s configs, and why browser-only conversion matters when manifests contain secrets.">
+    <meta name="keywords" content="convert json to yaml for kubernetes, json to yaml k8s manifest, kubernetes json to yaml online, k8s manifest converter, json to yaml configmap, kubernetes deployment yaml from json, kubernetes yaml boolean string, configmap yes no boolean, kubernetes yaml multiline string, kubernetes yaml tabs vs spaces, kubectl json vs yaml">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-to-yaml-kubernetes.html">
+    <meta property="og:title" content="JSON to YAML for Kubernetes: Conversion Guide + Gotchas">
+    <meta property="og:description" content="Convert a JSON manifest to Kubernetes-ready YAML safely. Covers the string-boolean trap, multiline strings, and why browser-only conversion matters for secrets.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-to-yaml-kubernetes.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>JSON to YAML for Kubernetes: Conversion Guide + Gotchas | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON to YAML for Kubernetes", "item": "https://jsondevtools.org/blog/json-to-yaml-kubernetes.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON to YAML for Kubernetes: Conversion Guide + Gotchas",
+      "description": "How to convert a JSON Kubernetes manifest to YAML, with a real Deployment example and the YAML traps — string booleans, multiline values, and indentation rules — that silently break k8s configs.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-06-02",
+      "dateModified": "2026-06-02",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can Kubernetes use JSON manifests instead of YAML?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. kubectl accepts both JSON and YAML — kubectl apply -f deployment.json works exactly like kubectl apply -f deployment.yaml. The Kubernetes API itself uses JSON internally. YAML is the community convention because it is more readable and supports comments, but there is no technical requirement to convert if you prefer JSON." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the string-boolean trap in Kubernetes YAML?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Many YAML parsers historically treated bare words like yes, no, on, off, true, and false as booleans rather than strings. If a Kubernetes ConfigMap value is the string 'no' and you write it unquoted in YAML, it can become the boolean false — a different type that may crash your application or fail schema validation. It is safest to quote any string value that looks like a boolean in k8s YAML." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it safe to convert a Kubernetes manifest online if it contains secrets?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Only with a browser-only converter. A server-based converter uploads your manifest to a third-party server, which may log Secret values, environment variable credentials, and other sensitive data. A client-side tool like the JSON Dev Tools JSON-to-YAML converter processes everything in your browser — your manifest never leaves your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does Kubernetes YAML require exactly 2-space indentation?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Kubernetes does not technically require 2 spaces — YAML allows any consistent indentation width within a file. However, 2 spaces is the universal Kubernetes convention enforced by linters like yamllint and required by many CI/CD tools. Tab characters are forbidden by the YAML spec and will cause a parse error in any Kubernetes manifest." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I convert a multiline string from JSON to Kubernetes YAML?",
+          "acceptedAnswer": { "@type": "Answer", "text": "In JSON a multiline string uses backslash-n escape sequences. In YAML there are two block scalar styles: the literal block (pipe character) preserves newlines exactly, and the folded block (greater-than character) folds newlines into spaces. For a shell script or SQL in a ConfigMap, use the literal block style to preserve line breaks exactly as they are." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>JSON to YAML for Kubernetes</span>
+            </nav>
+            <h1>JSON to YAML for Kubernetes: Conversion Guide + Gotchas</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; 8 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Paste your JSON manifest into the <strong><a href="../json-to-yaml.html">JSON Dev Tools JSON-to-YAML converter</a></strong> &mdash; it converts in your browser and your manifest is never uploaded. Before you do, know these two rules: (1) any string value that looks like a boolean (<code>yes</code>, <code>no</code>, <code>true</code>, <code>false</code>) <strong>must be quoted</strong> in the output YAML, or Kubernetes will receive the wrong type; (2) <strong>tabs are forbidden</strong> &mdash; the converter uses 2-space indentation which is what k8s tooling expects.</p>
+            </div>
+
+            <p class="article-lede">Kubernetes accepts both JSON and YAML, but the ecosystem expects YAML &mdash; <code>kubectl</code> examples, Helm charts, and every GitOps workflow are written in it. Converting a JSON manifest is straightforward, but three specific YAML quirks can silently corrupt a manifest in ways that are hard to debug. This guide covers the conversion process and exactly what to watch for.</p>
+
+            <h2>Key takeaways</h2>
+            <ul>
+                <li><strong>kubectl accepts both formats.</strong> <code>kubectl apply -f manifest.json</code> works. You don't <em>have</em> to convert &mdash; but YAML is the convention.</li>
+                <li><strong>The Kubernetes YAML string-boolean trap is real.</strong> Many parsers treat unquoted <code>no</code>, <code>yes</code>, <code>on</code>, <code>off</code> as booleans — always quote these strings in ConfigMaps and env vars.</li>
+                <li><strong>Tabs kill manifests.</strong> The YAML spec forbids tabs. One tab character will crash <code>kubectl apply</code>.</li>
+                <li><strong>Multiline strings need explicit style.</strong> JSON's <code>\n</code> escapes become literal block scalars (<code>|</code>) in YAML for scripts and SQL.</li>
+                <li><strong>Secrets in manifests need a client-side converter</strong> &mdash; one that doesn't upload your manifest to a server.</li>
+            </ul>
+
+            <h2>kubectl JSON vs YAML — do you actually need to convert?</h2>
+
+            <p>Before converting, worth knowing: <code>kubectl</code> speaks JSON natively. The Kubernetes API is a REST API that uses JSON internally &mdash; YAML manifests are parsed to JSON by <code>kubectl</code> before being sent to the API server. So <code>kubectl apply -f deployment.json</code> is completely valid.</p>
+
+            <p><strong>When to stay with JSON:</strong> your manifest is generated programmatically, you're working in a pipeline that produces JSON, or your team is comfortable with it.</p>
+
+            <p><strong>When to convert to YAML:</strong> you want comments (YAML supports them, JSON doesn't), you're contributing to a project that uses YAML conventions, or you're working with Helm/Kustomize/ArgoCD which all expect YAML.</p>
+
+            <h2>A real example: Deployment JSON &rarr; YAML</h2>
+
+            <p>Here is a minimal Deployment manifest in JSON:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "web-app",
+    "labels": { "app": "web" }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": { "matchLabels": { "app": "web" } },
+    "template": {
+      "metadata": { "labels": { "app": "web" } },
+      "spec": {
+        "containers": [{
+          "name": "web",
+          "image": "nginx:1.25",
+          "ports": [{ "containerPort": 80 }]
+        }]
+      }
+    }
+  }
+}</code></pre>
+            </div>
+
+            <p>Pasted into the <a href="../json-to-yaml.html">converter</a>, it becomes:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.25
+          ports:
+            - containerPort: 80</code></pre>
+            </div>
+
+            <p>This is valid, ready-to-apply YAML. Now for the gotchas that make this go wrong.</p>
+
+            <h2>Gotcha 1 — the Kubernetes YAML string-boolean trap</h2>
+
+            <p>Many YAML parsers historically treated a set of bare words as booleans rather than strings: <code>true</code>, <code>false</code>, <code>yes</code>, <code>no</code>, <code>on</code>, <code>off</code> (and their capitalised variants). Parser behavior varies by implementation and version, but the risk is real enough that the safe rule is simple: <strong>always quote string values that look like booleans in Kubernetes YAML.</strong></p>
+
+            <p>In practice: if a ConfigMap value is the string <code>"no"</code> in your JSON, the converted YAML must quote it. Without quotes:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># JSON
+{ "FEATURE_FLAG": "no" }
+
+# Converted YAML — WRONG (no is parsed as boolean false)
+FEATURE_FLAG: no
+
+# Correct YAML — string is preserved
+FEATURE_FLAG: "no"</code></pre>
+            </div>
+
+            <p>Kubernetes validates the type it receives. A field expecting a string that gets a boolean will fail with a type mismatch error &mdash; often a confusing one since the YAML "looks" right. <strong>Always check converted YAML for unquoted boolean-looking string values, especially in ConfigMaps and environment variable lists.</strong></p>
+
+            <h2>Gotcha 2 — Kubernetes YAML multiline strings (scripts, SQL, config)</h2>
+
+            <p>JSON encodes newlines as <code>\n</code> escape sequences. When a JSON-to-YAML converter sees a string with <code>\n</code>, it has to choose a YAML block scalar style. There are two:</p>
+
+            <table>
+                <thead>
+                    <tr><th>Style</th><th>Indicator</th><th>Newlines</th><th>When to use</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Literal block</td><td><code>|</code></td><td>Preserved exactly</td><td>Shell scripts, SQL, any content where line breaks matter</td></tr>
+                    <tr><td>Folded block</td><td><code>&gt;</code></td><td>Folded to spaces</td><td>Long descriptive strings where line breaks are cosmetic</td></tr>
+                </tbody>
+            </table>
+
+            <p>For a shell script in a ConfigMap, you want literal (<code>|</code>):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>data:
+  startup.sh: |
+    #!/bin/bash
+    echo "Starting service"
+    exec "$@"</code></pre>
+            </div>
+
+            <p>If a converter outputs the folded style (<code>&gt;</code>) for a shell script, the newlines collapse into spaces and the script breaks. Check multiline values after conversion.</p>
+
+            <h2>Gotcha 3 — numeric strings</h2>
+
+            <p>Like booleans, YAML infers types from unquoted values. A version string like <code>"1.10"</code> in JSON may become <code>1.1</code> (a float, with the trailing zero dropped) in YAML if left unquoted. Port numbers, version tags, and anything that looks numeric but should be treated as a string must be quoted:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Wrong — YAML infers float
+version: 1.10
+
+# Correct — explicitly a string
+version: "1.10"</code></pre>
+            </div>
+
+            <h2>Kubernetes YAML tabs vs spaces — indentation rules</h2>
+
+            <p>The YAML spec forbids tab characters — any tab in a manifest causes a hard parse error when you run <code>kubectl apply</code>. The error message (<em>found character that cannot start any token</em>) is not always obvious. Always use spaces.</p>
+
+            <p>Two spaces per indent level is the Kubernetes community standard and what tooling like <code>yamllint</code>, Helm, and most IDE plugins enforce. The <a href="../json-to-yaml.html">JSON-to-YAML converter</a> outputs 2-space indentation automatically.</p>
+
+            <h2>Converting safely when the manifest contains secrets</h2>
+
+            <p>Kubernetes Secret manifests contain base64-encoded credentials. Even encoded, pasting a Secret manifest into a server-based converter sends those credentials to a third party. <strong>The <a href="../json-to-yaml.html">JSON Dev Tools converter</a> is client-side &mdash; your manifest is converted in your browser and never uploaded.</strong> For the full explanation of how to verify any online tool is genuinely client-side, see <a href="is-it-safe-to-paste-json-online.html">is it safe to paste JSON into an online tool?</a></p>
+
+            <h2>Browser-only converter vs alternatives</h2>
+
+            <table>
+                <thead>
+                    <tr><th>Approach</th><th>Where manifest goes</th><th>Safe for Secrets</th><th>Handles YAML gotchas</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><a href="../json-to-yaml.html">JSON Dev Tools</a> (browser-only)</td><td>Stays in your browser</td><td>Yes</td><td>Auto 2-space indent, no tabs</td></tr>
+                    <tr><td>Server-based online converter</td><td>Uploaded to third party</td><td>No</td><td>Varies</td></tr>
+                    <tr><td><code>python -c "import sys,yaml,json; print(yaml.dump(json.load(sys.stdin)))"</code></td><td>Stays local</td><td>Yes</td><td>Check for boolean/numeric quirks</td></tr>
+                    <tr><td><code>yq</code> CLI</td><td>Stays local</td><td>Yes</td><td>Full control; supports YAML 1.2</td></tr>
+                </tbody>
+            </table>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>Can Kubernetes use JSON manifests instead of YAML?</summary>
+                    <p>Yes. <code>kubectl</code> accepts both JSON and YAML &mdash; <code>kubectl apply -f deployment.json</code> works exactly like <code>kubectl apply -f deployment.yaml</code>. The Kubernetes API itself uses JSON internally. YAML is the community convention because it is more readable and supports comments, but there is no technical requirement to convert if you prefer JSON.</p>
+                </details>
+
+                <details>
+                    <summary>What is the string-boolean trap in Kubernetes YAML?</summary>
+                    <p>Many YAML parsers historically treated bare words like <code>yes</code>, <code>no</code>, <code>on</code>, <code>off</code>, <code>true</code>, <code>false</code> as booleans rather than strings. If a Kubernetes ConfigMap value is the string <code>no</code> and you write it unquoted in YAML, it can become the boolean <code>false</code> &mdash; a different type that may crash your application or fail schema validation. It is safest to quote any string value that looks like a boolean in k8s YAML.</p>
+                </details>
+
+                <details>
+                    <summary>Is it safe to convert a Kubernetes manifest online if it contains secrets?</summary>
+                    <p>Only with a browser-only converter. A server-based converter uploads your manifest to a third-party server, which may log Secret values, environment variable credentials, and other sensitive data. A client-side tool like the <a href="../json-to-yaml.html">JSON Dev Tools JSON-to-YAML converter</a> processes everything in your browser &mdash; your manifest never leaves your device.</p>
+                </details>
+
+                <details>
+                    <summary>Why does Kubernetes YAML require exactly 2-space indentation?</summary>
+                    <p>Kubernetes does not technically require 2 spaces &mdash; YAML allows any consistent indentation within a file. However, 2 spaces is the universal Kubernetes convention enforced by linters like <code>yamllint</code> and required by many CI/CD tools. Tab characters are forbidden by the YAML spec and will cause a parse error in any Kubernetes manifest.</p>
+                </details>
+
+                <details>
+                    <summary>How do I convert a multiline string from JSON to Kubernetes YAML?</summary>
+                    <p>In JSON a multiline string uses <code>\n</code> escape sequences. In YAML there are two block scalar styles: the literal block (<code>|</code>) preserves newlines exactly, and the folded block (<code>&gt;</code>) folds newlines into spaces. For a shell script or SQL in a ConfigMap, use the literal block style (<code>|</code>) to preserve line breaks exactly as they are.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Convert JSON to YAML now &mdash; stays in your browser</h3>
+                <p>Paste your manifest, get YAML with correct 2-space indentation and no tabs. Your manifest never leaves your device.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-yaml.html" class="btn btn-primary">Open JSON to YAML Converter</a>
+                    <a href="is-it-safe-to-paste-json-online.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Is it safe to paste JSON?</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">JSON Formatter</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-yaml.html">JSON to YAML Converter</a> &mdash; convert manifests in your browser</li>
+                <li><a href="../yaml-to-json.html">YAML to JSON Converter</a> &mdash; reverse the conversion</li>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; format JSON manifests before converting</li>
+                <li><a href="../json-validator.html">JSON Validator</a> &mdash; validate JSON manifest syntax</li>
+            </ul>
+        </section>
+
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="is-it-safe-to-paste-json-online.html">Is It Safe to Paste JSON Into an Online Formatter?</a></li>
+                <li><a href="yaml-vs-json.html">YAML vs JSON: Which Should You Use?</a></li>
+                <li><a href="read-ugly-json-api-response.html">How to Read a Minified JSON API Response</a></li>
+                <li><a href="privacy-first-json-tools.html">Privacy-First JSON Tools That Don't Upload Your Data</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
