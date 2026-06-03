@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HTTP 422 Unprocessable Entity explained for JSON APIs — validation errors, example error body with field details, and how it differs from 400.">
+    <meta name="keywords" content="http 422, 422 unprocessable entity, what is http 422, how to fix 422, 422 status code, http 422 json api">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/http-status/422.html">
+    <meta property="og:title" content="HTTP 422 Unprocessable Entity — Meaning, Causes &amp; How to Fix">
+    <meta property="og:description" content="HTTP 422 Unprocessable Entity means the request was well-formed (valid JSON) but failed semantic validation — a field has an invalid value or a business rule was violated.">
+    <meta property="og:url" content="https://jsondevtools.org/http-status/422.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>HTTP 422 Unprocessable Entity — Meaning, Causes &amp; How to Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://jsondevtools.org/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "HTTP Status Codes",
+      "item": "https://jsondevtools.org/http-status.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "422 Unprocessable Entity",
+      "item": "https://jsondevtools.org/http-status/422.html"
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "HTTP 422 Unprocessable Entity — Meaning, Causes & How to Fix",
+  "description": "HTTP 422 Unprocessable Entity explained for JSON APIs — validation errors, example error body with field details, and how it differs from 400.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-02",
+  "dateModified": "2026-06-02",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is the difference between 400 and 422?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "400 means the request is malformed and cannot be parsed (e.g. invalid JSON). 422 means the JSON is valid but fails validation — a field has a bad value or breaks a rule. Use 400 for unparseable requests and 422 for valid-but-rejected data."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix a 422 error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Read the validation errors in the response body — most APIs return an errors array naming each failing field. Correct those fields (formats, ranges, required values) and resubmit."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is 422 part of the HTTP standard?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "422 originated in WebDAV (RFC 4918) and is now widely adopted by REST/JSON APIs for validation errors. It is well supported by frameworks and clients even though it is not in the original core HTTP spec."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../http-status.html">HTTP Status Codes</a> &rsaquo;
+                <span>422 Unprocessable Entity</span>
+            </nav>
+            <h1>HTTP 422 Unprocessable Entity</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; HTTP status code reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">HTTP 422 Unprocessable Entity means the request was well-formed (valid JSON) but failed semantic validation — a field has an invalid value or a business rule was violated.</p>
+            </div>
+
+            <h2>What HTTP 422 means</h2>
+            <p><strong>422 Unprocessable Entity</strong> is widely used by JSON APIs to report validation failures. The server understood the request and the JSON parsed fine, but the data itself is invalid — an email in the wrong format, a value out of range, or a missing relationship. The response typically lists the specific field errors.</p>
+
+            <h2>Common causes</h2>
+            <ul>
+                <li>A field fails validation (invalid email, too short, out of range)</li>
+                <li>A required field is null or empty</li>
+                <li>A value violates a business rule (e.g. end date before start date)</li>
+                <li>A referenced resource does not exist</li>
+            </ul>
+
+            <h2>Example JSON error response</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "error": "Unprocessable Entity",
+  "message": "Validation failed",
+  "status": 422,
+  "errors": [
+    { "field": "email", "message": "is not a valid email address" },
+    { "field": "age", "message": "must be 18 or older" }
+  ]
+}</code></pre>
+            </div>
+
+            <h2>Raw HTTP response</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json</code></pre>
+            </div>
+
+            <h2>How to troubleshoot HTTP 422</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <code>errors</code> array in the response body for field-level details</li>
+                <li>&#10003; Fix each field that failed validation</li>
+                <li>&#10003; Check value ranges, formats, and required relationships</li>
+                <li>&#10003; Confirm the JSON itself is valid first (otherwise you get a <a href="400.html">400</a>)</li>
+                <li>&#10003; Re-submit once all listed fields are corrected</li>
+            </ul>
+
+            <h2>400 vs 422 — what's the difference?</h2><p><a href="400.html">400 Bad Request</a> means the server could not even parse the request — for a JSON API, the body isn't valid JSON. <strong>422 Unprocessable Entity</strong> means the JSON parsed fine but the data failed validation. If the parser chokes, it's 400; if it reads the data but rejects its values, it's 422.</p>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>What is the difference between 400 and 422?</summary>
+                <p><a href="400.html">400</a> means the request is malformed and cannot be parsed (e.g. invalid JSON). 422 means the JSON is valid but fails validation — a field has a bad value or breaks a rule. Use 400 for unparseable requests and 422 for valid-but-rejected data.</p>
+            </details>
+            <details>
+                <summary>How do I fix a 422 error?</summary>
+                <p>Read the validation errors in the response body — most APIs return an errors array naming each failing field. Correct those fields (formats, ranges, required values) and resubmit.</p>
+            </details>
+            <details>
+                <summary>Is 422 part of the HTTP standard?</summary>
+                <p>422 originated in WebDAV (RFC 4918) and is now widely adopted by REST/JSON APIs for validation errors. It is well supported by frameworks and clients even though it is not in the original core HTTP spec.</p>
+            </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with a JSON API response?</h3>
+                <p>Format and inspect any response in your browser &mdash; nothing is uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Status Codes</h2>
+            <ul>
+                <li><a href="400.html">HTTP 400 Bad Request</a></li>
+                <li><a href="401.html">HTTP 401 Unauthorized</a></li>
+                <li><a href="404.html">HTTP 404 Not Found</a></li>
+                <li><a href="../http-status.html">&larr; All HTTP status codes</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HTTP 204 No Content explained for REST/JSON APIs — why there is no response body, and when DELETE and PUT return it.">
+    <meta name="keywords" content="http 204, 204 no content, what is http 204, how to fix 204, 204 status code, http 204 json api">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/http-status/204.html">
+    <meta property="og:title" content="HTTP 204 No Content — Meaning, Causes &amp; How to Fix">
+    <meta property="og:description" content="HTTP 204 No Content means the request succeeded but there is no response body to return. It is common for DELETE and successful PUT requests.">
+    <meta property="og:url" content="https://jsondevtools.org/http-status/204.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>HTTP 204 No Content — Meaning, Causes &amp; How to Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://jsondevtools.org/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "HTTP Status Codes",
+      "item": "https://jsondevtools.org/http-status.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "204 No Content",
+      "item": "https://jsondevtools.org/http-status/204.html"
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "HTTP 204 No Content — Meaning, Causes & How to Fix",
+  "description": "HTTP 204 No Content explained for REST/JSON APIs — why there is no response body, and when DELETE and PUT return it.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-02",
+  "dateModified": "2026-06-02",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can a 204 response have a body?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. 204 No Content explicitly means there is no message body. A client that tries to parse a body on a 204 may throw an \"unexpected end of JSON input\" error. If you need to return data, use 200 OK."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "When should an API return 204 instead of 200?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Return 204 when the operation succeeded but there is genuinely nothing to send back — most commonly a DELETE, or an update where you do not return the updated resource."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my fetch fail to parse JSON on a 204?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because there is no body to parse. Check for status 204 before calling response.json(), or your client will error on the empty body."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../http-status.html">HTTP Status Codes</a> &rsaquo;
+                <span>204 No Content</span>
+            </nav>
+            <h1>HTTP 204 No Content</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; HTTP status code reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">HTTP 204 No Content means the request succeeded but there is no response body to return. It is common for DELETE and successful PUT requests.</p>
+            </div>
+
+            <h2>What HTTP 204 means</h2>
+            <p><strong>204 No Content</strong> signals success with deliberately no body. The client should not try to parse a response body, because there is none. It is the idiomatic response for a <code>DELETE</code> that succeeded, or a <code>PUT</code>/<code>PATCH</code> that updated a resource when the API does not return the updated entity.</p>
+
+            <h2>Common causes</h2>
+            <ul>
+                <li>A successful <code>DELETE</code> request</li>
+                <li>A <code>PUT</code> or <code>PATCH</code> that succeeded but returns nothing</li>
+                <li>An action endpoint that completes successfully with no data to send back</li>
+            </ul>
+
+            <h2>Response body</h2>
+            <p>A 204 response has no body by definition — there is no JSON to return. Clients should check the status code and skip body parsing.</p>
+
+            <h2>Raw HTTP response</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>HTTP/1.1 204 No Content
+Date: Tue, 02 Jun 2026 10:00:00 GMT</code></pre>
+            </div>
+
+            <h2>How to handle HTTP 204</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Do not attempt to parse a response body — there is none</li>
+                <li>&#10003; Check the status code (204) rather than reading content</li>
+                <li>&#10003; Use 204 for successful DELETE when there is nothing to return</li>
+                <li>&#10003; If you need to return data, use <a href="200.html">200 OK</a> instead</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>Can a 204 response have a body?</summary>
+                <p>No. 204 No Content explicitly means there is no message body. A client that tries to parse a body on a 204 may throw an "unexpected end of JSON input" error. If you need to return data, use 200 OK.</p>
+            </details>
+            <details>
+                <summary>When should an API return 204 instead of 200?</summary>
+                <p>Return 204 when the operation succeeded but there is genuinely nothing to send back — most commonly a DELETE, or an update where you do not return the updated resource.</p>
+            </details>
+            <details>
+                <summary>Why does my fetch fail to parse JSON on a 204?</summary>
+                <p>Because there is no body to parse. Check for status 204 before calling response.json(), or your client will error on the empty body.</p>
+            </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with a JSON API response?</h3>
+                <p>Format and inspect any response in your browser &mdash; nothing is uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Status Codes</h2>
+            <ul>
+                <li><a href="200.html">HTTP 200 OK</a></li>
+                <li><a href="201.html">HTTP 201 Created</a></li>
+                <li><a href="304.html">HTTP 304 Not Modified</a></li>
+                <li><a href="../http-status.html">&larr; All HTTP status codes</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

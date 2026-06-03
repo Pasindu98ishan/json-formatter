@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HTTP 304 Not Modified explained — how conditional requests and caching work, and why there is no response body.">
+    <meta name="keywords" content="http 304, 304 not modified, what is http 304, how to fix 304, 304 status code, http 304 json api">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/http-status/304.html">
+    <meta property="og:title" content="HTTP 304 Not Modified — Meaning, Causes &amp; How to Fix">
+    <meta property="og:description" content="HTTP 304 Not Modified means your cached copy of the resource is still valid, so the server returns no body. It is sent in response to a conditional request.">
+    <meta property="og:url" content="https://jsondevtools.org/http-status/304.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>HTTP 304 Not Modified — Meaning, Causes &amp; How to Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://jsondevtools.org/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "HTTP Status Codes",
+      "item": "https://jsondevtools.org/http-status.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "304 Not Modified",
+      "item": "https://jsondevtools.org/http-status/304.html"
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "HTTP 304 Not Modified — Meaning, Causes & How to Fix",
+  "description": "HTTP 304 Not Modified explained — how conditional requests and caching work, and why there is no response body.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-02",
+  "dateModified": "2026-06-02",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why does a 304 have no body?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because the client already has a valid cached copy. The whole point of 304 is to save bandwidth by telling the client \"nothing changed, use what you have\" instead of resending the resource."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What triggers a 304 response?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A conditional request: the client sends If-None-Match with an ETag, or If-Modified-Since with a date. If the resource has not changed, the server replies 304 instead of 200 with the full body."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is 304 an error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. 304 is a normal, successful part of HTTP caching. It means the cached version is still good."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../http-status.html">HTTP Status Codes</a> &rsaquo;
+                <span>304 Not Modified</span>
+            </nav>
+            <h1>HTTP 304 Not Modified</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; HTTP status code reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">HTTP 304 Not Modified means your cached copy of the resource is still valid, so the server returns no body. It is sent in response to a conditional request.</p>
+            </div>
+
+            <h2>What HTTP 304 means</h2>
+            <p><strong>304 Not Modified</strong> is part of HTTP caching. When a client sends a conditional request with <code>If-None-Match</code> (an ETag) or <code>If-Modified-Since</code>, and the resource has not changed, the server responds 304 with no body. The client then uses its cached copy, saving bandwidth.</p>
+
+            <h2>Common causes</h2>
+            <ul>
+                <li>A conditional <code>GET</code> with <code>If-None-Match</code> where the ETag still matches</li>
+                <li>A request with <code>If-Modified-Since</code> where the resource is unchanged</li>
+                <li>Browser or CDN cache revalidation</li>
+            </ul>
+
+            <h2>Response body</h2>
+            <p>A 304 has no body — the client reuses its cached copy. Do not parse a response body on a 304.</p>
+
+            <h2>Raw HTTP response</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>HTTP/1.1 304 Not Modified
+ETag: "a1b2c3d4"
+Cache-Control: max-age=3600</code></pre>
+            </div>
+
+            <h2>How to handle HTTP 304</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Serve the resource from your local cache</li>
+                <li>&#10003; Check the <code>ETag</code> / <code>Last-Modified</code> values are being sent</li>
+                <li>&#10003; Do not parse a response body — there is none</li>
+                <li>&#10003; Confirm your client sends <code>If-None-Match</code> or <code>If-Modified-Since</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>Why does a 304 have no body?</summary>
+                <p>Because the client already has a valid cached copy. The whole point of 304 is to save bandwidth by telling the client "nothing changed, use what you have" instead of resending the resource.</p>
+            </details>
+            <details>
+                <summary>What triggers a 304 response?</summary>
+                <p>A conditional request: the client sends If-None-Match with an ETag, or If-Modified-Since with a date. If the resource has not changed, the server replies 304 instead of 200 with the full body.</p>
+            </details>
+            <details>
+                <summary>Is 304 an error?</summary>
+                <p>No. 304 is a normal, successful part of HTTP caching. It means the cached version is still good.</p>
+            </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with a JSON API response?</h3>
+                <p>Format and inspect any response in your browser &mdash; nothing is uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Status Codes</h2>
+            <ul>
+                <li><a href="200.html">HTTP 200 OK</a></li>
+                <li><a href="301.html">HTTP 301 Moved Permanently</a></li>
+                <li><a href="302.html">HTTP 302 Found</a></li>
+                <li><a href="../http-status.html">&larr; All HTTP status codes</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

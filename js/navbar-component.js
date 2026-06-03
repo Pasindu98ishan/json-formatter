@@ -10,10 +10,10 @@
         '                <span></span><span></span><span></span>\n' +
         '            </button>\n' +
         '            <ul class="nav-links">\n' +
-        '                <li><a href="' + r + 'formatter.html" class="nav-cta">JSON Formatter</a></li>\n' +
         '                <li class="nav-dropdown">\n' +
         '                    <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">JSON Tools &#9662;</button>\n' +
         '                    <ul class="dropdown-menu">\n' +
+        '                        <li><a href="' + r + 'formatter.html">JSON Formatter</a></li>\n' +
         '                        <li><a href="' + r + 'json-validator.html">JSON Validator</a></li>\n' +
         '                        <li><a href="' + r + 'json-schema-validator.html">JSON Schema Validator</a></li>\n' +
         '                        <li><a href="' + r + 'json-schema-generator.html">JSON Schema Generator</a></li>\n' +
@@ -55,6 +55,12 @@
         '                        <li><a href="' + r + 'uuid.html">UUID Generator</a></li>\n' +
         '                        <li><a href="' + r + 'hash.html">Hash Generator</a></li>\n' +
         '                        <li><a href="' + r + 'cron.html">CRON Generator</a></li>\n' +
+        '                    </ul>\n' +
+        '                </li>\n' +
+        '                <li class="nav-dropdown">\n' +
+        '                    <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Other Tools &#9662;</button>\n' +
+        '                    <ul class="dropdown-menu">\n' +
+        '                        <li><a href="' + r + 'http-status.html">HTTP Status Codes</a></li>\n' +
         '                    </ul>\n' +
         '                </li>\n' +
         '            </ul>\n' +
