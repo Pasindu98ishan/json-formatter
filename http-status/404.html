@@ -14,6 +14,10 @@
     <meta property="og:url" content="https://jsondevtools.org/http-status/404.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
     <title>HTTP 404 Not Found — Meaning, Causes &amp; How to Fix | JSON Dev Tools</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -66,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-03",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -101,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "404 Not Found means the resource is not there (it may never have existed, or its status is unknown). 410 Gone means the resource existed but was intentionally and permanently removed. Use 410 when you want to signal a deliberate, permanent deletion."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should an empty list return 404 or 200?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Return 200 OK with an empty array. A collection endpoint like /users?role=admin that matches no records still succeeded — the collection exists, it just has no items. Reserve 404 for a specific resource that does not exist, like /users/999."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why doesn't fetch() throw an error on a 404?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The JavaScript fetch() API only rejects on network failures, not on HTTP error statuses. A 404 is a successful HTTP exchange — the server responded — so fetch resolves normally. You must check response.ok or response.status yourself. axios is different: it rejects on 4xx/5xx, so you check error.response.status in a catch block."
       }
     }
   ]
@@ -170,6 +190,58 @@ Content-Type: application/json</code></pre>
                 <li>&#10003; Check the reverse proxy / gateway configuration is routing correctly</li>
             </ul>
 
+            <h2>How to handle a 404 in client code</h2>
+            <p>A 404 is not a network failure &mdash; the request succeeded and the server answered. So <code>fetch()</code> does <strong>not</strong> throw on a 404; you must check the status yourself. This is the single most common 404-handling bug in JavaScript:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// fetch does NOT reject on 404 — check response.ok
+const res = await fetch(`/api/users/${id}`);
+if (res.status === 404) {
+  // handle "not found" specifically
+  return null;
+}
+if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+const user = await res.json();</code></pre>
+            </div>
+
+            <p>With axios it is the opposite &mdash; axios <em>does</em> reject on 4xx/5xx, so catch the error and inspect <code>error.response.status</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>try {
+  const { data } = await axios.get(`/api/users/${id}`);
+  return data;
+} catch (err) {
+  if (err.response &amp;&amp; err.response.status === 404) return null;
+  throw err;
+}</code></pre>
+            </div>
+
+            <h2>Returning a 404 in different frameworks</h2>
+            <p>If you are building the API, here is how to return a proper 404 with a JSON body in common frameworks:</p>
+
+            <table>
+                <thead>
+                    <tr><th>Framework</th><th>How to return 404</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Express (Node.js)</td><td><code>res.status(404).json({ error: "Not Found" })</code></td></tr>
+                    <tr><td>Flask (Python)</td><td><code>return jsonify(error="Not Found"), 404</code></td></tr>
+                    <tr><td>FastAPI (Python)</td><td><code>raise HTTPException(status_code=404, detail="Not Found")</code></td></tr>
+                    <tr><td>Spring Boot (Java)</td><td><code>ResponseEntity.status(HttpStatus.NOT_FOUND).body(...)</code></td></tr>
+                    <tr><td>ASP.NET Core</td><td><code>return NotFound(new { error = "Not Found" });</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>When should an API return 404?</h2>
+            <p>404 is the right status when a specific resource does not exist &mdash; for example <code>GET /users/999</code> where user 999 was never created or was deleted. But two common cases are <em>not</em> 404s:</p>
+            <ul>
+                <li><strong>An empty collection is not a 404.</strong> <code>GET /users?role=admin</code> with no matching users should return <code>200 OK</code> with an empty array <code>[]</code> &mdash; the collection endpoint exists and succeeded; it simply has no items.</li>
+                <li><strong>A deleted-on-purpose resource can be 410.</strong> If a resource was intentionally and permanently removed and you want to signal that explicitly, <code>410 Gone</code> is more precise than 404.</li>
+            </ul>
+            <p>Returning a clear JSON error body with the 404 (rather than an empty response or an HTML error page) makes the failure far easier for API clients to handle &mdash; see <a href="../blog/api-returning-html-instead-of-json.html">why an API returns HTML instead of JSON</a>.</p>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -183,6 +255,14 @@ Content-Type: application/json</code></pre>
             <details>
                 <summary>What is the difference between 404 and 410?</summary>
                 <p>404 Not Found means the resource is not there (it may never have existed, or its status is unknown). 410 Gone means the resource existed but was intentionally and permanently removed. Use 410 when you want to signal a deliberate, permanent deletion.</p>
+            </details>
+            <details>
+                <summary>Should an empty list return 404 or 200?</summary>
+                <p>Return <code>200 OK</code> with an empty array. A collection endpoint like <code>/users?role=admin</code> that matches no records still succeeded — the collection exists, it just has no items. Reserve 404 for a specific resource that does not exist, like <code>/users/999</code>.</p>
+            </details>
+            <details>
+                <summary>Why doesn't fetch() throw an error on a 404?</summary>
+                <p>The JavaScript <code>fetch()</code> API only rejects on network failures, not on HTTP error statuses. A 404 is a successful HTTP exchange — the server responded — so <code>fetch</code> resolves normally. You must check <code>response.ok</code> or <code>response.status</code> yourself. (axios is different: it rejects on 4xx/5xx, so you check <code>error.response.status</code> in a catch block.)</p>
             </details>
             </section>
 
