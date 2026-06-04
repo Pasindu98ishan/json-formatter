@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "If the POST created a new resource, return 201 Created. If it performed an action without creating a resource (for example a search or a calculation), 200 OK is appropriate."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does fetch() treat a 200 differently from a 404?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No — fetch() resolves for both; it only rejects on network failures. A 404 is still a completed HTTP exchange. You must check response.ok or response.status yourself to distinguish a 200 from an error status."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a 200 response still represent a failure?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It should not, but some APIs return 200 with an error body — an anti-pattern. Prefer the correct status code (4xx/5xx) so clients can rely on the HTTP status. If you must consume such an API, check the body's own success flag in addition to the status."
       }
     }
   ]
@@ -147,7 +163,7 @@
                 <li>A <code>POST</code> that performed an action and returns a result (without creating a new resource)</li>
             </ul>
 
-            <h2>Example JSON error response</h2>
+            <h2>Example JSON response</h2>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre><code>{
@@ -175,6 +191,32 @@ Content-Length: 84</code></pre>
                 <li>&#10003; Do not assume 200 means a resource was created — use <a href="201.html">201</a> for that</li>
             </ul>
 
+            <h2>Handling HTTP 200 in client code</h2>
+            <p>A 200 is the happy path, but robust clients still verify it explicitly rather than assuming any non-error means success. With <code>fetch()</code>, check <code>response.ok</code> (true for 200&ndash;299) before reading the body — and remember <code>fetch</code> does not reject on 4xx/5xx, so this check is what separates success from failure:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/users/123');
+if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+
+// 200 reached — but guard against an empty/non-JSON body
+const text = await res.text();
+const user = text ? JSON.parse(text) : null;</code></pre>
+            </div>
+            <p>If you need to format or eyeball a 200 response while debugging, paste it into the <a href="../formatter.html">JSON Formatter</a> &mdash; or see <a href="../blog/read-ugly-json-api-response.html">how to read a minified JSON API response</a>.</p>
+
+            <h2>200 vs 201 vs 204 — which success code?</h2>
+            <p>The three common success codes are not interchangeable; each tells the client something different:</p>
+            <table>
+                <thead>
+                    <tr><th>Code</th><th>Meaning</th><th>Body</th><th>Use when</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>200 OK</strong></td><td>Generic success</td><td>Yes</td><td>GET, or an update/action that returns data</td></tr>
+                    <tr><td><a href="201.html">201 Created</a></td><td>Success + resource created</td><td>Usually</td><td>POST that creates a new resource (add <code>Location</code>)</td></tr>
+                    <tr><td><a href="204.html">204 No Content</a></td><td>Success, nothing to return</td><td>No</td><td>DELETE, or a PUT with no useful response body</td></tr>
+                </tbody>
+            </table>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -188,6 +230,14 @@ Content-Length: 84</code></pre>
             <details>
                 <summary>Should a successful POST return 200 or 201?</summary>
                 <p>If the POST created a new resource, return <a href="201.html">201 Created</a>. If it performed an action without creating a resource (for example a search or a calculation), 200 OK is appropriate.</p>
+            </details>
+            <details>
+                <summary>Does fetch() treat a 200 differently from a 404?</summary>
+                <p>No — <code>fetch()</code> resolves for both; it only rejects on network failures. A 404 is still a completed HTTP exchange. You must check <code>response.ok</code> or <code>response.status</code> yourself to distinguish a 200 from an error status.</p>
+            </details>
+            <details>
+                <summary>Can a 200 response still represent a failure?</summary>
+                <p>It shouldn't, but some APIs return 200 with an <code>{"error": ...}</code> body — an anti-pattern. Prefer the correct status code (4xx/5xx) so clients can rely on the HTTP status. If you must consume such an API, check the body's own success flag in addition to the status.</p>
             </details>
             </section>
 

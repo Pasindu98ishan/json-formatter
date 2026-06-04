@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "It is common and useful to return the created resource (including its server-assigned id) in the body, so the client does not need a second request to fetch it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between 201 and 202?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "201 Created means the resource has been created and exists now. 202 Accepted means the request was accepted for asynchronous processing — the work is queued and the resource may not exist yet. Use 202 for background jobs and 201 for synchronous creation."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is a Location header required on a 201?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It is strongly recommended, not strictly mandatory. The Location header tells the client the URL of the new resource so it can fetch or link to it. Most REST clients and API standards expect it on a 201, so include it whenever the resource has a canonical URL."
       }
     }
   ]
@@ -146,7 +162,7 @@
                 <li>Any endpoint whose job is to create something new</li>
             </ul>
 
-            <h2>Example JSON error response</h2>
+            <h2>Example JSON response</h2>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre><code>{
@@ -173,6 +189,39 @@ Content-Type: application/json</code></pre>
                 <li>&#10003; Return 201 (not <a href="200.html">200</a>) from endpoints that create resources</li>
             </ul>
 
+            <h2>Handling HTTP 201 in client code</h2>
+            <p>After a successful create, read both the <code>Location</code> header (the canonical URL of the new resource) and the body (which usually contains the server-assigned <code>id</code>). Grabbing the <code>id</code> from the body avoids a second round-trip:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/projects', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'New Project' }),
+});
+
+if (res.status === 201) {
+  const created = await res.json();   // server-assigned id, timestamps
+  const location = res.headers.get('Location'); // /api/projects/456
+  return { created, location };
+}</code></pre>
+            </div>
+
+            <h2>Returning 201 in different frameworks</h2>
+            <table>
+                <thead>
+                    <tr><th>Framework</th><th>How to return 201 with a Location</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Express (Node.js)</td><td><code>res.status(201).location('/projects/456').json(obj)</code></td></tr>
+                    <tr><td>FastAPI (Python)</td><td><code>@app.post(..., status_code=201)</code> + set <code>response.headers["Location"]</code></td></tr>
+                    <tr><td>Spring Boot (Java)</td><td><code>ResponseEntity.created(uri).body(obj)</code></td></tr>
+                    <tr><td>Rails</td><td><code>render json: obj, status: :created, location: obj</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>201 vs 200 vs 202</h2>
+            <p><strong>201</strong> means the resource exists <em>now</em>. <a href="200.html">200 OK</a> is generic success with no creation implied. <strong>202 Accepted</strong> means the request was accepted for <em>asynchronous</em> processing and the resource may not exist yet — use it for queued/background work, not for synchronous creation.</p>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -186,6 +235,14 @@ Content-Type: application/json</code></pre>
             <details>
                 <summary>Should the 201 response include the created resource?</summary>
                 <p>It is common and useful to return the created resource (including its server-assigned id) in the body, so the client does not need a second request to fetch it.</p>
+            </details>
+            <details>
+                <summary>What is the difference between 201 and 202?</summary>
+                <p>201 Created means the resource has been created and exists now. 202 Accepted means the request was accepted for asynchronous processing — the work is queued and the resource may not exist yet. Use 202 for background jobs and 201 for synchronous creation.</p>
+            </details>
+            <details>
+                <summary>Is a Location header required on a 201?</summary>
+                <p>It is strongly recommended, not strictly mandatory. The Location header tells the client the URL of the new resource so it can fetch or link to it. Most REST clients and API standards expect it on a 201, so include it whenever the resource has a canonical URL.</p>
             </details>
             </section>
 
@@ -209,8 +266,8 @@ Content-Type: application/json</code></pre>
             <h2>Related Status Codes</h2>
             <ul>
                 <li><a href="200.html">HTTP 200 OK</a></li>
-                <li><a href="202.html">HTTP 202</a></li>
                 <li><a href="204.html">HTTP 204 No Content</a></li>
+                <li><a href="400.html">HTTP 400 Bad Request</a></li>
                 <li><a href="../http-status.html">&larr; All HTTP status codes</a></li>
             </ul>
         </section>

@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "Because there is no body to parse. Check for status 204 before calling response.json(), or your client will error on the empty body."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should a successful DELETE return 204 or 200?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Both are valid. Return 204 No Content if there is nothing meaningful to send back — the cleanest, most common choice for DELETE. Return 200 OK with a body if you want to confirm what was deleted or return a status message."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a 204 need a Content-Type header?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Since there is no body, a Content-Type header is unnecessary and should be omitted. Sending Content-Length: 0 (or no Content-Length) is correct; do not advertise a JSON body that isn't there."
       }
     }
   ]
@@ -164,6 +180,23 @@ Date: Tue, 02 Jun 2026 10:00:00 GMT</code></pre>
                 <li>&#10003; If you need to return data, use <a href="200.html">200 OK</a> instead</li>
             </ul>
 
+            <h2>The most common 204 bug: calling res.json()</h2>
+            <p>The number-one client mistake with 204 is calling <code>response.json()</code> on it. Because the body is empty, <code>JSON.parse</code> throws <em>"Unexpected end of JSON input"</em>. Guard on the status before reading the body:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+
+if (res.status === 204) {
+  return null;            // success, nothing to parse
+}
+if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+return res.json();        // only reached for 200-with-body responses</code></pre>
+            </div>
+            <p>This is the same class of error covered in <a href="../blog/fetch-unexpected-end-json-input.html">fixing "Unexpected end of JSON input"</a> — an empty body and a blind <code>.json()</code> call.</p>
+
+            <h2>204 vs 200 with an empty body</h2>
+            <p>These are subtly different. <strong>204</strong> tells the client there is <em>deliberately</em> no body, so a well-behaved client won't even try to read one. <strong>200 with an empty body</strong> (or <code>200</code> returning <code>{}</code> / <code>[]</code>) says "success, and here is the content" — which then <em>is</em> parseable. For a DELETE with nothing to say, 204 is the cleaner, more explicit choice; for "success with an empty collection," return <a href="200.html">200</a> with <code>[]</code> rather than 204.</p>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -177,6 +210,14 @@ Date: Tue, 02 Jun 2026 10:00:00 GMT</code></pre>
             <details>
                 <summary>Why does my fetch fail to parse JSON on a 204?</summary>
                 <p>Because there is no body to parse. Check for status 204 before calling response.json(), or your client will error on the empty body.</p>
+            </details>
+            <details>
+                <summary>Should a successful DELETE return 204 or 200?</summary>
+                <p>Both are valid. Return 204 No Content if there is nothing meaningful to send back — the cleanest, most common choice for DELETE. Return <a href="200.html">200 OK</a> with a body if you want to confirm what was deleted or return a status message.</p>
+            </details>
+            <details>
+                <summary>Does a 204 need a Content-Type header?</summary>
+                <p>No. Since there is no body, a Content-Type header is unnecessary and should be omitted. Sending <code>Content-Length: 0</code> (or no Content-Length) is correct; do not advertise a JSON body that isn't there.</p>
             </details>
             </section>
 
