@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "Browsers cache 301 responses aggressively because they are permanent. During development, use a 302 or clear your cache to avoid being stuck on a stale redirect."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a 301 change a POST into a GET?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It can. Historically many clients convert a POST into a GET when following a 301 (and 302). If you need a permanent redirect that preserves the method and body, use 308 Permanent Redirect instead."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do API clients follow 301 redirects automatically?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Most do by default (browsers, curl with -L, axios, most HTTP libraries). But relying on redirects for an API is fragile — update the client to call the new URL directly rather than depending on the redirect long-term."
       }
     }
   ]
@@ -165,6 +181,34 @@ Content-Type: text/html</code></pre>
                 <li>&#10003; Be aware browsers cache 301s — test carefully before deploying</li>
             </ul>
 
+            <h2>301 vs 302 vs 307 vs 308 — the redirect family</h2>
+            <p>There are four common redirects, and they differ on two axes: permanent vs temporary, and whether the HTTP method is allowed to change:</p>
+            <table>
+                <thead>
+                    <tr><th>Code</th><th>Permanent?</th><th>Method preserved?</th><th>Use for</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>301</strong> Moved Permanently</td><td>Yes</td><td>Not guaranteed (often changes POST&rarr;GET)</td><td>Permanent moves, migrations, HTTP&rarr;HTTPS</td></tr>
+                    <tr><td><a href="302.html">302</a> Found</td><td>No</td><td>Not guaranteed</td><td>Temporary redirects</td></tr>
+                    <tr><td>307 Temporary Redirect</td><td>No</td><td>Yes (method + body preserved)</td><td>Temporary redirect that must keep POST</td></tr>
+                    <tr><td>308 Permanent Redirect</td><td>Yes</td><td>Yes (method + body preserved)</td><td>Permanent redirect that must keep POST</td></tr>
+                </tbody>
+            </table>
+            <p>If you need a permanent redirect that <em>must</em> preserve a POST, use <strong>308</strong>, not 301 — historically many clients silently turned 301'd POSTs into GETs.</p>
+
+            <h2>How to return a 301 (server config)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># nginx
+return 301 https://example.com$request_uri;
+
+# Apache (.htaccess)
+Redirect 301 /old-path https://example.com/new-path
+
+# Express (Node.js)
+res.redirect(301, 'https://example.com/new-path');</code></pre>
+            </div>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -178,6 +222,14 @@ Content-Type: text/html</code></pre>
             <details>
                 <summary>Why is my 301 redirect cached even after I changed it?</summary>
                 <p>Browsers cache 301 responses aggressively because they are permanent. During development, use a 302 or clear your cache to avoid being stuck on a stale redirect.</p>
+            </details>
+            <details>
+                <summary>Does a 301 change a POST into a GET?</summary>
+                <p>It can. Historically many clients convert a POST into a GET when following a 301 (and 302). If you need a permanent redirect that preserves the method and body, use 308 Permanent Redirect instead.</p>
+            </details>
+            <details>
+                <summary>Do API clients follow 301 redirects automatically?</summary>
+                <p>Most do by default (browsers, curl with <code>-L</code>, axios, most HTTP libraries). But relying on redirects for an API is fragile — update the client to call the new URL directly rather than depending on the redirect long-term.</p>
             </details>
             </section>
 

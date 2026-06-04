@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "500 is a failure inside the application that handled the request. 502 Bad Gateway means a gateway or proxy received an invalid response from an upstream server it was relaying to. 500 is your app; 502 is the layer in front of (or behind) it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should the client retry a 500?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Cautiously. A 500 can be transient, so retrying a safe, idempotent request (like a GET) with exponential backoff and a small retry cap is reasonable. Do not blindly retry non-idempotent operations (POST/PATCH that create or charge) unless they're protected by an idempotency key, or you risk duplicate side effects."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should a 500 response include the error details?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No — never return the raw stack trace to clients. It can leak file paths, dependency versions, SQL, and secrets. Return a generic message plus a request/correlation ID, and keep the full exception and stack trace in your server logs for diagnosis."
       }
     }
   ]
@@ -176,6 +192,31 @@ Content-Type: application/json</code></pre>
 
             <h2>500 vs 502 vs 503 — what's the difference?</h2><p><strong>500 Internal Server Error</strong> is a generic failure inside the application handling the request. <a href="502.html">502 Bad Gateway</a> means a proxy got an invalid response from an upstream server. <a href="503.html">503 Service Unavailable</a> means the server is temporarily overloaded or down for maintenance. 500 points at your app code; 502 and 503 point at infrastructure or upstream services.</p>
 
+            <h2>Handling a 500 in client code</h2>
+            <p>A 500 is a server-side fault, so a single retry can be reasonable (the error may be transient) — but only with backoff and a cap, and never for non-idempotent operations you can't safely repeat. Surface a friendly message rather than the raw error:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/report');
+
+if (res.status >= 500) {
+  // transient server fault — retry GET with backoff (not POST/PATCH blindly)
+  return retryWithBackoff(() => fetch('/api/report'), { max: 3 });
+}
+if (!res.ok) { /* handle 4xx — do not retry */ }</code></pre>
+            </div>
+
+            <h2>Don't leak stack traces in the JSON body</h2>
+            <p>A frequent security mistake is returning the raw exception and stack trace in the 500 response body. That exposes file paths, library versions, SQL, and sometimes secrets to anyone who can trigger the error. Return a generic message to the client and keep the real detail in your server logs (with a correlation/request ID the client can quote to support):</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "error": "Internal Server Error",
+  "message": "Something went wrong. Contact support with this ID.",
+  "request_id": "req_8f3c2a",
+  "status": 500
+}</code></pre>
+            </div>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -189,6 +230,14 @@ Content-Type: application/json</code></pre>
             <details>
                 <summary>What is the difference between 500 and 502?</summary>
                 <p>500 is a failure inside the application that handled the request. <a href="502.html">502 Bad Gateway</a> means a gateway or proxy received an invalid response from an upstream server it was relaying to. 500 is your app; 502 is the layer in front of (or behind) it.</p>
+            </details>
+            <details>
+                <summary>Should the client retry a 500?</summary>
+                <p>Cautiously. A 500 can be transient, so retrying a safe, idempotent request (like a GET) with exponential backoff and a small retry cap is reasonable. Do not blindly retry non-idempotent operations (POST/PATCH that create or charge) unless they're protected by an idempotency key, or you risk duplicate side effects.</p>
+            </details>
+            <details>
+                <summary>Should a 500 response include the error details?</summary>
+                <p>No — never return the raw stack trace to clients. It can leak file paths, dependency versions, SQL, and secrets. Return a generic message plus a request/correlation ID, and keep the full exception and stack trace in your server logs for diagnosis.</p>
             </details>
             </section>
 

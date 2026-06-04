@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "Because authentication is not the problem — authorization is. Your account is valid but lacks permission for this specific action or resource. You need elevated permissions, the correct token scope, or access to that resource."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should an API return 403 or 404 for a resource I can't access?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It depends on whether the resource's existence is sensitive. 403 confirms the resource exists but denies access; 404 hides whether it exists at all. For private/sensitive resources, returning 404 (as GitHub does for private repos) prevents unauthorized users from probing what exists."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I retry or refresh my token on a 403?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. A 403 means your valid credentials lack permission — refreshing the token won't grant new permissions, and retrying will fail identically. Handle it as a permanent denial: show a message, or request elevated access. Token refresh is for 401, not 403."
       }
     }
   ]
@@ -175,6 +191,35 @@ Content-Type: application/json</code></pre>
 
             <h2>401 vs 403 — what's the difference?</h2><p><a href="401.html">401 Unauthorized</a> means "who are you?" — authenticate first. <strong>403 Forbidden</strong> means "I know who you are, but you can't do this." With a 401, valid credentials fix the problem; with a 403, the credentials are already valid but lack the necessary permission, role, or scope.</p>
 
+            <h2>403 vs 404 — when to hide a resource's existence</h2>
+            <p>There's a deliberate security trade-off here. A strict 403 tells the caller "this resource exists, but you can't have it" — which <em>confirms the resource exists</em>. For sensitive resources, some APIs intentionally return <a href="404.html">404 Not Found</a> instead of 403, so an unauthorized user can't even tell whether the resource is there (e.g. GitHub does this for private repositories). Use 403 when revealing existence is harmless; use 404 when the existence itself is sensitive.</p>
+
+            <h2>Handling 403 in client code</h2>
+            <p>Unlike a <a href="401.html">401</a>, a 403 should <strong>not</strong> trigger a token refresh or a re-login — the credentials are already valid, so refreshing changes nothing. Treat it as a permanent "no" for this user and show an appropriate message rather than retrying:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/admin/reports', withAuth());
+
+if (res.status === 401) {
+  await refreshAndRetry();          // authentication problem — fixable
+} else if (res.status === 403) {
+  showMessage("You don't have access to this.");  // do NOT refresh/retry
+}</code></pre>
+            </div>
+
+            <h2>Returning 403 in different frameworks</h2>
+            <table>
+                <thead>
+                    <tr><th>Framework</th><th>How to return 403</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Express (Node.js)</td><td><code>res.status(403).json({ error: "Forbidden" })</code></td></tr>
+                    <tr><td>Flask (Python)</td><td><code>abort(403)</code> or <code>return jsonify(...), 403</code></td></tr>
+                    <tr><td>FastAPI (Python)</td><td><code>raise HTTPException(status_code=403, detail="...")</code></td></tr>
+                    <tr><td>Spring Security (Java)</td><td>Throws <code>AccessDeniedException</code> &rarr; 403</td></tr>
+                </tbody>
+            </table>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -188,6 +233,14 @@ Content-Type: application/json</code></pre>
             <details>
                 <summary>Why do I get 403 even though I am logged in?</summary>
                 <p>Because authentication is not the problem — authorization is. Your account is valid but lacks permission for this specific action or resource. You need elevated permissions, the correct token scope, or access to that resource.</p>
+            </details>
+            <details>
+                <summary>Should an API return 403 or 404 for a resource I can't access?</summary>
+                <p>It depends on whether the resource's existence is sensitive. 403 confirms the resource exists but denies access; <a href="404.html">404</a> hides whether it exists at all. For private/sensitive resources, returning 404 (as GitHub does for private repos) prevents unauthorized users from probing what exists.</p>
+            </details>
+            <details>
+                <summary>Should I retry or refresh my token on a 403?</summary>
+                <p>No. A 403 means your valid credentials lack permission — refreshing the token won't grant new permissions, and retrying will fail identically. Handle it as a permanent denial: show a message, or request elevated access. Token refresh is for 401, not 403.</p>
             </details>
             </section>
 

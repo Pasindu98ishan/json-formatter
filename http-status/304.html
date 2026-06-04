@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "No. 304 is a normal, successful part of HTTP caching. It means the cached version is still good."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between ETag and Last-Modified?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An ETag is a content version identifier (often a hash), echoed back via If-None-Match — precise to the byte. Last-Modified is a timestamp, echoed via If-Modified-Since — limited to 1-second resolution. ETag is more accurate; use it when you can generate one cheaply."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why don't I ever see a 304 in my fetch code?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because the browser's HTTP cache resolves it for you — your fetch receives a 200 with the cached body. You only observe raw 304s when you manage caching manually, such as in a CDN, a server-to-server client, or an HTTP library configured for manual revalidation."
       }
     }
   ]
@@ -165,6 +181,38 @@ Cache-Control: max-age=3600</code></pre>
                 <li>&#10003; Confirm your client sends <code>If-None-Match</code> or <code>If-Modified-Since</code></li>
             </ul>
 
+            <h2>How conditional requests produce a 304</h2>
+            <p>A 304 is the second half of a two-step caching conversation. First, the server hands the client a validator on the original 200 response. Later, the client sends that validator back, and the server decides whether anything changed:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># 1) First response includes a validator
+HTTP/1.1 200 OK
+ETag: "a1b2c3d4"
+
+# 2) Client re-requests with the validator
+GET /api/data HTTP/1.1
+If-None-Match: "a1b2c3d4"
+
+# 3) Unchanged → server saves bandwidth
+HTTP/1.1 304 Not Modified</code></pre>
+            </div>
+
+            <h2>ETag vs Last-Modified</h2>
+            <p>There are two validator mechanisms, and they pair up:</p>
+            <table>
+                <thead>
+                    <tr><th>Server sends</th><th>Client echoes</th><th>Based on</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>ETag: "a1b2c3d4"</code></td><td><code>If-None-Match</code></td><td>A content hash/version — precise to the byte</td></tr>
+                    <tr><td><code>Last-Modified: &lt;date&gt;</code></td><td><code>If-Modified-Since</code></td><td>A timestamp — 1-second resolution</td></tr>
+                </tbody>
+            </table>
+            <p>Prefer <code>ETag</code> when you can compute one cheaply — it catches changes that share the same timestamp and avoids the 1-second granularity limit of <code>Last-Modified</code>.</p>
+
+            <h2>Handling 304 in client code</h2>
+            <p>Browsers handle 304 transparently — your <code>fetch</code> sees a <code>200</code> with the cached body, not a 304, because the cache layer resolves it. You typically only observe a raw 304 when you manage caching yourself (a CDN, an HTTP library with manual revalidation, or a server-to-server client storing ETags). In that case: on 304, reuse the stored body; on 200, replace your cache and store the new <code>ETag</code>.</p>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -178,6 +226,14 @@ Cache-Control: max-age=3600</code></pre>
             <details>
                 <summary>Is 304 an error?</summary>
                 <p>No. 304 is a normal, successful part of HTTP caching. It means the cached version is still good.</p>
+            </details>
+            <details>
+                <summary>What is the difference between ETag and Last-Modified?</summary>
+                <p>An ETag is a content version identifier (often a hash), echoed back via <code>If-None-Match</code> — precise to the byte. Last-Modified is a timestamp, echoed via <code>If-Modified-Since</code> — limited to 1-second resolution. ETag is more accurate; use it when you can generate one cheaply.</p>
+            </details>
+            <details>
+                <summary>Why don't I ever see a 304 in my fetch code?</summary>
+                <p>Because the browser's HTTP cache resolves it for you — your <code>fetch</code> receives a 200 with the cached body. You only observe raw 304s when you manage caching manually, such as in a CDN, a server-to-server client, or an HTTP library configured for manual revalidation.</p>
             </details>
             </section>
 

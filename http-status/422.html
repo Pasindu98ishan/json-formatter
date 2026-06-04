@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "422 originated in WebDAV (RFC 4918) and is now widely adopted by REST/JSON APIs for validation errors. It is well supported by frameworks and clients even though it is not in the original core HTTP spec."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should validation errors use 400 or 422?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Both are seen in the wild. The cleaner convention: use 400 when the body can't be parsed at all (malformed JSON), and 422 when the JSON is valid but the data fails validation. Frameworks like Rails, Laravel, and FastAPI default to 422 for validation, so it's the more precise and widely-expected choice."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What should a 422 response body contain?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A machine-readable list of field-level errors — typically an errors array (or object) where each entry names the failing field and a human-readable message. This lets clients map each error onto the relevant form field instead of showing one generic validation failed message."
       }
     }
   ]
@@ -179,6 +195,40 @@ Content-Type: application/json</code></pre>
 
             <h2>400 vs 422 — what's the difference?</h2><p><a href="400.html">400 Bad Request</a> means the server could not even parse the request — for a JSON API, the body isn't valid JSON. <strong>422 Unprocessable Entity</strong> means the JSON parsed fine but the data failed validation. If the parser chokes, it's 400; if it reads the data but rejects its values, it's 422.</p>
 
+            <h2>Surfacing 422 errors in client code</h2>
+            <p>The value of a 422 is the structured <code>errors</code> array — map it straight onto your form fields instead of showing one generic message. That turns a rejected submit into precise, per-field feedback:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(form),
+});
+
+if (res.status === 422) {
+  const { errors } = await res.json();
+  for (const { field, message } of errors) {
+    showFieldError(field, message);   // e.g. email → "is not a valid email"
+  }
+  return;
+}</code></pre>
+            </div>
+
+            <h2>Which frameworks return 422?</h2>
+            <p>422 is the de-facto validation status across modern frameworks, even though it began in WebDAV:</p>
+            <table>
+                <thead>
+                    <tr><th>Framework</th><th>Validation behavior</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Rails</td><td>Returns <code>422</code> by default for failed model validations</td></tr>
+                    <tr><td>Laravel (PHP)</td><td>Form-request validation failures return <code>422</code> with an <code>errors</code> object</td></tr>
+                    <tr><td>FastAPI (Python)</td><td>Pydantic validation failures return <code>422</code> automatically</td></tr>
+                    <tr><td>Express (Node.js)</td><td>Manual — return <code>res.status(422).json({ errors })</code> (e.g. with express-validator)</td></tr>
+                </tbody>
+            </table>
+            <p>A consistent, machine-readable <code>errors</code> shape matters more than the exact status — but 422 is the clearest signal of "valid request, invalid data."</p>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -192,6 +242,14 @@ Content-Type: application/json</code></pre>
             <details>
                 <summary>Is 422 part of the HTTP standard?</summary>
                 <p>422 originated in WebDAV (RFC 4918) and is now widely adopted by REST/JSON APIs for validation errors. It is well supported by frameworks and clients even though it is not in the original core HTTP spec.</p>
+            </details>
+            <details>
+                <summary>Should validation errors use 400 or 422?</summary>
+                <p>Both are seen in the wild. The cleaner convention: use <a href="400.html">400</a> when the body can't be parsed at all (malformed JSON), and 422 when the JSON is valid but the data fails validation. Frameworks like Rails, Laravel, and FastAPI default to 422 for validation, so it's the more precise and widely-expected choice.</p>
+            </details>
+            <details>
+                <summary>What should a 422 response body contain?</summary>
+                <p>A machine-readable list of field-level errors — typically an <code>errors</code> array (or object) where each entry names the failing field and a human-readable message. This lets clients map each error onto the relevant form field instead of showing one generic "validation failed" message.</p>
             </details>
             </section>
 

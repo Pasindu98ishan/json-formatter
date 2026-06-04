@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "No. 503 signals a temporary condition by design. It usually resolves once load drops, maintenance ends, or capacity scales up. That is why clients are expected to retry after the Retry-After interval."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is a 503 bad for SEO?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Not if it's used correctly. A 503 with a Retry-After header tells search engines the outage is temporary and to come back later, so it protects rankings during planned maintenance. What hurts SEO is serving a 500, or a broken 200 page, instead — those can be treated as permanent problems."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I use 500 or 503 during maintenance?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use 503. A 500 implies an unexpected bug, while 503 explicitly means temporarily unavailable, try again. Pair it with a Retry-After header so clients and crawlers know when to return. Serving 503 from the load balancer also lets you take the app fully offline during the deploy."
       }
     }
   ]
@@ -177,6 +193,28 @@ Content-Type: application/json</code></pre>
 
             <h2>502 vs 503 vs 504 — what's the difference?</h2><p><a href="502.html">502 Bad Gateway</a>: the proxy got an invalid response from the upstream. <strong>503 Service Unavailable</strong>: the server is up but temporarily can't serve the request (overload/maintenance). <strong>504 Gateway Timeout</strong>: the upstream didn't respond in time. 503 is the one that is usually temporary and self-resolving.</p>
 
+            <h2>Handling a 503 in client code</h2>
+            <p>503 is the most "retry-friendly" 5xx — it explicitly signals a temporary condition and usually tells you when to come back via <code>Retry-After</code>. Honor that header; only fall back to backoff if it's absent:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/data');
+
+if (res.status === 503) {
+  const after = res.headers.get('Retry-After');     // seconds or HTTP date
+  const waitMs = after ? Number(after) * 1000 : 5000;
+  await new Promise(r => setTimeout(r, waitMs));
+  return fetch('/api/data');                          // retry once after waiting
+}</code></pre>
+            </div>
+
+            <h2>Returning a proper 503 (if you run the server)</h2>
+            <p>During maintenance or overload, return 503 <em>with</em> a <code>Retry-After</code> header rather than letting requests hang or fail with a <a href="500.html">500</a>. Two benefits: clients (and search-engine crawlers) know it's temporary and won't treat the outage as permanent, and well-behaved clients space out their retries instead of hammering a struggling server.</p>
+            <ul>
+                <li><strong>Maintenance:</strong> serve 503 + <code>Retry-After</code> from the load balancer so the app can be taken fully offline.</li>
+                <li><strong>Overload:</strong> shed excess traffic with 503 at the edge to protect the core from collapsing entirely.</li>
+                <li><strong>SEO note:</strong> a 503 during maintenance tells Google to come back later — unlike a 500 or a broken 200 page, it won't hurt rankings.</li>
+            </ul>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -190,6 +228,14 @@ Content-Type: application/json</code></pre>
             <details>
                 <summary>Is a 503 error permanent?</summary>
                 <p>No. 503 signals a temporary condition by design. It usually resolves once load drops, maintenance ends, or capacity scales up. That is why clients are expected to retry after the Retry-After interval.</p>
+            </details>
+            <details>
+                <summary>Is a 503 bad for SEO?</summary>
+                <p>Not if it's used correctly. A 503 with a Retry-After header tells search engines the outage is temporary and to come back later, so it protects rankings during planned maintenance. What hurts SEO is serving a 500, or a broken 200 page, instead — those can be treated as permanent problems.</p>
+            </details>
+            <details>
+                <summary>Should I use 500 or 503 during maintenance?</summary>
+                <p>Use 503. A 500 implies an unexpected bug, while 503 explicitly means "temporarily unavailable, try again." Pair it with a Retry-After header so clients and crawlers know when to return. Serving 503 from the load balancer also lets you take the app fully offline during the deploy.</p>
             </details>
             </section>
 

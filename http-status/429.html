@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "Retry-After tells the client how long to wait before making another request — either a number of seconds or an HTTP date. Honoring it is the correct way to recover from a 429 without making the problem worse."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why add jitter to exponential backoff?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Without jitter, many clients that were rate-limited at the same moment will all retry at the same moment — a thundering herd that immediately triggers another 429. Adding a small random delay spreads the retries out so they don't synchronize and overwhelm the server again."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is it safe to retry a 429 automatically?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes — unlike a 400, a 429 is transient, so retrying after a wait is correct. The key is to wait (honor Retry-After, or use exponential backoff with jitter) and cap the number of attempts. Retrying immediately or in a tight loop will just hit the limit again."
       }
     }
   ]
@@ -176,6 +192,39 @@ X-RateLimit-Remaining: 0</code></pre>
                 <li>&#10003; Cache responses or batch requests to reduce call volume</li>
             </ul>
 
+            <h2>Retrying a 429 the right way</h2>
+            <p>Unlike a <a href="400.html">400</a>, a 429 <em>is</em> safe to retry — but only after waiting. Honor <code>Retry-After</code> if present (it's either a seconds count or an HTTP date); otherwise fall back to exponential backoff with jitter so many clients don't all retry at the same instant (the "thundering herd"):</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>async function fetchWithRetry(url, opts = {}, attempt = 0) {
+  const res = await fetch(url, opts);
+  if (res.status !== 429 || attempt >= 5) return res;
+
+  const header = res.headers.get('Retry-After');
+  const waitMs = header
+    ? Number(header) * 1000                       // server told us how long
+    : (2 ** attempt) * 1000 + Math.random() * 1000; // backoff + jitter
+
+  await new Promise(r => setTimeout(r, waitMs));
+  return fetchWithRetry(url, opts, attempt + 1);
+}</code></pre>
+            </div>
+
+            <h2>Rate-limit headers to read</h2>
+            <p>Most APIs expose your current quota so you can throttle <em>before</em> hitting a 429:</p>
+            <table>
+                <thead>
+                    <tr><th>Header</th><th>Meaning</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>Retry-After</code></td><td>How long to wait before retrying (seconds or a date)</td></tr>
+                    <tr><td><code>X-RateLimit-Limit</code></td><td>Max requests allowed in the current window</td></tr>
+                    <tr><td><code>X-RateLimit-Remaining</code></td><td>Requests left in the current window</td></tr>
+                    <tr><td><code>X-RateLimit-Reset</code></td><td>When the window resets (often a Unix timestamp)</td></tr>
+                </tbody>
+            </table>
+            <p>Watch <code>X-RateLimit-Remaining</code> and slow down as it approaches zero — proactively staying under the limit beats reacting to 429s.</p>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -189,6 +238,14 @@ X-RateLimit-Remaining: 0</code></pre>
             <details>
                 <summary>What is the Retry-After header?</summary>
                 <p>Retry-After tells the client how long to wait before making another request — either a number of seconds or an HTTP date. Honoring it is the correct way to recover from a 429 without making the problem worse.</p>
+            </details>
+            <details>
+                <summary>Why add jitter to exponential backoff?</summary>
+                <p>Without jitter, many clients that were rate-limited at the same moment will all retry at the same moment — a "thundering herd" that immediately triggers another 429. Adding a small random delay spreads the retries out so they don't synchronize and overwhelm the server again.</p>
+            </details>
+            <details>
+                <summary>Is it safe to retry a 429 automatically?</summary>
+                <p>Yes — unlike a 400, a 429 is transient, so retrying after a wait is correct. The key is to wait (honor Retry-After, or use exponential backoff with jitter) and cap the number of attempts. Retrying immediately or in a tight loop will just hit the limit again.</p>
             </details>
             </section>
 

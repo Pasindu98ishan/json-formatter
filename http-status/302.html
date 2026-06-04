@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "A 302 tells search engines the move is temporary, so ranking stays with the original URL. If the move is actually permanent, using 302 instead of 301 can prevent the new URL from gaining the ranking it should."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "When should I use 307 instead of 302?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use 307 Temporary Redirect when the redirect follows a non-GET request (like a POST) and the method and body must be preserved. 302 may downgrade a POST to a GET on some clients; 307 guarantees it won't."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I stop fetch or curl from following a 302 automatically?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In fetch, pass { redirect: 'manual' } to see the 302 and read its Location header instead of following it. With curl, omit -L (and use -I to print headers) so it shows the redirect rather than following it."
       }
     }
   ]
@@ -165,6 +181,34 @@ Content-Type: text/html</code></pre>
                 <li>&#10003; If the method must be preserved, consider 307 Temporary Redirect instead</li>
             </ul>
 
+            <h2>302 vs 307 — the method-change gotcha</h2>
+            <p>The historical wrinkle with 302 is method handling. The original HTTP spec said clients should repeat the request with the same method, but in practice browsers and libraries routinely turned a <code>POST</code> into a <code>GET</code> when following a 302. <strong>307 Temporary Redirect</strong> was introduced to remove the ambiguity — it guarantees the method and body are preserved.</p>
+            <table>
+                <thead>
+                    <tr><th>Code</th><th>Duration</th><th>Method on redirect</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>302</strong> Found</td><td>Temporary</td><td>May change POST&rarr;GET (client-dependent)</td></tr>
+                    <tr><td>307 Temporary Redirect</td><td>Temporary</td><td>Always preserved</td></tr>
+                    <tr><td><a href="301.html">301</a> / 308</td><td>Permanent</td><td>301 may change; 308 preserved</td></tr>
+                </tbody>
+            </table>
+            <p>So for a temporary redirect after a <code>POST</code> (for example, redirecting back after login), reach for <strong>307</strong> if the method must survive; use 302 for ordinary GET redirects.</p>
+
+            <h2>Handling a 302 in client code</h2>
+            <p>Browsers and most HTTP libraries follow 302s automatically. When you need to <em>see</em> the redirect instead of following it (e.g. to read the <code>Location</code>), disable auto-follow:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// fetch: inspect the redirect instead of following it
+const res = await fetch('/dashboard', { redirect: 'manual' });
+if (res.status === 302) {
+  const target = res.headers.get('Location');
+}
+
+// curl: show headers without following
+// curl -sI https://example.com/dashboard</code></pre>
+            </div>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -178,6 +222,14 @@ Content-Type: text/html</code></pre>
             <details>
                 <summary>Is 302 bad for SEO?</summary>
                 <p>A 302 tells search engines the move is temporary, so ranking stays with the original URL. If the move is actually permanent, using 302 instead of 301 can prevent the new URL from gaining the ranking it should.</p>
+            </details>
+            <details>
+                <summary>When should I use 307 instead of 302?</summary>
+                <p>Use 307 Temporary Redirect when the redirect follows a non-GET request (like a POST) and the method and body must be preserved. 302 may downgrade a POST to a GET on some clients; 307 guarantees it won't.</p>
+            </details>
+            <details>
+                <summary>How do I stop fetch or curl from following a 302 automatically?</summary>
+                <p>In <code>fetch</code>, pass <code>{ redirect: 'manual' }</code> to see the 302 and read its Location header instead of following it. With curl, omit <code>-L</code> (and use <code>-I</code> to print headers) so it shows the redirect rather than following it.</p>
             </details>
             </section>
 

@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "400 means the request is malformed (e.g. invalid JSON the server cannot parse). 422 means the JSON is valid but fails semantic validation. Use 400 for unparseable requests, 422 for valid-but-rejected data."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I retry a request that returned 400?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. A 400 means the request was malformed, so retrying the identical request will fail the same way. Fix the request — correct the JSON, add the missing field, or set the right Content-Type — then send it again. Retries are appropriate for transient 5xx errors, not 400."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my API return 400 with a valid-looking body?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Common culprits: a missing or wrong Content-Type: application/json header (so the server never parses the body as JSON), a trailing comma from hand-built JSON, or a field with the wrong type. Send the body through JSON.stringify() and confirm the Content-Type header."
       }
     }
   ]
@@ -175,6 +191,37 @@ Content-Type: application/json</code></pre>
 
             <h2>400 vs 422 — what's the difference?</h2><p><strong>400 Bad Request</strong> means the request itself is malformed — for a JSON API, usually the body isn't valid JSON at all. <a href="422.html">422 Unprocessable Entity</a> means the JSON is syntactically valid but fails validation (a field is the wrong value, an email is malformed, a business rule is broken). Rule of thumb: if the parser can't even read the body, it's 400; if it reads fine but the data is wrong, it's 422.</p>
 
+            <h2>Handling HTTP 400 in client code</h2>
+            <p>A 400 is almost always a bug in the request your code built, not a server problem — so surface the server's error message rather than retrying. Retrying an identical malformed request will just 400 again:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(payload),
+});
+
+if (res.status === 400) {
+  const err = await res.json();        // read the server's reason
+  console.error('Bad request:', err.message);
+  return;                              // do NOT blindly retry a 400
+}</code></pre>
+            </div>
+            <p>The most common cause in JS is hand-building a JSON string instead of using <code>JSON.stringify()</code>, which introduces trailing commas or unquoted keys. If you're debugging a malformed body, paste it into the <a href="../json-validator.html">JSON Validator</a> — and see <a href="../blog/read-ugly-json-api-response.html">how to read a minified JSON API response</a>.</p>
+
+            <h2>Returning 400 in different frameworks</h2>
+            <table>
+                <thead>
+                    <tr><th>Framework</th><th>How to return 400</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Express (Node.js)</td><td><code>res.status(400).json({ error: "Bad Request" })</code></td></tr>
+                    <tr><td>Flask (Python)</td><td><code>return jsonify(error="Bad Request"), 400</code></td></tr>
+                    <tr><td>FastAPI (Python)</td><td><code>raise HTTPException(status_code=400, detail="...")</code></td></tr>
+                    <tr><td>Spring Boot (Java)</td><td><code>ResponseEntity.badRequest().body(...)</code></td></tr>
+                </tbody>
+            </table>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -188,6 +235,14 @@ Content-Type: application/json</code></pre>
             <details>
                 <summary>What is the difference between 400 and 422?</summary>
                 <p>400 means the request is malformed (e.g. invalid JSON the server cannot parse). <a href="422.html">422</a> means the JSON is valid but fails semantic validation. Use 400 for unparseable requests, 422 for valid-but-rejected data.</p>
+            </details>
+            <details>
+                <summary>Should I retry a request that returned 400?</summary>
+                <p>No. A 400 means the request was malformed, so retrying the identical request will fail the same way. Fix the request — correct the JSON, add the missing field, or set the right Content-Type — then send it again. Retries are appropriate for transient 5xx errors, not 400.</p>
+            </details>
+            <details>
+                <summary>Why does my API return 400 with a valid-looking body?</summary>
+                <p>Common culprits: a missing or wrong <code>Content-Type: application/json</code> header (so the server never parses the body as JSON), a trailing comma from hand-built JSON, or a field with the wrong type. Send the body through <code>JSON.stringify()</code> and confirm the Content-Type header.</p>
             </details>
             </section>
 

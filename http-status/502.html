@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "502 Bad Gateway means the upstream returned an invalid response. 504 Gateway Timeout means the upstream did not respond at all within the time limit. Both are proxy-layer errors, but 502 is a bad reply and 504 is no reply in time."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I retry a 502?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes — a 502 is usually transient (an upstream restarting, redeploying, or briefly unhealthy), so retrying a GET with exponential backoff is appropriate. As with any 5xx, be careful retrying non-idempotent requests unless they're protected by an idempotency key."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is my 502 response HTML instead of JSON?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because the error came from the proxy or CDN, not your application — your app never ran to produce a JSON body. nginx, load balancers, and CDNs emit their own HTML error pages. Don't assume a JSON body on a 502; check the Content-Type before parsing."
       }
     }
   ]
@@ -175,6 +191,35 @@ Content-Type: application/json</code></pre>
 
             <h2>502 vs 503 vs 504 — what's the difference?</h2><p><strong>502 Bad Gateway</strong>: the proxy got an invalid response from the upstream. <a href="503.html">503 Service Unavailable</a>: the server is up but temporarily can't handle the request (overload/maintenance). <strong>504 Gateway Timeout</strong>: the upstream didn't respond in time. 502 = bad response, 503 = not available, 504 = too slow.</p>
 
+            <h2>Why a 502 is usually not your client's fault</h2>
+            <p>A 502 almost always means the request never reached a healthy application — it died at the proxy/upstream boundary. That's why a 502 often has an HTML body from nginx or the CDN rather than your API's JSON: your app never got to format a response. If you're <em>calling</em> an API and see a 502, the fix is rarely in your request; it's a transient upstream problem, so retry with backoff:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/data');
+
+// 502 is typically transient (upstream restarting/redeploying)
+if (res.status === 502 || res.status === 503 || res.status === 504) {
+  return retryWithBackoff(() => fetch('/api/data'), { max: 3 });
+}
+
+// don't assume JSON on a 502 — proxies often return an HTML error page
+const type = res.headers.get('Content-Type') || '';
+const body = type.includes('application/json') ? await res.json() : await res.text();</code></pre>
+            </div>
+
+            <h2>Common 502 causes if you run the server</h2>
+            <table>
+                <thead>
+                    <tr><th>Layer</th><th>Typical cause</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Upstream app</td><td>Crashed, out of memory, or still booting after a deploy</td></tr>
+                    <tr><td>Proxy config (nginx)</td><td><code>proxy_pass</code> pointing at the wrong host/port</td></tr>
+                    <tr><td>Connection</td><td>Upstream closed the connection or returned malformed headers</td></tr>
+                    <tr><td>Scaling</td><td>All backend instances unhealthy / failing health checks</td></tr>
+                </tbody>
+            </table>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -188,6 +233,14 @@ Content-Type: application/json</code></pre>
             <details>
                 <summary>What is the difference between 502 and 504?</summary>
                 <p>502 Bad Gateway means the upstream returned an invalid response. 504 Gateway Timeout means the upstream did not respond at all within the time limit. Both are proxy-layer errors, but 502 is a bad reply and 504 is no reply in time.</p>
+            </details>
+            <details>
+                <summary>Should I retry a 502?</summary>
+                <p>Yes — a 502 is usually transient (an upstream restarting, redeploying, or briefly unhealthy), so retrying a GET with exponential backoff is appropriate. As with any 5xx, be careful retrying non-idempotent requests unless they're protected by an idempotency key.</p>
+            </details>
+            <details>
+                <summary>Why is my 502 response HTML instead of JSON?</summary>
+                <p>Because the error came from the proxy or CDN, not your application — your app never ran to produce a JSON body. nginx, load balancers, and CDNs emit their own HTML error pages. Don't assume a JSON body on a 502; check the Content-Type before parsing.</p>
             </details>
             </section>
 

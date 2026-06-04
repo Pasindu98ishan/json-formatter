@@ -70,7 +70,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-02",
-  "dateModified": "2026-06-02",
+  "dateModified": "2026-06-05",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -105,6 +105,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "The token has most likely expired. JWTs carry an exp claim — decode the token to check it. Tokens are short-lived by design; obtain a fresh one by re-authenticating or refreshing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I retry a 401 automatically?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Retry once, and only after refreshing the token. The pattern is: on 401, exchange your refresh token for a new access token, then replay the original request a single time. If the refresh also fails, the session is over — send the user to log in. Never retry in a loop, or you'll hammer the auth endpoint."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a 401 response need a WWW-Authenticate header?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Per the HTTP spec, yes — a 401 should include a WWW-Authenticate header indicating the auth scheme (e.g. Bearer). Many JSON APIs omit it, which still works for custom clients but is technically non-compliant and leaves browsers unable to prompt for credentials."
       }
     }
   ]
@@ -176,6 +192,25 @@ Content-Type: application/json</code></pre>
 
             <h2>401 vs 403 — what's the difference?</h2><p><strong>401 Unauthorized</strong> means "who are you?" — you are not authenticated, so log in or send a valid token. <a href="403.html">403 Forbidden</a> means "I know who you are, but you can't do this" — you are authenticated but lack permission. If sending valid credentials fixes it, it was a 401; if you have valid credentials but still can't access the resource, it's a 403.</p>
 
+            <h2>Handling 401 in client code: the token-refresh flow</h2>
+            <p>The standard pattern is an interceptor: when a request comes back 401, try refreshing the access token once, then replay the original request. If the refresh itself 401s, the session is genuinely over — send the user to log in:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>async function apiFetch(url, opts = {}) {
+  let res = await fetch(url, withAuth(opts));
+  if (res.status === 401) {
+    const refreshed = await tryRefreshToken();   // exchange refresh token
+    if (!refreshed) { redirectToLogin(); return; }
+    res = await fetch(url, withAuth(opts));       // replay once
+  }
+  return res;
+}</code></pre>
+            </div>
+            <p>Guard against infinite loops — only retry once. To see why a token is rejected, <a href="../jwt-decoder.html">decode the JWT</a> and check its <code>exp</code> claim; for whether that's safe to do online, see <a href="../blog/is-it-safe-to-decode-jwt-online.html">is it safe to decode a JWT online?</a></p>
+
+            <h2>The WWW-Authenticate header</h2>
+            <p>A spec-compliant 401 includes a <code>WWW-Authenticate</code> header telling the client how to authenticate — e.g. <code>WWW-Authenticate: Bearer</code> for token auth or <code>Basic realm="..."</code> for basic auth. If your API omits it, clients (and browsers) can't tell what scheme to use; include it so the 401 is actionable.</p>
+
             <section class="faq-section">
                 <h2>Frequently Asked Questions</h2>
             <details>
@@ -189,6 +224,14 @@ Content-Type: application/json</code></pre>
             <details>
                 <summary>Why do I get a 401 with a token that worked yesterday?</summary>
                 <p>The token has most likely expired. JWTs carry an exp claim — decode the token to check it. Tokens are short-lived by design; obtain a fresh one by re-authenticating or refreshing.</p>
+            </details>
+            <details>
+                <summary>Should I retry a 401 automatically?</summary>
+                <p>Retry once, and only after refreshing the token. The pattern is: on 401, exchange your refresh token for a new access token, then replay the original request a single time. If the refresh also fails, the session is over — send the user to log in. Never retry in a loop, or you'll hammer the auth endpoint.</p>
+            </details>
+            <details>
+                <summary>Does a 401 response need a WWW-Authenticate header?</summary>
+                <p>Per the HTTP spec, yes — a 401 should include a <code>WWW-Authenticate</code> header indicating the auth scheme (e.g. <code>Bearer</code>). Many JSON APIs omit it, which still works for custom clients but is technically non-compliant and leaves browsers unable to prompt for credentials.</p>
             </details>
             </section>
 
