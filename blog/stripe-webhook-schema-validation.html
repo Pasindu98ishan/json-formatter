@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A Stripe webhook schema built from one payment_intent.succeeded payload breaks the first time a payment fails or is refunded. Here is why, and how merging multiple event samples fixes it.">
+    <meta name="keywords" content="stripe webhook schema, validate stripe webhook payload, stripe webhook optional fields, stripe webhook payment_failed, stripe webhook json schema, stripe webhook validation">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/stripe-webhook-schema-validation.html">
+    <meta property="og:title" content="Why Your Stripe Webhook Schema Breaks on Refunds (and How to Fix It)">
+    <meta property="og:description" content="Generate your schema from one succeeded event and it ships fine — then a payment_failed event with null fields throws. Merge multiple event samples and the schema covers every case.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/stripe-webhook-schema-validation.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Why Your Stripe Webhook Schema Breaks on Refunds (and How to Fix It) | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Why Your Stripe Webhook Schema Breaks on Refunds", "item": "https://jsondevtools.org/blog/stripe-webhook-schema-validation.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Why Your Stripe Webhook Schema Breaks on Refunds (and How to Fix It)",
+      "description": "A Stripe webhook schema inferred from one succeeded payload rejects payment_failed and refund events. Merging multiple event samples detects the optional and nullable fields that break it.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-06-05",
+      "dateModified": "2026-06-05",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to build a Stripe webhook schema that handles every event type",
+      "description": "Capture several real Stripe event payloads and merge them into one JSON Schema so optional and nullable fields are covered.",
+      "step": [
+        { "@type": "HowToStep", "position": 1, "name": "Capture multiple event types", "text": "Use the Stripe CLI (stripe trigger payment_intent.succeeded, payment_intent.payment_failed, payment_intent.canceled) or copy real payloads from the Dashboard's webhook event log. Grab the data.object from each." },
+        { "@type": "HowToStep", "position": 2, "name": "Open the Multi-Sample Schema Generator", "text": "Go to the JSON Schema Multi-Generator. It runs in your browser, so production payloads are not uploaded." },
+        { "@type": "HowToStep", "position": 3, "name": "Paste one payload per slot", "text": "Paste the succeeded, failed, and canceled objects into separate slots, then click Merge into Schema." },
+        { "@type": "HowToStep", "position": 4, "name": "Validate against real events", "text": "Use the merged schema with Ajv in your webhook handler, and confirm it accepts all three event payloads in the JSON Schema Validator." },
+        { "@type": "HowToStep", "position": 5, "name": "Re-merge when Stripe evolves", "text": "Webhook payloads gain fields over time. When you adopt a new event type or API version, add the new sample and re-merge." }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why does my Stripe webhook validator reject payment_failed events?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Almost always because the schema was generated from a single succeeded payload. In that payload last_payment_error is null, so the schema records its type as null — but a failed event sends last_payment_error as an object, which the schema rejects. The same happens for fields like description or payment_method that are present on success but null or absent on failure." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do Stripe events have different JSON shapes?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Every Stripe event shares the same envelope — id, type, api_version, and a data.object — but the object inside data differs by event type and by outcome. A succeeded PaymentIntent populates fields that a failed or canceled one leaves null or absent, and the object is rendered according to the API version at the time the event was created. So multiple shapes are expected, not a bug." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I generate a schema that handles all Stripe event types?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Capture several real payloads — at minimum a success, a failure, and a refund or cancellation — and merge them with a multi-sample schema generator. Fields missing or null in some events automatically become optional or nullable, so one schema validates every case instead of just the happy path." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Stripe publish an official JSON Schema for webhooks?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Stripe documents every event type and the object each one contains, and publishes an OpenAPI specification, but most teams still want a lightweight JSON Schema scoped to the handful of events they actually handle. Generating one from real captured payloads keeps it small and matched to the API version you receive." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is schema validation the same as verifying the webhook signature?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No, and you need both. Signature verification (using the Stripe-Signature header and your endpoint secret) proves the request genuinely came from Stripe and was not tampered with — always do this first. Schema validation then checks that the payload has the shape your code expects. One is about authenticity, the other about structure." }
+        },
+        {
+          "@type": "Question",
+          "name": "How many Stripe payloads should I merge?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Start with three that exercise the differences: a succeeded event (the happy path), a payment_failed event (populates last_payment_error, nulls other fields), and a canceled or refunded event (omits or nulls more fields). Add more event types as you handle them. The merger only learns the variation it sees." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>Why Your Stripe Webhook Schema Breaks on Refunds</span>
+            </nav>
+            <h1>Why Your Stripe Webhook Schema Breaks on Refunds (and How to Fix It)</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; 8 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">You're integrating Stripe webhooks. You paste a <code>payment_intent.succeeded</code> payload into a schema generator, wire the schema into your handler with Ajv, and it passes every test. Then production sends a <code>payment_intent.payment_failed</code> event — <code>last_payment_error</code> is now an object, <code>payment_method</code> is <code>null</code> — and your validator throws on a payload Stripe sent correctly. The schema was wrong from the start, because it was built from <strong>one</strong> sample. The fix is to generate it from <strong>several</strong> event payloads and merge them, so optional and nullable fields are detected automatically.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:center;">
+                <p style="margin:0 0 0.9rem;font-weight:600;">Merge a success, a failure, and a refund payload into one schema — in your browser:</p>
+                <div style="display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;">
+                    <a href="../json-schema-multi-generator.html" class="btn btn-primary" style="display:inline-block;">Schema from Multiple JSON &rarr;</a>
+                    <a href="../json-schema-validator.html" class="btn btn-primary" style="display:inline-block;background:#28a745;border-color:#28a745;">JSON Schema Validator &rarr;</a>
+                </div>
+            </div>
+
+            <h2>The happy-path payload that fools you</h2>
+
+            <p>Here's a <em>simplified</em> <code>payment_intent.succeeded</code> data object (the real one has more fields; these are the stable ones that matter for the example):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "id": "pi_3Success",
+  "object": "payment_intent",
+  "amount": 4999,
+  "currency": "usd",
+  "status": "succeeded",
+  "customer": "cus_Abc123",
+  "description": "Order #1001",
+  "last_payment_error": null,
+  "payment_method": "pm_1Card"
+}</code></pre>
+            </div>
+
+            <p>Feed that single sample to a normal schema generator and you get this — note <code>last_payment_error</code> typed as <code>null</code>, and <code>customer</code>, <code>description</code>, and <code>payment_method</code> all marked <strong>required strings</strong>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "id":                 { "type": "string" },
+    "object":             { "type": "string" },
+    "amount":             { "type": "integer" },
+    "currency":           { "type": "string" },
+    "status":             { "type": "string" },
+    "customer":           { "type": "string" },
+    "description":        { "type": "string" },
+    "last_payment_error": { "type": "null" },
+    "payment_method":     { "type": "string" }
+  },
+  "required": ["id", "object", "amount", "currency", "status",
+               "customer", "description", "payment_method"]
+}</code></pre>
+            </div>
+
+            <p>It validates the success case perfectly. It is also a production bug waiting for the first failed payment.</p>
+
+            <h2>The event that breaks it</h2>
+
+            <p>Now a real <code>payment_intent.payment_failed</code> arrives. The card was declined, so Stripe populates <code>last_payment_error</code> with an object and leaves the payment fields empty:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "id": "pi_3Failed",
+  "object": "payment_intent",
+  "amount": 4999,
+  "currency": "usd",
+  "status": "requires_payment_method",
+  "customer": "cus_Def456",
+  "description": null,
+  "last_payment_error": {
+    "code": "card_declined",
+    "message": "Your card was declined.",
+    "type": "card_error"
+  },
+  "payment_method": null
+}</code></pre>
+            </div>
+
+            <p>Against the single-sample schema, this <em>valid</em> Stripe payload fails validation in three separate ways.</p>
+
+            <h2>Why it breaks: three causes</h2>
+
+            <ul>
+                <li><strong>Optional fields were marked required.</strong> The schema requires <code>description</code> and <code>payment_method</code> as strings. The failed event sends <code>description: null</code> and <code>payment_method: null</code> — both rejected.</li>
+                <li><strong>Field types were inferred too narrowly.</strong> <code>last_payment_error</code> was <code>null</code> in your one sample, so the schema froze its type as <code>null</code>. A failed event sends an <em>object</em> there, which does not match.</li>
+                <li><strong>Event payloads legitimately diverge.</strong> Every Stripe event shares one envelope — <code>id</code>, <code>type</code>, <code>api_version</code>, and a <code>data.object</code> — but the object inside <code>data</code> differs by event type and outcome, and is rendered per the <code>api_version</code> at creation time. Different shapes are <em>expected</em>. See Stripe's <a href="https://docs.stripe.com/api/events/types" rel="noopener noreferrer" target="_blank">event types reference</a> and <a href="https://docs.stripe.com/webhooks" rel="noopener noreferrer" target="_blank">webhooks guide</a>.</li>
+            </ul>
+
+            <p>You can spend an afternoon patching the schema by hand — flip <code>last_payment_error</code> to an object, make three fields optional, add <code>null</code> to their types — and still miss the next event type. There's a faster, more reliable way.</p>
+
+            <h2>The fix: infer from multiple event samples</h2>
+
+            <p>Capture a few <em>different</em> events and merge them. Add a third — a <code>canceled</code> PaymentIntent, which nulls or omits even more:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "id": "pi_3Canceled",
+  "object": "payment_intent",
+  "amount": 1500,
+  "currency": "usd",
+  "status": "canceled",
+  "customer": null,
+  "last_payment_error": null,
+  "payment_method": null
+}</code></pre>
+            </div>
+
+            <p>Paste all three — <code>succeeded</code>, <code>payment_failed</code>, <code>canceled</code> — into the <a href="../json-schema-multi-generator.html">Multi-Sample Schema Generator</a> and merge. Fields missing or <code>null</code> in some events become optional or nullable; <code>last_payment_error</code> becomes "object <em>or</em> null". One schema now covers all three outcomes:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "id":       { "type": "string" },
+    "object":   { "type": "string" },
+    "amount":   { "type": "integer" },
+    "currency": { "type": "string" },
+    "status":   { "type": "string" },
+    "customer":       { "type": ["string", "null"] },
+    "description":    { "type": ["string", "null"] },
+    "payment_method": { "type": ["string", "null"] },
+    "last_payment_error": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "code":    { "type": "string" },
+            "message": { "type": "string" },
+            "type":    { "type": "string" }
+          },
+          "required": ["code", "message", "type"]
+        },
+        { "type": "null" }
+      ]
+    }
+  },
+  "required": ["id", "object", "amount", "currency", "status"]
+}</code></pre>
+            </div>
+
+            <p>Notice what merging worked out automatically: <code>customer</code>, <code>description</code>, and <code>payment_method</code> are now nullable and no longer required; <code>last_payment_error</code> accepts both the error object and <code>null</code>; and only the fields present in <em>every</em> event stayed in <code>required</code>.</p>
+
+            <h2>Wire it into your handler</h2>
+
+            <p>Validate incoming events with Ajv against the merged schema — <strong>after</strong> verifying the signature:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const Ajv = require("ajv");
+const ajv = new Ajv({ allErrors: true });
+const validate = ajv.compile(paymentIntentSchema); // the merged schema
+
+app.post("/webhook", (req, res) =&gt; {
+  // 1. Authenticity: verify the Stripe signature first.
+  const event = stripe.webhooks.constructEvent(
+    req.body, req.headers["stripe-signature"], endpointSecret
+  );
+
+  // 2. Structure: validate the payload shape.
+  if (!validate(event.data.object)) {
+    console.error("Unexpected payload shape:", validate.errors);
+    return res.status(400).send("Bad payload");
+  }
+
+  // 3. Handle the event...
+  res.json({ received: true });
+});</code></pre>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>Field</th><th>Single-sample schema</th><th>Merged schema</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>last_payment_error</code></td><td><code>null</code> only</td><td><code>object</code> or <code>null</code></td></tr>
+                        <tr><td><code>description</code></td><td>required string</td><td>optional, nullable</td></tr>
+                        <tr><td><code>payment_method</code></td><td>required string</td><td>optional, nullable</td></tr>
+                        <tr><td><code>customer</code></td><td>required string</td><td>nullable</td></tr>
+                        <tr><td>Rejects valid failed events?</td><td>Yes</td><td>No</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2>Schema validation is not signature verification</h2>
+
+            <p>These solve different problems and you want both. <strong>Signature verification</strong> — using the <code>Stripe-Signature</code> header and your endpoint secret — proves the request really came from Stripe and wasn't tampered with; do it first and reject anything that fails. <strong>Schema validation</strong> then confirms the payload has the structure your code expects. A valid signature on an unexpected shape, or a perfect shape with a bad signature, are both failures.</p>
+
+            <h2>Webhook schemas evolve — re-merge periodically</h2>
+
+            <p>Stripe adds fields to payloads over time, and the object you receive is rendered per the API version pinned to your endpoint. New optional fields are usually non-breaking, but when you adopt a new event type or bump your API version, capture a fresh sample and re-merge. Keeping the schema generated from real payloads — rather than hand-maintained — makes that a 30-second task instead of an audit.</p>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>Why does my Stripe webhook validator reject payment_failed events?</summary>
+                    <p>Almost always because the schema was generated from a single <code>succeeded</code> payload. In that payload <code>last_payment_error</code> is <code>null</code>, so the schema records its type as <code>null</code> — but a failed event sends <code>last_payment_error</code> as an object, which the schema rejects. The same happens for fields like <code>description</code> or <code>payment_method</code> that are present on success but <code>null</code> or absent on failure.</p>
+                </details>
+
+                <details>
+                    <summary>Why do Stripe events have different JSON shapes?</summary>
+                    <p>Every Stripe event shares the same envelope — <code>id</code>, <code>type</code>, <code>api_version</code>, and a <code>data.object</code> — but the object inside <code>data</code> differs by event type and by outcome. A succeeded PaymentIntent populates fields that a failed or canceled one leaves <code>null</code> or absent, and the object is rendered according to the API version at the time the event was created. So multiple shapes are expected, not a bug.</p>
+                </details>
+
+                <details>
+                    <summary>How do I generate a schema that handles all Stripe event types?</summary>
+                    <p>Capture several real payloads — at minimum a success, a failure, and a refund or cancellation — and merge them with a <a href="../json-schema-multi-generator.html">multi-sample schema generator</a>. Fields missing or <code>null</code> in some events automatically become optional or nullable, so one schema validates every case instead of just the happy path.</p>
+                </details>
+
+                <details>
+                    <summary>Does Stripe publish an official JSON Schema for webhooks?</summary>
+                    <p>Stripe documents every event type and the object each one contains, and publishes an OpenAPI specification, but most teams still want a lightweight JSON Schema scoped to the handful of events they actually handle. Generating one from real captured payloads keeps it small and matched to the API version you receive.</p>
+                </details>
+
+                <details>
+                    <summary>Is schema validation the same as verifying the webhook signature?</summary>
+                    <p>No, and you need both. Signature verification (using the <code>Stripe-Signature</code> header and your endpoint secret) proves the request genuinely came from Stripe and was not tampered with — always do this first. Schema validation then checks that the payload has the shape your code expects. One is about authenticity, the other about structure.</p>
+                </details>
+
+                <details>
+                    <summary>How many Stripe payloads should I merge?</summary>
+                    <p>Start with three that exercise the differences: a <code>succeeded</code> event (the happy path), a <code>payment_failed</code> event (populates <code>last_payment_error</code>, nulls other fields), and a <code>canceled</code> or refunded event (omits or nulls more fields). Add more event types as you handle them. The merger only learns the variation it sees.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Stop patching webhook schemas by hand</h3>
+                <p>Capture a success, a failure, and a refund payload, merge them in your browser, and get one schema that validates every event.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-schema-multi-generator.html" class="btn btn-primary">Schema from Multiple JSON</a>
+                    <a href="../json-schema-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Schema Validator</a>
+                    <a href="../json-schema-generator.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Single-Sample Generator</a>
+                </div>
+            </div>
+
+            <div class="article-cta">
+                <p>Have a few captured Stripe payloads? Merge them into one schema now.</p>
+                <a href="../json-schema-multi-generator.html" class="btn btn-primary">Open the Multi-Sample Generator &rarr;</a>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-schema-multi-generator.html">Schema from Multiple JSON</a> &mdash; merge event payloads into one schema</li>
+                <li><a href="../json-schema-validator.html">JSON Schema Validator</a> &mdash; check a payload against your schema</li>
+                <li><a href="../json-schema-generator.html">JSON Schema Generator</a> &mdash; infer from a single sample</li>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; pretty-print a captured webhook payload</li>
+            </ul>
+        </section>
+
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="json-schema-from-multiple-samples.html">Generate a JSON Schema From Multiple Samples (Optional &amp; Nullable Fields)</a></li>
+                <li><a href="what-is-json-schema.html">What is JSON Schema?</a></li>
+                <li><a href="json-schema-null-type.html">JSON Schema type: null — Why It's Wrong for Real APIs</a></li>
+                <li><a href="api-returning-html-instead-of-json.html">API Returning HTML Instead of JSON? Here's Why</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Generate a JSON Schema from multiple JSON samples so optional and nullable fields are detected automatically. Learn why one sample produces a broken schema and how merging fixes it.">
+    <meta name="keywords" content="generate json schema from multiple json, json schema from examples, json schema optional fields, nullable fields json schema, merge json schemas, json schema from multiple samples">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-schema-from-multiple-samples.html">
+    <meta property="og:title" content="Generate a JSON Schema From Multiple Samples (Optional & Nullable Fields Done Right)">
+    <meta property="og:description" content="One JSON sample marks every field required and locks its type. Merging several real samples detects optional and nullable fields automatically. Here is how.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-schema-from-multiple-samples.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Generate a JSON Schema From Multiple Samples (Optional & Nullable Fields) | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Generate a JSON Schema From Multiple Samples", "item": "https://jsondevtools.org/blog/json-schema-from-multiple-samples.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Generate a JSON Schema From Multiple Samples (Optional & Nullable Fields Done Right)",
+      "description": "Why a schema generated from one JSON sample is wrong, and how merging several samples detects optional and nullable fields automatically.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-06-05",
+      "dateModified": "2026-06-05",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to generate a JSON Schema from multiple samples",
+      "description": "Merge several JSON samples into one schema so optional and nullable fields are detected automatically.",
+      "step": [
+        { "@type": "HowToStep", "position": 1, "name": "Collect 2 to 5 real samples", "text": "Gather a few genuine responses that differ — a happy-path object, one with a field missing, and one with a field set to null. Variation is what teaches the schema." },
+        { "@type": "HowToStep", "position": 2, "name": "Open the Multi-Sample Schema Generator", "text": "Go to the JSON Schema Multi-Generator. It runs entirely in your browser, so your samples are never uploaded." },
+        { "@type": "HowToStep", "position": 3, "name": "Paste each sample into its own slot", "text": "Put one JSON sample per slot. Use Add sample for up to five slots. Invalid JSON is flagged per slot." },
+        { "@type": "HowToStep", "position": 4, "name": "Click Merge into Schema", "text": "The tool infers a schema for each sample and merges them: fields missing from any sample become optional, and fields with mixed types become nullable or union types." },
+        { "@type": "HowToStep", "position": 5, "name": "Review, tighten, and validate", "text": "Add constraints a sample cannot reveal — enum, minimum, maximum, pattern — then confirm the schema with the JSON Schema Validator." }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why is a JSON Schema generated from one sample wrong?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A single sample cannot show variation. The generator marks every field present in that one sample as required, and locks each field to the exact type it saw. Real data is not like that: some fields are missing on some records, and some come back null. A schema built from one sample rejects valid responses the moment production sends a record that differs from your lucky example." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does merging multiple samples detect optional fields?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A field is kept in the required list only if it is present and non-null in every sample. If any sample omits the field, it drops out of required and becomes optional while remaining in properties. This is the intersection of the required fields across all samples." }
+        },
+        {
+          "@type": "Question",
+          "name": "How are nullable fields handled?",
+          "acceptedAnswer": { "@type": "Answer", "text": "When a field is a string in one sample and null in another, the merger unions the types into a single type array such as [\"string\",\"null\"]. When a field is an object in one sample and null in another, it becomes an anyOf of the object schema and a null type. Either way the resulting schema accepts both shapes." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between optional, required, and nullable?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Optional means the key can be absent entirely. Nullable means the key is present but its value can be null. They are independent: a field can be required and non-null, required and nullable, optional and non-null, or optional and nullable. An optional-and-nullable field has three states — present with a value, present but null, or absent — and your schema must allow all three." }
+        },
+        {
+          "@type": "Question",
+          "name": "How many samples should I merge?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Two to five is usually enough. Choose samples that differ on purpose: include the happy path plus the edge cases you know exist — a record with optional fields omitted, one with nullable fields set to null, and any variant with a different shape. The merger can only learn variation it actually sees." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is the generated schema ready for production?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It is a strong starting point, not a finished schema. Inference cannot know your business rules: allowed enum values, numeric minimums and maximums, string length limits, or regex patterns. Review the merged schema, add those constraints, and validate it against real data before relying on it." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>Generate a JSON Schema From Multiple Samples</span>
+            </nav>
+            <h1>Generate a JSON Schema From Multiple Samples (Optional &amp; Nullable Fields Done Right)</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; 7 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">A schema generated from <strong>one</strong> JSON sample is wrong from day one: it marks <em>every</em> field as <code>required</code> and locks each field to the exact type that one sample happened to contain. Real API data varies — fields are missing on some records, <code>null</code> on others. The fix is to infer from <strong>multiple samples</strong> and merge them: a field absent from any sample becomes optional, and a field whose type differs across samples becomes nullable or a union. This guide explains the optional / required / nullable distinction and walks through generating a schema that survives real data.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:center;">
+                <p style="margin:0 0 0.9rem;font-weight:600;">Merge several JSON samples into one schema, entirely in your browser:</p>
+                <div style="display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;">
+                    <a href="../json-schema-multi-generator.html" class="btn btn-primary" style="display:inline-block;">Schema from Multiple JSON &rarr;</a>
+                    <a href="../json-schema-validator.html" class="btn btn-primary" style="display:inline-block;background:#28a745;border-color:#28a745;">JSON Schema Validator &rarr;</a>
+                </div>
+            </div>
+
+            <h2>Why one sample isn't enough</h2>
+
+            <p>Auto-inference from a single JSON object is fast, but it makes two assumptions that are almost always wrong for real APIs:</p>
+            <ul>
+                <li><strong>Every field is required.</strong> If your one sample includes <code>phone</code>, the schema demands <code>phone</code> on every record — even though many records omit it.</li>
+                <li><strong>Every type is fixed.</strong> If <code>deleted_at</code> is a string in your sample, the schema rejects the <code>null</code> the API actually returns most of the time.</li>
+            </ul>
+            <p>Both assumptions come from the same root cause: <em>a single sample contains no variation</em>, so the generator has nothing from which to infer what is optional or nullable. Collect a few real responses and merge them, and the variation tells the generator everything it was previously guessing.</p>
+
+            <h2>Optional vs. required vs. nullable</h2>
+
+            <p>These three words get used interchangeably, but they are independent properties — and confusing them is one of the most common schema bugs. <strong>Optional</strong> is about whether the key can be <em>absent</em>. <strong>Nullable</strong> is about whether the value can be <code>null</code> when the key <em>is</em> present.</p>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>Field state</th><th>Key can be absent?</th><th>Value can be null?</th><th>In <code>required</code>?</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Required, non-null</td><td>No</td><td>No</td><td>Yes</td></tr>
+                        <tr><td>Required, nullable</td><td>No</td><td>Yes</td><td>Yes (type includes <code>null</code>)</td></tr>
+                        <tr><td>Optional, non-null</td><td>Yes</td><td>No</td><td>No</td></tr>
+                        <tr><td>Optional, nullable</td><td>Yes</td><td>Yes</td><td>No (type includes <code>null</code>)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p>An <strong>optional-and-nullable</strong> field has three distinct states the schema must allow: present with a value, present but <code>null</code>, or absent entirely. A single-sample generator can only ever capture one of those three. Merging real samples is how you cover all of them.</p>
+
+            <h2>How multi-sample merging works</h2>
+
+            <p>The <a href="../json-schema-multi-generator.html">Multi-Sample Schema Generator</a> infers a schema for each sample you paste, then folds them together with three rules:</p>
+            <ul>
+                <li><strong>Required = intersection.</strong> A field stays in <code>required</code> only if it is present and non-null in <em>every</em> sample. Missing from one sample, or <code>null</code> in one sample, and it becomes optional.</li>
+                <li><strong>Types union per field.</strong> If a field is a string in one sample and <code>null</code> in another, the merged type is <code>["string","null"]</code>. Object-vs-null becomes an <code>anyOf</code> of the object schema and a null type.</li>
+                <li><strong>It recurses.</strong> Nested objects and array items are merged with the same rules at every depth.</li>
+            </ul>
+
+            <h2>How to do it, step by step</h2>
+
+            <ol>
+                <li><strong>Collect 2&ndash;5 real samples</strong> that differ on purpose — a happy-path record, one with an optional field omitted, and one with a nullable field set to <code>null</code>.</li>
+                <li><strong>Open the <a href="../json-schema-multi-generator.html">Multi-Sample Schema Generator</a></strong>. It runs entirely in your browser; nothing is uploaded.</li>
+                <li><strong>Paste one sample per slot.</strong> Click <em>Add sample</em> for up to five slots. Invalid JSON is flagged on the specific slot.</li>
+                <li><strong>Click <em>Merge into Schema</em>.</strong> Optional and nullable fields are detected automatically.</li>
+                <li><strong>Review, tighten, and validate.</strong> Add the constraints inference can't know (<code>enum</code>, <code>minimum</code>, <code>maximum</code>, <code>pattern</code>), then confirm it in the <a href="../json-schema-validator.html">JSON Schema Validator</a>.</li>
+            </ol>
+
+            <h2>A worked example</h2>
+
+            <p>Three user records — note that <code>phone</code> appears in one, is missing in another, and is <code>null</code> in a third, while <code>role</code> is missing from the first:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Sample 1
+{ "id": 1, "name": "Alice", "email": "alice@example.com", "phone": "+1-202-555-0143", "active": true }
+
+// Sample 2
+{ "id": 2, "name": "Bob", "email": "bob@example.com", "active": false, "role": "admin" }
+
+// Sample 3
+{ "id": 3, "name": "Carol", "email": "carol@example.com", "phone": null, "active": true, "role": "editor" }</code></pre>
+            </div>
+
+            <p>Merging all three produces a schema that reflects the real variation — <code>phone</code> is optional <em>and</em> nullable, <code>role</code> is optional, and only the fields present in every sample stay required:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "id":     { "type": "integer" },
+    "name":   { "type": "string" },
+    "email":  { "type": "string", "format": "email" },
+    "phone":  { "type": ["string", "null"] },
+    "active": { "type": "boolean" },
+    "role":   { "type": "string" }
+  },
+  "required": ["id", "name", "email", "active"]
+}</code></pre>
+            </div>
+
+            <p>Compare that to what a single-sample generator would emit from Sample 1 alone: <code>phone</code> would be a plain required <code>string</code>, and <code>role</code> would not exist in the schema at all. The first time production sends Bob (no <code>phone</code>) or Carol (<code>phone: null</code>), that schema rejects valid data.</p>
+
+            <h2>The merged schema is still a starting point</h2>
+
+            <p>Merging fixes <em>structure</em> — which fields exist, which are optional, which are nullable. It cannot infer your <em>rules</em>. A sample can't tell the generator that <code>status</code> must be one of three values, that <code>age</code> is between 0 and 120, or that <code>email</code> must match a pattern. After merging, tighten the schema:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>"status": { "type": "string", "enum": ["active", "inactive", "pending"] },
+"age":    { "type": "integer", "minimum": 0, "maximum": 120 },
+"role":   { "type": "string", "enum": ["admin", "editor", "viewer"] }</code></pre>
+            </div>
+
+            <h2>Single-sample vs. multi-sample generators</h2>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>Capability</th><th>Single-sample generator</th><th>Multi-sample merge</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Detects optional fields</td><td>No — every field required</td><td>Yes — required intersection</td></tr>
+                        <tr><td>Detects nullable types</td><td>No — type locked to the sample</td><td>Yes — type union per field</td></tr>
+                        <tr><td>Handles diverging shapes</td><td>No</td><td>Yes — <code>anyOf</code> across samples</td></tr>
+                        <tr><td>Format hints (email, uuid, date-time)</td><td>Yes</td><td>Yes (preserved when samples agree)</td></tr>
+                        <tr><td>Runs in the browser</td><td>Varies</td><td>Yes — nothing uploaded</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>Why is a JSON Schema generated from one sample wrong?</summary>
+                    <p>A single sample cannot show variation. The generator marks every field present in that one sample as <code>required</code>, and locks each field to the exact type it saw. Real data is not like that: some fields are missing on some records, and some come back <code>null</code>. A schema built from one sample rejects valid responses the moment production sends a record that differs from your lucky example.</p>
+                </details>
+
+                <details>
+                    <summary>How does merging multiple samples detect optional fields?</summary>
+                    <p>A field is kept in the <code>required</code> list only if it is present and non-null in <strong>every</strong> sample. If any sample omits the field, it drops out of <code>required</code> and becomes optional while remaining in <code>properties</code>. This is the intersection of the required fields across all samples.</p>
+                </details>
+
+                <details>
+                    <summary>How are nullable fields handled?</summary>
+                    <p>When a field is a string in one sample and <code>null</code> in another, the merger unions the types into a single type array such as <code>["string","null"]</code>. When a field is an object in one sample and <code>null</code> in another, it becomes an <code>anyOf</code> of the object schema and a null type. Either way the resulting schema accepts both shapes.</p>
+                </details>
+
+                <details>
+                    <summary>What is the difference between optional, required, and nullable?</summary>
+                    <p>Optional means the key can be absent entirely. Nullable means the key is present but its value can be <code>null</code>. They are independent: a field can be required and non-null, required and nullable, optional and non-null, or optional and nullable. An optional-and-nullable field has three states — present with a value, present but <code>null</code>, or absent — and your schema must allow all three.</p>
+                </details>
+
+                <details>
+                    <summary>How many samples should I merge?</summary>
+                    <p>Two to five is usually enough. Choose samples that differ on purpose: include the happy path plus the edge cases you know exist — a record with optional fields omitted, one with nullable fields set to <code>null</code>, and any variant with a different shape. The merger can only learn variation it actually sees.</p>
+                </details>
+
+                <details>
+                    <summary>Is the generated schema ready for production?</summary>
+                    <p>It is a strong starting point, not a finished schema. Inference cannot know your business rules: allowed <code>enum</code> values, numeric minimums and maximums, string length limits, or regex patterns. Review the merged schema, add those constraints, and validate it against real data before relying on it.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Build a schema from your real data</h3>
+                <p>Paste 2&ndash;5 samples and merge them into one draft-07 schema — optional and nullable fields detected automatically, all in your browser.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-schema-multi-generator.html" class="btn btn-primary">Schema from Multiple JSON</a>
+                    <a href="../json-schema-generator.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Single-Sample Generator</a>
+                    <a href="../json-schema-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Schema Validator</a>
+                </div>
+            </div>
+
+            <div class="article-cta">
+                <p>Have a few real API responses? Turn them into one accurate schema now.</p>
+                <a href="../json-schema-multi-generator.html" class="btn btn-primary">Open the Multi-Sample Generator &rarr;</a>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-schema-multi-generator.html">Schema from Multiple JSON</a> &mdash; merge several samples into one schema</li>
+                <li><a href="../json-schema-generator.html">JSON Schema Generator</a> &mdash; infer a schema from a single sample</li>
+                <li><a href="../json-schema-validator.html">JSON Schema Validator</a> &mdash; validate JSON against your schema</li>
+                <li><a href="../json-diff.html">JSON Diff</a> &mdash; compare two sample responses key by key</li>
+            </ul>
+        </section>
+
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="stripe-webhook-schema-validation.html">Why Your Stripe Webhook Schema Breaks on Refunds (and How to Fix It)</a></li>
+                <li><a href="what-is-json-schema.html">What is JSON Schema?</a></li>
+                <li><a href="json-schema-null-type.html">JSON Schema type: null — Why It's Wrong for Real APIs</a></li>
+                <li><a href="validate-json-schema.html">How to Validate JSON Against a Schema</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

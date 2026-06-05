@@ -17,6 +17,7 @@
         '                        <li><a href="' + r + 'json-validator.html">JSON Validator</a></li>\n' +
         '                        <li><a href="' + r + 'json-schema-validator.html">JSON Schema Validator</a></li>\n' +
         '                        <li><a href="' + r + 'json-schema-generator.html">JSON Schema Generator</a></li>\n' +
+        '                        <li><a href="' + r + 'json-schema-multi-generator.html">Schema from Multiple JSON</a></li>\n' +
         '                        <li><a href="' + r + 'json-minifier.html">JSON Minifier</a></li>\n' +
         '                        <li><a href="' + r + 'json-viewer.html">JSON Viewer</a></li>\n' +
         '                        <li><a href="' + r + 'json-beautifier.html">JSON Beautifier</a></li>\n' +

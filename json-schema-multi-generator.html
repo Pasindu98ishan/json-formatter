@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Generate one JSON Schema from multiple JSON samples. Merging several examples detects optional and nullable fields that single-sample inference misses. Free, browser-only, draft-07 output.">
+    <meta name="keywords" content="generate json schema from multiple json, json schema from examples, json schema optional fields, nullable fields json schema, merge json schemas online, json schema from multiple samples">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/json-schema-multi-generator.html">
+    <meta property="og:title" content="JSON Schema Multi-Generator – Build a Schema from Multiple JSON Samples">
+    <meta property="og:description" content="Paste 2–5 JSON samples and merge them into one draft-07 schema. Fields missing from some samples become optional; fields with mixed types become nullable unions.">
+    <meta property="og:url" content="https://jsondevtools.org/json-schema-multi-generator.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JSON Schema Multi-Generator – Generate Schema from Multiple JSON Samples | JSON Dev Tools</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "JSON Schema Multi-Generator", "item": "https://jsondevtools.org/json-schema-multi-generator.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "JSON Schema Multi-Generator",
+      "url": "https://jsondevtools.org/json-schema-multi-generator.html",
+      "description": "Generate a unified JSON Schema (draft-07) from multiple JSON samples. Merging several examples detects optional and nullable fields that single-sample inference cannot, then infers types, required fields, and format hints.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why generate a JSON Schema from multiple samples instead of one?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A single JSON sample cannot tell you which fields are optional or nullable. Inferring from one example marks every field as required and locks each type to whatever that sample contained. By merging several real samples, the generator sees the variation: a field missing from some samples becomes optional, and a field whose value differs in type across samples becomes a nullable or union type. The result is a schema that matches real data instead of one lucky example." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does merging decide which fields are required?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A field is kept in the required list only if it is present and non-null in every sample. If any sample omits the field or sends it as null, the field is moved out of required and treated as optional. This is the intersection of the required fields across all samples." }
+        },
+        {
+          "@type": "Question",
+          "name": "How are fields with different types across samples handled?",
+          "acceptedAnswer": { "@type": "Answer", "text": "When the same field appears with different types in different samples — for example a string in one and null in another — the merger combines them into a single type array such as [\"string\",\"null\"], the pattern real APIs use for nullable fields." }
+        },
+        {
+          "@type": "Question",
+          "name": "How many JSON samples can I merge?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Between 2 and 5 samples. Use the Add sample button to add slots up to five, and the remove button on each slot to drop down to a minimum of two. More samples give the merger more variation to learn optional and nullable fields from." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it still infer formats like email, date-time, and UUID?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Each sample is inferred with the same engine as the single-sample generator, so string format hints (email, date-time, date, uuid, uri) are detected per field. When the merged samples agree on a format it is preserved; when they disagree the format hint is dropped." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my JSON sent to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Every sample is parsed and merged entirely in your browser using JavaScript. Your JSON never leaves your device." }
+        }
+      ]
+    }
+    </script>
+    <style>
+        /* ── Two-panel layout ───────────────────────────────────────────── */
+        .gen-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+        @media (max-width: 720px) {
+            .gen-panels { grid-template-columns: 1fr; }
+        }
+        .gen-panel > label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 6px;
+        }
+        .gen-panel textarea {
+            width: 100%;
+            display: block; /* avoid the inline-block descender gap under each sample textarea */
+            margin: 0; /* kill the global textarea margin-bottom so slot boxes are tight and bottoms align */
+            padding: 12px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            resize: vertical;
+            background: #fff;
+            color: var(--text-light);
+            box-sizing: border-box;
+        }
+        /* Right panel stretches to match whatever height the sample slots reach */
+        .gen-panels { align-items: stretch; }
+        .gen-panel { display: flex; flex-direction: column; }
+        /* .output-head mirrors a .sample-slot-head (22px control + 4px margin = 26px) so the
+           output textarea's top lines up with Sample 1's textarea, not the column top. */
+        .output-head { display: flex; align-items: center; min-height: 22px; margin-bottom: 4px; }
+        #schemaOutput { flex: 1; min-height: 200px; }
+        body.dark-mode .gen-panel textarea {
+            background: #2d2d2d; color: #e0e0e0; border-color: #444;
+        }
+
+        /* ── Sample slots (left panel) ──────────────────────────────────── */
+        #addSampleBtn {
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #fff;
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        #addSampleBtn:hover:not(:disabled) { background: #f0f4f8; border-color: #007bff; color: #007bff; }
+        #addSampleBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+        body.dark-mode #addSampleBtn { background:#2d2d2d; color:#e0e0e0; border-color:#444; }
+
+        .sample-slot { margin-bottom: 10px; }
+        /* Last slot has no trailing margin so the column bottom == its textarea bottom,
+           letting the output textarea's bottom line up with the last sample. */
+        .sample-slot:last-child { margin-bottom: 0; }
+        .sample-slot-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .sample-label { font-size: 12px; font-weight: 600; color: var(--secondary-color); }
+        .sample-remove {
+            width: 22px; height: 22px;
+            line-height: 1;
+            font-size: 16px;
+            background: transparent;
+            color: var(--secondary-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .sample-remove:hover:not(:disabled) { background: #f8d7da; color: #dc3545; border-color: #dc3545; }
+        .sample-remove:disabled { opacity: 0.35; cursor: not-allowed; }
+        .sample-input { min-height: 104px; }
+        .sample-slot.has-error .sample-input { border-color: #dc3545; }
+        .sample-error {
+            display: none;
+            margin-top: 4px;
+            font-size: 12px;
+            color: #b91c1c;
+        }
+        body.dark-mode .sample-error { color: #f08080; }
+
+        /* ── Toolbar ────────────────────────────────────────────────────── */
+        .tool-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .tool-instruction {
+            margin: 0;
+            font-size: 13.5px;
+            color: var(--text-light);
+            line-height: 1.5;
+        }
+        .tool-instruction strong { color: #0056b3; font-weight: 600; }
+        body.dark-mode .tool-instruction strong { color: #66b2ff; }
+
+        #loadExampleBtn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-light);
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 7px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        #loadExampleBtn:hover { background: #f6f8fa; border-color: #b0b8c4; }
+        body.dark-mode #loadExampleBtn { background:#2d2d2d; color:#e0e0e0; border-color:#444; }
+        body.dark-mode #loadExampleBtn:hover { background:#353535; border-color:#555; }
+
+        /* Copy Schema sits in the button-group; use .copied feedback same as before */
+        #copyOutputBtn.copied { background: #28a745 !important; color: #fff !important; border-color: #28a745 !important; }
+
+        /* ── Result banner ──────────────────────────────────────────────── */
+        #resultBox { margin-top: 14px; display: none; }
+        .schema-result-ok {
+            padding: 12px 16px;
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .schema-result-err {
+            padding: 12px 16px;
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        body.dark-mode .schema-result-ok { background:#1a3d26; color:#6fd98a; }
+        body.dark-mode .schema-result-err { background:#3d1a1a; color:#f08080; }
+
+        /* ── Code blocks ────────────────────────────────────────────────── */
+        .code-block { position: relative; margin: 12px 0; }
+        .code-block pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 14px 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12.5px;
+            line-height: 1.55;
+            margin: 0;
+        }
+        .copy-code-btn {
+            position: absolute; top: 8px; right: 8px;
+            padding: 4px 10px; font-size: 11px; font-weight: 600;
+            background: rgba(255,255,255,0.12); color: #cbd5e1;
+            border: 1px solid rgba(255,255,255,0.18); border-radius: 4px;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .copy-code-btn:hover { background: rgba(255,255,255,0.22); color: #fff; }
+        .copy-code-btn.copied { background: #28a745; color: #fff; border-color: #28a745; }
+
+        /* ── Inferred type table ────────────────────────────────────────── */
+        .type-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin: 16px 0;
+        }
+        .type-table th, .type-table td {
+            padding: 9px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+        .type-table th { background: #f8f9fa; font-weight: 600; }
+        body.dark-mode .type-table th { background: #2a2a2a; }
+        body.dark-mode .type-table th, body.dark-mode .type-table td { border-color: #444; }
+        .type-table code {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            background: rgba(0,123,255,0.08);
+            padding: 1px 6px;
+            border-radius: 3px;
+            color: #0056b3;
+        }
+        body.dark-mode .type-table code { background: rgba(102,178,255,0.15); color: #66b2ff; }
+
+        /* ── Quick answer block ─────────────────────────────────────────── */
+        .quick-answer {
+            background: #e8f4fd;
+            border-left: 4px solid #007bff;
+            border-radius: 6px;
+            padding: 16px 18px;
+            margin: 18px 0;
+        }
+        .quick-answer h2 { margin: 0 0 8px; font-size: 16px; color: #0056b3; }
+        .quick-answer p { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--text-light); }
+        body.dark-mode .quick-answer { background: #0d2137; }
+        body.dark-mode .quick-answer h2 { color: #66b2ff; }
+    </style>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>JSON Schema Multi-Generator</h1>
+            <p>Paste several JSON samples and merge them into one draft-07 schema. Fields missing from some samples become optional; fields with mixed types become nullable unions — the detail a single sample can never reveal.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+
+            <div class="tool-toolbar">
+                <p class="tool-instruction">
+                    Add <strong>2–5 JSON samples</strong> on the left. Click <strong>Merge into Schema</strong>. Copy the unified schema on the right.
+                </p>
+                <div style="display:flex;gap:8px;flex-shrink:0;">
+                    <button type="button" id="addSampleBtn">+ Add sample</button>
+                    <button type="button" id="loadExampleBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Load example
+                    </button>
+                </div>
+            </div>
+
+            <div class="gen-panels">
+                <!-- Left: JSON sample slots. Each slot has a .sample-slot-head row. -->
+                <div class="gen-panel">
+                    <div id="sampleSlots"></div>
+                </div>
+                <!-- Right: Schema output. The .output-head row matches a slot-head's height so
+                     the output textarea's top aligns with Sample 1's textarea, and the textarea
+                     flex-stretches so its bottom aligns with the last sample's textarea. -->
+                <div class="gen-panel">
+                    <div class="output-head"><span class="sample-label">Merged JSON Schema (draft-07)</span></div>
+                    <textarea id="schemaOutput" spellcheck="false" ></textarea>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="mergeBtn" class="btn btn-primary" type="button">Merge into Schema</button>
+                <button id="clearAllBtn" class="btn btn-secondary" type="button">Clear all</button>
+                <button id="copyOutputBtn" type="button" class="btn btn-secondary">Copy Schema</button>
+                <a href="json-schema-validator.html" class="btn btn-secondary" style="text-decoration:none;">Validate the schema →</a>
+            </div>
+
+            <div id="resultBox" role="status" aria-live="polite"></div>
+        </section>
+
+        <div class="quick-answer">
+            <h2>Quick answer</h2>
+            <p>To build a JSON Schema that reflects real data, paste <strong>multiple JSON samples</strong> and merge them. A single sample marks every field as required and locks its type; merging several samples reveals which fields are <strong>optional</strong> (missing from some samples) and which are <strong>nullable</strong> (different types across samples). Everything runs in your browser — your JSON never leaves your device.</p>
+        </div>
+
+        <section class="info-section">
+            <h2>Why one sample isn't enough</h2>
+            <p>Auto-generating a schema from a single JSON object is fast, but it makes two assumptions that are almost always wrong for real APIs:</p>
+            <ul>
+                <li><strong>Every field is required.</strong> If your one sample happens to include <code>phone</code>, the schema demands <code>phone</code> on every record — even though many records omit it.</li>
+                <li><strong>Every type is fixed.</strong> If <code>deletedAt</code> is a string in your sample, the schema rejects the <code>null</code> the API actually returns most of the time.</li>
+            </ul>
+            <p>Collecting a handful of real responses and merging them fixes both. The merger keeps a field <strong>required only when it is present and non-null in every sample</strong>, and unions the types it sees for each field.</p>
+        </section>
+
+        <section class="info-section">
+            <h2>How merging decides required, optional, and nullable</h2>
+            <table class="type-table">
+                <thead>
+                    <tr><th>Across your samples…</th><th>Merged schema result</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Field present and non-null in <strong>every</strong> sample</td><td>Stays in <code>required</code></td></tr>
+                    <tr><td>Field <strong>missing</strong> from at least one sample</td><td>Dropped from <code>required</code> (optional), kept in <code>properties</code></td></tr>
+                    <tr><td>Field is <code>null</code> in at least one sample</td><td>Optional + nullable — <code>type: ["string","null"]</code></td></tr>
+                    <tr><td>Field is a string in one sample, a number in another</td><td>Union of both types — <code>type: ["string","number"]</code></td></tr>
+                    <tr><td>Nested objects with differing keys</td><td>Merged recursively — same rules applied at every depth</td></tr>
+                    <tr><td>All samples agree on a string format (e.g. <code>email</code>)</td><td>Format hint preserved; dropped when samples disagree</td></tr>
+                </tbody>
+            </table>
+            <p>Example — three user records where <code>phone</code> appears in one, is missing in another, and is <code>null</code> in a third:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>// Sample 1: { "id": 1, "name": "Alice", "phone": "+1-202-555-0143" }
+// Sample 2: { "id": 2, "name": "Bob",   "role": "admin" }
+// Sample 3: { "id": 3, "name": "Carol", "phone": null, "role": "editor" }
+
+// Merged schema:
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "id":    { "type": "integer" },
+    "name":  { "type": "string" },
+    "phone": { "type": ["string", "null"] },   // ← optional + nullable
+    "role":  { "type": "string" }              // ← optional (missing in sample 1)
+  },
+  "required": ["id", "name"]                    // ← only the fields in every sample
+}</pre>
+            </div>
+        </section>
+
+        <section class="info-section">
+            <h2>Single sample vs. multiple samples vs. quicktype</h2>
+            <table class="type-table">
+                <thead>
+                    <tr><th>Approach</th><th>Detects optional fields?</th><th>Detects nullable types?</th><th>Where it runs</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><a href="json-schema-generator.html">Single-sample generator</a></td><td>No — all fields required</td><td>No — type locked to the sample</td><td>Browser</td></tr>
+                    <tr><td><strong>This multi-sample merger</strong></td><td><strong>Yes — required intersection</strong></td><td><strong>Yes — type union per field</strong></td><td><strong>Browser (no upload)</strong></td></tr>
+                    <tr><td>quicktype</td><td>Yes</td><td>Yes</td><td>CLI / install required</td></tr>
+                </tbody>
+            </table>
+            <p>The merged schema is still a starting point — review and tighten it (add <code>enum</code>, <code>minLength</code>, numeric bounds), then confirm it with the <a href="json-schema-validator.html">JSON Schema Validator</a>.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+
+            <details>
+                <summary>Why generate a JSON Schema from multiple samples instead of one?</summary>
+                <p>A single JSON sample cannot tell you which fields are optional or nullable. Inferring from one example marks every field as <code>required</code> and locks each type to whatever that sample contained. By merging several real samples, the generator sees the variation: a field missing from some samples becomes optional, and a field whose value differs in type across samples becomes a nullable or union type. The result is a schema that matches real data instead of one lucky example.</p>
+            </details>
+
+            <details>
+                <summary>How does merging decide which fields are required?</summary>
+                <p>A field is kept in the <code>required</code> list only if it is present and non-null in <strong>every</strong> sample. If any sample omits the field or sends it as <code>null</code>, the field is moved out of <code>required</code> and treated as optional. This is the intersection of the required fields across all samples.</p>
+            </details>
+
+            <details>
+                <summary>How are fields with different types across samples handled?</summary>
+                <p>When the same field appears with different types in different samples — for example a string in one and <code>null</code> in another — the merger combines them into a single type array such as <code>["string","null"]</code>, the pattern real APIs use for nullable fields.</p>
+            </details>
+
+            <details>
+                <summary>How many JSON samples can I merge?</summary>
+                <p>Between 2 and 5 samples. Use the <strong>Add sample</strong> button to add slots up to five, and the remove button on each slot to drop down to a minimum of two. More samples give the merger more variation to learn optional and nullable fields from.</p>
+            </details>
+
+            <details>
+                <summary>Does it still infer formats like email, date-time, and UUID?</summary>
+                <p>Yes. Each sample is inferred with the same engine as the single-sample generator, so string format hints (<code>email</code>, <code>date-time</code>, <code>date</code>, <code>uuid</code>, <code>uri</code>) are detected per field. When the merged samples agree on a format it is preserved; when they disagree the format hint is dropped.</p>
+            </details>
+
+            <details>
+                <summary>Is my JSON sent to a server?</summary>
+                <p>No. Every sample is parsed and merged entirely in your browser using JavaScript. Your JSON never leaves your device.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="json-schema-generator.html">JSON Schema Generator</a> — infer a schema from a single JSON sample</li>
+                <li><a href="json-schema-validator.html">JSON Schema Validator</a> — validate JSON against the merged schema</li>
+                <li><a href="json-validator.html">JSON Validator</a> — check each sample's syntax first</li>
+                <li><a href="json-diff.html">JSON Diff</a> — compare two JSON samples side by side</li>
+                <li><a href="formatter.html">JSON Formatter</a> — pretty-print JSON samples</li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/json-schema-from-multiple-samples.html">Generate a JSON Schema From Multiple Samples (Optional &amp; Nullable Fields)</a></li>
+                <li><a href="blog/stripe-webhook-schema-validation.html">Why Your Stripe Webhook Schema Breaks on Refunds (and How to Fix It)</a></li>
+                <li><a href="blog/what-is-json-schema.html">What Is JSON Schema? A Complete Guide</a></li>
+                <li><a href="blog/json-schema-null-type.html">JSON Schema type: null — Why It's Wrong for Real APIs</a></li>
+                <li><a href="blog/validate-json-schema.html">How to Validate JSON Against a Schema</a></li>
+                <li><a href="blog/kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/dark-mode.js"></script>
+    <script src="js/json-schema-multi-generator-tool.js"></script>
+</body>
+</html>
