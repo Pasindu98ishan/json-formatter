@@ -107,6 +107,20 @@ function initializeEventListeners() {
             localStorage.setItem('formatterInput', inputJSON.value);
         }, 500);
         inputJSON.addEventListener('input', saveInput);
+
+        // Auto-format after the user stops typing (~700ms idle), gated by the toggle.
+        const debouncedAutoFormat = debounce(autoFormat, 700);
+        inputJSON.addEventListener('input', debouncedAutoFormat);
+    }
+
+    // Auto-format toggle (default on; persisted)
+    const autoFormatToggle = document.getElementById('autoFormatToggle');
+    if (autoFormatToggle) {
+        autoFormatToggle.checked = isAutoFormatOn();
+        autoFormatToggle.addEventListener('change', function() {
+            localStorage.setItem('formatter_auto_format', autoFormatToggle.checked ? 'true' : 'false');
+            if (autoFormatToggle.checked) autoFormat();
+        });
     }
 }
 
@@ -371,23 +385,36 @@ function loadSharedJSON() {
     } catch (e) { /* malformed share link — silent fail */ }
 }
 
+// ── Auto-format ──────────────────────────────────────────────────────────────
+// Default ON; persisted. Missing key counts as on.
+function isAutoFormatOn() {
+    return localStorage.getItem('formatter_auto_format') !== 'false';
+}
+
+// Silently format the current input into the output pane + tree. Invalid JSON is
+// ignored (no error shown) so it never spams while the user is mid-edit — the
+// explicit Format button still surfaces errors via handleFormat().
+function autoFormat() {
+    if (!isAutoFormatOn()) return;
+    const input = document.getElementById('inputJSON').value.trim();
+    if (!input) return;
+    try {
+        const indent = parseInt(document.getElementById('indentSelect')?.value || '2');
+        const sortKeys = document.getElementById('sortKeysToggle')?.checked;
+        let formatted = beautifyJSON(input, indent);
+        if (sortKeys) formatted = sortJSONKeys(formatted);
+        setOutput(formatted);
+        if (treeViewer) treeViewer.render(formatted);
+        clearError();
+    } catch (error) {
+        /* mid-edit / invalid — keep last good output, no error spam */
+    }
+}
+
 function handlePaste(e) {
     trackEvent('tool_start', { tool: 'json_formatter' });
-    // Auto-format after paste
-    setTimeout(() => {
-        const input = document.getElementById('inputJSON').value.trim();
-        if (input && input.length > 0) {
-            try {
-                const formatted = formatJSON(input);
-                setOutput(formatted);
-                treeViewer.render(formatted);
-                clearError();
-            } catch (error) {
-                // Silent fail - user can click format manually
-                treeViewer.clear();
-            }
-        }
-    }, 10);
+    // Paste formats immediately (the input value settles a tick after the event).
+    setTimeout(autoFormat, 10);
 }
 
 function setThemeToggleState(btn, isDarkMode) {

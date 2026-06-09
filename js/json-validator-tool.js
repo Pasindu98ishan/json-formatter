@@ -48,56 +48,81 @@ document.addEventListener('DOMContentLoaded', function () {
         errorContainer.innerHTML = '';
     }
 
+    // Core validation, callable from the button or the auto-validate listener.
+    // When called automatically (opts.auto), an empty input is a no-op rather
+    // than showing the "please enter JSON" prompt.
+    function runValidate(opts) {
+        opts = opts || {};
+        const value = inputJSON.value.trim();
+        resetStatus();
+        outputText.value = '';
+
+        if (!value) {
+            if (!opts.auto) showMessage('Please enter JSON data to validate.', false);
+            return;
+        }
+
+        try {
+            JSON.parse(value);
+            // Valid — build a useful summary for the output pane
+            const stats = (typeof getJSONStats === 'function') ? getJSONStats(value) : null;
+            const lines = ['✓ Valid JSON — no errors found.'];
+            if (stats) {
+                lines.push('');
+                lines.push(`Keys:    ${stats.keys}`);
+                lines.push(`Objects: ${stats.objects}`);
+                lines.push(`Arrays:  ${stats.arrays}`);
+                lines.push(`Depth:   ${stats.depth}`);
+                if (stats.size) lines.push(`Size:    ${stats.size}`);
+            }
+            outputText.value = lines.join('\n');
+            showMessage('Valid JSON! No errors found.', true);
+            trackEvent('validate_json', { result: 'valid', auto: !!opts.auto });
+        } catch (e) {
+            // Route through the same normalizer the formatter uses
+            const norm = (typeof normalizeJSONError === 'function')
+                ? normalizeJSONError(value, e.message)
+                : { title: e.message, hint: '', line: 0, column: 0, rawMessage: e.message };
+
+            const lines = ['✗ Invalid JSON', '', norm.title];
+            if (norm.hint) {
+                lines.push('');
+                lines.push('→ ' + norm.hint);
+            }
+            if (norm.line) {
+                lines.push('');
+                lines.push(`Location: line ${norm.line}, column ${norm.column}`);
+            }
+            if (norm.rawMessage && norm.rawMessage !== norm.title) {
+                lines.push('');
+                lines.push('Technical: ' + norm.rawMessage);
+            }
+            outputText.value = lines.join('\n');
+            showMessage(norm.title, false, norm.hint, norm.rawMessage);
+            trackEvent('validate_json', { result: 'invalid', auto: !!opts.auto });
+        }
+    }
+
     if (validateBtn) {
-        validateBtn.addEventListener('click', function () {
-            const value = inputJSON.value.trim();
-            resetStatus();
-            outputText.value = '';
+        validateBtn.addEventListener('click', function () { runValidate(); });
+    }
 
-            if (!value) {
-                showMessage('Please enter JSON data to validate.', false);
-                return;
-            }
-
-            try {
-                JSON.parse(value);
-                // Valid — build a useful summary for the output pane
-                const stats = (typeof getJSONStats === 'function') ? getJSONStats(value) : null;
-                const lines = ['✓ Valid JSON — no errors found.'];
-                if (stats) {
-                    lines.push('');
-                    lines.push(`Keys:    ${stats.keys}`);
-                    lines.push(`Objects: ${stats.objects}`);
-                    lines.push(`Arrays:  ${stats.arrays}`);
-                    lines.push(`Depth:   ${stats.depth}`);
-                    if (stats.size) lines.push(`Size:    ${stats.size}`);
-                }
-                outputText.value = lines.join('\n');
-                showMessage('Valid JSON! No errors found.', true);
-                trackEvent('validate_json', { result: 'valid' });
-            } catch (e) {
-                // Route through the same normalizer the formatter uses
-                const norm = (typeof normalizeJSONError === 'function')
-                    ? normalizeJSONError(value, e.message)
-                    : { title: e.message, hint: '', line: 0, column: 0, rawMessage: e.message };
-
-                const lines = ['✗ Invalid JSON', '', norm.title];
-                if (norm.hint) {
-                    lines.push('');
-                    lines.push('→ ' + norm.hint);
-                }
-                if (norm.line) {
-                    lines.push('');
-                    lines.push(`Location: line ${norm.line}, column ${norm.column}`);
-                }
-                if (norm.rawMessage && norm.rawMessage !== norm.title) {
-                    lines.push('');
-                    lines.push('Technical: ' + norm.rawMessage);
-                }
-                outputText.value = lines.join('\n');
-                showMessage(norm.title, false, norm.hint, norm.rawMessage);
-                trackEvent('validate_json', { result: 'invalid' });
-            }
+    // ── Auto-validate (default on; persisted) ─────────────────────────────────
+    function isAutoValidateOn() {
+        return localStorage.getItem('validator_auto_validate') !== 'false';
+    }
+    if (inputJSON) {
+        const debouncedAutoValidate = debounce(function () {
+            if (isAutoValidateOn()) runValidate({ auto: true });
+        }, 500);
+        inputJSON.addEventListener('input', debouncedAutoValidate);
+    }
+    const autoValidateToggle = document.getElementById('autoValidateToggle');
+    if (autoValidateToggle) {
+        autoValidateToggle.checked = isAutoValidateOn();
+        autoValidateToggle.addEventListener('change', function () {
+            localStorage.setItem('validator_auto_validate', autoValidateToggle.checked ? 'true' : 'false');
+            if (autoValidateToggle.checked) runValidate({ auto: true });
         });
     }
 

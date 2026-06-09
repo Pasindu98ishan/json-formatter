@@ -136,6 +136,10 @@ async function initCM6() {
                         inputView._saveTimer = setTimeout(() => {
                             localStorage.setItem('formatterInput', update.state.doc.toString());
                         }, 500);
+                        // Surface CM6 edits as a normal DOM input event on the (hidden)
+                        // textarea, so plain `input` listeners (auto-format, auto-validate)
+                        // work identically whether CM6 loaded or the textarea fallback is used.
+                        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                     }
                     const undoBtn = document.getElementById('undoBtn');
                     const redoBtn = document.getElementById('redoBtn');
@@ -201,9 +205,29 @@ async function initCM6() {
             reader.readAsText(file);
         });
 
-        // ── Output editor (read-only) — only on pages that have an output pane ─
+        // ── Swap native input → CM6 immediately ──────────────────────────────
+        // Reveal the line-numbered input editor as the first thing after the
+        // bundle resolves, so the editor the user is watching appears ASAP.
+        inputContainer.style.display = '';
+        inputEl.style.display = 'none';
+        inputEl.setAttribute('aria-hidden', 'true');
+
+        // outputView is created lazily (below); declared here so the theme
+        // observer's closure can pick it up once it exists.
         let outputView = null;
-        if (outputContainer) {
+
+        new MutationObserver(() => {
+            const theme = isDark() ? darkTheme : [];
+            inputView.dispatch({ effects: themeInput.reconfigure(theme) });
+            if (outputView) outputView.dispatch({ effects: themeOutput.reconfigure(theme) });
+        }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+        // ── Output editor (read-only) — built lazily so it doesn't block the
+        //    input editor's first paint. Only on pages that have an output pane. ─
+        let outputBuilt = false;
+        function buildOutputEditor() {
+            if (outputBuilt || !outputContainer) return;
+            outputBuilt = true;
             outputView = new EditorView({
                 parent: outputContainer,
                 state: EditorState.create({
@@ -226,26 +250,23 @@ async function initCM6() {
             window.cmClearOutput = () => {
                 outputView.dispatch({ changes: { from: 0, to: outputView.state.doc.length, insert: '' } });
             };
-        }
 
-        new MutationObserver(() => {
-            const theme = isDark() ? darkTheme : [];
-            inputView.dispatch({ effects: themeInput.reconfigure(theme) });
-            if (outputView) outputView.dispatch({ effects: themeOutput.reconfigure(theme) });
-        }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
-        // ── Swap native elements → CM6 editors ───────────────────────────────
-        inputContainer.style.display = '';
-        inputEl.style.display = 'none';
-        inputEl.setAttribute('aria-hidden', 'true');
-
-        if (outputContainer) {
             outputContainer.style.display = '';
             const outputPre = document.getElementById('outputJSON');
             if (outputPre) outputPre.style.display = 'none';
 
+            // Pick up any output produced before this editor existed (setOutput
+            // always mirrors into #outputJSONRaw, falling back to the <pre>).
             const outputRaw = document.getElementById('outputJSONRaw');
             if (outputRaw && outputRaw.value) window.cmSetOutput(outputRaw.value);
+        }
+
+        if (outputContainer) {
+            if (typeof window.requestIdleCallback === 'function') {
+                requestIdleCallback(buildOutputEditor, { timeout: 1500 });
+            } else {
+                setTimeout(buildOutputEditor, 120);
+            }
         }
 
     } catch (e) {
