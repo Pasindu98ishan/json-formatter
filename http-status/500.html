@@ -155,6 +155,20 @@
             <h2>What HTTP 500 means</h2>
             <p><strong>500 Internal Server Error</strong> is the catch-all server error. The request was fine, but something broke while handling it — most often an unhandled exception in the application code. The response body rarely contains useful detail by design (to avoid leaking internals), so diagnosis happens in the server logs.</p>
 
+            <h2>"500 Server Error: Internal Server Error for url:" — the requests error</h2>
+            <p>Calling an API from Python, this surfaces as an <code>HTTPError</code> when you call <code>raise_for_status()</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import requests
+
+response = requests.get("https://api.example.com/data")
+response.raise_for_status()
+
+# requests.exceptions.HTTPError:
+# 500 Server Error: Internal Server Error for url: https://api.example.com/data</code></pre>
+            </div>
+            <p>A 500 is a <strong>server-side</strong> failure — the server hit an unhandled error while processing your request. No change to your request fixes it; if you run the server, check its logs and stack trace. Retrying only helps if the error was transient.</p>
+
             <h2>Common causes</h2>
             <ul>
                 <li>An unhandled exception in application code</li>

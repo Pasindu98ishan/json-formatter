@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="HTTP 404 Not Found explained for APIs — common causes, example JSON error response, and a step-by-step checklist to fix it.">
-    <meta name="keywords" content="http 404, 404 not found, what is http 404, how to fix 404, 404 status code, http 404 json api">
+    <meta name="description" content="HTTP 404 Not Found for APIs — including the '404 Client Error: Not Found for url' error in Python requests — with causes, code examples, and the fix.">
+    <meta name="keywords" content="http 404, 404 not found, status code 404 not found, http 404 not found, 404 client error not found for url, data not found status code, how to fix 404">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jsondevtools.org/http-status/404.html">
@@ -122,7 +122,30 @@
         "@type": "Answer",
         "text": "The JavaScript fetch() API only rejects on network failures, not on HTTP error statuses. A 404 is a successful HTTP exchange — the server responded — so fetch resolves normally. You must check response.ok or response.status yourself. axios is different: it rejects on 4xx/5xx, so you check error.response.status in a catch block."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "What does \"status code 404 not found\" mean, and is \"data not found\" a 404?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Status code 404 Not Found means the server understood the request but there is nothing at that URL. In Python's requests library it appears as 'HTTPError: 404 Client Error: Not Found for url:' when you call raise_for_status(). 'Data not found' maps to 404 when you request one specific resource that does not exist (e.g. /users/999), but a collection query that simply matches no rows should return 200 with an empty array, not 404."
+      }
     }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix HTTP 404 Not Found",
+  "description": "Steps to diagnose and fix a 404 Not Found error when calling or building an API.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Check the URL", "text": "Verify the endpoint URL is spelled correctly." },
+    { "@type": "HowToStep", "position": 2, "name": "Check the API version", "text": "Confirm you are using the right API version in the path." },
+    { "@type": "HowToStep", "position": 3, "name": "Confirm the resource exists", "text": "Confirm the resource ID actually exists." },
+    { "@type": "HowToStep", "position": 4, "name": "Verify the route", "text": "Verify the route is registered on the server." },
+    { "@type": "HowToStep", "position": 5, "name": "Check the proxy", "text": "Check the reverse proxy / gateway configuration is routing correctly." }
   ]
 }
     </script>
@@ -154,6 +177,20 @@
 
             <h2>What HTTP 404 means</h2>
             <p><strong>404 Not Found</strong> is the most familiar HTTP error. The server is reachable and understood the request, but there is nothing at the requested URL. In APIs this usually means a wrong endpoint path, a resource ID that does not exist, or an unregistered route.</p>
+
+            <h2>"404 Client Error: Not Found for url:" — the requests error</h2>
+            <p>Calling an API from Python, a 404 surfaces as an <code>HTTPError</code> when you call <code>raise_for_status()</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import requests
+
+response = requests.get("https://api.example.com/users/999")
+response.raise_for_status()
+
+# requests.exceptions.HTTPError:
+# 404 Client Error: Not Found for url: https://api.example.com/users/999</code></pre>
+            </div>
+            <p>This means the server answered but found nothing at that URL — a wrong path, a missing resource ID, or the wrong API version. It is a <strong>client-side</strong> error (your request targeted something that isn't there), so the fix is in the URL/ID, not the server. The query <em>"data not found"</em> maps here too: a single missing resource is a 404, but a collection query that matches no rows should return <code>200</code> with an empty array (see <a href="#when-404">When should an API return 404?</a>).</p>
 
             <h2>Common causes</h2>
             <ul>
@@ -234,7 +271,7 @@ const user = await res.json();</code></pre>
                 </tbody>
             </table>
 
-            <h2>When should an API return 404?</h2>
+            <h2 id="when-404">When should an API return 404?</h2>
             <p>404 is the right status when a specific resource does not exist &mdash; for example <code>GET /users/999</code> where user 999 was never created or was deleted. But two common cases are <em>not</em> 404s:</p>
             <ul>
                 <li><strong>An empty collection is not a 404.</strong> <code>GET /users?role=admin</code> with no matching users should return <code>200 OK</code> with an empty array <code>[]</code> &mdash; the collection endpoint exists and succeeded; it simply has no items.</li>
@@ -263,6 +300,10 @@ const user = await res.json();</code></pre>
             <details>
                 <summary>Why doesn't fetch() throw an error on a 404?</summary>
                 <p>The JavaScript <code>fetch()</code> API only rejects on network failures, not on HTTP error statuses. A 404 is a successful HTTP exchange — the server responded — so <code>fetch</code> resolves normally. You must check <code>response.ok</code> or <code>response.status</code> yourself. (axios is different: it rejects on 4xx/5xx, so you check <code>error.response.status</code> in a catch block.)</p>
+            </details>
+            <details>
+                <summary>What does "status code 404 not found" mean, and is "data not found" a 404?</summary>
+                <p>Status code 404 Not Found means the server understood the request but there is nothing at that URL. In Python's <code>requests</code> library it appears as <code>HTTPError: 404 Client Error: Not Found for url:</code> when you call <code>raise_for_status()</code>. "Data not found" maps to 404 when you request one specific resource that does not exist (e.g. <code>/users/999</code>), but a collection query that simply matches no rows should return <code>200</code> with an empty array, not 404.</p>
             </details>
             </section>
 

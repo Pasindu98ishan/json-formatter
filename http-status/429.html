@@ -155,6 +155,20 @@
             <h2>What HTTP 429 means</h2>
             <p><strong>429 Too Many Requests</strong> is returned when a client exceeds a rate limit. The response often includes a <code>Retry-After</code> header indicating how long to wait, and sometimes <code>X-RateLimit-*</code> headers describing the limit and remaining quota. Well-behaved clients back off rather than retrying immediately.</p>
 
+            <h2>"429 Client Error: Too Many Requests for url:" — the requests error</h2>
+            <p>Calling an API from Python, this surfaces as an <code>HTTPError</code> when you call <code>raise_for_status()</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import requests
+
+response = requests.get("https://api.example.com/data")
+response.raise_for_status()
+
+# requests.exceptions.HTTPError:
+# 429 Client Error: Too Many Requests for url: https://api.example.com/data</code></pre>
+            </div>
+            <p>A 429 means you have sent too many requests in a time window. Read the <code>Retry-After</code> response header (seconds or an HTTP date) and wait that long before retrying; add client-side throttling or exponential backoff to stay under the rate limit.</p>
+
             <h2>Common causes</h2>
             <ul>
                 <li>Sending requests faster than the API's rate limit allows</li>
