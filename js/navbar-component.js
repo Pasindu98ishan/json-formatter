@@ -64,6 +64,13 @@
         '                        <li><a href="' + r + 'http-status.html">HTTP Status Codes</a></li>\n' +
         '                    </ul>\n' +
         '                </li>\n' +
+        '                <li class="nav-dropdown">\n' +
+        '                    <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Reference &#9662;</button>\n' +
+        '                    <ul class="dropdown-menu">\n' +
+        '                        <li><a href="' + r + 'errors.html">Error Reference</a></li>\n' +
+        '                        <li><a href="' + r + 'blog/">Blog &amp; Guides</a></li>\n' +
+        '                    </ul>\n' +
+        '                </li>\n' +
         '            </ul>\n' +
         '            <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode">&#127769; Dark</button>\n' +
         '        </div>\n' +

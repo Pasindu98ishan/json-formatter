@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="REST vs GraphQL: key differences, when to use each, performance trade-offs, and real code examples. Practical guide for choosing the right API style.">
+    <meta name="keywords" content="rest vs graphql, rest api vs graphql, graphql vs rest, when to use graphql, graphql over-fetching, rest api design, graphql disadvantages, graphql security, graphql query depth limiting, graphql n+1 problem, graphql vs rest documentation">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/rest-vs-graphql.html">
+    <meta property="og:title" content="REST vs GraphQL – Key Differences and When to Use Each">
+    <meta property="og:description" content="REST and GraphQL both use JSON but solve different problems. Learn the real trade-offs with code examples and a clear decision guide.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/rest-vs-graphql.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>REST vs GraphQL – Key Differences and When to Use Each | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "REST vs GraphQL", "item": "https://jsondevtools.org/blog/rest-vs-graphql.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "REST vs GraphQL – Key Differences and When to Use Each",
+      "description": "REST and GraphQL both exchange JSON, but they solve different problems. This guide compares them with real code examples and a decision framework for choosing the right API style.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-06-11",
+      "dateModified": "2026-06-11",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the main difference between REST and GraphQL?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "REST exposes fixed endpoints — each URL returns a predetermined shape of data. GraphQL exposes a single endpoint where the client sends a query describing exactly which fields it wants. REST can over-fetch (returning more data than needed) or under-fetch (requiring multiple requests); GraphQL solves both by letting the client specify the exact shape of the response."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is GraphQL faster than REST?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "GraphQL can reduce round-trips by combining multiple data needs into one request, which is faster on slow connections. However, a simple REST endpoint serving one well-known shape is often faster because it can be cached at the CDN or HTTP layer. GraphQL POST requests are not cacheable by default. Performance depends more on implementation quality than on which style you choose."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I use REST or GraphQL for a public API?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "REST is generally the better choice for public APIs. It has a lower learning curve for consumers, is universally understood, and works well with HTTP caching and standard API gateways. GraphQL is powerful for internal APIs and products with multiple clients (web, mobile, TV) that need different data shapes from the same backend."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does GraphQL replace REST?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. GraphQL solves specific problems (over-fetching, under-fetching, rapid frontend iteration) well, but REST is simpler to cache, monitor, and scale for most use cases. Many companies run REST and GraphQL side by side — REST for external/public endpoints, GraphQL for internal data aggregation. GraphQL also does not define how data is stored, authenticated, or authorised; those concerns are the same in both styles."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does over-fetching mean in REST?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Over-fetching means a REST endpoint returns more fields than the client needs. For example, a mobile app fetching a user profile may only need the name and avatar, but the endpoint returns 30 fields including address, billing info, and preferences. All that extra data wastes bandwidth. GraphQL solves this by letting the client request only the specific fields it needs."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the N+1 problem in GraphQL?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The N+1 problem occurs when a GraphQL resolver fetches a list of N items, then makes one additional database query for each item (N more queries). For example, fetching 100 posts and then the author for each post results in 101 database queries. The standard solution is the DataLoader pattern, which batches and deduplicates those N queries into a single query."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are the main disadvantages of GraphQL?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "GraphQL's main trade-offs are: no native HTTP/CDN caching (POST requests are not cacheable by default), the N+1 resolver problem which needs DataLoader batching, harder observability because every operation is a single POST /graphql 200 rather than distinct endpoints, field-level authorization that is more complex than per-route checks, and exposure to expensive nested queries that require depth limiting and complexity analysis to prevent abuse. REST avoids most of these by design."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do you secure a GraphQL API?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Secure a GraphQL API with several layers: depth limiting to reject deeply nested queries, query complexity or cost analysis to score and cap expensive queries before execution, persisted queries (an allow-list of approved queries) so clients cannot send arbitrary ones, server-side timeouts, and mandatory pagination limits on list fields. These defend against denial-of-service attacks from a single malicious query, which a fixed REST endpoint is not vulnerable to."
+          }
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to choose between REST and GraphQL for your API",
+      "description": "A step-by-step decision process for picking the right API style for your project.",
+      "step": [
+        { "@type": "HowToStep", "position": 1, "name": "Identify your client diversity", "text": "If multiple clients (web, iOS, Android, smart TV) need different data shapes from the same backend, GraphQL's flexible queries are a strong advantage. If you have one client or all clients need the same data, REST is simpler." },
+        { "@type": "HowToStep", "position": 2, "name": "Assess caching requirements", "text": "If CDN or HTTP caching is critical for performance, prefer REST — GET requests are natively cacheable. GraphQL typically uses POST and requires custom caching strategies (persisted queries, CDN rules)." },
+        { "@type": "HowToStep", "position": 3, "name": "Consider consumer expertise", "text": "Public APIs with external consumers benefit from REST — it has no learning curve and is universally understood. Internal APIs consumed by your own teams can absorb the GraphQL learning curve." },
+        { "@type": "HowToStep", "position": 4, "name": "Evaluate real-time needs", "text": "If you need push-based real-time updates, GraphQL Subscriptions offer a built-in pattern over WebSockets. REST requires separate WebSocket or SSE infrastructure." },
+        { "@type": "HowToStep", "position": 5, "name": "Start simple, migrate later", "text": "Most teams are better served starting with REST. You can add a GraphQL layer later (as a BFF — Backend For Frontend) when you have concrete evidence that over-fetching or multiple round-trips are causing measurable problems." }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>REST vs GraphQL</span>
+            </nav>
+            <h1>REST vs GraphQL &ndash; Key Differences and When to Use Each</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; 11 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">REST uses fixed endpoints that return predetermined data shapes; GraphQL uses a single endpoint where the client specifies exactly which fields it needs. Use REST for public APIs, simple services, and when HTTP caching matters. Use GraphQL when multiple clients (web, mobile, TV) need different shapes of the same data, or when round-trips between requests are a measured problem.</p>
+            </div>
+
+            <h2>The same data request in REST and GraphQL</h2>
+            <p>Both styles use JSON. The difference is who controls the shape of the response.</p>
+
+            <figure class="dg-figure">
+                <svg viewBox="0 0 680 410" role="img" xmlns="http://www.w3.org/2000/svg" aria-labelledby="dg-title dg-desc">
+                    <title id="dg-title">REST vs GraphQL request shape</title>
+                    <desc id="dg-desc">REST: a client makes four separate GET requests to four endpoints. GraphQL: a client makes one POST request to a single schema endpoint and chooses the fields it needs.</desc>
+                    <defs>
+                        <marker id="dg-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path class="dg-arrow-path" d="M2 1L8 5L2 9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </marker>
+                    </defs>
+
+                    <text x="160" y="26" text-anchor="middle" class="dg-title" font-size="15" font-weight="600">REST</text>
+                    <text x="520" y="26" text-anchor="middle" class="dg-title" font-size="15" font-weight="600">GraphQL</text>
+                    <line x1="40" y1="38" x2="320" y2="38" class="dg-divider" stroke-width="1" opacity="0.4"/>
+                    <line x1="360" y1="38" x2="640" y2="38" class="dg-divider" stroke-width="1" opacity="0.4"/>
+
+                    <rect x="100" y="56" width="120" height="44" rx="8" class="dg-client-fill dg-client-stroke" stroke-width="1"/>
+                    <text x="160" y="80" text-anchor="middle" class="dg-client-text" font-size="14" font-weight="500">Client</text>
+                    <text x="160" y="95" text-anchor="middle" class="dg-muted" font-size="11">needs 4 resources</text>
+
+                    <rect x="460" y="56" width="120" height="44" rx="8" class="dg-client-fill dg-client-stroke" stroke-width="1"/>
+                    <text x="520" y="80" text-anchor="middle" class="dg-client-text" font-size="14" font-weight="500">Client</text>
+                    <text x="520" y="95" text-anchor="middle" class="dg-muted" font-size="11">defines the shape</text>
+
+                    <line x1="160" y1="100" x2="160" y2="132" class="dg-conn" stroke-width="1.5" marker-end="url(#dg-arrow)"/>
+                    <line x1="520" y1="100" x2="520" y2="132" class="dg-conn" stroke-width="1.5" marker-end="url(#dg-arrow)"/>
+
+                    <rect x="65" y="138" width="190" height="34" rx="6" class="dg-rest-fill dg-rest-stroke" stroke-width="1"/>
+                    <text x="160" y="159" text-anchor="middle" class="dg-rest-text" font-size="13">GET /users</text>
+                    <rect x="65" y="180" width="190" height="34" rx="6" class="dg-rest-fill dg-rest-stroke" stroke-width="1"/>
+                    <text x="160" y="201" text-anchor="middle" class="dg-rest-text" font-size="13">GET /posts</text>
+                    <rect x="65" y="222" width="190" height="34" rx="6" class="dg-rest-fill dg-rest-stroke" stroke-width="1"/>
+                    <text x="160" y="243" text-anchor="middle" class="dg-rest-text" font-size="13">GET /comments</text>
+                    <rect x="65" y="264" width="190" height="34" rx="6" class="dg-rest-fill dg-rest-stroke" stroke-width="1"/>
+                    <text x="160" y="285" text-anchor="middle" class="dg-rest-text" font-size="13">GET /users/42/posts</text>
+
+                    <rect x="420" y="138" width="200" height="120" rx="8" class="dg-gql-fill dg-gql-stroke" stroke-width="1"/>
+                    <text x="520" y="166" text-anchor="middle" class="dg-gql-text" font-size="14" font-weight="600">POST /graphql</text>
+                    <text x="520" y="190" text-anchor="middle" class="dg-gql-text" font-size="12">one endpoint</text>
+                    <text x="520" y="210" text-anchor="middle" class="dg-gql-text" font-size="12">one schema</text>
+                    <text x="520" y="230" text-anchor="middle" class="dg-gql-text" font-size="12">client picks the fields</text>
+
+                    <line x1="160" y1="298" x2="160" y2="318" class="dg-conn" stroke-width="1.5" marker-end="url(#dg-arrow)"/>
+                    <line x1="520" y1="258" x2="520" y2="318" class="dg-conn" stroke-width="1.5" marker-end="url(#dg-arrow)"/>
+
+                    <rect x="60" y="320" width="200" height="58" rx="8" class="dg-rest-fill dg-rest-stroke" stroke-width="1"/>
+                    <text x="160" y="344" text-anchor="middle" class="dg-rest-text" font-size="13" font-weight="600">Many endpoints</text>
+                    <text x="160" y="363" text-anchor="middle" class="dg-muted" font-size="11">server-defined shapes</text>
+
+                    <rect x="420" y="320" width="200" height="58" rx="8" class="dg-gql-fill dg-gql-stroke" stroke-width="1"/>
+                    <text x="520" y="344" text-anchor="middle" class="dg-gql-text" font-size="13" font-weight="600">One endpoint</text>
+                    <text x="520" y="363" text-anchor="middle" class="dg-muted" font-size="11">client-defined shape</text>
+
+                    <text x="340" y="400" text-anchor="middle" class="dg-caption" font-size="12">Both styles return JSON &mdash; the difference is who controls the response shape.</text>
+                </svg>
+            </figure>
+
+            <h3>REST: fixed shape, multiple endpoints</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Get a user — returns all fields the server decided to include
+GET /api/users/42
+&rarr; { "id": 42, "name": "Alice", "email": "...", "address": {...}, "billing": {...}, "preferences": {...} }
+
+# Get that user's posts — separate request
+GET /api/users/42/posts
+&rarr; [ { "id": 1, "title": "...", "body": "...", "createdAt": "..." }, ... ]
+
+# Two HTTP requests to assemble one screen</code></pre>
+            </div>
+
+            <h3>GraphQL: one endpoint, client-defined shape</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Single POST to /graphql — client asks for exactly what it needs
+POST /graphql
+{
+  "query": "{ user(id: 42) { name posts { title } } }"
+}
+
+&rarr; {
+  "data": {
+    "user": {
+      "name": "Alice",
+      "posts": [
+        { "title": "My first post" },
+        { "title": "Another post" }
+      ]
+    }
+  }
+}
+
+# One HTTP request, only the fields requested</code></pre>
+            </div>
+
+            <p>The mobile app only needed <code>name</code> and post <code>title</code>. REST returned 30+ fields and required 2 requests. GraphQL returned exactly 3 fields in 1 request.</p>
+
+            <h2>Quick comparison</h2>
+            <table>
+                <thead>
+                    <tr><th>Feature</th><th>REST</th><th>GraphQL</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Endpoints</td><td>Multiple (one per resource)</td><td>Single <code>/graphql</code></td></tr>
+                    <tr><td>Response shape</td><td>Fixed — server decides</td><td>Flexible — client decides</td></tr>
+                    <tr><td>Over-fetching</td><td>Common</td><td>Eliminated</td></tr>
+                    <tr><td>Under-fetching</td><td>Common (N+1 requests)</td><td>Eliminated (one query)</td></tr>
+                    <tr><td>HTTP caching</td><td>Native (GET is cacheable)</td><td>Requires custom approach</td></tr>
+                    <tr><td>Versioning</td><td>URL versioning (<code>/v1/</code>)</td><td>Evolve schema without versions</td></tr>
+                    <tr><td>Type system</td><td>None built-in (use OpenAPI)</td><td>Built-in SDL schema</td></tr>
+                    <tr><td>API documentation</td><td>OpenAPI / Swagger (external spec)</td><td>Built-in introspection (GraphiQL / Apollo Studio)</td></tr>
+                    <tr><td>Real-time</td><td>SSE / WebSockets (manual)</td><td>Subscriptions (built-in pattern)</td></tr>
+                    <tr><td>File upload</td><td>Simple multipart/form-data</td><td>Requires extensions (messy)</td></tr>
+                    <tr><td>Learning curve</td><td>Low — universally understood</td><td>Moderate — SDL, resolvers, DataLoader</td></tr>
+                    <tr><td>Best for</td><td>Public APIs, simple CRUD, CDN caching</td><td>Multiple clients, complex data graphs</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Over-fetching and under-fetching explained</h2>
+
+            <h3>Over-fetching</h3>
+            <p>A REST endpoint returns everything it has, regardless of what the client needs. A user profile endpoint might return name, email, address, billing, preferences, avatar URL, last login timestamp, and account tier — but a mobile header component only needs the name and avatar. The other 25 fields are wasted bandwidth on every request.</p>
+            <p>On a mobile connection at 2G speeds, or multiplied across 10 million API calls per day, over-fetching becomes a real cost — in bandwidth, battery, and parse time.</p>
+
+            <h3>Under-fetching (the N+1 problem)</h3>
+            <p>A single REST endpoint often does not return all the data a screen needs, so the client makes multiple sequential requests — first for a list, then for details of each item in the list:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Client building a blog post list page with author names
+GET /posts          &rarr; [ { id: 1, authorId: 5 }, { id: 2, authorId: 3 }, ... ]
+GET /users/5        &rarr; { name: "Alice" }
+GET /users/3        &rarr; { name: "Bob" }
+# ... 1 + N requests for N authors
+
+# GraphQL collapses this to one round-trip:
+{ posts { title author { name } } }</code></pre>
+            </div>
+
+            <h2>HTTP caching: REST&rsquo;s biggest advantage</h2>
+            <p>REST GET requests are natively cacheable by browsers, CDNs (Cloudflare, Fastly), and API gateways. A response to <code>GET /api/products/123</code> can be cached for 5 minutes at the CDN edge, serving thousands of requests without hitting your origin server.</p>
+            <p>GraphQL typically uses POST for queries (because query strings can be long). POST requests are not cached by default at the CDN layer. Solutions exist — persisted queries, GET-based queries, CDN-specific rules — but they add operational complexity that REST avoids entirely.</p>
+            <p>For read-heavy public APIs (product catalogs, documentation, publicly cached data), REST&rsquo;s caching story is significantly simpler.</p>
+
+            <h2>Type system and schema</h2>
+            <p>GraphQL has a built-in Schema Definition Language (SDL). Every field, type, and relationship in your API is declared in the schema and automatically introspectable. Clients can query <code>__schema</code> to discover everything the API offers. Tools like GraphiQL and Apollo Studio generate interactive documentation automatically from the schema.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># GraphQL SDL — the schema is the contract
+type Query {
+  user(id: ID!): User
+  posts(authorId: ID): [Post!]!
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  posts: [Post!]!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  body: String!
+  author: User!
+  createdAt: String!
+}</code></pre>
+            </div>
+
+            <p>REST has no built-in equivalent, but <strong>OpenAPI (Swagger)</strong> fills the same role — documenting endpoints, request shapes, and response types. OpenAPI is a separate document you maintain alongside the code; GraphQL&rsquo;s schema is the code.</p>
+
+            <h2>Versioning</h2>
+            <p>REST typically versions via the URL (<code>/v1/users</code>, <code>/v2/users</code>) or a header (<code>API-Version: 2</code>). Old versions must be maintained while clients migrate, creating long-term maintenance debt.</p>
+            <p>GraphQL avoids explicit versioning by adding new fields and deprecating old ones within the same schema. Clients that query only the old fields continue working; new clients use the new fields. The trade-off is that the schema accumulates deprecated fields over time if you are not disciplined about removing them.</p>
+
+            <h2>Real-time: Subscriptions vs SSE</h2>
+            <p>GraphQL has Subscriptions as a first-class concept — they are defined in the schema alongside queries and mutations. The underlying transport is typically WebSockets. Clients subscribe to an event (e.g., a new message in a chat room) and receive updates pushed by the server.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># GraphQL Subscription
+subscription {
+  messageAdded(roomId: "general") {
+    id
+    text
+    author { name }
+  }
+}</code></pre>
+            </div>
+
+            <p>REST does not define a real-time pattern. The common options are Server-Sent Events (SSE) for one-way push, or WebSockets for bidirectional. Both work well but require more manual setup than GraphQL&rsquo;s built-in subscription pattern.</p>
+
+            <h2>When to use REST</h2>
+            <ul>
+                <li>Public APIs consumed by third-party developers &mdash; REST is universally understood and requires no SDK</li>
+                <li>Simple CRUD services where endpoints map cleanly to resources</li>
+                <li>APIs where HTTP caching at a CDN is critical for performance or cost</li>
+                <li>File uploads, binary payloads, or streaming responses</li>
+                <li>Microservices communicating with each other &mdash; REST is lightweight and tooling support is universal</li>
+                <li>Teams new to APIs &mdash; REST has a significantly lower barrier to entry</li>
+            </ul>
+
+            <h2>When to use GraphQL</h2>
+            <ul>
+                <li>Products with multiple clients (web, iOS, Android, desktop) that need different data shapes from the same backend</li>
+                <li>Dashboards and data-heavy UIs that aggregate from multiple data sources in one screen</li>
+                <li>Rapid frontend iteration where the mobile team should not wait for backend changes to add or remove fields</li>
+                <li>When you want self-documenting APIs with built-in introspection (useful for internal developer portals)</li>
+                <li>Real-time features where GraphQL Subscriptions fit naturally</li>
+            </ul>
+
+            <h2>GraphQL disadvantages</h2>
+            <p>GraphQL&rsquo;s flexibility comes with trade-offs you have to actively manage. None of these are dealbreakers, but they are the reasons many teams stay on REST for simpler services:</p>
+            <ul>
+                <li><strong>The N+1 resolver problem.</strong> A resolver that fetches a list of N items and then resolves a related field per item triggers N additional queries. Fetching 100 posts plus each author can mean 101 database queries. The fix is the <strong>DataLoader</strong> pattern, which batches and deduplicates those queries within a single request &mdash; but you have to wire it up deliberately.</li>
+                <li><strong>Complex caching.</strong> Because queries are typically <code>POST</code> requests, you lose the native HTTP and CDN caching that REST gets for free on <code>GET</code>. Recovering it requires persisted queries, GET-based queries, or normalized client caches (Apollo, Relay).</li>
+                <li><strong>Harder observability.</strong> Every operation is a single <code>POST /graphql 200</code>. Per-endpoint metrics, logging, rate limiting, and error rates that REST exposes by URL now require GraphQL-aware tooling that breaks down by operation name and resolver.</li>
+                <li><strong>More complex authorization.</strong> Auth in REST is per-route and easy to reason about. In GraphQL a single query can touch many types, so authorization has to be enforced at the field or resolver level &mdash; more surface area to get wrong.</li>
+                <li><strong>Query cost and abuse.</strong> Clients control the query shape, so a single request can ask for something enormously expensive. This needs its own defenses &mdash; see below.</li>
+            </ul>
+
+            <h3>Query cost and security</h3>
+            <p>The same flexibility that eliminates over-fetching also lets a client send a deeply nested, cyclic query that can exhaust your server &mdash; a denial-of-service vector that a fixed REST endpoint simply does not have:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># A single malicious query — cheap to send, expensive to resolve
+{
+  users {
+    posts {
+      comments {
+        author {
+          posts {
+            comments {
+              author { name }
+            }
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+            </div>
+
+            <p>Because <code>users</code> &rarr; <code>posts</code> &rarr; <code>comments</code> &rarr; <code>author</code> can cycle indefinitely, one short request can fan out into millions of database reads. Production GraphQL APIs defend against this with several layers:</p>
+            <ul>
+                <li><strong>Depth limiting</strong> &mdash; reject any query nested beyond a fixed depth (e.g. 7 levels) before it executes.</li>
+                <li><strong>Query complexity / cost analysis</strong> &mdash; assign each field a cost, sum the query&rsquo;s total, and reject queries over a budget. Libraries like <code>graphql-cost-analysis</code> and <code>graphql-query-complexity</code> automate this.</li>
+                <li><strong>Persisted queries (allow-list)</strong> &mdash; pre-register the exact queries your clients are allowed to send; reject anything not on the list. This eliminates arbitrary queries entirely in production.</li>
+                <li><strong>Timeouts</strong> &mdash; cap how long any single resolver or request may run, so a slow query fails fast instead of holding resources.</li>
+                <li><strong>Pagination with limits</strong> &mdash; require and cap <code>first</code>/<code>limit</code> arguments on list fields so a query cannot request unbounded collections.</li>
+            </ul>
+            <p>REST sidesteps all of this: each endpoint returns a known, bounded shape, so there is no client-controlled query to attack with. This is one of the clearest cases where REST&rsquo;s rigidity is a security advantage.</p>
+
+            <h2>Using both: the BFF pattern</h2>
+            <p>Many mature engineering teams run REST and GraphQL side by side. The Backend For Frontend (BFF) pattern uses GraphQL as an aggregation layer in front of multiple REST or gRPC microservices. Each client (web, mobile) has its own BFF that queries the microservices and shapes the response for that client specifically.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Architecture: GraphQL BFF in front of REST microservices
+[Mobile App]  ──── GraphQL ────&gt; [Mobile BFF]  ──&gt;  /users  (REST)
+[Web App]     ──── GraphQL ────&gt; [Web BFF]     ──&gt;  /posts  (REST)
+                                               ──&gt;  /search (REST)
+                                               ──&gt;  /media  (REST)</code></pre>
+            </div>
+
+            <p>The microservices stay simple REST services. The GraphQL BFF handles data aggregation and client-specific shaping. This gives you the simplicity of REST internally and the flexibility of GraphQL externally.</p>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What is the main difference between REST and GraphQL?</summary>
+                    <p>REST exposes fixed endpoints — each URL returns a predetermined shape of data. GraphQL exposes a single endpoint where the client sends a query describing exactly which fields it wants. REST can over-fetch (returning more data than needed) or under-fetch (requiring multiple requests); GraphQL solves both by letting the client specify the exact shape of the response in every request.</p>
+                </details>
+                <details>
+                    <summary>Is GraphQL faster than REST?</summary>
+                    <p>GraphQL can reduce round-trips by combining multiple data needs into one request, which is faster on slow connections. However, a simple REST endpoint serving one well-known shape is often faster because it can be cached at the CDN or HTTP layer without additional configuration. GraphQL POST requests are not cacheable by default. Performance depends more on implementation quality than on which style you choose.</p>
+                </details>
+                <details>
+                    <summary>Should I use REST or GraphQL for a public API?</summary>
+                    <p>REST is generally the better choice for public APIs. It has a lower learning curve for consumers, is universally understood with no SDK required, and works well with HTTP caching and standard API gateways. GraphQL is powerful for internal APIs and products with multiple clients (web, mobile, TV) that need different data shapes from the same backend.</p>
+                </details>
+                <details>
+                    <summary>Does GraphQL replace REST?</summary>
+                    <p>No. GraphQL solves specific problems — over-fetching, under-fetching, rapid frontend iteration — but REST is simpler to cache, monitor, and scale for most use cases. Many companies run both side by side: REST for external and public-facing endpoints, GraphQL as a BFF layer for internal data aggregation across multiple clients.</p>
+                </details>
+                <details>
+                    <summary>What does over-fetching mean in REST?</summary>
+                    <p>Over-fetching means a REST endpoint returns more fields than the client needs. A mobile app fetching a user profile may only need the name and avatar, but the endpoint returns 30 fields including address, billing info, and preferences. That unused data wastes bandwidth on every request. GraphQL solves this by letting the client request only the specific fields it needs.</p>
+                </details>
+                <details>
+                    <summary>What is the N+1 problem in GraphQL?</summary>
+                    <p>The N+1 problem occurs when a GraphQL resolver fetches a list of N items and then makes one additional database query per item to resolve a related field. Fetching 100 posts and then the author for each results in 101 database queries. The standard solution is the DataLoader pattern, which batches those N queries into a single query and caches within the same request.</p>
+                </details>
+                <details>
+                    <summary>What are the main disadvantages of GraphQL?</summary>
+                    <p>GraphQL&rsquo;s main trade-offs are: no native HTTP/CDN caching (POST requests are not cacheable by default), the N+1 resolver problem which needs DataLoader batching, harder observability because every operation is a single <code>POST /graphql 200</code> rather than distinct endpoints, field-level authorization that is more complex than per-route checks, and exposure to expensive nested queries that require depth limiting and complexity analysis to prevent abuse. REST avoids most of these by design.</p>
+                </details>
+                <details>
+                    <summary>How do you secure a GraphQL API?</summary>
+                    <p>Secure a GraphQL API with several layers: <strong>depth limiting</strong> to reject deeply nested queries, <strong>query complexity / cost analysis</strong> to score and cap expensive queries before execution, <strong>persisted queries</strong> (an allow-list of approved queries) so clients cannot send arbitrary ones, server-side <strong>timeouts</strong>, and mandatory <strong>pagination limits</strong> on list fields. These defend against denial-of-service from a single malicious query, which a fixed REST endpoint is not vulnerable to.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with REST or GraphQL responses?</h3>
+                <p>Format and validate any JSON response in your browser &mdash; nothing is sent to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; format and pretty-print API responses</li>
+                <li><a href="../json-validator.html">JSON Validator</a> &mdash; validate JSON structure online</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="json-vs-xml.html">JSON vs XML &ndash; Key Differences and When to Use Each</a></li>
+                <li><a href="protobuf-vs-json.html">Protobuf vs JSON: Size, Speed, and When to Use Each</a></li>
+                <li><a href="json-vs-jsonl.html">JSON vs JSONL &ndash; When to Use JSON Lines</a></li>
+                <li><a href="../errors/cors-no-access-control-allow-origin.html">CORS policy: No Access-Control-Allow-Origin header</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

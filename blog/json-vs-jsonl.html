@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSON vs JSONL (JSON Lines / NDJSON): differences, examples, and when to use each for streaming, logging, and bulk data pipelines. Python and Node.js code included.">
+    <meta name="keywords" content="json vs jsonl, json lines format, jsonl file format, ndjson vs jsonl, ndjson format, what is ndjson, when to use jsonl, jsonl python, jsonl streaming, json lines ndjson difference">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/json-vs-jsonl.html">
+    <meta property="og:title" content="JSON vs JSONL (JSON Lines): Differences, Examples, and When to Use Each">
+    <meta property="og:description" content="JSON Lines (JSONL) puts one JSON object per line, making it ideal for streaming logs and bulk data. Learn when JSONL beats regular JSON and how to read and write it in Python and Node.js.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/json-vs-jsonl.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JSON vs JSONL (JSON Lines): Differences, Examples, and When to Use Each | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GHW4SMQFK"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-1GHW4SMQFK');
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSON vs JSONL", "item": "https://jsondevtools.org/blog/json-vs-jsonl.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSON vs JSONL (JSON Lines): Differences, Examples, and When to Use Each",
+      "description": "JSONL (JSON Lines) stores one valid JSON object per line, making it ideal for streaming, logging, and bulk data pipelines where loading an entire JSON array into memory is not practical.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-06-11",
+      "dateModified": "2026-06-11",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is JSONL (JSON Lines)?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "JSONL (JSON Lines), also called NDJSON (Newline-Delimited JSON), is a text format where each line contains a single, complete, valid JSON value — typically a JSON object. Files use the .jsonl or .ndjson extension. JSONL is not valid JSON itself; it is a separate streaming-friendly format that happens to use JSON syntax for each individual line."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why use JSONL instead of a JSON array?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "JSON arrays must be fully loaded and parsed before any record can be read. A 10 GB JSON array requires 10 GB of memory. JSONL lets you read and process one line at a time — constant memory regardless of file size. JSONL also supports appending without rewriting the entire file: you write a new line; with a JSON array, you must open, parse, modify the array, and rewrite the whole file."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between JSONL and NDJSON?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "JSONL and NDJSON are the same format with different names. Both store one JSON value per line separated by newlines. NDJSON stands for Newline-Delimited JSON. The .jsonl and .ndjson file extensions are interchangeable. The JSONL specification at jsonlines.org and the NDJSON specification are functionally identical."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use the JSON formatter with JSONL files?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not directly — JSONL is not valid JSON, so a standard JSON formatter or validator will reject it. To inspect a JSONL file, paste a single line from the file into the JSON Formatter. Each line is independently valid JSON and will format and validate correctly."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is JSONL supported by big data tools?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. JSONL is natively supported by many data tools: Apache Spark can read .jsonl files directly, BigQuery imports JSONL as its newline-delimited JSON format, Elasticsearch uses JSONL for its bulk API, Hugging Face datasets default to JSONL for text data, and jq works line by line on JSONL streams without modification."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I convert a JSON array to JSONL?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In Python: import json; data = json.load(open('data.json')); open('data.jsonl','w').writelines(json.dumps(r)+'\n' for r in data). With jq on the command line: jq -c '.[]' data.json > data.jsonl. The -c flag outputs compact (single-line) JSON; .[] iterates over each array element."
+          }
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to read and write JSONL files",
+      "description": "Step-by-step guide to working with JSONL files in Python and Node.js.",
+      "step": [
+        { "@type": "HowToStep", "position": 1, "name": "Read JSONL line by line in Python", "text": "Open the file and call json.loads() on each line. This keeps memory usage constant regardless of file size." },
+        { "@type": "HowToStep", "position": 2, "name": "Write JSONL in Python", "text": "Call json.dumps() on each object and write it followed by a newline character. Do not wrap objects in an array." },
+        { "@type": "HowToStep", "position": 3, "name": "Read JSONL in Node.js", "text": "Use the readline module to read the file line by line, calling JSON.parse() on each non-empty line." },
+        { "@type": "HowToStep", "position": 4, "name": "Convert JSON array to JSONL with jq", "text": "Run: jq -c '.[]' data.json > data.jsonl. The -c flag produces compact single-line JSON; .[] iterates over array elements." },
+        { "@type": "HowToStep", "position": 5, "name": "Stream JSONL from an HTTP API", "text": "Use fetch() with a ReadableStream and a TextDecoder to consume JSONL line by line as the server writes it, without waiting for the full response." }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>JSON vs JSONL</span>
+            </nav>
+            <h1>JSON vs JSONL (JSON Lines): Differences, Examples, and When to Use Each</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; 8 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">JSON is one document. JSONL (JSON Lines) is one JSON object per line. Use JSON for APIs and config files. Use JSONL for logs, streaming data, large datasets, and any pipeline where loading an entire JSON array into memory is not practical.</p>
+            </div>
+
+            <h2>What is JSONL?</h2>
+            <p>JSONL (JSON Lines), also called NDJSON (Newline-Delimited JSON), is a text format where every line is a complete, independently valid JSON value &mdash; most commonly a JSON object. The file extension is <code>.jsonl</code> or <code>.ndjson</code>. Each line is terminated by a newline (<code>\n</code>).</p>
+
+            <p>JSONL is <strong>not</strong> valid JSON. You cannot paste a <code>.jsonl</code> file into a <a href="../json-validator.html">JSON validator</a> and expect it to pass &mdash; it will fail because the file is not a single JSON document. Each individual line is valid JSON; the file as a whole is not.</p>
+
+            <h2>JSONL vs NDJSON: are they the same?</h2>
+            <p>Yes &mdash; JSONL and NDJSON are the same format with different names:</p>
+            <ul>
+                <li><strong>JSONL</strong> = JSON Lines (from <a href="https://jsonlines.org" rel="nofollow noopener" target="_blank">jsonlines.org</a>)</li>
+                <li><strong>NDJSON</strong> = Newline-Delimited JSON (from <a href="https://ndjson.org" rel="nofollow noopener" target="_blank">ndjson.org</a>)</li>
+            </ul>
+            <p>Both specifications define the same rule: one complete JSON value per line, lines separated by <code>\n</code>. The file extensions <code>.jsonl</code> and <code>.ndjson</code> are interchangeable. Tools like Apache Spark, BigQuery, and jq accept both names for the same thing. The difference is purely naming convention &mdash; use whichever the tool or API you are working with expects.</p>
+            <p>A third alias you may encounter is <strong>JSON-seq</strong> (RFC 7464), which is slightly different &mdash; it prefixes each record with a Unicode Record Separator byte. JSON-seq is used by some log formats but is less common than JSONL/NDJSON in practice.</p>
+
+            <h2>Visual: JSON array vs JSONL (line-by-line)</h2>
+            <p>The core difference in how each format is processed:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JSON (array)                     JSONL / NDJSON
+─────────────────────────        ─────────────────────────
+[                                {"id":1,"event":"login"}
+  {"id":1,"event":"login"},      {"id":2,"event":"buy"}
+  {"id":2,"event":"buy"},        {"id":3,"event":"logout"}
+  {"id":3,"event":"logout"}
+]
+         │                                │
+         ▼                                ▼
+ Must load ENTIRE file            Read ONE line at a time
+ into memory before               → constant memory
+ first record is readable         → append = one write
+                                  → bad line = skip it</code></pre>
+            </div>
+
+            <h2>Side-by-side: the same data in JSON and JSONL</h2>
+
+            <h3>Standard JSON (array of objects)</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>[
+  { "id": 1, "event": "login",  "user": "alice", "ts": "2026-06-11T09:00:00Z" },
+  { "id": 2, "event": "purchase", "user": "bob",   "ts": "2026-06-11T09:01:12Z" },
+  { "id": 3, "event": "logout", "user": "alice", "ts": "2026-06-11T09:05:44Z" }
+]</code></pre>
+            </div>
+            <p>To read record 2, the parser must load the entire array. To append record 4, you must read the file, parse the JSON, push to the array, and rewrite the whole file &mdash; O(n) for every write.</p>
+
+            <h3>JSONL (one object per line)</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{"id":1,"event":"login","user":"alice","ts":"2026-06-11T09:00:00Z"}
+{"id":2,"event":"purchase","user":"bob","ts":"2026-06-11T09:01:12Z"}
+{"id":3,"event":"logout","user":"alice","ts":"2026-06-11T09:05:44Z"}</code></pre>
+            </div>
+            <p>To append record 4, open the file in append mode and write one line &mdash; O(1). To process 10 million records, read one line at a time &mdash; constant memory.</p>
+
+            <h2>Quick comparison</h2>
+            <table>
+                <thead>
+                    <tr><th>Feature</th><th>JSON</th><th>JSONL</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Structure</td><td>Single document (object or array)</td><td>One JSON value per line</td></tr>
+                    <tr><td>Valid JSON</td><td>Yes</td><td>No (per file; each line is)</td></tr>
+                    <tr><td>File extension</td><td><code>.json</code></td><td><code>.jsonl</code>, <code>.ndjson</code></td></tr>
+                    <tr><td>Streaming</td><td>Not supported</td><td>Native — read line by line</td></tr>
+                    <tr><td>Memory to read</td><td>Full file must be parsed</td><td>One line at a time</td></tr>
+                    <tr><td>Append a record</td><td>Must rewrite the file</td><td>Append one line, O(1)</td></tr>
+                    <tr><td>Human readability</td><td>Pretty-printable, clear structure</td><td>Harder to read at scale</td></tr>
+                    <tr><td>Typical use cases</td><td>APIs, config, small datasets</td><td>Logs, ML datasets, ETL pipelines</td></tr>
+                    <tr><td>Tool support</td><td>Universal</td><td>Supported by Spark, BigQuery, Elasticsearch, jq</td></tr>
+                    <tr><td>Error isolation</td><td>One bad byte breaks the whole file</td><td>One bad line, rest still parseable</td></tr>
+                </tbody>
+            </table>
+
+            <h2>The memory problem with large JSON arrays</h2>
+            <p>A standard JSON array must be fully loaded and parsed before you can access a single record. This is fine for a 50 KB API response. It is a serious problem for a 10 GB log file or a 100 million record ML training set.</p>
+
+            <p>Consider an event log that grows by 1 million rows per day. Storing it as a JSON array means:</p>
+            <ul>
+                <li>Reading any record requires loading all preceding records into memory</li>
+                <li>Appending one event requires reading the entire file, modifying the array, and writing everything back</li>
+                <li>A corrupted byte near the start of the file can prevent parsing any of it</li>
+            </ul>
+
+            <p>JSONL solves all three: memory is bounded to the size of the largest single line, append is O(1), and a corrupt line only invalidates that one record.</p>
+
+            <h2>Reading and writing JSONL in Python</h2>
+            <p>The standard <code>json</code> module handles JSONL with a simple loop. If you prefer a cleaner API, the <a href="https://pypi.org/project/jsonlines/" rel="nofollow noopener" target="_blank"><code>jsonlines</code></a> package on PyPI wraps the loop and handles edge cases automatically.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+# Read JSONL — one record at a time, constant memory
+with open('events.jsonl', 'r') as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            record = json.loads(line)
+            print(record['event'], record['user'])
+
+# Write JSONL
+records = [
+    {"id": 1, "event": "login",  "user": "alice"},
+    {"id": 2, "event": "purchase", "user": "bob"},
+]
+with open('events.jsonl', 'w') as f:
+    for record in records:
+        f.write(json.dumps(record) + '\n')
+
+# Append a single record without touching the rest of the file
+new_event = {"id": 3, "event": "logout", "user": "alice"}
+with open('events.jsonl', 'a') as f:
+    f.write(json.dumps(new_event) + '\n')</code></pre>
+            </div>
+
+            <h2>Reading JSONL in Node.js</h2>
+            <p>Node&rsquo;s built-in <code>readline</code> module is all you need. For a higher-level API, the <a href="https://www.npmjs.com/package/ndjson" rel="nofollow noopener" target="_blank"><code>ndjson</code></a> package on npm provides a Transform stream that emits parsed objects directly.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const fs = require('fs');
+const readline = require('readline');
+
+async function readJsonl(filePath) {
+  const fileStream = fs.createReadStream(filePath);
+  const rl = readline.createInterface({ input: fileStream });
+
+  for await (const line of rl) {
+    if (line.trim()) {
+      const record = JSON.parse(line);
+      console.log(record.event, record.user);
+    }
+  }
+}
+
+readJsonl('events.jsonl');
+
+// Write JSONL
+const records = [
+  { id: 1, event: 'login',    user: 'alice' },
+  { id: 2, event: 'purchase', user: 'bob'   },
+];
+const output = records.map(r => JSON.stringify(r)).join('\n') + '\n';
+fs.writeFileSync('events.jsonl', output);</code></pre>
+            </div>
+
+            <h2>Convenience libraries</h2>
+            <p>The standard-library approaches above are sufficient for most use cases. For cleaner code or extra features, these well-maintained packages are worth knowing:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Python: jsonlines package
+# pip install jsonlines
+import jsonlines
+
+# Read
+with jsonlines.open('events.jsonl') as reader:
+    for obj in reader:
+        print(obj['event'])
+
+# Write
+with jsonlines.open('out.jsonl', mode='w') as writer:
+    writer.write_all([
+        {"id": 1, "event": "login"},
+        {"id": 2, "event": "buy"},
+    ])</code></pre>
+            </div>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Node.js: ndjson package
+// npm install ndjson
+const fs = require('fs');
+const ndjson = require('ndjson');
+
+// Read — emits parsed objects as a stream
+fs.createReadStream('events.jsonl')
+  .pipe(ndjson.parse())
+  .on('data', obj => console.log(obj.event));
+
+// Write — serializes objects to NDJSON/JSONL
+const serialize = ndjson.stringify();
+serialize.pipe(fs.createWriteStream('out.jsonl'));
+serialize.write({ id: 1, event: 'login' });
+serialize.write({ id: 2, event: 'buy' });
+serialize.end();</code></pre>
+            </div>
+
+            <h2>Converting between JSON and JSONL with jq</h2>
+            <p><code>jq</code> is the standard command-line tool for JSON processing. It handles JSONL natively when you use the <code>-c</code> (compact) flag.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># JSON array → JSONL
+jq -c '.[]' data.json > data.jsonl
+
+# JSONL → JSON array
+jq -s '.' data.jsonl > data.json
+
+# Process JSONL: extract one field from each record
+jq -r '.user' events.jsonl
+
+# Filter JSONL: only purchase events
+jq -c 'select(.event == "purchase")' events.jsonl
+
+# Count records in a JSONL file (no need to parse the whole thing)
+wc -l events.jsonl</code></pre>
+            </div>
+
+            <h2>Streaming JSONL from an HTTP API</h2>
+            <p>JSONL is the format of choice for streaming API responses &mdash; the server writes one JSON object per line as data becomes available, and the client reads and processes each line as it arrives without waiting for the complete response. Many AI APIs (including LLM completion endpoints) use a conceptually similar incremental format, where data arrives as a stream of JSON objects rather than a single document. The pattern for consuming them in the browser is the same: buffer chunks, split on newlines, parse each line.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Consume a JSONL streaming response in the browser
+const response = await fetch('/api/stream');
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+let buffer = '';
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  buffer += decoder.decode(value, { stream: true });
+  const lines = buffer.split('\n');
+  buffer = lines.pop(); // keep incomplete last line
+
+  for (const line of lines) {
+    if (line.trim()) {
+      const record = JSON.parse(line);
+      console.log('Received:', record);
+    }
+  }
+}</code></pre>
+            </div>
+
+            <h2>Where JSONL is the standard</h2>
+            <ul>
+                <li><strong>Machine learning datasets</strong>: Hugging Face datasets default to JSONL for text data; fine-tuning datasets for LLMs (OpenAI, Anthropic) are submitted as JSONL files</li>
+                <li><strong>Application logs</strong>: structured logging libraries (Winston, Pino, Python structlog) can output JSONL for log aggregators like Loki, Datadog, and CloudWatch</li>
+                <li><strong>ETL pipelines</strong>: Apache Spark and Apache Flink read JSONL natively; each record is processed independently without shuffling the whole dataset</li>
+                <li><strong>BigQuery</strong>: Google&rsquo;s newline-delimited JSON import format is JSONL</li>
+                <li><strong>Elasticsearch bulk API</strong>: the <code>_bulk</code> endpoint expects JSONL &mdash; alternating action lines and document lines</li>
+                <li><strong>Streaming APIs</strong>: OpenAI, Anthropic, and most LLM streaming endpoints deliver server-sent JSONL chunks</li>
+            </ul>
+
+            <h2>When to stick with JSON</h2>
+            <ul>
+                <li>REST API responses &mdash; JSON is expected and tooling (Postman, browser DevTools) handles it natively. Use the <a href="../formatter.html">JSON Formatter</a> to inspect and pretty-print any API response.</li>
+                <li>Config files &mdash; <code>package.json</code>, <code>tsconfig.json</code>, settings files that humans read and edit</li>
+                <li>Small datasets that fit easily in memory</li>
+                <li>When you need deep nesting, arrays of arrays, or complex document structure that does not map to a flat list of records. See <a href="json-vs-xml.html">JSON vs XML</a> and <a href="yaml-vs-json.html">YAML vs JSON</a> for when a different format fits better.</li>
+                <li>When the consumer expects a single valid JSON document (most SDKs and libraries). Validate the structure with the <a href="../json-validator.html">JSON Validator</a> before sending.</li>
+            </ul>
+
+            <h2>Error resilience</h2>
+            <p>One underrated advantage of JSONL is error isolation. If a JSON array file has a syntax error near the start &mdash; a stray comma, a missing quote &mdash; the entire file fails to parse. Nothing is recoverable.</p>
+            <p>In a JSONL file, a bad line only corrupts that one record. A parser that skips lines with <code>json.JSONDecodeError</code> can recover and process the remaining millions of records. For long-running log files written by multiple processes, this resilience is practically important.</p>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What is JSONL (JSON Lines)?</summary>
+                    <p>JSONL (JSON Lines), also called NDJSON (Newline-Delimited JSON), is a text format where each line contains a single, complete, valid JSON value &mdash; typically a JSON object. Files use the <code>.jsonl</code> or <code>.ndjson</code> extension. JSONL is not valid JSON itself; it is a separate streaming-friendly format that happens to use JSON syntax for each line.</p>
+                </details>
+                <details>
+                    <summary>Why use JSONL instead of a JSON array?</summary>
+                    <p>JSON arrays must be fully loaded into memory before any record can be read. A 10 GB JSON array requires ~10 GB of memory. JSONL lets you read and process one line at a time &mdash; constant memory regardless of file size. JSONL also supports appending without rewriting the file: open in append mode, write one line. With a JSON array, you must parse, modify, and rewrite the whole file.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between JSONL and NDJSON?</summary>
+                    <p>JSONL and NDJSON are the same format with different names. Both store one JSON value per line separated by newlines. NDJSON stands for Newline-Delimited JSON. The <code>.jsonl</code> and <code>.ndjson</code> extensions are interchangeable. The JSONL specification and the NDJSON specification describe functionally identical formats.</p>
+                </details>
+                <details>
+                    <summary>Can I use the JSON formatter with JSONL files?</summary>
+                    <p>Not directly &mdash; JSONL is not valid JSON, so a standard JSON formatter will reject the whole file. To inspect a JSONL file, paste a single line from the file into the <a href="../formatter.html">JSON Formatter</a>. Each line is independently valid JSON and will format and validate correctly.</p>
+                </details>
+                <details>
+                    <summary>Is JSONL supported by big data tools?</summary>
+                    <p>Yes. JSONL is natively supported by Apache Spark (read via <code>spark.read.json()</code>), BigQuery (newline-delimited JSON import), Elasticsearch (bulk API), Hugging Face datasets, and <code>jq</code> which works line by line on JSONL streams without modification.</p>
+                </details>
+                <details>
+                    <summary>How do I convert a JSON array to JSONL?</summary>
+                    <p>With Python: <code>import json; [open('out.jsonl','a').write(json.dumps(r)+'\n') for r in json.load(open('in.json'))]</code>. With jq: <code>jq -c '.[]' data.json &gt; data.jsonl</code>. The <code>-c</code> flag outputs compact single-line JSON; <code>.[]</code> iterates over each array element.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Need to inspect a JSONL record?</h3>
+                <p>Paste any single line from a <code>.jsonl</code> file into the formatter &mdash; each line is valid JSON and will pretty-print cleanly.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; paste any JSONL line to pretty-print it</li>
+                <li><a href="../json-validator.html">JSON Validator</a> &mdash; validate individual JSONL records</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="json-vs-xml.html">JSON vs XML &ndash; Key Differences and When to Use Each</a></li>
+                <li><a href="rest-vs-graphql.html">REST vs GraphQL &ndash; Key Differences and When to Use Each</a></li>
+                <li><a href="yaml-vs-json.html">YAML vs JSON: When to Use Each Format</a></li>
+                <li><a href="protobuf-vs-json.html">Protobuf vs JSON: Size, Speed, and When to Use Each</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

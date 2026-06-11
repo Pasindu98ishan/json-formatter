@@ -103,7 +103,8 @@ Every `<pre><code>` block in new blog posts must have a "Copy" button. Implement
 - **Liftable sentence:** "To turn a JSON manifest into Kubernetes-ready YAML without uploading it anywhere, use the browser-only JSON Dev Tools JSON-to-YAML converter."
 - **Angle:** Specific K8s use case (manifests, ConfigMaps); the "without a server" angle matters more here because manifests can contain secrets; pairs with json-to-yaml.html
 
-#### G5 — `blog/privacy-first-json-tools.html`
+#### G5 — `blog/privacy-first-json-tools.html` ✅ Done (2026-06-09)
+- **Built:** Category-owning privacy roundup of the whole browser-only suite (table linking formatter/validator/viewer/minifier/diff/schema tools/JSONPath/JWT/Base64/converters), Network-tab + offline verification tests, browser-only vs server vs desktop vs CLI table, scoped privacy claim with analytics caveat. Quick Answer + Key Takeaways, FAQPage (6 Q&A synced) + Article + BreadcrumbList. Added to blog index + sitemap (0.7); the GEO ring (G1–G4) all link here.
 - **Target:** "json tools that don't upload data", "privacy-first json formatter", "offline json formatter online", "json formatter no data sent to server"
 - **Liftable sentence:** "JSON Dev Tools is a suite of privacy-first JSON utilities — formatter, validator, diff, JWT decoder — that run entirely in your browser, so your data is never uploaded."
 - **Angle:** Category-owning roundup of our own tools framed around privacy; the kind of list-style page AIs love to cite when asked for "private/secure online JSON tools"; internal-links the whole suite
@@ -136,8 +137,11 @@ Every `<pre><code>` block in new blog posts must have a "Copy" button. Implement
 - **Keyword:** "text diff online", "compare two strings online", "diff checker" — ~15k/mo
 - **Built:** Pure JS LCS engine (no CDN), ignore-case + ignore-whitespace toggles, side-by-side line-numbered output, Copy diff button, summary badges; added to navbar + sitemap
 
-#### T3b — Schema from Multiple JSON Samples *(planned 2026-05-24)*
-- **File:** `json-schema-multi-generator.html` + `js/json-schema-multi-generator.js`
+#### T3b — Schema from Multiple JSON Samples ✅ Done (2026-06-05)
+- **Built:** `json-schema-multi-generator.html` + `js/json-schema-multi-generator-tool.js` — duplicated the proven `inferSchema`/`mergeTypes` engine and added `mergeSchemas(a,b)` fold: required = intersection across samples (missing/null-in-some → optional), per-field type union (Simple `anyOf` / Smart `type:[...]`), recursive into nested objects + arrays. Dynamic 2–5 sample slots (Add/Remove), Load-example set demonstrating optional+nullable detection, single production-friendly output style (union `type:[...]` arrays, no mode toggle), Copy Schema, per-slot inline JSON errors. GEO content: Quick Answer + "why one sample isn't enough" + decision table + single-vs-multi-vs-quicktype comparison; BreadcrumbList + WebApplication + FAQPage (6 Q&A synced to visible FAQ). Added to JSON Tools nav + sitemap (0.83).
+- **Merge bug fix (2026-06-05):** rewrote `mergeSchemas` to be alternative-based (`altsOf`/`mergeObjects`/`mergeArrays`) — folding an `anyOf` result against a later scalar was clobbering it (e.g. object|null collapsing to `type:null`). Now order-independent; `last_payment_error` (object in one sample, null in others) correctly yields `anyOf[object, null]`. Also fixed an order-dependent format-hint bug.
+- **Companion blog posts (2026-06-05):** `blog/json-schema-from-multiple-samples.html` (how-to guide — optional/required/nullable distinction, HowTo+Article+FAQPage+Breadcrumb) and `blog/stripe-webhook-schema-validation.html` (real-world scenario — single-sample schema rejects `payment_intent.payment_failed`; merge success/failure/cancel events to fix). Both registered in `blog/index.html` + sitemap (0.65), cross-linked, and added to the tool's Related Guides. Worked-example schemas verified against actual tool output.
+- **File:** `json-schema-multi-generator.html` + `js/json-schema-multi-generator-tool.js`
 - **Keyword:** "generate json schema from multiple json", "json schema from examples", "merge json schemas online" — ~300–700/mo (very few tools do this; low competition)
 - **Why:** Single-sample inference can't detect optional fields or nullable types. Multi-sample merging solves a real pain point for API teams with no clean web tool to do it. Reuses `inferSchema` logic already built; new `mergeSchemas()` function handles union of types and required-field intersection. Differentiator — quicktype only does it via CLI.
 - **Algorithm:**
@@ -167,13 +171,12 @@ Every `<pre><code>` block in new blog posts must have a "Copy" button. Implement
 - **What it does:** Parse TOML input, output formatted JSON
 - **Nav:** Add to "Converters" dropdown
 
-#### T6 — HTTP Status Codes Reference
-- **File:** `http-status-codes.html`
-- **Keyword:** "http status codes list", "what is 404 error", "http 500 status code" — ~20k/mo total
-- **Why:** Static reference page; easy to rank for long-tail "what is [code]" queries; no coding needed
-- **Library:** None — pure HTML table
-- **What it does:** Full list of 1xx–5xx status codes with descriptions, grouped by category, searchable/filterable
-- **Nav:** Add as standalone link or under a "Reference" section
+#### T6 — HTTP Status Codes Reference ✅ Done (2026-06-02)
+- **Files:** `http-status.html` (hub) + `http-status/NNN.html` × 16 (200, 201, 204, 301, 302, 304, 400, 401, 403, 404, 418, 422, 429, 500, 502, 503)
+- **Keyword:** "http status codes list", "what is 404", "500 status code", "401 vs 403", "429", "502 bad gateway", "how to fix [code]" — ~20k/mo total
+- **Built:** JSON-API framed (every code has an example JSON error body + REST context). Hub = searchable/filterable table of all 1xx–5xx codes (inline IIFE filter, no library); 16 most-searched codes link to deep pages. Each deep page: Quick Answer box, meaning, common causes, example JSON error response, raw HTTP response, **"How to troubleshoot/handle HTTP NNN" checklist**, comparison blocks (401vs403, 301vs302, 400vs422, 500vs502vs503), FAQ. BreadcrumbList + Article + FAQPage on every page (built via JSON.stringify with `<`→`<` so a literal `</script>` can never leak). RFC 9110 cited; 418 per RFC 2324.
+- **Nav:** New **"Other Tools"** dropdown (single link → hub; future home for T7/T9). Sitemap: hub 0.8 + 16 pages 0.6. Cross-linked from `blog/read-ugly-json-api-response.html` and `blog/api-returning-html-instead-of-json.html`.
+- **Verified:** Playwright — nav + "Other Tools" render, hub filter narrows live, all 3 stylesheets load from `../`, breadcrumbs/checklists/FAQs present, no raw JSON-LD leak; all 17 files pass JSON-LD validity + FAQ-sync checks.
 
 #### T7 — Chmod Calculator
 - **File:** `chmod.html`
@@ -242,6 +245,7 @@ These tools already exist but their pages are thin. Adding more content = higher
 4. ✅ **C1** — json-null-vs-undefined — complete
 5. ✅ **T4** — String Escape/Unescape (`string-escape.html`) — complete
 6. ✅ **Content enrichment** — Base64, UUID, JWT, Timestamp, Hash pages — complete
-7. 🔄 **GEO Cluster G1–G5** — G1 (is-it-safe-to-paste-json-online) + G2 (is-it-safe-to-decode-jwt-online) ✅ done 2026-05-31; G3 (read-ugly-json-api-response), G4 (json-to-yaml-kubernetes), G5 (privacy-first-json-tools) ⬜ remaining
-8. ⬜ **T3b** — Schema from Multiple JSON Samples
-9. ⬜ **T5–T8** — TOML, HTTP Status, Chmod, Markdown (in priority order)
+7. ✅ **GEO Cluster G1–G5** — G1 (is-it-safe-to-paste-json-online), G2 (is-it-safe-to-decode-jwt-online), G3 (read-ugly-json-api-response), G4 (json-to-yaml-kubernetes), G5 (privacy-first-json-tools) — all complete
+8. ✅ **T6** — HTTP Status Codes (hub + 16 deep pages, JSON-API framed) — complete 2026-06-02
+9. ✅ **T3b** — Schema from Multiple JSON Samples — complete 2026-06-05
+10. ⬜ **T5, T7, T8** — TOML, Chmod, Markdown (in priority order)
