@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JWT vs session tokens: stateless vs stateful auth, revocation, storage, RS256 vs HS256, and when to use each. Practical guide with Node.js and Python code examples.">
+    <meta name="keywords" content="jwt vs session, jwt vs session token, jwt stateless, session token, jwt revocation, jwt storage, hs256 vs rs256, refresh token, express session, jsonwebtoken nodejs, jwt cookie vs header">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/jwt-vs-session.html">
+    <meta property="og:title" content="JWT vs Session Tokens: Key Differences, Security Trade-offs, and When to Use Each">
+    <meta property="og:description" content="JWTs are stateless and self-contained; sessions are stateful and server-stored. Learn the real security trade-offs, revocation strategies, and when each auth model fits.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/jwt-vs-session.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JWT vs Session Tokens: Key Differences, Security Trade-offs, and When to Use Each | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JWT vs Session Tokens", "item": "https://jsondevtools.org/blog/jwt-vs-session.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JWT vs Session Tokens: Key Differences, Security Trade-offs, and When to Use Each",
+      "description": "JWTs carry all state inside a signed token; sessions store state on the server and hand the client an opaque ID. This guide compares both auth models with code examples, a security breakdown, and a clear decision framework.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-06-12",
+      "dateModified": "2026-06-12",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the main difference between JWT and session tokens?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A session token is an opaque random ID the server maps to stored user state (in a database or memory store). A JWT is self-contained — it encodes all user state inside a signed token the client holds. The server needs no database lookup to verify a JWT, just a cryptographic signature check. Sessions are stateful; JWTs are stateless."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can you invalidate a JWT before it expires?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Not natively. Because JWTs are stateless, there is no central record to delete. The standard workarounds are: a token blacklist (denylist) in Redis keyed by jti, or short-lived access tokens (5–15 minutes) paired with a revocable refresh token. Both partially reintroduce server state, which is the core trade-off of the stateless JWT model."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Where should I store a JWT in the browser?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Use an HttpOnly; Secure; SameSite=Strict cookie. This prevents JavaScript from reading the token (blocking XSS exfiltration) and the SameSite attribute blocks cross-site request forgery. Storing JWTs in localStorage is convenient but exposes them to any injected script."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between HS256 and RS256 for JWT signing?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "HS256 uses a single shared secret — every service that verifies tokens must hold it. RS256 uses an asymmetric key pair — the auth server signs with the private key; other services verify with the public key, which can be published safely via a JWKS endpoint. Use RS256 in microservice environments where multiple services verify tokens."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "When should I use sessions instead of JWTs?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Prefer sessions when instant revocation is required (logout must work immediately), when building a traditional server-rendered app, or when token size matters (JWTs grow with every claim). Sessions are also simpler to reason about and are the right default for most web applications that don't span multiple services."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are refresh tokens and why do JWTs need them?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Refresh tokens are long-lived, server-stored credentials exchanged for new short-lived access tokens (JWTs). Short access tokens (5–15 min) limit the window of abuse from a stolen token. The refresh token can be revoked at any time, restoring meaningful logout. This pattern — short-lived JWT + revocable refresh token — is the recommended approach for most JWT-based systems."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do JWTs scale better than sessions?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "JWTs scale horizontally without a shared store — any server verifies tokens independently using only the key. Sessions require all servers to reach a shared store (e.g. Redis), adding a network hop. However, a fast distributed cache makes session scaling practical, and a JWT blacklist reintroduces state anyway. The scaling advantage of JWTs is often overstated."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Are JWTs encrypted?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No, not by default. A standard JWT (JWS) is base64url-encoded and signed — the payload is readable by anyone who holds the token. Never put passwords, PII, or secrets in the JWT payload. If confidentiality is required, use JWE (JSON Web Encryption), though this is rare in practice."
+          }
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to choose between JWT and session tokens",
+      "description": "A decision framework for picking the right authentication token strategy for your application.",
+      "step": [
+        { "@type": "HowToStep", "position": 1, "name": "Assess revocation requirements", "text": "If users must be able to log out instantly and have their access revoked immediately (e.g. banking, healthcare, admin tools), use sessions — they can be deleted from the server store the moment logout happens. JWTs cannot be revoked without additional infrastructure." },
+        { "@type": "HowToStep", "position": 2, "name": "Evaluate your deployment topology", "text": "If you run many stateless API server instances behind a load balancer and want to avoid a shared session store, JWTs reduce infrastructure coupling. If you already run Redis or a database for other reasons, a session store adds negligible cost." },
+        { "@type": "HowToStep", "position": 3, "name": "Consider client diversity", "text": "If multiple clients — mobile apps, third-party services, microservices — need to verify user identity without calling back to the auth server, JWTs are the natural fit. Bearer tokens in Authorization headers work across any HTTP client." },
+        { "@type": "HowToStep", "position": 4, "name": "Choose a signing algorithm", "text": "For a single-service app use HS256 (simpler). For microservices where multiple services verify tokens, use RS256 — services hold the public key and never touch the private key. Avoid the none algorithm, and always validate the alg header." },
+        { "@type": "HowToStep", "position": 5, "name": "Set expiry and rotation policy", "text": "Short-lived access tokens (15 minutes) with a refresh token pattern give the best security-to-convenience ratio for JWTs. Sessions should have an idle timeout and an absolute maximum lifetime. Rotate refresh tokens on every use (refresh token rotation) and revoke the family on reuse detection." }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>JWT vs Session Tokens</span>
+            </nav>
+            <h1>JWT vs Session Tokens: Key Differences, Security Trade-offs, and When to Use Each</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; 10 min read &middot; Comparison</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><strong>Sessions</strong> store user state on the server and hand the client an opaque ID (cookie); the server looks up that state on every request. <strong>JWTs</strong> encode all state inside a signed token the client holds — the server verifies the signature with no database lookup. Sessions are stateful; JWTs are stateless.</p>
+            </div>
+
+            <h2>How each model works</h2>
+
+            <p><strong>The fundamental difference is where user state lives:</strong> a session keeps it on the server and gives the client only a reference, while a JWT puts the state itself inside the token the client carries.</p>
+
+            <figure class="dg-figure">
+                <svg viewBox="0 0 760 458" role="img" xmlns="http://www.w3.org/2000/svg" aria-labelledby="jwt-dia-title jwt-dia-desc">
+                    <title id="jwt-dia-title">Session vs JWT authentication flow</title>
+                    <desc id="jwt-dia-desc">Session flow: client logs in, server stores session in DB and returns a cookie. Client uses the cookie on each request; server must look up the DB every time. JWT flow: client logs in, server signs a token and returns it. Client sends the token on each request; server verifies the signature locally with no DB lookup.</desc>
+                    <defs>
+                        <marker id="jwt-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path class="dg-arrow-path" d="M2 1L8 5L2 9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </marker>
+                    </defs>
+
+                    <!-- ── SESSION SECTION ── -->
+                    <rect x="10" y="8" width="740" height="26" rx="13" class="dg-rest-fill dg-rest-stroke" stroke-width="1"/>
+                    <text x="380" y="26" text-anchor="middle" class="dg-rest-text" font-size="12" font-weight="600">Session — stateful · server stores and looks up state on every request</text>
+
+                    <rect x="10" y="44" width="80" height="28" rx="6" class="dg-client-fill dg-client-stroke" stroke-width="1"/>
+                    <text x="50" y="63" text-anchor="middle" class="dg-client-text" font-size="13" font-weight="600">Client</text>
+
+                    <rect x="405" y="44" width="80" height="28" rx="6" class="dg-rest-fill dg-rest-stroke" stroke-width="1"/>
+                    <text x="445" y="63" text-anchor="middle" class="dg-rest-text" font-size="13" font-weight="600">Server</text>
+
+                    <rect x="590" y="44" width="100" height="28" rx="6" class="dg-db-fill dg-db-stroke" stroke-width="1"/>
+                    <text x="640" y="63" text-anchor="middle" class="dg-db-text" font-size="12" font-weight="600">DB / Redis</text>
+
+                    <!-- lifelines -->
+                    <line x1="50"  y1="72" x2="50"  y2="228" class="dg-conn" stroke-width="1" stroke-dasharray="4 3"/>
+                    <line x1="445" y1="72" x2="445" y2="228" class="dg-conn" stroke-width="1" stroke-dasharray="4 3"/>
+                    <line x1="640" y1="72" x2="640" y2="228" class="dg-conn" stroke-width="1" stroke-dasharray="4 3" opacity="0.35"/>
+
+                    <!-- 1 · POST /login -->
+                    <line x1="52" y1="100" x2="403" y2="100" class="dg-conn" stroke-width="1.5" marker-end="url(#jwt-arr)"/>
+                    <text x="228" y="94" text-anchor="middle" class="dg-muted" font-size="11">POST /login</text>
+
+                    <!-- 2 · Server → DB (store) -->
+                    <line x1="487" y1="123" x2="588" y2="123" class="dg-conn" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#jwt-arr)" opacity="0.6"/>
+                    <text x="537" y="117" text-anchor="middle" class="dg-db-text" font-size="10">store session</text>
+
+                    <!-- 3 · Set-Cookie -->
+                    <line x1="403" y1="148" x2="52" y2="148" class="dg-conn" stroke-width="1.5" marker-end="url(#jwt-arr)"/>
+                    <text x="228" y="142" text-anchor="middle" class="dg-muted" font-size="11">Set-Cookie: sid=abc123</text>
+
+                    <!-- 4 · GET /profile -->
+                    <line x1="52" y1="178" x2="403" y2="178" class="dg-conn" stroke-width="1.5" marker-end="url(#jwt-arr)"/>
+                    <text x="228" y="172" text-anchor="middle" class="dg-muted" font-size="11">GET /profile · Cookie: sid=abc123</text>
+
+                    <!-- 5 · Server → DB (look up) -->
+                    <line x1="487" y1="196" x2="588" y2="196" class="dg-conn" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#jwt-arr)" opacity="0.6"/>
+                    <text x="537" y="190" text-anchor="middle" class="dg-db-text" font-size="10">look up session</text>
+
+                    <!-- 6 · 200 response -->
+                    <line x1="403" y1="220" x2="52" y2="220" class="dg-conn" stroke-width="1.5" marker-end="url(#jwt-arr)"/>
+                    <text x="228" y="214" text-anchor="middle" class="dg-muted" font-size="11">200 { user data }</text>
+
+                    <!-- ── SEPARATOR ── -->
+                    <line x1="10" y1="237" x2="750" y2="237" class="dg-divider" stroke-width="1" opacity="0.4"/>
+
+                    <!-- ── JWT SECTION ── -->
+                    <rect x="10" y="245" width="740" height="26" rx="13" class="dg-gql-fill dg-gql-stroke" stroke-width="1"/>
+                    <text x="380" y="263" text-anchor="middle" class="dg-gql-text" font-size="12" font-weight="600">JWT — stateless · server verifies signature locally, zero DB lookups</text>
+
+                    <rect x="10" y="281" width="80" height="28" rx="6" class="dg-client-fill dg-client-stroke" stroke-width="1"/>
+                    <text x="50" y="300" text-anchor="middle" class="dg-client-text" font-size="13" font-weight="600">Client</text>
+
+                    <rect x="405" y="281" width="80" height="28" rx="6" class="dg-gql-fill dg-gql-stroke" stroke-width="1"/>
+                    <text x="445" y="300" text-anchor="middle" class="dg-gql-text" font-size="13" font-weight="600">Server</text>
+
+                    <!-- "No DB" badge (grayed-out, shows absence) -->
+                    <rect x="590" y="281" width="100" height="28" rx="14" class="dg-client-fill dg-client-stroke" stroke-width="1" opacity="0.45"/>
+                    <text x="640" y="300" text-anchor="middle" class="dg-muted" font-size="11" opacity="0.55">No DB ✓</text>
+
+                    <!-- lifelines -->
+                    <line x1="50"  y1="309" x2="50"  y2="450" class="dg-conn" stroke-width="1" stroke-dasharray="4 3"/>
+                    <line x1="445" y1="309" x2="445" y2="450" class="dg-conn" stroke-width="1" stroke-dasharray="4 3"/>
+
+                    <!-- 7 · POST /login -->
+                    <line x1="52" y1="340" x2="403" y2="340" class="dg-conn" stroke-width="1.5" marker-end="url(#jwt-arr)"/>
+                    <text x="228" y="334" text-anchor="middle" class="dg-muted" font-size="11">POST /login</text>
+                    <text x="488" y="354" text-anchor="start" class="dg-gql-text" font-size="10">signs JWT · no DB write</text>
+
+                    <!-- 8 · 200 + token -->
+                    <line x1="403" y1="370" x2="52" y2="370" class="dg-conn" stroke-width="1.5" marker-end="url(#jwt-arr)"/>
+                    <text x="228" y="364" text-anchor="middle" class="dg-muted" font-size="11">200 { token: "eyJ..." }</text>
+
+                    <!-- 9 · GET /profile + Bearer -->
+                    <line x1="52" y1="404" x2="403" y2="404" class="dg-conn" stroke-width="1.5" marker-end="url(#jwt-arr)"/>
+                    <text x="228" y="398" text-anchor="middle" class="dg-muted" font-size="11">GET /profile · Bearer: eyJ...</text>
+                    <text x="488" y="419" text-anchor="start" class="dg-gql-text" font-size="10">verifies signature ✓ · no DB</text>
+
+                    <!-- 10 · 200 response -->
+                    <line x1="403" y1="442" x2="52" y2="442" class="dg-conn" stroke-width="1.5" marker-end="url(#jwt-arr)"/>
+                    <text x="228" y="436" text-anchor="middle" class="dg-muted" font-size="11">200 { user data }</text>
+                </svg>
+                <figcaption style="margin-top:0.75rem;font-size:0.9rem;color:var(--text-muted, #6c757d);text-align:center;">
+                    <strong>Session requires a database lookup on every request; JWT does not.</strong> In the session flow (top) the server writes the session to a DB/Redis store at login and reads it back on each request. In the JWT flow (bottom) the server signs a token at login and verifies its signature locally on every request — zero database lookups.
+                </figcaption>
+            </figure>
+
+            <h2>Side-by-side comparison</h2>
+
+            <table style="width:100%;border-collapse:collapse;margin:1rem 0 1.5rem;">
+                <thead>
+                    <tr style="background:var(--light-bg);">
+                        <th style="padding:0.6rem 1rem;text-align:left;border:1px solid var(--border-color);">Property</th>
+                        <th style="padding:0.6rem 1rem;text-align:left;border:1px solid var(--border-color);">Session token</th>
+                        <th style="padding:0.6rem 1rem;text-align:left;border:1px solid var(--border-color);">JWT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>State storage</strong></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Server (DB / Redis)</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Client (token payload)</td>
+                    </tr>
+                    <tr style="background:var(--light-bg);">
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Verification</strong></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">DB lookup per request</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Cryptographic signature check (no DB)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Revocation</strong></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Instant — delete the session record</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Hard — requires a blacklist or short expiry</td>
+                    </tr>
+                    <tr style="background:var(--light-bg);">
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Horizontal scaling</strong></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Requires shared session store</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Any server verifies independently</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Token size</strong></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Small (~32 bytes)</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Larger (~200–500 bytes with claims)</td>
+                    </tr>
+                    <tr style="background:var(--light-bg);">
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Cross-domain / microservices</strong></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Awkward (cookies are origin-bound)</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Natural (Bearer header works anywhere)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Payload visibility</strong></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Opaque to client</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Base64-decodable (not encrypted by default)</td>
+                    </tr>
+                    <tr style="background:var(--light-bg);">
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Common transport</strong></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">HttpOnly cookie</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Authorization: Bearer header or HttpOnly cookie</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Standard library</strong></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">express-session, Flask-Session, Django sessions</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">jsonwebtoken (Node), PyJWT (Python), Auth0</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>What is inside a JWT</h2>
+
+            <p><strong>A JWT is three base64url-encoded JSON objects joined by dots: <code>header.payload.signature</code>.</strong> The header names the algorithm; the payload carries the claims; the signature is computed over the header and payload so any tampering invalidates the token.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Decode a JWT without a library (Python)
+import base64, json
+
+token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzEyMyIsInJvbGUiOiJhZG1pbiIsImV4cCI6MTc1MDAwMDAwMH0.SIGNATURE"
+
+header_b64, payload_b64, sig = token.split(".")
+
+def decode_part(b64):
+    # JWT uses unpadded base64url — add padding back
+    pad = 4 - len(b64) % 4
+    return json.loads(base64.urlsafe_b64decode(b64 + "=" * pad))
+
+print(decode_part(header_b64))
+# {'alg': 'HS256', 'typ': 'JWT'}
+
+print(decode_part(payload_b64))
+# {'sub': 'user_123', 'role': 'admin', 'exp': 1750000000}
+# Anyone with the token can read this — it is NOT encrypted</code></pre>
+            </div>
+
+            <p>You can also paste any JWT into the <a href="../jwt-decoder.html">JWT Decoder</a> to inspect its claims and expiry instantly.</p>
+
+            <h2>Creating a JWT in Node.js</h2>
+
+            <p><strong>You issue a JWT with <code>jwt.sign()</code> and verify it with <code>jwt.verify()</code> from the <code>jsonwebtoken</code> package.</strong> Signing happens once at login; verification runs on every protected request and throws if the token is expired or tampered with.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const jwt = require("jsonwebtoken");
+
+const SECRET = process.env.JWT_SECRET; // keep this secret!
+
+// Sign — issued at login
+function issueToken(userId, role) {
+  return jwt.sign(
+    { sub: userId, role },
+    SECRET,
+    { algorithm: "HS256", expiresIn: "15m" }
+  );
+}
+
+// Verify — called on every protected request
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, SECRET); // throws if expired or tampered
+  } catch (err) {
+    return null; // treat as unauthenticated
+  }
+}
+
+const token = issueToken("user_123", "admin");
+const payload = verifyToken(token);
+console.log(payload.sub); // "user_123"</code></pre>
+            </div>
+
+            <h2>Session-based auth in Node.js (express-session)</h2>
+
+            <p><strong>Session auth stores state server-side in a shared store like Redis and tracks the user with a signed cookie.</strong> Logging out is a single <code>req.session.destroy()</code> call — the record is deleted and the token is instantly invalid, which is the capability JWTs lack.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const express = require("express");
+const session = require("express-session");
+const RedisStore = require("connect-redis").default;
+const { createClient } = require("redis");
+
+const app = express();
+const redisClient = createClient();
+
+app.use(session({
+  store: new RedisStore({ client: redisClient }),
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,    // not accessible via JS
+    secure: true,      // HTTPS only
+    sameSite: "strict",
+    maxAge: 24 * 60 * 60 * 1000  // 1 day
+  }
+}));
+
+app.post("/login", (req, res) => {
+  // after validating credentials...
+  req.session.userId = "user_123";
+  req.session.role = "admin";
+  res.json({ ok: true });
+});
+
+app.post("/logout", (req, res) => {
+  req.session.destroy(); // instantly revoked
+  res.clearCookie("connect.sid");
+  res.json({ ok: true });
+});</code></pre>
+            </div>
+
+            <h2>The revocation problem with JWTs</h2>
+
+            <p>The hardest part of JWT-based auth is <strong>logout</strong>. Because the token is self-contained, a server cannot "delete" it — it remains valid until its <code>exp</code> claim passes. The standard workarounds:</p>
+
+            <ul>
+                <li><strong>Short expiry + refresh tokens</strong> — access tokens expire in 5–15 minutes; a long-lived refresh token (stored in the database) issues new access tokens. Revoking the refresh token effectively logs the user out within one expiry window.</li>
+                <li><strong>Token blacklist (denylist)</strong> — on logout, store the token's <code>jti</code> (JWT ID) in Redis with a TTL equal to the token's remaining lifetime. Check the denylist on every request. This reintroduces server state but keeps the verification path fast.</li>
+                <li><strong>Very short expiry, no refresh</strong> — for low-risk contexts, an expiry of 1–5 minutes means a stolen token is quickly useless. Only practical when the client re-authenticates silently.</li>
+            </ul>
+
+            <h2>HS256 vs RS256: which signing algorithm to use</h2>
+
+            <p><strong>HS256</strong> uses a single shared secret. Any service that verifies tokens must hold the secret — a leak compromises the entire system and all services must rotate keys together.</p>
+
+            <p><strong>RS256</strong> uses an asymmetric key pair. The auth server signs with the private key; all other services verify with the public key. The public key can be published openly (via a JWKS endpoint) without any security risk. This is the right choice when multiple services or third parties verify your tokens.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># RS256 signing in Python with PyJWT
+import jwt
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from pathlib import Path
+
+private_key = serialization.load_pem_private_key(
+    Path("private.pem").read_bytes(),
+    password=None,
+    backend=default_backend()
+)
+public_key = serialization.load_pem_public_key(
+    Path("public.pem").read_bytes(),
+    backend=default_backend()
+)
+
+# Auth server — signs with private key
+token = jwt.encode({"sub": "user_123", "role": "admin"}, private_key, algorithm="RS256")
+
+# Any service — verifies with public key (never sees private key)
+payload = jwt.decode(token, public_key, algorithms=["RS256"])
+print(payload)  # {'sub': 'user_123', 'role': 'admin'}</code></pre>
+            </div>
+
+            <h2>Where to store a JWT in the browser</h2>
+
+            <p><strong>The safest place to store a JWT in the browser is an HttpOnly, Secure, SameSite=Strict cookie</strong> — not <code>localStorage</code>. Token storage is the most debated JWT question; here are the two options and their trade-offs:</p>
+
+            <table style="width:100%;border-collapse:collapse;margin:1rem 0 1.5rem;">
+                <thead>
+                    <tr style="background:var(--light-bg);">
+                        <th style="padding:0.6rem 1rem;text-align:left;border:1px solid var(--border-color);">Storage</th>
+                        <th style="padding:0.6rem 1rem;text-align:left;border:1px solid var(--border-color);">XSS risk</th>
+                        <th style="padding:0.6rem 1rem;text-align:left;border:1px solid var(--border-color);">CSRF risk</th>
+                        <th style="padding:0.6rem 1rem;text-align:left;border:1px solid var(--border-color);">Verdict</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><code>localStorage</code></td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">High — any JS can read it</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Low — not sent automatically</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Avoid for sensitive apps</td>
+                    </tr>
+                    <tr style="background:var(--light-bg);">
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><code>HttpOnly</code> cookie</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Low — JS cannot read it</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Mitigated by SameSite=Strict</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Recommended</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>An HttpOnly cookie with <code>Secure; SameSite=Strict</code> gives you the best of both worlds — it is not readable by JavaScript (no XSS exfiltration) and is not sent on cross-site requests (no CSRF). At the transport and storage level, security becomes comparable to a session cookie — but the two are not fully equivalent: a session can still be revoked centrally by deleting the server record, whereas a JWT&rsquo;s security continues to depend on its token-lifecycle design (short expiry, refresh rotation, and any denylist you maintain).</p>
+
+            <h2>When to use sessions vs JWTs</h2>
+
+            <p><strong>Choose by your revocation needs and how many independent services must verify identity.</strong> Use this if/then table as a quick decision rule:</p>
+
+            <table style="width:100%;border-collapse:collapse;margin:1rem 0 1.5rem;">
+                <thead>
+                    <tr style="background:var(--light-bg);">
+                        <th style="padding:0.6rem 1rem;text-align:left;border:1px solid var(--border-color);">If you need to…</th>
+                        <th style="padding:0.6rem 1rem;text-align:left;border:1px solid var(--border-color);">Use</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Revoke access instantly on logout (banking, healthcare, admin)</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Session</strong></td>
+                    </tr>
+                    <tr style="background:var(--light-bg);">
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Verify identity across many stateless services with no shared store</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>JWT</strong></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Build a traditional server-rendered web app</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Session</strong></td>
+                    </tr>
+                    <tr style="background:var(--light-bg);">
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Authenticate mobile apps or third-party API clients</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>JWT</strong></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Support SSO across separate domains (no shared cookie)</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>JWT</strong></td>
+                    </tr>
+                    <tr style="background:var(--light-bg);">
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Let multiple services verify tokens without a shared secret</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>JWT</strong> (RS256)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Keep the token small and the model simple</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>Session</strong></td>
+                    </tr>
+                    <tr style="background:var(--light-bg);">
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);">Limit stolen-token exposure while staying stateless</td>
+                        <td style="padding:0.6rem 1rem;border:1px solid var(--border-color);"><strong>JWT</strong> + refresh rotation</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>How to choose between JWT and session tokens</h2>
+
+            <p>Work through these five steps in order — each one narrows the decision:</p>
+
+            <ol style="line-height:1.7;">
+                <li><strong>Assess revocation requirements.</strong> If users must be able to log out instantly and have their access revoked immediately (e.g. banking, healthcare, admin tools), use sessions — they can be deleted from the server store the moment logout happens. JWTs cannot be revoked without additional infrastructure.</li>
+                <li><strong>Evaluate your deployment topology.</strong> If you run many stateless API server instances behind a load balancer and want to avoid a shared session store, JWTs reduce infrastructure coupling. If you already run Redis or a database for other reasons, a session store adds negligible cost.</li>
+                <li><strong>Consider client diversity.</strong> If multiple clients — mobile apps, third-party services, microservices — need to verify user identity without calling back to the auth server, JWTs are the natural fit. Bearer tokens in Authorization headers work across any HTTP client.</li>
+                <li><strong>Choose a signing algorithm.</strong> For a single-service app use HS256 (simpler). For microservices where multiple services verify tokens, use RS256 — services hold the public key and never touch the private key. Avoid the none algorithm, and always validate the alg header.</li>
+                <li><strong>Set expiry and rotation policy.</strong> Short-lived access tokens (15 minutes) with a refresh token pattern give the best security-to-convenience ratio for JWTs. Sessions should have an idle timeout and an absolute maximum lifetime. Rotate refresh tokens on every use (refresh token rotation) and revoke the family on reuse detection.</li>
+            </ol>
+
+            <div class="tool-cta">
+                <h3>Inspect any JWT instantly</h3>
+                <p>Paste a token into the decoder to see its header, payload claims, expiry timestamp, and algorithm — everything runs in your browser with no data sent to any server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="../jwt-decoder.html" class="btn btn-primary">JWT Decoder</a>
+                    <a href="is-it-safe-to-decode-jwt-online.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Is it safe to decode JWTs online?</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What is the main difference between JWT and session tokens?</summary>
+                    <p>A session token is an opaque random ID the server maps to stored user state (in a database or memory store). A JWT is self-contained — it encodes all user state inside a signed token the client holds. The server needs no database lookup to verify a JWT, just a cryptographic signature check. Sessions are stateful; JWTs are stateless.</p>
+                </details>
+                <details>
+                    <summary>Can you invalidate a JWT before it expires?</summary>
+                    <p>Not natively. Because JWTs are stateless, there is no central record to delete. The standard workarounds are: a token blacklist (denylist) in Redis keyed by <code>jti</code>, or short-lived access tokens (5–15 minutes) paired with a revocable refresh token. Both partially reintroduce server state, which is the core trade-off of the stateless JWT model.</p>
+                </details>
+                <details>
+                    <summary>Where should I store a JWT in the browser?</summary>
+                    <p>Use an <code>HttpOnly; Secure; SameSite=Strict</code> cookie. This prevents JavaScript from reading the token (blocking XSS exfiltration) and the SameSite attribute blocks cross-site request forgery. Storing JWTs in <code>localStorage</code> is convenient but exposes them to any injected script.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between HS256 and RS256 for JWT signing?</summary>
+                    <p>HS256 uses a single shared secret — every service that verifies tokens must hold it. RS256 uses an asymmetric key pair — the auth server signs with the private key; other services verify with the public key, which can be published safely via a JWKS endpoint. Use RS256 in microservice environments where multiple services verify tokens.</p>
+                </details>
+                <details>
+                    <summary>When should I use sessions instead of JWTs?</summary>
+                    <p>Prefer sessions when instant revocation is required (logout must work immediately), when building a traditional server-rendered app, or when token size matters (JWTs grow with every claim). Sessions are also simpler to reason about and are the right default for most web applications that don't span multiple services.</p>
+                </details>
+                <details>
+                    <summary>What are refresh tokens and why do JWTs need them?</summary>
+                    <p>Refresh tokens are long-lived, server-stored credentials exchanged for new short-lived access tokens (JWTs). Short access tokens (5–15 min) limit the window of abuse from a stolen token. The refresh token can be revoked at any time, restoring meaningful logout. This pattern — short-lived JWT + revocable refresh token — is the recommended approach for most JWT-based systems.</p>
+                </details>
+                <details>
+                    <summary>Do JWTs scale better than sessions?</summary>
+                    <p>JWTs scale horizontally without a shared store — any server verifies tokens independently using only the key. Sessions require all servers to reach a shared store (e.g. Redis), adding a network hop. However, a fast distributed cache makes session scaling practical, and a JWT blacklist reintroduces state anyway. The scaling advantage of JWTs is often overstated.</p>
+                </details>
+                <details>
+                    <summary>Are JWTs encrypted?</summary>
+                    <p>No, not by default. A standard JWT (JWS) is base64url-encoded and signed — the payload is readable by anyone who holds the token. Never put passwords, PII, or secrets in the JWT payload. If confidentiality is required, use JWE (JSON Web Encryption), though this is rare in practice.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related comparisons</h2>
+            <ul>
+                <li><a href="rest-vs-graphql.html">REST vs GraphQL – Key Differences and When to Use Each</a></li>
+                <li><a href="json-vs-jsonl.html">JSON vs JSONL – Differences, Examples, and When to Use Each</a></li>
+                <li><a href="csv-vs-json.html">CSV vs JSON – Structure, Size, and When to Use Each</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related tools</h2>
+            <ul>
+                <li><a href="../jwt-decoder.html">JWT Decoder — inspect header, payload, and expiry</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="is-it-safe-to-decode-jwt-online.html">Is it safe to decode a JWT online?</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

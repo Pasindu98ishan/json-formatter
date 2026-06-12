@@ -58,7 +58,7 @@
           "name": "What is JSONL (JSON Lines)?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "JSONL (JSON Lines), also called NDJSON (Newline-Delimited JSON), is a text format where each line contains a single, complete, valid JSON value — typically a JSON object. Files use the .jsonl or .ndjson extension. JSONL is not valid JSON itself; it is a separate streaming-friendly format that happens to use JSON syntax for each individual line."
+            "text": "JSONL (JSON Lines), also called NDJSON (Newline-Delimited JSON), is a text format where each line contains a single, complete, valid JSON value — typically a JSON object. Files use the .jsonl or .ndjson extension. JSONL is not valid JSON itself; it is a separate streaming-friendly format that happens to use JSON syntax for each line."
           }
         },
         {
@@ -66,7 +66,7 @@
           "name": "Why use JSONL instead of a JSON array?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "JSON arrays must be fully loaded and parsed before any record can be read. A 10 GB JSON array requires 10 GB of memory. JSONL lets you read and process one line at a time — constant memory regardless of file size. JSONL also supports appending without rewriting the entire file: you write a new line; with a JSON array, you must open, parse, modify the array, and rewrite the whole file."
+            "text": "JSON arrays must be fully loaded into memory before any record can be read. A 10 GB JSON array requires ~10 GB of memory. JSONL lets you read and process one line at a time — constant memory regardless of file size. JSONL also supports appending without rewriting the file: open in append mode, write one line. With a JSON array, you must parse, modify, and rewrite the whole file."
           }
         },
         {
@@ -74,7 +74,7 @@
           "name": "What is the difference between JSONL and NDJSON?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "JSONL and NDJSON are the same format with different names. Both store one JSON value per line separated by newlines. NDJSON stands for Newline-Delimited JSON. The .jsonl and .ndjson file extensions are interchangeable. The JSONL specification at jsonlines.org and the NDJSON specification are functionally identical."
+            "text": "JSONL and NDJSON are the same format with different names. Both store one JSON value per line separated by newlines. NDJSON stands for Newline-Delimited JSON. The .jsonl and .ndjson extensions are interchangeable. The JSONL specification and the NDJSON specification describe functionally identical formats."
           }
         },
         {
@@ -82,7 +82,7 @@
           "name": "Can I use the JSON formatter with JSONL files?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Not directly — JSONL is not valid JSON, so a standard JSON formatter or validator will reject it. To inspect a JSONL file, paste a single line from the file into the JSON Formatter. Each line is independently valid JSON and will format and validate correctly."
+            "text": "Not directly — JSONL is not valid JSON, so a standard JSON formatter will reject the whole file. To inspect a JSONL file, paste a single line from the file into the JSON Formatter. Each line is independently valid JSON and will format and validate correctly."
           }
         },
         {
@@ -90,7 +90,7 @@
           "name": "Is JSONL supported by big data tools?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. JSONL is natively supported by many data tools: Apache Spark can read .jsonl files directly, BigQuery imports JSONL as its newline-delimited JSON format, Elasticsearch uses JSONL for its bulk API, Hugging Face datasets default to JSONL for text data, and jq works line by line on JSONL streams without modification."
+            "text": "Yes. JSONL is natively supported by Apache Spark (read via spark.read.json()), BigQuery (newline-delimited JSON import), Elasticsearch (bulk API), Hugging Face datasets, and jq which works line by line on JSONL streams without modification."
           }
         },
         {
@@ -98,7 +98,7 @@
           "name": "How do I convert a JSON array to JSONL?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "In Python: import json; data = json.load(open('data.json')); open('data.jsonl','w').writelines(json.dumps(r)+'\n' for r in data). With jq on the command line: jq -c '.[]' data.json > data.jsonl. The -c flag outputs compact (single-line) JSON; .[] iterates over each array element."
+            "text": "With Python: import json; [open('out.jsonl','a').write(json.dumps(r)+'\n') for r in json.load(open('in.json'))]. With jq: jq -c '.[]' data.json > data.jsonl. The -c flag outputs compact single-line JSON; .[] iterates over each array element."
           }
         }
       ]
@@ -230,6 +230,16 @@
             </ul>
 
             <p>JSONL solves all three: memory is bounded to the size of the largest single line, append is O(1), and a corrupt line only invalidates that one record.</p>
+
+            <h2>How to read and write JSONL files</h2>
+            <p>The five core operations at a glance — each is shown in full in the sections that follow:</p>
+            <ol style="line-height:1.7;">
+                <li><strong>Read JSONL line by line in Python.</strong> Open the file and call <code>json.loads()</code> on each line. This keeps memory usage constant regardless of file size.</li>
+                <li><strong>Write JSONL in Python.</strong> Call <code>json.dumps()</code> on each object and write it followed by a newline character. Do not wrap objects in an array.</li>
+                <li><strong>Read JSONL in Node.js.</strong> Use the <code>readline</code> module to read the file line by line, calling <code>JSON.parse()</code> on each non-empty line.</li>
+                <li><strong>Convert a JSON array to JSONL with jq.</strong> Run <code>jq -c '.[]' data.json &gt; data.jsonl</code>. The <code>-c</code> flag produces compact single-line JSON; <code>.[]</code> iterates over array elements.</li>
+                <li><strong>Stream JSONL from an HTTP API.</strong> Use <code>fetch()</code> with a ReadableStream and a <code>TextDecoder</code> to consume JSONL line by line as the server writes it, without waiting for the full response.</li>
+            </ol>
 
             <h2>Reading and writing JSONL in Python</h2>
             <p>The standard <code>json</code> module handles JSONL with a simple loop. If you prefer a cleaner API, the <a href="https://pypi.org/project/jsonlines/" rel="nofollow noopener" target="_blank"><code>jsonlines</code></a> package on PyPI wraps the loop and handles edge cases automatically.</p>

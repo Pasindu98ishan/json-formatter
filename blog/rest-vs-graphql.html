@@ -58,7 +58,7 @@
           "name": "What is the main difference between REST and GraphQL?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "REST exposes fixed endpoints — each URL returns a predetermined shape of data. GraphQL exposes a single endpoint where the client sends a query describing exactly which fields it wants. REST can over-fetch (returning more data than needed) or under-fetch (requiring multiple requests); GraphQL solves both by letting the client specify the exact shape of the response."
+            "text": "REST exposes fixed endpoints — each URL returns a predetermined shape of data. GraphQL exposes a single endpoint where the client sends a query describing exactly which fields it wants. REST can over-fetch (returning more data than needed) or under-fetch (requiring multiple requests); GraphQL solves both by letting the client specify the exact shape of the response in every request."
           }
         },
         {
@@ -66,7 +66,7 @@
           "name": "Is GraphQL faster than REST?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "GraphQL can reduce round-trips by combining multiple data needs into one request, which is faster on slow connections. However, a simple REST endpoint serving one well-known shape is often faster because it can be cached at the CDN or HTTP layer. GraphQL POST requests are not cacheable by default. Performance depends more on implementation quality than on which style you choose."
+            "text": "GraphQL can reduce round-trips by combining multiple data needs into one request, which is faster on slow connections. However, a simple REST endpoint serving one well-known shape is often faster because it can be cached at the CDN or HTTP layer without additional configuration. GraphQL POST requests are not cacheable by default. Performance depends more on implementation quality than on which style you choose."
           }
         },
         {
@@ -74,7 +74,7 @@
           "name": "Should I use REST or GraphQL for a public API?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "REST is generally the better choice for public APIs. It has a lower learning curve for consumers, is universally understood, and works well with HTTP caching and standard API gateways. GraphQL is powerful for internal APIs and products with multiple clients (web, mobile, TV) that need different data shapes from the same backend."
+            "text": "REST is generally the better choice for public APIs. It has a lower learning curve for consumers, is universally understood with no SDK required, and works well with HTTP caching and standard API gateways. GraphQL is powerful for internal APIs and products with multiple clients (web, mobile, TV) that need different data shapes from the same backend."
           }
         },
         {
@@ -82,7 +82,7 @@
           "name": "Does GraphQL replace REST?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "No. GraphQL solves specific problems (over-fetching, under-fetching, rapid frontend iteration) well, but REST is simpler to cache, monitor, and scale for most use cases. Many companies run REST and GraphQL side by side — REST for external/public endpoints, GraphQL for internal data aggregation. GraphQL also does not define how data is stored, authenticated, or authorised; those concerns are the same in both styles."
+            "text": "No. GraphQL solves specific problems — over-fetching, under-fetching, rapid frontend iteration — but REST is simpler to cache, monitor, and scale for most use cases. Many companies run both side by side: REST for external and public-facing endpoints, GraphQL as a BFF layer for internal data aggregation across multiple clients."
           }
         },
         {
@@ -90,7 +90,7 @@
           "name": "What does over-fetching mean in REST?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Over-fetching means a REST endpoint returns more fields than the client needs. For example, a mobile app fetching a user profile may only need the name and avatar, but the endpoint returns 30 fields including address, billing info, and preferences. All that extra data wastes bandwidth. GraphQL solves this by letting the client request only the specific fields it needs."
+            "text": "Over-fetching means a REST endpoint returns more fields than the client needs. A mobile app fetching a user profile may only need the name and avatar, but the endpoint returns 30 fields including address, billing info, and preferences. That unused data wastes bandwidth on every request. GraphQL solves this by letting the client request only the specific fields it needs."
           }
         },
         {
@@ -98,7 +98,7 @@
           "name": "What is the N+1 problem in GraphQL?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "The N+1 problem occurs when a GraphQL resolver fetches a list of N items, then makes one additional database query for each item (N more queries). For example, fetching 100 posts and then the author for each post results in 101 database queries. The standard solution is the DataLoader pattern, which batches and deduplicates those N queries into a single query."
+            "text": "The N+1 problem occurs when a GraphQL resolver fetches a list of N items and then makes one additional database query per item to resolve a related field. Fetching 100 posts and then the author for each results in 101 database queries. The standard solution is the DataLoader pattern, which batches those N queries into a single query and caches within the same request."
           }
         },
         {
@@ -106,7 +106,7 @@
           "name": "What are the main disadvantages of GraphQL?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "GraphQL's main trade-offs are: no native HTTP/CDN caching (POST requests are not cacheable by default), the N+1 resolver problem which needs DataLoader batching, harder observability because every operation is a single POST /graphql 200 rather than distinct endpoints, field-level authorization that is more complex than per-route checks, and exposure to expensive nested queries that require depth limiting and complexity analysis to prevent abuse. REST avoids most of these by design."
+            "text": "GraphQL’s main trade-offs are: no native HTTP/CDN caching (POST requests are not cacheable by default), the N+1 resolver problem which needs DataLoader batching, harder observability because every operation is a single POST /graphql 200 rather than distinct endpoints, field-level authorization that is more complex than per-route checks, and exposure to expensive nested queries that require depth limiting and complexity analysis to prevent abuse. REST avoids most of these by design."
           }
         },
         {
@@ -114,7 +114,7 @@
           "name": "How do you secure a GraphQL API?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Secure a GraphQL API with several layers: depth limiting to reject deeply nested queries, query complexity or cost analysis to score and cap expensive queries before execution, persisted queries (an allow-list of approved queries) so clients cannot send arbitrary ones, server-side timeouts, and mandatory pagination limits on list fields. These defend against denial-of-service attacks from a single malicious query, which a fixed REST endpoint is not vulnerable to."
+            "text": "Secure a GraphQL API with several layers: depth limiting to reject deeply nested queries, query complexity / cost analysis to score and cap expensive queries before execution, persisted queries (an allow-list of approved queries) so clients cannot send arbitrary ones, server-side timeouts, and mandatory pagination limits on list fields. These defend against denial-of-service from a single malicious query, which a fixed REST endpoint is not vulnerable to."
           }
         }
       ]
@@ -218,6 +218,9 @@
 
                     <text x="340" y="400" text-anchor="middle" class="dg-caption" font-size="12">Both styles return JSON &mdash; the difference is who controls the response shape.</text>
                 </svg>
+                <figcaption style="margin-top:0.75rem;font-size:0.9rem;color:var(--text-muted, #6c757d);text-align:center;">
+                    <strong>REST spreads one screen&rsquo;s data across several endpoints; GraphQL fetches it from a single endpoint.</strong> On the left, the client calls four separate REST URLs and the server decides each response shape. On the right, the client sends one query to <code>POST /graphql</code> and asks for exactly the fields it needs.
+                </figcaption>
             </figure>
 
             <h3>REST: fixed shape, multiple endpoints</h3>
@@ -375,6 +378,16 @@ subscription {
                 <li>When you want self-documenting APIs with built-in introspection (useful for internal developer portals)</li>
                 <li>Real-time features where GraphQL Subscriptions fit naturally</li>
             </ul>
+
+            <h2>How to choose between REST and GraphQL for your API</h2>
+            <p>Work through these five steps in order — each one narrows the decision:</p>
+            <ol style="line-height:1.7;">
+                <li><strong>Identify your client diversity.</strong> If multiple clients (web, iOS, Android, smart TV) need different data shapes from the same backend, GraphQL&rsquo;s flexible queries are a strong advantage. If you have one client or all clients need the same data, REST is simpler.</li>
+                <li><strong>Assess caching requirements.</strong> If CDN or HTTP caching is critical for performance, prefer REST — GET requests are natively cacheable. GraphQL typically uses POST and requires custom caching strategies (persisted queries, CDN rules).</li>
+                <li><strong>Consider consumer expertise.</strong> Public APIs with external consumers benefit from REST — it has no learning curve and is universally understood. Internal APIs consumed by your own teams can absorb the GraphQL learning curve.</li>
+                <li><strong>Evaluate real-time needs.</strong> If you need push-based real-time updates, GraphQL Subscriptions offer a built-in pattern over WebSockets. REST requires separate WebSocket or SSE infrastructure.</li>
+                <li><strong>Start simple, migrate later.</strong> Most teams are better served starting with REST. You can add a GraphQL layer later (as a BFF — Backend For Frontend) when you have concrete evidence that over-fetching or multiple round-trips are causing measurable problems.</li>
+            </ol>
 
             <h2>GraphQL disadvantages</h2>
             <p>GraphQL&rsquo;s flexibility comes with trade-offs you have to actively manage. None of these are dealbreakers, but they are the reasons many teams stay on REST for simpler services:</p>
