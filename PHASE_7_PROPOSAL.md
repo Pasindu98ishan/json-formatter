@@ -1,7 +1,7 @@
 # Phase 7 — Reference-Cluster Expansion + Monetization Experiments
 
 **Status**: Planned (implementation starts 2026-06-10)
-**Last Updated**: 2026-06-09
+**Last Updated**: 2026-06-11
 
 **Goal**: ~**5,000 cumulative GSC impressions during June** by scaling the only niche this low-authority domain can rank in — verbatim developer **error/reference** content — supported by an authority comparison cluster, a links/engagement game, and one AI tool.
 
@@ -29,18 +29,50 @@ One page per **exact error string** (a real query developers paste verbatim). Ea
 
 **Priority topics**: JSON parsing → network errors → CORS → Node/Python/JS runtime errors.
 
+**Competitor landscape (shapes string selection).** Dedicated error-page libraries already exist — FixDevs, TrackJS, Rollbar, Sentry, bobbyhadz — and they **saturate the famous JS errors** ("Cannot read properties of undefined", Next.js hydration). Do **not** chase those head terms. Our edge is strings that are **(a) newer** (post-2023 tooling), **(b) JSON/API-adjacent** so they cross-link into our formatter/validator/LLM calc, or **(c) too niche** for the monitoring vendors to bother with. No fabricated source URLs in the brief — every candidate below carries a **verify query** (run it on Stack Overflow, sort by newest, confirm 2025–2026 activity before building).
+
 #### Batch 1 — NEW `/errors/` pages (no existing post — build these, ship together)
 - [ ] `Bad control character in string literal in JSON`
-- [ ] `JSONDecodeError: Expecting value: line 1 column 1 (char 0)` (Python)
-- [ ] `Expecting property name enclosed in double quotes` (Python)
+- [x] `JSONDecodeError: Expecting value: line 1 column 1 (char 0)` (Python) → `errors/jsondecodeerror-expecting-value.html`
+- [x] `Expecting property name enclosed in double quotes` (Python) → `errors/expecting-property-name-double-quotes.html`
 - [ ] `Extra data: line 1 column N (char N)` (Python)
-- [ ] `CORS policy: No 'Access-Control-Allow-Origin' header`
-- [ ] `TypeError: Failed to fetch`
+- [x] `CORS policy: No 'Access-Control-Allow-Origin' header` → `errors/cors-no-access-control-allow-origin.html`
+- [x] `TypeError: Failed to fetch` → `errors/failed-to-fetch.html`
 - [ ] `net::ERR_CONNECTION_REFUSED`
 - [ ] `npm ERR! code ERESOLVE`
 - [ ] `Error: Cannot find module`
 - [ ] `EADDRINUSE: address already in use`
 - **Indexing leads (highest-volume gaps, ship first):** `Failed to fetch`, the CORS string, `JSONDecodeError: Expecting value`.
+
+#### Batch 2 — net-new `/errors/` backlog (researched 2026-06-11; cross-checked against repo)
+Same page contract as Batch 1 (clone `http-status/404.html`: exact string in H1 + body, quick-answer, code-that-throws, cause+fix, FAQ 1:1 with FAQPage, Breadcrumb + Article + FAQPage + HowTo). Ship in tier order — Tier A first because each cross-links an existing tool and reinforces internal PageRank.
+
+**Tier A — JSON/API-adjacent (ship first; each cross-links a tool):**
+- [ ] `TypeError: Object of type datetime is not JSON serializable` (Python) → JSON Formatter. Cover datetime/Decimal/set/ndarray variants in one page. *Verify:* SO `object of type is not JSON serializable`
+- [ ] `json.decoder.JSONDecodeError: Unterminated string starting at` (Python) → Formatter/Validator; clusters with Batch 1 Python errors. *Verify:* SO `JSONDecodeError unterminated string`
+- [ ] `JsonWebTokenError: invalid signature` / `jwt malformed` (Node) → `blog/is-it-safe-to-decode-jwt-online.html` + future JWT decoder. *Verify:* SO `jsonwebtoken invalid signature`
+- [ ] `429 Too Many Requests` — retry/backoff (fetch/axios/Python) → **LLM API Cost Calculator** (strongest strategic fit; volume growing with LLM API usage). *Verify:* SO `429 too many requests retry`
+- [ ] `process.env.X is undefined` (dotenv not loading; incl. Vite `import.meta.env`, Next `NEXT_PUBLIC_`) → `blog/env-file-format.html`. *Verify:* SO `process.env undefined dotenv`
+- [ ] **Optimize-in-place, NOT a new page:** add the verbatim modern V8 string `Unexpected token '<', "<!DOCTYPE"... is not valid JSON` to existing `blog/json-unexpected-token.html`. *Verify:* SO `Unexpected token DOCTYPE is not valid JSON`
+
+**Tier B — Node/JS module + build (high volume, broad):**
+- [ ] `SyntaxError: Cannot use import statement outside a module` — ship paired with the next item. *Verify:* SO (newest filter)
+- [ ] `ReferenceError: require is not defined in ES module scope` (mirror of the above; cross-link the pair). *Verify:* SO (newest filter)
+- [ ] `FATAL ERROR: Reached heap limit — JavaScript heap out of memory`. *Verify:* SO `JavaScript heap out of memory`
+- [ ] `Error: error:0308010C:digital envelope routines::unsupported` (Node 17+ OpenSSL vs old webpack). *Verify:* SO `0308010C digital envelope`
+- [ ] `ECONNRESET` / `socket hang up` (Node) — network cluster w/ Batch 1 `net::ERR_CONNECTION_REFUSED`. *Verify:* SO `econnreset socket hang up`
+- [ ] `npm ERR! code EACCES: permission denied` (pairs with Batch 1 ERESOLVE). *Verify:* SO `npm EACCES`
+- [ ] `gyp ERR! build error` (node-gyp native compile, Windows/Mac). *Verify:* SO `gyp ERR build error`
+- [ ] `Module not found: Can't resolve 'fs'` (Next.js/webpack server-only import client-side). *Verify:* SO `can't resolve fs nextjs`
+- [ ] `504 (Outdated Optimize Dep)` (Vite) — low volume, near-zero competition. *Verify:* SO `vite outdated optimize dep`
+
+**Tier C — Python runtime (evergreen; competition is only old SO threads):**
+- [ ] `error: externally-managed-environment` (pip / PEP 668, 2023+) — **best opportunity on the list**: no legacy authority content ranks for it yet. *Verify:* SO `externally-managed-environment`
+- [ ] `TypeError: 'NoneType' object is not subscriptable`. *Verify:* SO `NoneType object is not subscriptable` (newest)
+- [ ] `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff` (CSV/file-reading). *Verify:* SO `unicodedecodeerror utf-8 codec`
+- [ ] `ssl.SSLCertVerificationError: certificate verify failed` (Python requests; corporate-proxy/macOS variants). *Verify:* SO `certificate verify failed python`
+
+> **Already covered — do NOT rebuild in Batch 2:** `Unexpected end of JSON input` is handled by the Batch 1 consolidation task (`blog/json-unexpected-end-input.html` + `blog/fetch-unexpected-end-json-input.html`). Recreating it would violate the canonical one-page-per-intent rule.
 
 #### Canonical / no-duplicate rule (HARD) — verified against the actual `/blog/`
 Each error intent = **exactly one** page. Do **not** create competing `/errors/` pages for strings already covered.

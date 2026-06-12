@@ -1,0 +1,351 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0) means Python tried to parse an empty string or non-JSON (often HTML) as JSON. Every cause and fix with code examples.">
+    <meta name="keywords" content="JSONDecodeError Expecting value, expecting value line 1 column 1 char 0, json.decoder.JSONDecodeError, python json expecting value, requests json decode error, python parse json error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/jsondecodeerror-expecting-value.html">
+    <meta property="og:title" content="JSONDecodeError: Expecting value: line 1 column 1 (char 0) — Cause and Fix">
+    <meta property="og:description" content="This Python error means you tried to parse an empty string or non-JSON (usually HTML) as JSON. Learn how to diagnose and fix it with code examples.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/jsondecodeerror-expecting-value.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JSONDecodeError: Expecting value: line 1 column 1 (char 0) — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "JSONDecodeError: Expecting value", "item": "https://jsondevtools.org/errors/jsondecodeerror-expecting-value.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "JSONDecodeError: Expecting value: line 1 column 1 (char 0) — Cause and Fix",
+  "description": "This Python error means json.loads() or response.json() was given an empty string or non-JSON content (usually an HTML error page) instead of JSON. This reference explains every cause with code examples and fixes.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-11",
+  "dateModified": "2026-06-11",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does JSONDecodeError: Expecting value: line 1 column 1 (char 0) mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means Python's json module reached the very first character (char 0) and did not find the start of a valid JSON value. Almost always the string you passed is empty, or it contains something that is not JSON — most often an HTML error page returned by a server. The position 'char 0' is the key clue: the problem is at the start, so the content is not JSON at all rather than JSON with a small mistake."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does response.json() raise Expecting value?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because the HTTP response body was not JSON. The server may have returned an HTML error page (404 or 500), an empty body, or plain text. requests does not check the content before parsing, so response.json() calls json.loads() on whatever came back. Print response.status_code and response.text first to see what the server actually sent."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix Expecting value: line 1 column 1 (char 0)?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Check what you are parsing before parsing it. Print repr() of the string or response.text. If it is empty, handle that case explicitly. If it is HTML, check the status code and content-type — the request likely failed. Only call json.loads() or response.json() once you have confirmed the body is actually JSON, and wrap the call in a try/except json.JSONDecodeError."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Expecting value mean my JSON file is empty?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Often, yes. Reading an empty file and passing its contents to json.loads() raises this exact error because there is no value to parse at char 0. It also happens if you open the file but forget to call .read(), or if the file path is wrong and you accidentally parse an empty or non-JSON string. Check that the file exists and has content with print(repr(open(path).read()))."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can single quotes cause Expecting value at char 0?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If the string starts with a single quote — for example a Python dict printed with str() like {'a': 1} — json.loads() fails immediately at char 1 with 'Expecting property name enclosed in double quotes', not char 0. A value starting with a single-quoted string can give Expecting value. JSON requires double quotes for all strings and keys; convert Python objects with json.dumps() rather than str()."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+  "description": "Steps to diagnose and fix the Python Expecting value JSON error.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Print the raw value before parsing", "text": "Print repr() of the string or response.text to see exactly what you are about to parse. An empty string or HTML tags reveal the cause immediately." },
+    { "@type": "HowToStep", "position": 2, "name": "Check the HTTP status and content type", "text": "For requests, print response.status_code and response.headers['content-type']. A 4xx/5xx status or a text/html content type means the body is not JSON." },
+    { "@type": "HowToStep", "position": 3, "name": "Handle empty responses explicitly", "text": "Before calling json.loads(), check that the string is non-empty. Return or raise a clear error for empty bodies instead of letting json fail." },
+    { "@type": "HowToStep", "position": 4, "name": "Wrap parsing in try/except", "text": "Catch json.JSONDecodeError so you can log the offending content and fail with a useful message instead of a raw traceback." },
+    { "@type": "HowToStep", "position": 5, "name": "Validate the JSON", "text": "Paste the body into a JSON validator to confirm it is well-formed JSON before relying on it in code." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>JSONDecodeError: Expecting value</span>
+            </nav>
+            <h1>json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Python tried to parse a string as JSON but found nothing valid at the very first character. The string is almost always <strong>empty</strong> or contains <strong>non-JSON content</strong> &mdash; most often an HTML error page returned by a server. The <code>char 0</code> position is the clue: the content is not JSON at all. Print <code>repr()</code> of what you are parsing before calling <code>json.loads()</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <p>The full traceback ends with a line like this:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "app.py", line 8, in &lt;module&gt;
+    data = json.loads(text)
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)</code></pre>
+            </div>
+
+            <p>You may also see it raised from the <code>requests</code> library as <code>requests.exceptions.JSONDecodeError</code>, or from <code>response.json()</code> &mdash; both wrap the same underlying <code>json.decoder.JSONDecodeError</code>.</p>
+
+            <h2>What &ldquo;line 1 column 1 (char 0)&rdquo; means</h2>
+            <p>The number in parentheses is the character index where parsing failed. <strong><code>char 0</code> is the very first character.</strong> That is the most important detail: the parser failed before reading anything, which means the content is not JSON at all &mdash; it is empty, or it starts with something that can never begin a JSON value (a <code>&lt;</code> from HTML, a <code>#</code> from a comment, plain text, and so on).</p>
+
+            <p>Contrast this with an error at <code>char 24</code> or <code>line 3 column 5</code>, which would mean the content is <em>mostly</em> valid JSON with a mistake partway through. At <code>char 0</code>, the whole string is the problem.</p>
+
+            <h2>Cause 1: The string is empty</h2>
+            <p>Parsing an empty string is the single most common trigger. There is no value at char 0 because there are no characters at all:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+text = ""           # empty — maybe an empty file or empty response body
+data = json.loads(text)   # JSONDecodeError: Expecting value: line 1 column 1 (char 0)</code></pre>
+            </div>
+
+            <p>This frequently happens when reading a file that is empty, or when a network response had no body (a <code>204 No Content</code>, or a request that returned nothing).</p>
+
+            <h2>Cause 2: The response is HTML, not JSON</h2>
+            <p>When you call an API with <code>requests</code> and the server returns an error page, the body is HTML &mdash; not JSON. <code>response.json()</code> still tries to parse it and fails at char 0 on the leading <code>&lt;</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import requests
+
+response = requests.get("https://api.example.com/data")
+# Server returned a 404 HTML page:
+# &lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;title&gt;404 Not Found&lt;/title&gt;...
+
+data = response.json()   # JSONDecodeError: Expecting value: line 1 column 1 (char 0)</code></pre>
+            </div>
+
+            <p>This is the Python equivalent of JavaScript&rsquo;s <a href="../blog/json-unexpected-token.html">Unexpected token &lt; in JSON at position 0</a>. The fix is the same idea: check the status code and content type before parsing.</p>
+
+            <h2>Cause 3: Reading an empty or wrong file</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+# The file exists but is empty, or you forgot to call .read()
+with open("config.json") as f:
+    data = json.loads(f.read())   # empty file → Expecting value (char 0)
+
+# Common slip: passing the file object's name, not its contents
+data = json.loads("config.json")  # parses the literal string "config.json" → fails</code></pre>
+            </div>
+
+            <p>Use <code>json.load(f)</code> (no <code>s</code>) to read directly from a file object, and confirm the file actually has content.</p>
+
+            <h2>Cause 4: A None or non-string value</h2>
+            <p>If an earlier step returned <code>None</code> (for example a dictionary <code>.get()</code> that missed, or a function with no return value), parsing it raises the same error:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+value = some_dict.get("payload")   # returns None if key is missing
+data = json.loads(value)           # TypeError or Expecting value depending on version</code></pre>
+            </div>
+
+            <h2>How to debug it</h2>
+            <p>Before parsing, print exactly what you are about to parse. <code>repr()</code> shows quotes, whitespace, and emptiness that a plain <code>print()</code> hides:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import requests
+
+response = requests.get("https://api.example.com/data")
+
+print(response.status_code)                       # 200? or 404/500?
+print(response.headers.get("content-type"))       # application/json? or text/html?
+print(repr(response.text[:200]))                  # the first 200 chars, with quotes
+
+# Only parse once you have confirmed it is JSON
+data = response.json()</code></pre>
+            </div>
+
+            <h2>The fix: check before you parse</h2>
+            <p>A robust pattern checks the status code, confirms there is a body, and wraps parsing so a bad response gives a clear error instead of a raw traceback:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+import requests
+
+response = requests.get("https://api.example.com/data")
+
+# 1. Fail fast on HTTP errors (4xx / 5xx)
+response.raise_for_status()
+
+# 2. Guard against an empty body
+if not response.text.strip():
+    raise ValueError("Empty response body — expected JSON")
+
+# 3. Parse defensively
+try:
+    data = response.json()
+except json.JSONDecodeError as e:
+    raise ValueError(
+        f"Response was not valid JSON: {e}\n"
+        f"First 200 chars: {response.text[:200]!r}"
+    )</code></pre>
+            </div>
+
+            <p>For raw strings or files, the same idea applies: confirm the content is non-empty and wrap <code>json.loads()</code> in <code>try/except json.JSONDecodeError</code>.</p>
+
+            <div class="tool-cta">
+                <h3>Not sure if your string is valid JSON?</h3>
+                <p>Paste the response body into the validator &mdash; it pinpoints exactly where parsing breaks. Everything runs in your browser; nothing is uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="../json-validator.html" class="btn btn-primary">JSON Validator</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does JSONDecodeError: Expecting value: line 1 column 1 (char 0) mean?</summary>
+                    <p>It means Python's <code>json</code> module reached the very first character (<code>char 0</code>) and did not find the start of a valid JSON value. Almost always the string you passed is empty, or it contains something that is not JSON &mdash; most often an HTML error page. The <code>char 0</code> position tells you the content is not JSON at all, rather than JSON with a small mistake.</p>
+                </details>
+                <details>
+                    <summary>Why does response.json() raise Expecting value?</summary>
+                    <p>Because the HTTP response body was not JSON. The server may have returned an HTML error page (404 or 500), an empty body, or plain text. <code>requests</code> does not check the content before parsing, so <code>response.json()</code> calls <code>json.loads()</code> on whatever came back. Print <code>response.status_code</code> and <code>response.text</code> first to see what the server actually sent.</p>
+                </details>
+                <details>
+                    <summary>How do I fix Expecting value: line 1 column 1 (char 0)?</summary>
+                    <p>Check what you are parsing before parsing it. Print <code>repr()</code> of the string or <code>response.text</code>. If it is empty, handle that case explicitly. If it is HTML, check the status code and content type &mdash; the request likely failed. Only call <code>json.loads()</code> once you have confirmed the body is actually JSON, and wrap it in <code>try/except json.JSONDecodeError</code>.</p>
+                </details>
+                <details>
+                    <summary>Does Expecting value mean my JSON file is empty?</summary>
+                    <p>Often, yes. Reading an empty file and passing its contents to <code>json.loads()</code> raises this exact error because there is no value at char 0. It also happens if you open the file but forget to call <code>.read()</code>, or if the path is wrong and you accidentally parse a non-JSON string. Check with <code>print(repr(open(path).read()))</code>.</p>
+                </details>
+                <details>
+                    <summary>Can single quotes cause Expecting value at char 0?</summary>
+                    <p>A string that starts with a single-quoted value can give <em>Expecting value</em>. More commonly, a Python dict printed with <code>str()</code> like <code>{'a': 1}</code> fails at char 1 with <a href="expecting-property-name-double-quotes.html">Expecting property name enclosed in double quotes</a>. JSON requires double quotes for all strings and keys &mdash; convert Python objects with <code>json.dumps()</code>, never <code>str()</code>.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="expecting-property-name-double-quotes.html">JSONDecodeError: Expecting property name enclosed in double quotes</a></li>
+                <li><a href="../blog/json-unexpected-token.html">Unexpected token &lt; in JSON at position 0</a> &mdash; the JavaScript equivalent</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/api-returning-html-instead-of-json.html">API Returning HTML Instead of JSON?</a></li>
+                <li><a href="../blog/json-parse-error-handling.html">JSON.parse Error Handling Patterns</a></li>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
