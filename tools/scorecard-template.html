@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Score card generator</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 1200px; height: 630px; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: linear-gradient(135deg, #0b1220 0%, #1c2a40 55%, #243b5e 100%);
+        color: #fff; width: 1200px; height: 630px; overflow: hidden;
+        display: flex; flex-direction: column; justify-content: center;
+        padding: 0 80px; position: relative;
+    }
+    .brand {
+        position: absolute; top: 48px; left: 80px;
+        font-size: 28px; font-weight: 700; letter-spacing: 0.5px; opacity: 0.92;
+    }
+    .brand .key { color: #4dabf7; }
+    .kicker {
+        position: absolute; top: 52px; right: 80px;
+        font-size: 22px; font-weight: 600; color: #adb5bd;
+    }
+    .label { font-size: 30px; color: #adb5bd; margin-bottom: 8px; }
+    .score {
+        font-size: 150px; font-weight: 800; line-height: 1; letter-spacing: -2px;
+        font-variant-numeric: tabular-nums;
+    }
+    .score .slash { color: #5c7299; font-weight: 700; }
+    .rank {
+        margin-top: 18px; font-size: 56px; font-weight: 800;
+        display: inline-flex; align-items: center; gap: 14px;
+    }
+    .bar {
+        margin-top: 40px; width: 760px; height: 16px; border-radius: 10px;
+        background: rgba(255,255,255,0.12); overflow: hidden;
+    }
+    .bar > div { height: 100%; background: linear-gradient(90deg, #4dabf7, #51cf66); }
+    .foot {
+        position: absolute; bottom: 48px; left: 80px;
+        font-size: 26px; color: #ced4da; font-weight: 600;
+    }
+    .foot .cta { color: #4dabf7; }
+</style>
+</head>
+<body>
+    <div class="brand">&#128295; JSON Dev <span class="key">Tools</span></div>
+    <div class="kicker">HTTP Status Quiz</div>
+
+    <div class="label" id="label">I scored</div>
+    <div class="score"><span id="score">8</span><span class="slash"> / 10</span></div>
+    <div class="rank"><span id="emoji">📨</span><span id="rank">Certified Postman</span></div>
+    <div class="bar"><div id="barFill" style="width:80%"></div></div>
+
+    <div class="foot">Can you beat me? <span class="cta">jsondevtools.org/http-status-quiz</span></div>
+
+<script>
+    var RANKS = [
+        { min: 0, max: 2, title: '404 Human', emoji: '🫠' },
+        { min: 3, max: 4, title: '502 Bad Gateway Brain', emoji: '💥' },
+        { min: 5, max: 6, title: '200 OK', emoji: '✅' },
+        { min: 7, max: 8, title: 'Certified Postman', emoji: '📨' },
+        { min: 9, max: 10, title: 'HTTP Wizard', emoji: '🧙' }
+    ];
+    function rankFor(s){ for (var i=0;i<RANKS.length;i++){ if(s>=RANKS[i].min&&s<=RANKS[i].max) return RANKS[i]; } return RANKS[0]; }
+    function render(variant){
+        // variant: 0..10 for a score card, "og" / "ogflash" for OG images
+        if (variant === 'og' || variant === 'ogflash') {
+            document.getElementById('label').textContent = variant === 'og'
+                ? 'How well do you know HTTP status codes?'
+                : 'Study every HTTP status code';
+            document.querySelector('.score').style.display = 'none';
+            document.querySelector('.bar').style.display = 'none';
+            var r = document.querySelector('.rank');
+            r.style.fontSize = '64px';
+            document.getElementById('emoji').textContent = variant === 'og' ? '🧠' : '🃏';
+            document.getElementById('rank').textContent = variant === 'og'
+                ? 'Take the HTTP Status Quiz' : 'HTTP Status Flashcards';
+            document.querySelector('.kicker').textContent = variant === 'og' ? 'Quiz' : 'Flashcards';
+            return;
+        }
+        var s = parseInt(variant, 10) || 0;
+        var rk = rankFor(s);
+        document.getElementById('score').textContent = s;
+        document.getElementById('emoji').textContent = rk.emoji;
+        document.getElementById('rank').textContent = rk.title;
+        document.getElementById('barFill').style.width = (s/10*100) + '%';
+    }
+    var params = new URLSearchParams(location.search);
+    var variant = params.get('v');
+    if (variant === null || variant === '') {
+        variant = location.hash ? location.hash.slice(1) : '8';
+    }
+    render(variant);
+    // Re-render on hash change too, in case of same-document navigation.
+    window.addEventListener('hashchange', function () {
+        render(location.hash ? location.hash.slice(1) : '8');
+    });
+</script>
+</body>
+</html>

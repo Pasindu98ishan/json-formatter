@@ -62,6 +62,8 @@
         '                    <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Other Tools &#9662;</button>\n' +
         '                    <ul class="dropdown-menu">\n' +
         '                        <li><a href="' + r + 'http-status.html">HTTP Status Codes</a></li>\n' +
+        '                        <li><a href="' + r + 'http-status-quiz.html">HTTP Status Quiz</a></li>\n' +
+        '                        <li><a href="' + r + 'http-status-flashcards.html">HTTP Status Flashcards</a></li>\n' +
         '                    </ul>\n' +
         '                </li>\n' +
         '                <li class="nav-dropdown">\n' +
