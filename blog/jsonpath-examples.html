@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="12 real-world JSONPath examples for querying JSON API responses: filter arrays, extract nested fields, recursive descent, and slices. Free online tester included.">
+    <meta name="keywords" content="jsonpath examples, jsonpath filter example, jsonpath query examples, extract value from json array, jsonpath array filter, jsonpath nested object">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/jsonpath-examples.html">
+    <meta property="og:title" content="JSONPath Examples: Real-World Queries for API Responses">
+    <meta property="og:description" content="12 copy-paste JSONPath examples for real API responses — filter arrays, extract nested fields, recursive descent, slices, and more.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/jsonpath-examples.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JSONPath Examples: Real-World Queries for API Responses</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "JSONPath Examples", "item": "https://jsondevtools.org/blog/jsonpath-examples.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "JSONPath Examples: Real-World Queries for API Responses",
+      "description": "Twelve practical JSONPath examples for querying real JSON API responses — filtering arrays, extracting nested fields, recursive descent, slices, and unions — each with sample JSON and the result.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-06-13",
+      "dateModified": "2026-06-13",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "url": "https://jsondevtools.org/blog/jsonpath-examples.html"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I filter a JSON array with JSONPath?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use a filter expression in square brackets with the [?()] syntax, where @ refers to the current element. For example, $.orders[?(@.amount > 100)] returns every order object whose amount is greater than 100. Combine conditions with && and ||, for example $.orders[?(@.status == 'paid' && @.amount > 50)]." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I get a value from a nested JSON object with JSONPath?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Chain keys with dot notation from the root $. For a Stripe-style webhook, $.data.object.amount drills into data, then object, then amount and returns [2000]. If you do not know the full path, use recursive descent: $..amount finds every amount field at any depth." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I select the last item in an array with JSONPath?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use a negative slice: $.events[-1:] returns the last element as a single-item array. To take the last N items, widen the slice, for example $.events[-3:]. The first three items are $.events[0:3]. A bare $.events[-1] is not reliable across implementations, so prefer the slice form." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I extract all values of a field with JSONPath?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use the recursive descent operator .. followed by the key name. $..email collects every email field anywhere in the document, regardless of nesting depth. To restrict the search to a known level, scope it first, for example $..products[*].id returns only product ids, not category ids." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can JSONPath query an array of API objects?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. To pull one field from every object in an array, use a wildcard: $.orders[*].id returns the id of every order. Add a filter to narrow it, for example $.orders[?(@.status == 'paid')].id returns only the ids of paid orders. JSONPath always returns the matches as an array." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does kubectl use the same JSONPath syntax?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Almost, but not exactly. kubectl uses a JSONPath dialect that omits the leading $, wraps the expression in curly braces, and does not support filter expressions. For example kubectl get pods -o jsonpath='{.items[*].status.podIP}' lists every pod IP. Standard JSONPath (and this tester) would write the same path as $.items[*].status.podIP." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>JSONPath Examples</span>
+            </nav>
+            <h1>JSONPath Examples: Real-World Queries for API Responses</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">June 2026 &middot; 9 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <section>
+                <p class="article-lede">This is the applied companion to our <a href="jsonpath-guide.html">JSONPath syntax guide</a>: twelve real tasks you hit when working with JSON API responses, each paired with the exact JSONPath that solves it. Every example below uses a realistic payload &mdash; orders, webhooks, user accounts, validation errors &mdash; not the abstract bookstore. Paste any of them into the <a href="../jsonpath.html">JSONPath Tester</a> to see the result live.</p>
+                <p>A quick reminder before the recipes: <strong>JSONPath always returns an array of matches</strong>, even when a single value matches. So <code>$.page</code> returns <code>[1]</code>, not <code>1</code>. The tester here uses <a href="https://github.com/JSONPath-Plus/JSONPath" rel="noopener" target="_blank">JSONPath&#8209;Plus</a>, which supports the RFC 9535 standard plus handy extensions like negative indices.</p>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Follow along live:</strong> paste each payload and query into the tester.</p>
+                    <a href="../jsonpath.html" class="btn btn-primary" style="display:inline-block;">Open JSONPath Tester &rarr;</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>1. Pull one field from every item in a list</h2>
+                <p>The most common API task: you have a paginated list and you want just the IDs (or names, or emails) from every object. Use a wildcard <code>[*]</code> to fan out across the array, then name the field.</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "page": 1,
+  "orders": [
+    { "id": 1001, "amount": 49.99, "status": "paid" },
+    { "id": 1002, "amount": 129, "status": "paid" },
+    { "id": 1003, "amount": 19.95, "status": "refunded" }
+  ]
+}</code></pre>
+                </div>
+                <p>Query: <code>$.orders[*].id</code></p>
+                <p>Result: <code>[1001, 1002, 1003]</code></p>
+            </section>
+
+            <section>
+                <h2>2. Filter an array by a numeric condition</h2>
+                <p>Filter expressions use <code>[?(&hellip;)]</code>, and <code>@</code> refers to the current element. This is how you select "orders over $100" without looping in code.</p>
+                <p>Query: <code>$.orders[?(@.amount &gt; 100)]</code></p>
+                <p>Result: <code>[{ "id": 1002, "amount": 129, "status": "paid" }]</code></p>
+                <p>Want just the matching IDs rather than the whole object? Append the field after the filter:</p>
+                <p>Query: <code>$.orders[?(@.amount &gt; 100)].id</code> &rarr; Result: <code>[1002]</code></p>
+            </section>
+
+            <section>
+                <h2>3. Combine multiple conditions with &amp;&amp; and ||</h2>
+                <p>Filters support boolean logic. To find paid orders worth more than $50 (against the same payload above):</p>
+                <p>Query: <code>$.orders[?(@.status == "paid" &amp;&amp; @.amount &gt; 50)].id</code></p>
+                <p>Result: <code>[1002]</code></p>
+                <p>Order <code>1001</code> is paid but only $49.99, and <code>1003</code> is a refund &mdash; so only <code>1002</code> satisfies both conditions. Swap <code>&amp;&amp;</code> for <code>||</code> when either condition should match.</p>
+            </section>
+
+            <section>
+                <h2>4. Grab a value at unknown depth (recursive descent)</h2>
+                <p>When you do not know &mdash; or do not care &mdash; how deeply a field is nested, the recursive descent operator <code>..</code> searches the entire document.</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "account": {
+    "owner": { "name": "Ana", "email": "ana@acme.io" },
+    "members": [
+      { "name": "Ben",  "email": "ben@acme.io" },
+      { "name": "Cara", "email": "cara@acme.io" }
+    ]
+  }
+}</code></pre>
+                </div>
+                <p>Query: <code>$..email</code></p>
+                <p>Result: <code>["ana@acme.io", "ben@acme.io", "cara@acme.io"]</code></p>
+                <p>One expression collects the owner's email and both members' emails, despite living at different depths. Handy for pulling every <code>email</code>, <code>id</code>, or <code>url</code> out of a messy response. Need to explore the shape first? The <a href="../json-viewer.html">JSON Viewer</a> renders any payload as a collapsible tree so you can spot the path you need.</p>
+            </section>
+
+            <section>
+                <h2>5. Extract a nested field from a webhook payload</h2>
+                <p>Webhooks bury the useful data several levels down. Here is a trimmed Stripe&#8209;style <code>payment_intent.succeeded</code> event:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "id": "evt_1",
+  "type": "payment_intent.succeeded",
+  "data": {
+    "object": {
+      "id": "pi_123",
+      "amount": 2000,
+      "currency": "usd",
+      "customer": "cus_42"
+    }
+  }
+}</code></pre>
+                </div>
+                <p>Query: <code>$.data.object.amount</code> &rarr; Result: <code>[2000]</code></p>
+                <p>Query: <code>$.data.object.customer</code> &rarr; Result: <code>["cus_42"]</code></p>
+            </section>
+
+            <section>
+                <h2>6. Get every value of a repeated key across mixed nesting</h2>
+                <p>Recursive descent shines when the same key appears at multiple levels. Given a category &rarr; product tree:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "categories": [
+    { "id": "c1", "products": [ { "id": "p1" }, { "id": "p2" } ] },
+    { "id": "c2", "products": [ { "id": "p3" } ] }
+  ]
+}</code></pre>
+                </div>
+                <p>Query: <code>$..id</code> &rarr; Result: <code>["c1", "p1", "p2", "c2", "p3"]</code></p>
+                <p>That grabs <em>both</em> category and product IDs. To scope it to product IDs only, anchor the descent at the <code>products</code> arrays:</p>
+                <p>Query: <code>$..products[*].id</code> &rarr; Result: <code>["p1", "p2", "p3"]</code></p>
+            </section>
+
+            <section>
+                <h2>7. Take the first N, last, or every other element (slices)</h2>
+                <p>JSONPath supports Python&#8209;style slices <code>[start:end:step]</code> and negative indices. Given a list of recent events:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{ "events": ["login", "view", "click", "purchase", "logout"] }</code></pre>
+                </div>
+                <table>
+                    <thead><tr><th>Query</th><th>Result</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>$.events[0:3]</code></td><td><code>["login", "view", "click"]</code> (first three)</td></tr>
+                        <tr><td><code>$.events[-1:]</code></td><td><code>["logout"]</code> (last item)</td></tr>
+                        <tr><td><code>$.events[-2:]</code></td><td><code>["purchase", "logout"]</code> (last two)</td></tr>
+                        <tr><td><code>$.events[::2]</code></td><td><code>["login", "click", "logout"]</code> (every second)</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>8. Select specific indices (union)</h2>
+                <p>To pick non&#8209;contiguous positions, list them in the brackets. Against the same <code>events</code> array:</p>
+                <p>Query: <code>$.events[0,2]</code> &rarr; Result: <code>["login", "click"]</code></p>
+            </section>
+
+            <section>
+                <h2>9. Filter on whether a field exists (soft deletes / null)</h2>
+                <p>A bare <code>[?(@.field)]</code> filter is a truthiness test, so it doubles as an "exists and is not null" check &mdash; perfect for soft&#8209;delete flags.</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "tasks": [
+    { "id": 1, "title": "A", "deletedAt": null },
+    { "id": 2, "title": "B", "deletedAt": "2026-01-05" },
+    { "id": 3, "title": "C" }
+  ]
+}</code></pre>
+                </div>
+                <p>Deleted tasks (has a non&#8209;null <code>deletedAt</code>): <code>$.tasks[?(@.deletedAt)].id</code> &rarr; <code>[2]</code></p>
+                <p>Active tasks (negate with <code>!</code>): <code>$.tasks[?(!@.deletedAt)].id</code> &rarr; <code>[1, 3]</code></p>
+                <p>Task 1's <code>deletedAt</code> is <code>null</code> (falsy) and task 3 omits it entirely, so both count as active.</p>
+            </section>
+
+            <section>
+                <h2>10. DevOps: the kubectl JSONPath dialect</h2>
+                <p>You will meet JSONPath in <code>kubectl</code> output formatting &mdash; but it is a <strong>different dialect</strong>. It drops the leading <code>$</code>, wraps the path in <code>{ }</code>, and does <em>not</em> support filter expressions.</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kubectl get pods -o jsonpath='{.items[*].status.podIP}'</code></pre>
+                </div>
+                <p>That lists every pod IP, space&#8209;separated. The equivalent standard JSONPath you would test here is <code>$.items[*].status.podIP</code>. Knowing both saves confusion when a kubectl path "looks like" JSONPath but rejects a filter you copied from elsewhere.</p>
+            </section>
+
+            <section>
+                <h2>11. API test assertions (Postman, REST Assured, Karate)</h2>
+                <p>Most API testing frameworks let you assert on a JSONPath. Reusing the webhook payload from example 5, you assert that the charged amount is correct:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// REST Assured (Java)
+given().when().get("/events/evt_1")
+  .then().body("data.object.amount", equalTo(2000));
+
+// Karate
+* match response.data.object.amount == 2000
+
+// Postman test script (uses JS access to the same path)
+pm.test("amount is 2000", function () {
+  pm.expect(pm.response.json().data.object.amount).to.eql(2000);
+});</code></pre>
+                </div>
+                <p>Prototype the path in the <a href="../jsonpath.html">tester</a> first, then drop it into your assertion &mdash; far faster than re&#8209;running the whole suite to find a typo.</p>
+            </section>
+
+            <section>
+                <h2>12. Pull error messages out of a 4xx response</h2>
+                <p>Validation endpoints usually return an array of field errors. Extract just the human&#8209;readable messages to surface in your UI or logs:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "error": "Validation failed",
+  "details": [
+    { "field": "email", "message": "must be a valid email" },
+    { "field": "age",   "message": "must be >= 18" }
+  ]
+}</code></pre>
+                </div>
+                <p>Query: <code>$.details[*].message</code></p>
+                <p>Result: <code>["must be a valid email", "must be >= 18"]</code></p>
+                <p>Once you know the shape of an error body, <a href="../json-to-typescript.html">generating a TypeScript interface</a> for it makes handling these responses type&#8209;safe in your client.</p>
+            </section>
+
+            <section>
+                <h2>Common pitfalls</h2>
+                <ul>
+                    <li><strong>Results are always arrays.</strong> Even <code>$.data.object.amount</code> returns <code>[2000]</code>. Read the first element when you need the scalar.</li>
+                    <li><strong>Recursive descent (<code>..</code>) can be slow</strong> on very large documents because it visits every node &mdash; scope your path when you can.</li>
+                    <li><strong>Quote keys with special characters.</strong> A key with a space, hyphen, or leading digit needs bracket notation: <code>$['order-id']</code>, not <code>$.order-id</code>.</li>
+                    <li><strong>Dialects differ.</strong> kubectl, JMESPath (AWS CLI), and standard JSONPath are not interchangeable &mdash; filters and the leading <code>$</code> are the usual sticking points.</li>
+                </ul>
+            </section>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How do I filter a JSON array with JSONPath?</summary>
+                    <p>Use a filter expression with the <code>[?()]</code> syntax, where <code>@</code> refers to the current element. For example, <code>$.orders[?(@.amount &gt; 100)]</code> returns every order whose amount is greater than 100. Combine conditions with <code>&amp;&amp;</code> and <code>||</code>, e.g. <code>$.orders[?(@.status == "paid" &amp;&amp; @.amount &gt; 50)]</code>.</p>
+                </details>
+                <details>
+                    <summary>How do I get a value from a nested JSON object with JSONPath?</summary>
+                    <p>Chain keys with dot notation from the root <code>$</code>. For a Stripe&#8209;style webhook, <code>$.data.object.amount</code> drills into <code>data</code>, then <code>object</code>, then <code>amount</code> and returns <code>[2000]</code>. If you do not know the full path, use recursive descent: <code>$..amount</code> finds every <code>amount</code> field at any depth.</p>
+                </details>
+                <details>
+                    <summary>How do I select the last item in an array with JSONPath?</summary>
+                    <p>Use a negative slice: <code>$.events[-1:]</code> returns the last element as a single&#8209;item array. To take the last N items, widen the slice, e.g. <code>$.events[-3:]</code>; the first three are <code>$.events[0:3]</code>. (A bare <code>$.events[-1]</code> is <em>not</em> reliable across implementations &mdash; prefer the slice form.)</p>
+                </details>
+                <details>
+                    <summary>How do I extract all values of a field with JSONPath?</summary>
+                    <p>Use the recursive descent operator <code>..</code> followed by the key name. <code>$..email</code> collects every <code>email</code> field anywhere in the document. To restrict the search to a known level, scope it first, e.g. <code>$..products[*].id</code> returns only product IDs, not category IDs.</p>
+                </details>
+                <details>
+                    <summary>Can JSONPath query an array of API objects?</summary>
+                    <p>Yes. To pull one field from every object in an array, use a wildcard: <code>$.orders[*].id</code> returns the ID of every order. Add a filter to narrow it, e.g. <code>$.orders[?(@.status == "paid")].id</code> returns only the IDs of paid orders. JSONPath always returns the matches as an array.</p>
+                </details>
+                <details>
+                    <summary>Does kubectl use the same JSONPath syntax?</summary>
+                    <p>Almost, but not exactly. kubectl uses a JSONPath dialect that omits the leading <code>$</code>, wraps the expression in curly braces, and does not support filter expressions. For example <code>kubectl get pods -o jsonpath='{.items[*].status.podIP}'</code> lists every pod IP. Standard JSONPath (and this tester) writes the same path as <code>$.items[*].status.podIP</code>.</p>
+                </details>
+            </section>
+
+            <div class="article-cta">
+                <p>Ready to test these against your own data?</p>
+                <a href="../jsonpath.html" class="btn btn-primary">Open JSONPath Tester &rarr;</a>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../jsonpath.html">JSONPath Tester</a> &mdash; run every query above against your own JSON</li>
+                <li><a href="../json-viewer.html">JSON Viewer</a> &mdash; explore a nested payload as a collapsible tree to find the path</li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a> &mdash; turn the extracted shape into typed interfaces</li>
+                <li><a href="../json-diff.html">JSON Diff</a> &mdash; compare two API responses field by field</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="jsonpath-guide.html">JSONPath Complete Guide</a> &mdash; the syntax reference behind these examples</li>
+                <li><a href="how-to-read-nested-json.html">How to Read Nested JSON</a></li>
+                <li><a href="read-ugly-json-api-response.html">How to Read a Minified JSON API Response</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
