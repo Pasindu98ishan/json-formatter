@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SyntaxError: Bad control character in string literal in JSON at position N means a raw, unescaped control character (usually a newline or tab) is inside a JSON string. Every cause and fix with code examples.">
+    <meta name="keywords" content="Bad control character in string literal in JSON, bad control character json, JSON.parse bad control character, unescaped newline json, invalid control character json, json control character at position">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/bad-control-character-in-json.html">
+    <meta property="og:title" content="SyntaxError: Bad control character in string literal in JSON — Cause and Fix">
+    <meta property="og:description" content="This error means a raw control character such as a newline or tab is inside a JSON string and was never escaped. Learn how to diagnose and fix it with code examples.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/bad-control-character-in-json.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>SyntaxError: Bad control character in string literal in JSON — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Bad control character in string literal in JSON", "item": "https://jsondevtools.org/errors/bad-control-character-in-json.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "SyntaxError: Bad control character in string literal in JSON at position N — Cause and Fix",
+  "description": "This JavaScript error means a raw, unescaped control character such as a literal newline or tab is inside a JSON string. JSON requires control characters in strings to be escaped. This reference explains every cause with code examples and fixes.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-13",
+  "dateModified": "2026-06-13",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does Bad control character in string literal in JSON mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means a raw control character — a character with code point U+0000 to U+001F, most often a literal newline (U+000A) or tab (U+0009) — appears inside a JSON string and was never escaped. The JSON specification forbids unescaped control characters inside strings, so JSON.parse() stops at that character. The position number in the message points to the exact offending character."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix bad control character in JSON?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Escape the control character instead of embedding it raw: use the two-character newline escape, a tab escape, a carriage-return escape, or a Unicode escape for any other control character. The reliable way is to never build JSON by hand — produce it with JSON.stringify(), which escapes control characters for you automatically. If the JSON comes from outside, sanitize or re-encode the offending field before parsing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which characters are control characters in JSON?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Control characters are the Unicode code points from U+0000 to U+001F: things like newline (U+000A), carriage return (U+000D), tab (U+0009), null (U+0000), and the other non-printing characters in that range. JSON allows them inside a string only in escaped form. A literal, unescaped one is a syntax error."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a newline break JSON.parse?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A newline between tokens is fine — JSON ignores whitespace there. The problem is a newline inside a string value, between the quotes. JSON strings may not contain a literal newline; the line break must be written as the two-character backslash-n escape. A real line break in the source (often from a template literal or copy-pasted text) is what triggers Bad control character."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the Python equivalent of this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Python's json module raises json.decoder.JSONDecodeError: Invalid control character at: line X column Y (char Z) for the same problem — a raw control character inside a string. The fix is identical: escape the character, or build the JSON with json.dumps() instead of string concatenation. Python also offers json.loads(text, strict=False) to tolerate literal control characters if you cannot fix the source."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix SyntaxError: Bad control character in string literal in JSON",
+  "description": "Steps to diagnose and fix the unescaped control character JSON error.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Read the position number", "text": "The position in the message is the index of the offending character. Use it to locate the exact spot in the string." },
+    { "@type": "HowToStep", "position": 2, "name": "Inspect the character code", "text": "Check the character at that index with charCodeAt(); a value between 0 and 31 confirms it is a control character such as a newline (10) or tab (9)." },
+    { "@type": "HowToStep", "position": 3, "name": "Escape it or rebuild with JSON.stringify", "text": "Replace the literal control character with its escape, or regenerate the JSON with JSON.stringify(), which escapes control characters automatically." },
+    { "@type": "HowToStep", "position": 4, "name": "Sanitize external input", "text": "If the JSON comes from a file, database, or user, clean or re-encode control characters in string fields before parsing." },
+    { "@type": "HowToStep", "position": 5, "name": "Validate the JSON", "text": "Paste the string into a JSON validator to confirm the control character is gone and the document is well-formed." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Bad control character in string literal in JSON</span>
+            </nav>
+            <h1>SyntaxError: Bad control character in string literal in JSON at position N</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A <strong>raw control character</strong> &mdash; almost always a literal <strong>newline</strong> or <strong>tab</strong> &mdash; is sitting inside a JSON string without being escaped. JSON forbids unescaped control characters inside strings, so <code>JSON.parse()</code> stops at it. Escape it (a <code>\n</code>, <code>\t</code>, or <code>\u00XX</code> sequence) or, better, build the JSON with <code>JSON.stringify()</code> instead of by hand.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <p>The wording depends on the engine, but it always names a <em>control character</em> inside a string literal:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Chrome / V8 / Node.js
+SyntaxError: Bad control character in string literal in JSON at position 15
+
+// Firefox
+SyntaxError: JSON.parse: bad control character in string literal
+
+// Python (the same problem)
+json.decoder.JSONDecodeError: Invalid control character at: line 1 column 16 (char 15)</code></pre>
+            </div>
+
+            <h2>What &ldquo;at position N&rdquo; means</h2>
+            <p>The position is the <strong>character index of the offending control character</strong> &mdash; the exact spot inside a string value where a raw newline, tab, or similar non-printing character appears. JSON only allows those characters in <em>escaped</em> form, so the parser rejects the literal one.</p>
+
+            <h2>Why JSON forbids this</h2>
+            <p>A JSON string must stay on a single physical line. Characters such as newlines and tabs have to be written as escape sequences (<code>\n</code>, <code>\t</code>, <code>\u00XX</code>) so the parser can reliably tell <em>data</em> apart from <em>document structure</em> &mdash; a raw newline could otherwise look like the end of a line of JSON rather than part of a value. Forbidding literal control characters keeps the grammar unambiguous and makes JSON safe to stream line by line.</p>
+
+            <h2>Cause 1: A literal newline inside a string</h2>
+            <p>The most common case: a real line break between the quotes of a string value. JSON strings cannot span physical lines &mdash; the break must be written as a <code>\n</code> escape:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Backtick template literal with a real line break inside the string value
+const bad = `{
+  "message": "line one
+line two"
+}`;
+JSON.parse(bad);   // SyntaxError: Bad control character in string literal in JSON
+
+// Correct: the newline is escaped
+const good = '{ "message": "line one\\nline two" }';
+JSON.parse(good);  // ok</code></pre>
+            </div>
+
+            <h2>Cause 2: Tabs and other control characters from copy-paste</h2>
+            <p>Pasting text copied from a spreadsheet, terminal, or PDF can drop invisible tab (<code>U+0009</code>) or carriage-return (<code>U+000D</code>) characters straight into a string. They look like ordinary spacing but are control characters:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// The gap below is a literal TAB pasted into the value
+const data = '{ "name": "John&lt;TAB&gt;Doe" }';
+JSON.parse(data);   // Bad control character — the tab must be escaped</code></pre>
+            </div>
+
+            <h2>Cause 3: Building JSON by string concatenation</h2>
+            <p>Hand-assembling JSON from variables is the root cause behind most of these errors. If a value contains a newline or tab, you get invalid JSON:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const comment = "Great product!\nWould buy again.";   // contains a real newline
+
+// Wrong — drops the raw newline into the JSON string
+const json = '{ "comment": "' + comment + '" }';
+JSON.parse(json);   // Bad control character in string literal
+
+// Right — let JSON.stringify do the escaping
+const json2 = JSON.stringify({ comment });
+JSON.parse(json2);  // ok — the newline is escaped automatically</code></pre>
+            </div>
+
+            <h2>Cause 4: Control characters from a file or database</h2>
+            <p>Text stored in a database or file can carry embedded control characters that only surface when you wrap the value in JSON and parse it. Treat any externally sourced string as untrusted and re-encode it before parsing.</p>
+
+            <h2>How to debug it</h2>
+            <p>Use the position from the error to inspect the exact character. A <code>charCodeAt()</code> value between 0 and 31 confirms a control character:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const pos = 15;                            // from "at position 15"
+console.log(JSON.stringify(text[pos]));    // shows the escaped character
+console.log(text.charCodeAt(pos));         // 9 = tab, 10 = newline, etc.
+
+// Find every control character in the string
+[...text].forEach(function (ch, i) {
+  if (ch.charCodeAt(0) &lt; 32) console.log(i, ch.charCodeAt(0));
+});</code></pre>
+            </div>
+
+            <h2>The fix: escape control characters or use JSON.stringify</h2>
+            <p>The durable fix is to <strong>never build JSON by hand</strong>. <code>JSON.stringify()</code> escapes newlines, tabs, and every other control character for you:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Build JSON from a real object — escaping is automatic
+const payload = JSON.stringify({ message: "line one\nline two\twith a tab" });
+JSON.parse(payload);   // ok</code></pre>
+            </div>
+
+            <p>If you cannot regenerate the JSON and must clean an incoming string, replace every control character (any character below code point 32) with its escape before parsing:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Escape any character below U+0020 (a control character) so JSON.parse accepts it
+const safe = raw.replace(/[\s\S]/g, function (ch) {
+    var code = ch.charCodeAt(0);
+    if (code &lt; 32) {
+        return "\\u" + ("000" + code.toString(16)).slice(-4);
+    }
+    return ch;
+});
+const data = JSON.parse(safe);</code></pre>
+            </div>
+
+            <p>In Python, the same problem (<code>Invalid control character at</code>) is fixed with <code>json.dumps()</code>, or as a last resort <code>json.loads(text, strict=False)</code> to tolerate literal control characters.</p>
+
+            <div class="tool-cta">
+                <h3>Need to escape a string for JSON safely?</h3>
+                <p>The String Escape tool turns raw text &mdash; newlines, tabs, quotes and all &mdash; into a valid JSON string literal. Or paste the whole document into the validator to find the bad character. Everything runs in your browser.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="../string-escape.html" class="btn btn-primary">String Escape</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does Bad control character in string literal in JSON mean?</summary>
+                    <p>It means a raw control character &mdash; a character with code point <code>U+0000</code> to <code>U+001F</code>, most often a literal newline (<code>U+000A</code>) or tab (<code>U+0009</code>) &mdash; appears inside a JSON string and was never escaped. The JSON specification forbids unescaped control characters inside strings, so <code>JSON.parse()</code> stops at that character. The position number in the message points to the exact offending character.</p>
+                </details>
+                <details>
+                    <summary>How do I fix bad control character in JSON?</summary>
+                    <p>Escape the control character instead of embedding it raw: use a <code>\n</code> escape for a newline, <code>\t</code> for a tab, <code>\r</code> for a carriage return, or a <code>\u00XX</code> escape for any other control character. The reliable way is to never build JSON by hand &mdash; produce it with <code>JSON.stringify()</code>, which escapes control characters for you automatically. If the JSON comes from outside, sanitize or re-encode the offending field before parsing.</p>
+                </details>
+                <details>
+                    <summary>Which characters are control characters in JSON?</summary>
+                    <p>Control characters are the Unicode code points from <code>U+0000</code> to <code>U+001F</code>: newline (<code>U+000A</code>), carriage return (<code>U+000D</code>), tab (<code>U+0009</code>), null (<code>U+0000</code>), and the other non-printing characters in that range. JSON allows them inside a string only in escaped form. A literal, unescaped one is a syntax error.</p>
+                </details>
+                <details>
+                    <summary>Why does a newline break JSON.parse?</summary>
+                    <p>A newline <em>between</em> tokens is fine &mdash; JSON ignores whitespace there. The problem is a newline <em>inside</em> a string value, between the quotes. JSON strings may not contain a literal newline; the line break must be written as the two-character <code>\n</code> escape. A real line break in the source (often from a template literal or copy-pasted text) is what triggers <em>Bad control character</em>.</p>
+                </details>
+                <details>
+                    <summary>What is the Python equivalent of this error?</summary>
+                    <p>Python's <code>json</code> module raises <code>json.decoder.JSONDecodeError: Invalid control character at: line X column Y (char Z)</code> for the same problem &mdash; a raw control character inside a string. The fix is identical: escape the character, or build the JSON with <code>json.dumps()</code> instead of string concatenation. Python also offers <code>json.loads(text, strict=False)</code> to tolerate literal control characters if you cannot fix the source.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="../blog/json-single-quotes.html">JSON SyntaxError: Single Quotes Not Allowed</a></li>
+                <li><a href="../blog/json-unexpected-token.html">Unexpected token &lt; in JSON at position 0</a></li>
+                <li><a href="jsondecodeerror-expecting-value.html">JSONDecodeError: Expecting value (Python)</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/json-string-escape.html">How to Escape Strings for JSON</a></li>
+                <li><a href="../blog/json-parse-error-handling.html">JSON.parse Error Handling Patterns</a></li>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="json.decoder.JSONDecodeError: Extra data: line 1 column N (char N) means Python parsed a valid JSON value but found more content after it — usually multiple JSON objects (JSON Lines). Every cause and fix with code.">
+    <meta name="keywords" content="JSONDecodeError Extra data, extra data line 1 column, python json extra data, json.decoder.JSONDecodeError extra data, parse json lines python, ndjson python json error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/jsondecodeerror-extra-data.html">
+    <meta property="og:title" content="JSONDecodeError: Extra data: line 1 column N (char N) — Cause and Fix">
+    <meta property="og:description" content="This Python error means there is extra content after the first valid JSON value — usually multiple JSON objects or JSON Lines. Learn how to diagnose and fix it with code examples.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/jsondecodeerror-extra-data.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JSONDecodeError: Extra data: line 1 column N (char N) — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "JSONDecodeError: Extra data", "item": "https://jsondevtools.org/errors/jsondecodeerror-extra-data.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "JSONDecodeError: Extra data: line 1 column N (char N) — Cause and Fix",
+  "description": "This Python error means json.loads() parsed one valid JSON value but found extra non-whitespace content after it — most often multiple JSON objects or JSON Lines (NDJSON). This reference explains every cause with code examples and fixes.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-13",
+  "dateModified": "2026-06-13",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does JSONDecodeError: Extra data mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means Python's json module successfully parsed one complete JSON value, then found more non-whitespace characters after it. json.loads() expects exactly one JSON document. The position in the message — for example char 13 — points to the first character after the first valid value, which is where the unexpected extra content begins. Most often you actually have two or more JSON objects in the same string or file."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix Extra data: line 1 column N (char N)?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Decide what the source really contains. If it is several JSON objects separated by newlines (JSON Lines / NDJSON), parse each line separately with json.loads() in a loop instead of parsing the whole file at once. If it is one object with trailing junk, fix or strip the trailing content at the source. If you genuinely have a stream of concatenated values, use json.JSONDecoder().raw_decode() to read them one at a time."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I parse JSON Lines (NDJSON) in Python?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Read the file line by line and call json.loads() on each line: open the file, iterate over its lines, skip blank lines, and parse each one into its own object. Do not pass the whole file to json.loads() — that is what triggers Extra data, because each line is a separate JSON document, not one big value."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does response.json() raise Extra data?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because the response body contains more than one JSON document. Some streaming and bulk APIs return newline-delimited JSON (one object per line) or server-sent events, not a single JSON array. response.json() calls json.loads() on the entire body and fails at the boundary between the first and second value. Inspect response.text first, and if it is line-delimited, parse each line individually."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between Extra data and Expecting value?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Expecting value: line 1 column 1 (char 0) fails at the very start — the content is empty or not JSON at all. Extra data fails after a complete, valid JSON value — the start was fine, but there is leftover content the parser did not expect. Extra data almost always means multiple values in one string; Expecting value almost always means an empty body or an HTML error page."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix JSONDecodeError: Extra data",
+  "description": "Steps to diagnose and fix the Python Extra data JSON error.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Read the char position", "text": "The number in the message marks where the extra content starts — the first character after the first complete JSON value. That boundary tells you a second value or trailing junk follows." },
+    { "@type": "HowToStep", "position": 2, "name": "Print the raw content", "text": "Print repr() of the string or response.text to see what comes after the first value — a second { , a newline plus another object, or stray characters." },
+    { "@type": "HowToStep", "position": 3, "name": "If it is JSON Lines, parse per line", "text": "When the source has one JSON object per line (NDJSON), loop over the lines and call json.loads() on each line individually instead of the whole file." },
+    { "@type": "HowToStep", "position": 4, "name": "If it is trailing junk, fix the source", "text": "When there is a single object plus leftover content, strip or correct the trailing data where it is produced rather than papering over it." },
+    { "@type": "HowToStep", "position": 5, "name": "Validate the JSON", "text": "Paste the body into a JSON validator to confirm whether it is one document or several before relying on it in code." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>JSONDecodeError: Extra data</span>
+            </nav>
+            <h1>json.decoder.JSONDecodeError: Extra data: line 1 column N (char N)</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Python parsed <strong>one valid JSON value</strong> and then found <strong>more content after it</strong>. <code>json.loads()</code> expects exactly one JSON document, so the leftover text raises <em>Extra data</em>. The most common cause is having <strong>multiple JSON objects in one string or file</strong> &mdash; usually JSON Lines (NDJSON). Parse each object separately instead of the whole blob at once.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <p>The traceback ends with a line like this (the column and char index vary with your input):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "app.py", line 5, in &lt;module&gt;
+    data = json.loads(text)
+json.decoder.JSONDecodeError: Extra data: line 1 column 14 (char 13)</code></pre>
+            </div>
+
+            <p>You may also see it raised through the <code>requests</code> library as <code>requests.exceptions.JSONDecodeError</code> or from <code>response.json()</code> &mdash; both wrap the same underlying <code>json.decoder.JSONDecodeError</code>.</p>
+
+            <h2>What &ldquo;line 1 column N (char N)&rdquo; means</h2>
+            <p>The number in parentheses is the character index where parsing stopped being happy. For <em>Extra data</em>, <strong>that index is the first character <em>after</em> a complete, valid JSON value.</strong> In <code>char 13</code>, the parser read a full value across the first 13 characters, then hit something it did not expect at index 13.</p>
+
+            <p>This is the opposite of <a href="jsondecodeerror-expecting-value.html">Expecting value: line 1 column 1 (char 0)</a>, which fails at the very start. With <em>Extra data</em>, the beginning is valid JSON &mdash; the problem is that there is <em>more</em> than one value.</p>
+
+            <p>Here is exactly where the parser gives up on <code>{"id":1}{"id":2}</code>:</p>
+
+            <div class="code-block">
+<pre><code>Valid &mdash; one JSON value, parsed cleanly:
+{"id":1}
+
+Invalid &mdash; two values with nothing between them:
+{"id":1}{"id":2}
+        ^
+        char 8 (column 9) &mdash; the first value ended at the } just
+        before here, so everything from this point on is "Extra data".</code></pre>
+            </div>
+
+            <p>Note the off-by-one between the two numbers: <strong><code>char</code> is 0-based</strong> (the 9th character is index 8), while <strong><code>column</code> is 1-based</strong>. They point at the same spot &mdash; the first character the parser did not expect.</p>
+
+            <h2>Cause 1: Two or more JSON objects in one string</h2>
+            <p>The classic trigger. Two objects concatenated &mdash; even separated by a newline &mdash; are not a single JSON document:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+text = '{"id": 1}\n{"id": 2}'   # two objects, not one
+data = json.loads(text)          # JSONDecodeError: Extra data: line 2 column 1 (char 10)</code></pre>
+            </div>
+
+            <p><code>json.loads()</code> parses the first <code>{"id": 1}</code>, then finds a second object where it expected the end of the string.</p>
+
+            <h2>Cause 2: JSON Lines / NDJSON parsed all at once</h2>
+            <p>Log files, bulk exports, and many streaming APIs use <strong>JSON Lines</strong> (also called NDJSON): one JSON object per line. Passing the whole file to <code>json.loads()</code> always fails:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+with open("events.jsonl") as f:
+    data = json.loads(f.read())   # Extra data at the end of the first line</code></pre>
+            </div>
+
+            <p>Each line is its own document. The fix is to parse line by line (see below). If you are unsure whether your data is JSON or JSON Lines, the difference is covered in <a href="../blog/json-vs-jsonl.html">JSON vs JSONL</a>.</p>
+
+            <h2>Cause 3: Trailing content after a valid value</h2>
+            <p>Sometimes the body is a single object with stray characters appended &mdash; a duplicated write, a leftover comma, a second print, or two responses glued together:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+text = '{"ok": true}garbage'     # trailing junk
+json.loads(text)                  # Extra data: line 1 column 13 (char 12)
+
+text = '{"a": 1},'                # leftover trailing comma after the object
+json.loads(text)                  # Extra data: line 1 column 9 (char 8)</code></pre>
+            </div>
+
+            <h2>Cause 4: Appending to a JSON file</h2>
+            <p>Opening a <code>.json</code> file in append mode (<code>"a"</code>) and writing another object produces two top-level values in one file. Later, <code>json.load()</code> reads the first and reports <em>Extra data</em> on the second. For multiple records, write a JSON array or switch to JSON Lines deliberately.</p>
+
+            <h2>Extra data vs other JSONDecodeError messages</h2>
+            <p>Python's <code>json</code> module raises a different message for each kind of problem. If the wording in your traceback is not <em>Extra data</em>, match it here and jump straight to the fix:</p>
+            <table>
+                <thead><tr><th>Error message</th><th>Usually means</th></tr></thead>
+                <tbody>
+                    <tr><td><code>Extra data</code></td><td>More than one JSON value in the string &mdash; <em>this page</em></td></tr>
+                    <tr><td><a href="jsondecodeerror-expecting-value.html"><code>Expecting value</code></a></td><td>An empty string or non-JSON content (often an HTML error page)</td></tr>
+                    <tr><td><a href="expecting-property-name-double-quotes.html"><code>Expecting property name enclosed in double quotes</code></a></td><td>Single quotes, or a trailing comma before a key</td></tr>
+                    <tr><td><a href="../blog/json-missing-comma.html"><code>Expecting ',' delimiter</code></a></td><td>A missing comma between two array items or object members</td></tr>
+                    <tr><td><a href="../blog/common-json-errors.html"><code>Unterminated string starting at</code></a></td><td>A string is missing its closing double quote</td></tr>
+                    <tr><td><a href="bad-control-character-in-json.html"><code>Invalid control character at</code></a></td><td>A raw newline or tab inside a string that should be escaped</td></tr>
+                </tbody>
+            </table>
+
+            <h2>How to debug it</h2>
+            <p>Print the raw content so you can see the boundary the parser tripped on. <code>repr()</code> reveals newlines and hidden characters a plain <code>print()</code> hides:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+text = open("data.json").read()
+print(repr(text[:200]))           # see exactly what follows the first value
+
+try:
+    json.loads(text)
+except json.JSONDecodeError as e:
+    print("failed at char", e.pos)         # the boundary index
+    print("context:", repr(text[e.pos-5:e.pos+5]))</code></pre>
+            </div>
+
+            <h2>The fix: parse the right number of values</h2>
+            <p><strong>If the source is JSON Lines</strong>, loop over the lines and parse each one:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+records = []
+with open("events.jsonl") as f:
+    for line in f:
+        line = line.strip()
+        if not line:
+            continue              # skip blank lines
+        records.append(json.loads(line))</code></pre>
+            </div>
+
+            <p><strong>If you have a stream of concatenated values</strong> with no newline separators, use <code>raw_decode()</code> to read them one at a time:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+def iter_json(text):
+    decoder = json.JSONDecoder()
+    idx = 0
+    while idx &lt; len(text):
+        text = text[idx:].lstrip()
+        if not text:
+            break
+        obj, end = decoder.raw_decode(text)
+        yield obj
+        idx = end
+
+for obj in iter_json('{"id": 1}{"id": 2}'):
+    print(obj)</code></pre>
+            </div>
+
+            <p><strong>If it is supposed to be one value</strong>, fix the producer so it emits a single JSON document &mdash; wrap multiple records in an array <code>[ {...}, {...} ]</code> rather than concatenating them.</p>
+
+            <div class="tool-cta">
+                <h3>Not sure if it is one JSON value or several?</h3>
+                <p>Paste the body into the validator &mdash; it pinpoints exactly where the first value ends and the extra data begins. Everything runs in your browser; nothing is uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="../json-validator.html" class="btn btn-primary">JSON Validator</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does JSONDecodeError: Extra data mean?</summary>
+                    <p>It means Python's <code>json</code> module parsed one complete JSON value, then found more non-whitespace characters after it. <code>json.loads()</code> expects exactly one JSON document. The position in the message &mdash; for example <code>char 13</code> &mdash; points to the first character after the first valid value, which is where the unexpected extra content begins. Most often you actually have two or more JSON objects in the same string or file.</p>
+                </details>
+                <details>
+                    <summary>How do I fix Extra data: line 1 column N (char N)?</summary>
+                    <p>Decide what the source really contains. If it is several JSON objects separated by newlines (JSON Lines / NDJSON), parse each line separately with <code>json.loads()</code> in a loop instead of parsing the whole file at once. If it is one object with trailing junk, fix or strip the trailing content at the source. If you genuinely have a stream of concatenated values, use <code>json.JSONDecoder().raw_decode()</code> to read them one at a time.</p>
+                </details>
+                <details>
+                    <summary>How do I parse JSON Lines (NDJSON) in Python?</summary>
+                    <p>Read the file line by line and call <code>json.loads()</code> on each line: open the file, iterate over its lines, skip blank lines, and parse each one into its own object. Do not pass the whole file to <code>json.loads()</code> &mdash; that is what triggers <em>Extra data</em>, because each line is a separate JSON document, not one big value.</p>
+                </details>
+                <details>
+                    <summary>Why does response.json() raise Extra data?</summary>
+                    <p>Because the response body contains more than one JSON document. Some streaming and bulk APIs return newline-delimited JSON (one object per line) or server-sent events, not a single JSON array. <code>response.json()</code> calls <code>json.loads()</code> on the entire body and fails at the boundary between the first and second value. Inspect <code>response.text</code> first, and if it is line-delimited, parse each line individually.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between Extra data and Expecting value?</summary>
+                    <p><a href="jsondecodeerror-expecting-value.html">Expecting value: line 1 column 1 (char 0)</a> fails at the very start &mdash; the content is empty or not JSON at all. <em>Extra data</em> fails after a complete, valid JSON value &mdash; the start was fine, but there is leftover content the parser did not expect. <em>Extra data</em> almost always means multiple values in one string; <em>Expecting value</em> almost always means an empty body or an HTML error page.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="jsondecodeerror-expecting-value.html">JSONDecodeError: Expecting value: line 1 column 1 (char 0)</a></li>
+                <li><a href="expecting-property-name-double-quotes.html">JSONDecodeError: Expecting property name enclosed in double quotes</a></li>
+                <li><a href="../blog/json-unexpected-end-input.html">Unexpected end of JSON input</a> &mdash; the opposite: too little, not too much</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/json-vs-jsonl.html">JSON vs JSONL (JSON Lines)</a> &mdash; when one value per line is the right format</li>
+                <li><a href="../blog/json-parse-error-handling.html">JSON.parse Error Handling Patterns</a></li>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
