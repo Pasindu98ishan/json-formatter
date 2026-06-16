@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="net::ERR_CONNECTION_REFUSED means the TCP connection was actively rejected — nothing is listening on that host and port. Every cause (server down, wrong port, Docker, firewall) and how to fix it.">
+    <meta name="keywords" content="net::ERR_CONNECTION_REFUSED, ERR_CONNECTION_REFUSED, connection refused localhost, ECONNREFUSED, chrome connection refused, fetch connection refused, server connection refused fix">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/err-connection-refused.html">
+    <meta property="og:title" content="net::ERR_CONNECTION_REFUSED — Cause and Fix">
+    <meta property="og:description" content="This network error means the connection was actively refused — nothing is listening on that host and port. Learn every cause and how to fix it with examples.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/err-connection-refused.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>net::ERR_CONNECTION_REFUSED — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "net::ERR_CONNECTION_REFUSED", "item": "https://jsondevtools.org/errors/err-connection-refused.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "net::ERR_CONNECTION_REFUSED — Cause and Fix",
+  "description": "This Chrome network error means the TCP connection was actively refused because nothing is listening on the target host and port. This reference explains every cause — server down, wrong port, wrong interface, Docker, firewall — with fixes.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-13",
+  "dateModified": "2026-06-13",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does net::ERR_CONNECTION_REFUSED mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means the connection was actively refused at the TCP level: the machine was reachable, but nothing was listening on the host and port you requested, so the connection was rejected immediately. It is not an HTTP error — the server never got a chance to respond. The usual cause is that the server is not running, or you are pointing at the wrong port."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix ERR_CONNECTION_REFUSED on localhost?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Confirm the server is actually running and listening on the exact port in your URL. Start the backend, check its startup log for the port, and make sure the frontend points at that same port. Then verify the server is bound to the right interface: a server bound only to 127.0.0.1 will refuse connections from other hosts or containers."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between ERR_CONNECTION_REFUSED and Failed to fetch?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "net::ERR_CONNECTION_REFUSED is the low-level network error shown in Chrome's Network tab when the TCP connection is rejected. TypeError: Failed to fetch is the JavaScript error the fetch() promise rejects with when that (or any other network-layer failure) happens. They usually appear together: the console shows Failed to fetch, the Network tab shows ERR_CONNECTION_REFUSED."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is ERR_CONNECTION_REFUSED the same as ECONNREFUSED?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are the same underlying condition from different layers. ERR_CONNECTION_REFUSED is Chrome's name for it; ECONNREFUSED is the operating-system socket error code that Node.js, curl, and other clients report. Both mean the target host actively rejected the TCP connection because no process is listening on that port."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does connection refused happen with Docker?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Two common reasons. First, the container port is not published to the host (you need -p 3000:3000). Second, the server inside the container is bound to 127.0.0.1, which is the container's own loopback, so it refuses connections from outside the container. Bind to 0.0.0.0 inside the container and publish the port to fix it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is connection refused different from a timeout?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Connection refused is immediate and explicit: the host replied 'nothing is listening here.' A timeout (ERR_CONNECTION_TIMED_OUT) means the host never replied at all — often a firewall silently dropping packets, or the wrong host entirely. Refused points at the right machine with no server; a timeout points at an unreachable or filtered host."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix net::ERR_CONNECTION_REFUSED",
+  "description": "Steps to diagnose and fix a refused connection.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Confirm the server is running", "text": "Check that the backend process is actually up and read its startup log for the port it is listening on." },
+    { "@type": "HowToStep", "position": 2, "name": "Match the port and protocol", "text": "Make sure the URL's host, port, and http/https scheme exactly match what the server is serving." },
+    { "@type": "HowToStep", "position": 3, "name": "Check the bind interface", "text": "A server bound only to 127.0.0.1 refuses connections from other hosts or containers. Bind to 0.0.0.0 if it must be reachable externally." },
+    { "@type": "HowToStep", "position": 4, "name": "Test outside the browser", "text": "Run curl against the URL. If curl also reports Connection refused, the problem is the server or network, not the browser." },
+    { "@type": "HowToStep", "position": 5, "name": "Check ports, firewall, and Docker", "text": "Verify nothing else blocks the port, the firewall allows it, and any container publishes the port to the host." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>net::ERR_CONNECTION_REFUSED</span>
+            </nav>
+            <h1>net::ERR_CONNECTION_REFUSED &mdash; Cause and Fix</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The connection was <strong>actively refused</strong>: the machine was reachable, but <strong>nothing was listening</strong> on the host and port you asked for. It is not an HTTP error &mdash; the server never responded. Nine times out of ten the <strong>server is not running</strong> or you are pointing at the <strong>wrong port</strong>. Start the server, confirm its port, and make your URL match.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <p>It shows up in the Chrome DevTools Console and Network tab, and in equivalent forms from other clients:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Chrome console / Network tab
+GET http://localhost:3000/api/users net::ERR_CONNECTION_REFUSED
+
+# JavaScript fetch (the promise rejects with)
+TypeError: Failed to fetch
+
+# Node.js
+Error: connect ECONNREFUSED 127.0.0.1:3000
+
+# curl
+curl: (7) Failed to connect to localhost port 3000: Connection refused</code></pre>
+            </div>
+
+            <h2>What it means</h2>
+            <p>When a client opens a TCP connection, the target host either accepts it, ignores it, or <strong>rejects</strong> it. <em>Connection refused</em> is an explicit rejection: the host is up and replied, but no process is <strong>listening</strong> on that port, so the OS sends back a TCP reset. The request never reaches application code &mdash; there is no application there to reach.</p>
+
+            <p>This is the network-layer cause behind a browser&rsquo;s <a href="failed-to-fetch.html">TypeError: Failed to fetch</a>: the console shows <code>Failed to fetch</code>, while the Network tab shows the real reason, <code>net::ERR_CONNECTION_REFUSED</code>.</p>
+
+            <h2>Cause 1: The server is not running</h2>
+            <p>The single most common cause. The backend crashed, was never started, or exited after an error. Nothing is bound to the port, so every connection is refused. Check the terminal where the server should be running &mdash; it may have stopped with a stack trace.</p>
+
+            <h2>Cause 2: Wrong port or protocol</h2>
+            <p>The server is running, but on a different port than the URL targets &mdash; or the scheme is wrong (<code>http</code> vs <code>https</code>):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Server log says it is on 8080
+Listening on http://localhost:8080
+
+# But the frontend calls 3000 → refused
+fetch("http://localhost:3000/api/users")   // net::ERR_CONNECTION_REFUSED</code></pre>
+            </div>
+
+            <p>Read the server&rsquo;s own startup log for the authoritative port and update the client to match.</p>
+
+            <h2>Cause 3: Server bound to the wrong interface</h2>
+            <p>A server bound only to <code>127.0.0.1</code> (localhost) accepts connections from the same machine only. Anything coming from another host, a VM, or a Docker container is refused. To accept external connections, bind to <code>0.0.0.0</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Node / Express — reachable only from the same machine
+app.listen(3000, "127.0.0.1");
+
+// Reachable from other hosts and containers
+app.listen(3000, "0.0.0.0");</code></pre>
+            </div>
+
+            <h2>localhost vs 127.0.0.1 (IPv4 vs IPv6)</h2>
+            <p>These are not always interchangeable. On most systems <code>localhost</code> resolves to <strong>127.0.0.1</strong> (IPv4) <em>or</em> <strong>::1</strong> (IPv6), depending on the resolver. If your server listens on only one address family, a client that picks the other gets a refused connection &mdash; even though &ldquo;the server is running.&rdquo;</p>
+            <p>This bites Node.js and Docker setups in particular: a server bound to IPv4 <code>127.0.0.1</code> will refuse a client that resolved <code>localhost</code> to IPv6 <code>::1</code>. The fix is either to connect to <code>127.0.0.1</code> explicitly instead of <code>localhost</code>, or to bind the server to <code>0.0.0.0</code> (all IPv4 interfaces) or <code>::</code> (dual-stack) so it accepts both families.</p>
+
+            <h2>Cause 4: Docker container port not published</h2>
+            <p>In containers, the port must be <strong>published</strong> to the host (<code>docker run -p 3000:3000 ...</code>), and the in-container server must bind to <code>0.0.0.0</code>, not <code>127.0.0.1</code> &mdash; a server on the container&rsquo;s own loopback refuses every connection from outside the container.</p>
+
+            <h2>Cause 5: Firewall, antivirus, or proxy</h2>
+            <p>Local firewalls, corporate proxies, VPNs, or security software (especially antivirus with a &ldquo;web shield&rdquo;) can refuse connections. This is more common on Windows and in enterprise environments. Test by temporarily disabling the firewall, VPN, or web-protection feature, or by trying from another network. Remember that a connection that is <em>refused</em> immediately (rather than timing out) means the host is reachable &mdash; so focus on what is, or is not, allowed to listen there.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Is the server process actually running? Check its terminal for a crash.</li>
+                <li>&#10003; What port does the server&rsquo;s own startup log report? Does the URL match it?</li>
+                <li>&#10003; Does the scheme match &mdash; <code>http</code> vs <code>https</code>?</li>
+                <li>&#10003; Try <code>127.0.0.1</code> instead of <code>localhost</code> (or vice versa) &mdash; an IPv4/IPv6 mismatch can refuse the connection.</li>
+                <li>&#10003; Is the server bound to <code>0.0.0.0</code> if it must be reached from another host or container?</li>
+                <li>&#10003; Does <code>curl</code> also say <em>Connection refused</em>? If so, it is not a browser problem.</li>
+                <li>&#10003; For Docker: is the port published with <code>-p</code> and is the app bound to <code>0.0.0.0</code>?</li>
+            </ul>
+
+            <h2>Confirm it from the command line</h2>
+            <p>Take the browser out of the picture &mdash; test the port directly:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Does anything answer on the port?
+curl -i http://localhost:3000/
+
+# Is anything listening on the port? (macOS / Linux)
+lsof -i :3000
+
+# Windows
+netstat -ano | findstr :3000</code></pre>
+            </div>
+
+            <p>If nothing is listed as listening, that confirms the diagnosis: start the server (or fix its port). The opposite problem &mdash; the server <em>cannot start</em> because the port is already taken &mdash; raises <a href="eaddrinuse-address-already-in-use.html">EADDRINUSE: address already in use</a>.</p>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does net::ERR_CONNECTION_REFUSED mean?</summary>
+                    <p>It means the connection was actively refused at the TCP level: the machine was reachable, but nothing was listening on the host and port you requested, so the connection was rejected immediately. It is not an HTTP error &mdash; the server never got a chance to respond. The usual cause is that the server is not running, or you are pointing at the wrong port.</p>
+                </details>
+                <details>
+                    <summary>How do I fix ERR_CONNECTION_REFUSED on localhost?</summary>
+                    <p>Confirm the server is actually running and listening on the exact port in your URL. Start the backend, check its startup log for the port, and make sure the frontend points at that same port. Then verify the server is bound to the right interface: a server bound only to <code>127.0.0.1</code> will refuse connections from other hosts or containers.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between ERR_CONNECTION_REFUSED and Failed to fetch?</summary>
+                    <p><code>net::ERR_CONNECTION_REFUSED</code> is the low-level network error shown in Chrome's Network tab when the TCP connection is rejected. <a href="failed-to-fetch.html"><code>TypeError: Failed to fetch</code></a> is the JavaScript error the <code>fetch()</code> promise rejects with when that (or any other network-layer failure) happens. They usually appear together: the console shows <em>Failed to fetch</em>, the Network tab shows <em>ERR_CONNECTION_REFUSED</em>.</p>
+                </details>
+                <details>
+                    <summary>Is ERR_CONNECTION_REFUSED the same as ECONNREFUSED?</summary>
+                    <p>They are the same underlying condition from different layers. <code>ERR_CONNECTION_REFUSED</code> is Chrome's name for it; <code>ECONNREFUSED</code> is the operating-system socket error code that Node.js, curl, and other clients report. Both mean the target host actively rejected the TCP connection because no process is listening on that port.</p>
+                </details>
+                <details>
+                    <summary>Why does connection refused happen with Docker?</summary>
+                    <p>Two common reasons. First, the container port is not published to the host (you need <code>-p 3000:3000</code>). Second, the server inside the container is bound to <code>127.0.0.1</code>, which is the container's own loopback, so it refuses connections from outside the container. Bind to <code>0.0.0.0</code> inside the container and publish the port to fix it.</p>
+                </details>
+                <details>
+                    <summary>How is connection refused different from a timeout?</summary>
+                    <p>Connection refused is immediate and explicit: the host replied &lsquo;nothing is listening here.&rsquo; A timeout (<code>ERR_CONNECTION_TIMED_OUT</code>) means the host never replied at all &mdash; often a firewall silently dropping packets, or the wrong host entirely. Refused points at the right machine with no server; a timeout points at an unreachable or filtered host.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Debugging a JSON API response?</h3>
+                <p>Once the connection works, format and validate the response in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-validator.html" class="btn btn-primary">JSON Validator</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a> &mdash; the JavaScript error this triggers</li>
+                <li><a href="eaddrinuse-address-already-in-use.html">EADDRINUSE: address already in use</a> &mdash; the opposite: the port is already taken</li>
+                <li><a href="cors-no-access-control-allow-origin.html">CORS policy: No 'Access-Control-Allow-Origin' header</a></li>
+                <li><a href="../http-status/502.html">HTTP 502 Bad Gateway</a> &mdash; when a proxy cannot reach the upstream</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/api-returning-html-instead-of-json.html">API Returning HTML Instead of JSON?</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

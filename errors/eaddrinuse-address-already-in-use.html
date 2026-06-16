@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Error: listen EADDRINUSE: address already in use :::3000 means another process is already listening on that port. How to find and kill it, or run on a different port — macOS, Linux, and Windows.">
+    <meta name="keywords" content="EADDRINUSE, address already in use, listen EADDRINUSE 3000, port already in use node, kill process on port, eaddrinuse fix, node port in use">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/eaddrinuse-address-already-in-use.html">
+    <meta property="og:title" content="EADDRINUSE: address already in use — Cause and Fix">
+    <meta property="og:description" content="This Node.js error means another process already holds the port. Learn how to find and kill it, or start your server on a different port, on any OS.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/eaddrinuse-address-already-in-use.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>EADDRINUSE: address already in use — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "EADDRINUSE: address already in use", "item": "https://jsondevtools.org/errors/eaddrinuse-address-already-in-use.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Error: listen EADDRINUSE: address already in use — Cause and Fix",
+  "description": "This Node.js error means another process is already listening on the port your server is trying to bind. This reference explains every cause and shows how to find and stop the process, or run on a different port, on macOS, Linux, and Windows.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-13",
+  "dateModified": "2026-06-13",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does EADDRINUSE: address already in use mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means your server tried to listen on a port that another process is already using. An operating system lets only one process listen on a given port at a time, so the second bind fails with EADDRINUSE. Almost always the culprit is a previous instance of your own app that did not shut down."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix EADDRINUSE on port 3000?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Either free the port or use a different one. To free it, find the process holding the port and stop it: on macOS or Linux use lsof -i :3000 then kill the PID; on Windows use netstat -ano | findstr :3000 then taskkill /PID <pid> /F. The cross-platform shortcut is npx kill-port 3000. Alternatively, start your server on another port via an environment variable."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find what is using a port?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "On macOS and Linux, run lsof -i :3000 (or ss -ltnp) to list the process and its PID. On Windows, run netstat -ano | findstr :3000 to get the PID, then tasklist | findstr <pid> to see the program name. Once you know the PID you can stop just that process instead of guessing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between EADDRINUSE and EACCES?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "EADDRINUSE means the port is already taken by another process. EACCES on a listen call usually means you lack permission to bind that port — typically a privileged port below 1024, which needs elevated rights. If you see EACCES on port 80 or 443, run with the right privileges or use a higher port behind a reverse proxy."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does EADDRINUSE keep happening with nodemon?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If your app spawns a child process or does not close its server on reload, nodemon restarts the app while the old listener is still holding the port, so the new one collides. Make sure the process exits cleanly on SIGTERM/SIGINT (call server.close()), and avoid starting two watchers on the same port. A leftover orphaned node process is the usual cause."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is EADDRINUSE related to ERR_CONNECTION_REFUSED?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are opposite sides of the same port. EADDRINUSE happens to the server: it cannot start because something already holds the port. ERR_CONNECTION_REFUSED happens to the client: nothing is listening, so its connection is refused. If you kill the old process to fix EADDRINUSE but forget to start the new server, clients then see connection refused."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix EADDRINUSE: address already in use",
+  "description": "Steps to free a port or run your server elsewhere.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Read the port from the error", "text": "The error names the port, for example :::3000. That is the port already in use." },
+    { "@type": "HowToStep", "position": 2, "name": "Find the process holding it", "text": "Run lsof -i :3000 (or ss -ltnp on Linux) on macOS/Linux, or netstat -ano | findstr :3000 on Windows, to get the process ID. If it is a container, run docker ps." },
+    { "@type": "HowToStep", "position": 3, "name": "Stop that process", "text": "Kill it by PID: kill <pid> (or kill -9) on macOS/Linux, taskkill /PID <pid> /F on Windows. Or use npx kill-port 3000." },
+    { "@type": "HowToStep", "position": 4, "name": "Or change the port", "text": "Start your server on a free port via an environment variable instead of fighting over the busy one." },
+    { "@type": "HowToStep", "position": 5, "name": "Shut down cleanly next time", "text": "Handle SIGINT/SIGTERM and call server.close() so the port is released when the app exits." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>EADDRINUSE: address already in use</span>
+            </nav>
+            <h1>EADDRINUSE: address already in use &mdash; Cause and Fix</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Another process is <strong>already listening on that port</strong>, and the OS allows only one. Almost always it is a <strong>previous instance of your own server</strong> that did not shut down. Either <strong>free the port</strong> &mdash; <code>npx kill-port 3000</code>, or find the PID and kill it &mdash; or <strong>start on a different port</strong>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <p>Node.js throws it the moment the server tries to bind the port:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1872:16)
+    at listenInCluster (node:net:1920:12)
+    at Server.listen (node:net:2008:7)
+    at Object.&lt;anonymous&gt; (/app/server.js:10:8)
+Emitted 'error' event on Server instance at:
+    ...
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3000</code></pre>
+            </div>
+
+            <p>The <code>:::3000</code> is IPv6 shorthand for &ldquo;all interfaces, port 3000.&rdquo; The number at the end is the port already in use.</p>
+
+            <h2>What it means</h2>
+            <p>A TCP port can be held by only one listening socket at a time. When your server calls <code>listen(3000)</code> and another process already owns port 3000, the bind fails and Node emits an <code>error</code> event with <code>code: 'EADDRINUSE'</code>. The fix is always one of two things: <strong>free the port</strong>, or <strong>use a different one</strong>.</p>
+
+            <h2>Cause 1: A previous instance is still running</h2>
+            <p>By far the most common case. You restarted the app without the old one exiting &mdash; a crashed terminal, a detached process, or a debugger session left the original server holding the port. The &ldquo;new&rdquo; start collides with the old one.</p>
+            <p><strong>The classic beginner trap:</strong> pressing <kbd>Ctrl+Z</kbd> to &ldquo;stop&rdquo; a server only <em>suspends</em> it &mdash; the process is backgrounded and keeps holding the port. Always use <kbd>Ctrl+C</kbd> to terminate it cleanly. A suspended process is a surprisingly frequent source of EADDRINUSE.</p>
+
+            <h2>Cause 2: Another app uses the same port</h2>
+            <p>Ports like 3000, 5000, and 8080 are popular. A second project, a Docker container, or a system service (macOS uses port 5000 for AirPlay) may already own it.</p>
+
+            <h2>Cause 3: nodemon or a watcher restarting badly</h2>
+            <p>If the app spawns a child server or does not close its listener on reload, <code>nodemon</code> restarts it while the old listener still holds the port. Each reload then collides until you kill the orphaned process.</p>
+
+            <h2>Cause 4: Two starts at once &mdash; terminals, IDEs, or Docker</h2>
+            <p>Unlike a leftover process, this is two <em>live</em> things competing for the port. It happens when VS Code&rsquo;s integrated terminal, a background service, or Docker Compose already runs the server &mdash; and then you start it again, for example running <code>npm run dev</code> and <code>node server.js</code> at the same time. A very common version is a Docker container already publishing the port:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Is a container already publishing the port?
+docker ps
+# CONTAINER ID   IMAGE     ...   PORTS                    NAMES
+# a1b2c3d4e5f6   myapp     ...   0.0.0.0:3000-&gt;3000/tcp   web
+
+# Stop it to free the port
+docker stop web</code></pre>
+            </div>
+
+            <h2>The fix: free the port</h2>
+            <p>First find which process holds it, then stop that one process.</p>
+
+            <p><strong>macOS / Linux:</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Find the process listening on port 3000
+lsof -i :3000
+# COMMAND   PID  USER   ...  NAME
+# node    51234  you    ...  *:3000 (LISTEN)
+
+# Modern alternative to lsof (often faster, Linux)
+ss -ltnp | grep :3000
+
+# Stop it by PID
+kill 51234        # graceful
+kill -9 51234     # force, only if it ignores the first</code></pre>
+            </div>
+            <p>Reach for <code>kill</code> first. <code>kill -9</code> (SIGKILL) force-terminates the process without giving it a chance to close connections or clean up, so reserve it for processes that refuse to exit normally.</p>
+
+            <p><strong>Windows (Command Prompt / PowerShell):</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>:: Find the PID listening on port 3000 (last column)
+netstat -ano | findstr :3000
+::  TCP    0.0.0.0:3000   0.0.0.0:0   LISTENING   51234
+
+:: Stop it by PID
+taskkill /PID 51234 /F</code></pre>
+            </div>
+
+            <p><strong>Cross-platform one-liner (recommended):</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>npx kill-port 3000</code></pre>
+            </div>
+            <p>Or install it globally so it is always on hand: <code>npm install -g kill-port</code>.</p>
+
+            <h2>The alternative: use a different port</h2>
+            <p>If you do not need that exact port, read it from an environment variable so it is easy to change and so production can override it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const port = process.env.PORT || 3000;
+app.listen(port, "0.0.0.0", function () {
+    console.log("Listening on http://localhost:" + port);
+});
+
+// Start on another port without touching code:
+//   PORT=3001 node server.js        (macOS / Linux)
+//   set PORT=3001 &amp;&amp; node server.js  (Windows cmd)</code></pre>
+            </div>
+
+            <h2>Prevent it: shut down cleanly</h2>
+            <p>Release the port when the process exits so the next start does not collide:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const server = app.listen(port);
+
+function shutdown() {
+    server.close(function () {
+        process.exit(0);
+    });
+}
+
+process.on("SIGINT", shutdown);    // Ctrl+C
+process.on("SIGTERM", shutdown);   // kill / container stop</code></pre>
+            </div>
+
+            <p>One related gotcha: if you see <code>EACCES</code> instead of <code>EADDRINUSE</code> on a low port like 80 or 443, the problem is permission, not a conflict &mdash; privileged ports need elevated rights or a reverse proxy.</p>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does EADDRINUSE: address already in use mean?</summary>
+                    <p>It means your server tried to listen on a port that another process is already using. An operating system lets only one process listen on a given port at a time, so the second bind fails with <code>EADDRINUSE</code>. Almost always the culprit is a previous instance of your own app that did not shut down.</p>
+                </details>
+                <details>
+                    <summary>How do I fix EADDRINUSE on port 3000?</summary>
+                    <p>Either free the port or use a different one. To free it, find the process holding the port and stop it: on macOS or Linux use <code>lsof -i :3000</code> then <code>kill</code> the PID; on Windows use <code>netstat -ano | findstr :3000</code> then <code>taskkill /PID &lt;pid&gt; /F</code>. The cross-platform shortcut is <code>npx kill-port 3000</code>. Alternatively, start your server on another port via an environment variable.</p>
+                </details>
+                <details>
+                    <summary>How do I find what is using a port?</summary>
+                    <p>On macOS and Linux, run <code>lsof -i :3000</code> (or <code>ss -ltnp</code>) to list the process and its PID. On Windows, run <code>netstat -ano | findstr :3000</code> to get the PID, then <code>tasklist | findstr &lt;pid&gt;</code> to see the program name. Once you know the PID you can stop just that process instead of guessing.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between EADDRINUSE and EACCES?</summary>
+                    <p><code>EADDRINUSE</code> means the port is already taken by another process. <code>EACCES</code> on a listen call usually means you lack permission to bind that port &mdash; typically a privileged port below 1024, which needs elevated rights. If you see <code>EACCES</code> on port 80 or 443, run with the right privileges or use a higher port behind a reverse proxy.</p>
+                </details>
+                <details>
+                    <summary>Why does EADDRINUSE keep happening with nodemon?</summary>
+                    <p>If your app spawns a child process or does not close its server on reload, <code>nodemon</code> restarts the app while the old listener is still holding the port, so the new one collides. Make sure the process exits cleanly on SIGTERM/SIGINT (call <code>server.close()</code>), and avoid starting two watchers on the same port. A leftover orphaned node process is the usual cause.</p>
+                </details>
+                <details>
+                    <summary>Is EADDRINUSE related to ERR_CONNECTION_REFUSED?</summary>
+                    <p>They are opposite sides of the same port. <code>EADDRINUSE</code> happens to the server: it cannot start because something already holds the port. <a href="err-connection-refused.html"><code>ERR_CONNECTION_REFUSED</code></a> happens to the client: nothing is listening, so its connection is refused. If you kill the old process to fix EADDRINUSE but forget to start the new server, clients then see connection refused.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Server up and returning JSON?</h3>
+                <p>Format and validate the response in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-validator.html" class="btn btn-primary">JSON Validator</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="err-connection-refused.html">net::ERR_CONNECTION_REFUSED</a> &mdash; the client side when nothing is listening</li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/env-file-format.html">The .env File Format Explained</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
