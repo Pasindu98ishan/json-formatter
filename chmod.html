@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free chmod calculator: get the numeric mode (755, 644), symbolic rwx, the chmod command, and a plain-English explanation of any Linux/Unix file permission.">
+    <meta name="keywords" content="chmod calculator, chmod calculator online, linux permissions calculator, unix file permissions tool, chmod 755 meaning, chmod 644, chmod 777 meaning, chmod 700, file permission calculator">
+    <link rel="canonical" href="https://jsondevtools.org/chmod.html">
+    <meta property="og:title" content="Chmod Calculator – Unix/Linux File Permissions (755, 644)">
+    <meta property="og:description" content="Calculate Unix/Linux file permissions: numeric mode, symbolic notation, the chmod command, and a plain-English explanation. Free, private, in your browser.">
+    <meta property="og:url" content="https://jsondevtools.org/chmod.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Chmod Calculator – Unix/Linux File Permissions (755, 644)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script src="/js/analytics.js"></script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Chmod Calculator", "item": "https://jsondevtools.org/chmod.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Chmod Calculator",
+      "url": "https://jsondevtools.org/chmod.html",
+      "description": "Free online chmod calculator. Convert between checkboxes, numeric mode (e.g. 755), symbolic notation (rwxr-xr-x), and the chmod command, with a plain-English explanation of any Unix/Linux file permission.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does chmod 755 mean?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 755 sets rwxr-xr-x: the owner can read, write, and execute (7), while the group and others can read and execute but not write (5). It is the standard permission for directories and executable scripts — everyone can use them, but only the owner can change them." }
+        },
+        {
+          "@type": "Question",
+          "name": "How is the chmod number calculated?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Each permission has a value: read = 4, write = 2, execute = 1. Add them up for each of the three classes (owner, group, others). For example, read + write + execute = 4 + 2 + 1 = 7, and read + execute = 4 + 1 = 5, giving 755 for rwxr-xr-x." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between numeric and symbolic chmod?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Numeric (octal) mode sets all permissions at once as an absolute value, e.g. chmod 644 file. Symbolic mode changes specific bits, e.g. chmod u+x file adds execute for the owner. To make a symbolic command equal to a numeric mode, use the absolute '=' form (chmod u=rwx,g=rx,o=rx) rather than the additive '+' form, which only adds bits without clearing the others." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does chmod 777 mean and is it safe?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 777 (rwxrwxrwx) gives read, write, and execute to everyone — owner, group, and all other users. It is almost always a security risk because any user on the system can modify or replace the file. Use the least permission that works instead, such as 755 for executables/directories or 644 for regular files." }
+        },
+        {
+          "@type": "Question",
+          "name": "What are the setuid, setgid, and sticky bits?",
+          "acceptedAnswer": { "@type": "Answer", "text": "They are special permissions stored in a leading fourth digit. setuid (4) makes an executable run as its owner; setgid (2) makes it run as its group or makes new files in a directory inherit the group; the sticky bit (1) on a directory lets only a file's owner delete it (used on /tmp). For example, chmod 4755 sets setuid on a 755 file." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I apply chmod permissions recursively?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Add the -R flag: chmod -R 755 folder applies the mode to a directory and everything inside it. Be careful — applying a file mode like 644 recursively can strip the execute bit that directories need to be entered. A common safe approach is to set directories to 755 and files to 644 separately using find." }
+        }
+      ]
+    }
+    </script>
+    <style>
+        .chmod-grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        .chmod-grid th, .chmod-grid td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: center;
+        }
+        .chmod-grid th {
+            background: var(--light-bg);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--secondary-color);
+        }
+        .chmod-grid td:first-child, .chmod-grid th:first-child {
+            text-align: left;
+            font-weight: 700;
+        }
+        .chmod-grid input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            accent-color: var(--primary-color);
+        }
+        body.dark-mode .chmod-grid th { background: #1a1a1a; }
+        body.dark-mode .chmod-grid th, body.dark-mode .chmod-grid td { border-color: #3a3a3a; }
+
+        .chmod-outputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        @media (max-width: 600px) { .chmod-outputs { grid-template-columns: 1fr; } }
+        .out-card {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 11px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            transition: box-shadow 0.15s;
+        }
+        .out-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+        body.dark-mode .out-card { background: #1c1c1e; border-color: #333; box-shadow: none; }
+        .out-card .out-label {
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; color: #9ca3af;
+            display: block; margin-bottom: 1px;
+        }
+        body.dark-mode .out-card .out-label { color: #6b7280; }
+        .out-card .out-value {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', ui-monospace, monospace;
+            font-size: 1.55rem; font-weight: 600;
+            color: #111827;
+            letter-spacing: 0.01em;
+            line-height: 1.1;
+        }
+        body.dark-mode .out-card .out-value { color: #f3f4f6; }
+        .out-card-inner { flex: 1; }
+        .out-card .copy-btn { margin-left: auto; flex-shrink: 0; }
+
+        .explain-box {
+            border: 1px solid var(--border-color);
+            border-left: 4px solid #4b5563;
+            border-radius: 10px;
+            background: #f9fafb;
+            padding: 9px 14px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        body.dark-mode .explain-box { background: #1c1c1e; border-color: #333; border-left-color: #4b5563; }
+        .explain-box .explain-label {
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.06em; color: var(--secondary-color); display: block; margin-bottom: 2px;
+        }
+        #explainOut { font-size: 0.95rem; line-height: 1.4; }
+
+        .reverse-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+        .reverse-row label { font-weight: 600; }
+        #numericInput {
+            width: 100px; padding: 6px 10px;
+            border: 1px solid var(--border-color); border-radius: 6px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', ui-monospace, monospace;
+            font-size: 1rem; font-weight: 600; text-align: center;
+            background: #fff; color: var(--text-light);
+            box-sizing: border-box;
+        }
+        #numericInput:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0,123,255,0.12); }
+        body.dark-mode #numericInput { background: #222; border-color: #444; color: #e0e0e0; }
+
+        .cmd-row {
+            display: flex; align-items: center; gap: 10px;
+            background: #1e1e1e; border-radius: 8px; padding: 8px 14px; margin-bottom: 6px;
+        }
+        .cmd-row code {
+            font-family: 'Courier New', monospace; font-size: 0.95rem; color: #d4d4d4;
+            flex: 1; overflow-x: auto; white-space: nowrap;
+        }
+        .cmd-row .cmd-kind {
+            font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+            color: #888; min-width: 66px;
+        }
+        .copy-btn {
+            font-size: 0.8rem; padding: 5px 12px; border: 1px solid var(--border-color);
+            background: #fff; color: var(--text-light); border-radius: 6px; cursor: pointer; white-space: nowrap;
+        }
+        .copy-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .cmd-row .copy-btn { background: #2d2d2d; color: #ddd; border-color: #444; }
+        .cmd-row .copy-btn:hover { border-color: #66b2ff; color: #66b2ff; }
+        body.dark-mode .copy-btn { background: #222; color: #e0e0e0; border-color: #444; }
+
+        details.advanced {
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 0 16px; margin-bottom: 10px;
+        }
+        body.dark-mode details.advanced { border-color: #3a3a3a; }
+        details.advanced > summary {
+            cursor: pointer; font-weight: 600; padding: 12px 0; list-style: revert;
+        }
+        .special-row { display: flex; gap: 22px; flex-wrap: wrap; padding: 4px 0 16px; }
+        .special-row label { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
+        .special-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--primary-color); }
+        .cmd-label { font-size: 0.85rem; font-weight: 600; color: var(--secondary-color); margin: 8px 0 6px; }
+
+        .perm-ref {
+            margin-top: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        body.dark-mode .perm-ref { border-color: #333; }
+        .perm-ref-title {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.07em; color: var(--secondary-color);
+            margin: 0; padding: 8px 14px;
+            background: var(--light-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+        body.dark-mode .perm-ref-title { background: #1a1a1a; border-color: #333; }
+        .perm-ref-table {
+            width: 100%; border-collapse: collapse; font-size: 0.875rem;
+        }
+        .perm-ref-table th {
+            padding: 7px 14px; text-align: left; font-size: 0.72rem;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--secondary-color); background: var(--light-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+        body.dark-mode .perm-ref-table th { background: #1a1a1a; border-color: #333; }
+        .perm-ref-table td {
+            padding: 7px 14px; border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        .perm-ref-table tr:last-child td { border-bottom: none; }
+        body.dark-mode .perm-ref-table td { border-color: #2a2a2a; }
+        .perm-badge {
+            display: inline-block; width: 20px; height: 20px; line-height: 20px;
+            text-align: center; border-radius: 5px; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', ui-monospace, monospace;
+            font-size: 0.78rem; font-weight: 700; margin-right: 6px; vertical-align: middle;
+        }
+        .perm-r { background: #dbeafe; color: #1d4ed8; }
+        .perm-w { background: #fef9c3; color: #854d0e; }
+        .perm-x { background: #dcfce7; color: #166534; }
+        body.dark-mode .perm-r { background: #1e3a5f; color: #93c5fd; }
+        body.dark-mode .perm-w { background: #3b2f00; color: #fde68a; }
+        body.dark-mode .perm-x { background: #052e16; color: #86efac; }
+    </style>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>Chmod Calculator</h1>
+            <p>Tick the permissions to get the numeric mode, symbolic notation, the chmod command, and a plain-English explanation — all in your browser.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+
+            <!-- Permission grid -->
+            <table class="chmod-grid" id="permGrid">
+                <thead>
+                    <tr>
+                        <th>Who</th>
+                        <th>Read <span style="font-weight:400;">(4)</span></th>
+                        <th>Write <span style="font-weight:400;">(2)</span></th>
+                        <th>Execute <span style="font-weight:400;">(1)</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Owner</td>
+                        <td><input type="checkbox" id="perm-owner-r" aria-label="Owner read"></td>
+                        <td><input type="checkbox" id="perm-owner-w" aria-label="Owner write"></td>
+                        <td><input type="checkbox" id="perm-owner-x" aria-label="Owner execute"></td>
+                    </tr>
+                    <tr>
+                        <td>Group</td>
+                        <td><input type="checkbox" id="perm-group-r" aria-label="Group read"></td>
+                        <td><input type="checkbox" id="perm-group-w" aria-label="Group write"></td>
+                        <td><input type="checkbox" id="perm-group-x" aria-label="Group execute"></td>
+                    </tr>
+                    <tr>
+                        <td>Others</td>
+                        <td><input type="checkbox" id="perm-other-r" aria-label="Others read"></td>
+                        <td><input type="checkbox" id="perm-other-w" aria-label="Others write"></td>
+                        <td><input type="checkbox" id="perm-other-x" aria-label="Others execute"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Advanced: special bits (collapsed) -->
+            <details class="advanced">
+                <summary>Advanced — special bits (setuid / setgid / sticky)</summary>
+                <div class="special-row">
+                    <label><input type="checkbox" id="special-setuid"> setuid <span style="color:var(--secondary-color);">(4)</span></label>
+                    <label><input type="checkbox" id="special-setgid"> setgid <span style="color:var(--secondary-color);">(2)</span></label>
+                    <label><input type="checkbox" id="special-sticky"> sticky <span style="color:var(--secondary-color);">(1)</span></label>
+                </div>
+            </details>
+
+            <!-- Outputs -->
+            <div class="chmod-outputs">
+                <div class="out-card">
+                    <div class="out-card-inner">
+                        <span class="out-label">Numeric</span>
+                        <span class="out-value" id="numericOut">755</span>
+                    </div>
+                    <button class="copy-btn" data-copy="numericOut">Copy</button>
+                </div>
+                <div class="out-card">
+                    <div class="out-card-inner">
+                        <span class="out-label">Symbolic</span>
+                        <span class="out-value" id="symbolicOut">rwxr-xr-x</span>
+                    </div>
+                    <button class="copy-btn" data-copy="symbolicOut">Copy</button>
+                </div>
+            </div>
+
+            <!-- Plain-English explanation (the differentiator) -->
+            <div class="explain-box">
+                <div style="flex:1;">
+                    <span class="explain-label">What this means</span>
+                    <span id="explainOut">Owner can read, write, and execute. Group can read and execute. Others can read and execute.</span>
+                </div>
+                <button class="copy-btn" data-copy="explainOut">Copy</button>
+            </div>
+
+            <!-- Reverse: numeric → checkboxes -->
+            <div class="reverse-row">
+                <label for="numericInput">Or type a mode:</label>
+                <input type="text" id="numericInput" inputmode="numeric" maxlength="4" placeholder="755" aria-label="Numeric chmod mode">
+                <span style="font-size:0.85rem;color:var(--secondary-color);">3 or 4 octal digits (e.g. 755 or 4755)</span>
+            </div>
+
+            <div id="errorContainer" style="display:none; margin-bottom:16px; padding:10px 14px; border-radius:6px; border:1px solid #f5c6cb; background:#f8d7da; color:#721c24;"></div>
+
+            <!-- Command formats -->
+            <div class="cmd-label">Copy the command</div>
+            <div class="cmd-row">
+                <span class="cmd-kind">Numeric</span>
+                <code id="cmdNumeric">chmod 755 file</code>
+                <button class="copy-btn" data-copy="cmdNumeric">Copy</button>
+            </div>
+            <div class="cmd-row">
+                <span class="cmd-kind">Recursive</span>
+                <code id="cmdRecursive">chmod -R 755 folder</code>
+                <button class="copy-btn" data-copy="cmdRecursive">Copy</button>
+            </div>
+            <div class="cmd-row">
+                <span class="cmd-kind">Symbolic</span>
+                <code id="cmdSymbolic">chmod u=rwx,g=rx,o=rx file</code>
+                <button class="copy-btn" data-copy="cmdSymbolic">Copy</button>
+            </div>
+
+            <div class="perm-ref">
+                <p class="perm-ref-title">What each permission does</p>
+                <table class="perm-ref-table">
+                    <thead>
+                        <tr>
+                            <th>Permission</th>
+                            <th>File</th>
+                            <th>Directory</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="perm-badge perm-r">r</span> Read</td>
+                            <td>View contents</td>
+                            <td>List files</td>
+                        </tr>
+                        <tr>
+                            <td><span class="perm-badge perm-w">w</span> Write</td>
+                            <td>Modify file</td>
+                            <td>Create / delete files</td>
+                        </tr>
+                        <tr>
+                            <td><span class="perm-badge perm-x">x</span> Execute</td>
+                            <td>Run as program</td>
+                            <td>Enter directory</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </section>
+
+        <section class="info-section">
+            <h2>How chmod numbers work</h2>
+            <p>Every file has three permission classes — <strong>owner</strong>, <strong>group</strong>, and <strong>others</strong> — and each class can have three permissions, each with a value:</p>
+            <ul>
+                <li><strong>Read = 4</strong> — view the file's contents (or list a directory)</li>
+                <li><strong>Write = 2</strong> — modify the file (or add/remove files in a directory)</li>
+                <li><strong>Execute = 1</strong> — run the file as a program (or enter a directory)</li>
+            </ul>
+            <p>Add the values for each class to get one digit (0–7), then write the three digits in order: owner, group, others. For example <code>rwx</code> = 4 + 2 + 1 = <strong>7</strong>, and <code>r-x</code> = 4 + 1 = <strong>5</strong>, so <code>rwxr-xr-x</code> is <strong>755</strong>.</p>
+
+            <h2>Common permissions reference</h2>
+            <table>
+                <thead><tr><th>Numeric</th><th>Symbolic</th><th>Plain English</th><th>Typical use</th></tr></thead>
+                <tbody>
+                    <tr><td><code>777</code></td><td><code>rwxrwxrwx</code></td><td>Everyone can read, write, and execute</td><td>Avoid — world-writable security risk</td></tr>
+                    <tr><td><code>755</code></td><td><code>rwxr-xr-x</code></td><td>Owner full; group &amp; others read + execute</td><td>Directories, scripts, executables</td></tr>
+                    <tr><td><code>750</code></td><td><code>rwxr-x---</code></td><td>Owner full; group read + execute; others none</td><td>Group-private executables</td></tr>
+                    <tr><td><code>700</code></td><td><code>rwx------</code></td><td>Owner full; nobody else</td><td>Private directories, <code>~/.ssh</code></td></tr>
+                    <tr><td><code>644</code></td><td><code>rw-r--r--</code></td><td>Owner read + write; everyone else read</td><td>Regular files, web content</td></tr>
+                    <tr><td><code>640</code></td><td><code>rw-r-----</code></td><td>Owner read + write; group read; others none</td><td>Config files with group secrets</td></tr>
+                    <tr><td><code>600</code></td><td><code>rw-------</code></td><td>Owner read + write only</td><td>Private keys, <code>.env</code> files</td></tr>
+                    <tr><td><code>444</code></td><td><code>r--r--r--</code></td><td>Everyone read-only</td><td>Locked read-only files</td></tr>
+                    <tr><td><code>400</code></td><td><code>r--------</code></td><td>Owner read-only</td><td>Protected private files</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Numeric vs symbolic notation</h2>
+            <p>The numeric (octal) form sets <em>all</em> permissions at once as an absolute value: <code>chmod 644 file</code>. The symbolic form edits specific bits:</p>
+            <ul>
+                <li><code>chmod u+x file</code> — <em>add</em> execute for the owner (leaves everything else as-is)</li>
+                <li><code>chmod go-w file</code> — <em>remove</em> write from group and others</li>
+                <li><code>chmod u=rwx,g=rx,o=rx file</code> — <em>set</em> absolute permissions; this equals <code>chmod 755 file</code></li>
+            </ul>
+            <p>Note the difference between <code>+</code> and <code>=</code>: <code>+</code> only adds bits on top of what is already there, while <code>=</code> sets the exact permissions. To reproduce a numeric mode with symbolic syntax, always use <code>=</code> — which is why this tool's symbolic command uses it.</p>
+
+            <h2>What does <code>chmod 777</code> mean — and why it's risky</h2>
+            <p><code>chmod 777</code> (<code>rwxrwxrwx</code>) grants read, write, <em>and</em> execute to the owner, the group, and every other user on the system. That means <strong>any user can modify or replace the file</strong> — including overwriting a script with malicious code. It is almost never the right fix, even when a tutorial suggests it to "make a permission error go away."</p>
+            <p>Use the least permission that works instead: <code>755</code> for directories and executables, <code>644</code> for regular files, and <code>600</code> for secrets. If a web server needs to write to a folder, give that folder to the server's user/group rather than opening it to everyone.</p>
+
+            <h2>Special permissions: setuid, setgid, and the sticky bit</h2>
+            <p>A leading fourth digit holds three special bits (open the <strong>Advanced</strong> section above to toggle them):</p>
+            <ul>
+                <li><strong>setuid (4)</strong> — an executable runs with the privileges of its <em>owner</em>, not the user running it (e.g. <code>passwd</code>). Shown as <code>s</code> in the owner execute slot: <code>chmod 4755</code> → <code>rwsr-xr-x</code>.</li>
+                <li><strong>setgid (2)</strong> — runs with the group's privileges, or makes new files in a directory inherit that directory's group. Shown as <code>s</code> in the group execute slot.</li>
+                <li><strong>sticky bit (1)</strong> — on a shared directory like <code>/tmp</code>, only a file's owner can delete or rename it. Shown as <code>t</code> in the others execute slot: <code>chmod 1777</code> → <code>rwxrwxrwt</code>.</li>
+            </ul>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>What does chmod 755 mean?</summary>
+                <p><code>chmod 755</code> sets <code>rwxr-xr-x</code>: the owner can read, write, and execute (7), while the group and others can read and execute but not write (5). It is the standard permission for directories and executable scripts — everyone can use them, but only the owner can change them.</p>
+            </details>
+            <details>
+                <summary>How is the chmod number calculated?</summary>
+                <p>Each permission has a value: read = 4, write = 2, execute = 1. Add them up for each of the three classes (owner, group, others). For example, read + write + execute = 4 + 2 + 1 = 7, and read + execute = 4 + 1 = 5, giving <code>755</code> for <code>rwxr-xr-x</code>.</p>
+            </details>
+            <details>
+                <summary>What is the difference between numeric and symbolic chmod?</summary>
+                <p>Numeric (octal) mode sets all permissions at once as an absolute value, e.g. <code>chmod 644 file</code>. Symbolic mode changes specific bits, e.g. <code>chmod u+x file</code> adds execute for the owner. To make a symbolic command equal to a numeric mode, use the absolute <code>=</code> form (<code>chmod u=rwx,g=rx,o=rx</code>) rather than the additive <code>+</code> form, which only adds bits without clearing the others.</p>
+            </details>
+            <details>
+                <summary>What does chmod 777 mean and is it safe?</summary>
+                <p><code>chmod 777</code> (<code>rwxrwxrwx</code>) gives read, write, and execute to everyone — owner, group, and all other users. It is almost always a security risk because any user on the system can modify or replace the file. Use the least permission that works instead, such as <code>755</code> for executables/directories or <code>644</code> for regular files.</p>
+            </details>
+            <details>
+                <summary>What are the setuid, setgid, and sticky bits?</summary>
+                <p>They are special permissions stored in a leading fourth digit. setuid (4) makes an executable run as its owner; setgid (2) makes it run as its group or makes new files in a directory inherit the group; the sticky bit (1) on a directory lets only a file's owner delete it (used on <code>/tmp</code>). For example, <code>chmod 4755</code> sets setuid on a 755 file.</p>
+            </details>
+            <details>
+                <summary>How do I apply chmod permissions recursively?</summary>
+                <p>Add the <code>-R</code> flag: <code>chmod -R 755 folder</code> applies the mode to a directory and everything inside it. Be careful — applying a file mode like <code>644</code> recursively can strip the execute bit that directories need to be entered. A common safe approach is to set directories to 755 and files to 644 separately using <code>find</code>.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Permission Guides</h2>
+            <ul>
+                <li><a href="blog/chmod-755.html">What does chmod 755 mean?</a> &mdash; <code>rwxr-xr-x</code> explained</li>
+                <li><a href="blog/chmod-644.html">chmod 644 explained</a> &mdash; the standard for web files</li>
+                <li><a href="blog/chmod-777.html">chmod 777</a> &mdash; why it's a security risk and what to use instead</li>
+                <li><a href="blog/chmod-600.html">chmod 600</a> &mdash; protecting SSH keys and <code>.env</code> files</li>
+                <li><a href="blog/chmod-775.html">chmod 775</a> &mdash; group-writable directories for Laravel &amp; WordPress</li>
+            </ul>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="hash.html">Hash Generator</a> &mdash; MD5, SHA-256 checksums</li>
+                <li><a href="base64.html">Base64 Encoder &amp; Decoder</a></li>
+                <li><a href="http-status.html">HTTP Status Codes</a> &mdash; every code with fixes</li>
+                <li><a href="errors.html">Error Reference</a> &mdash; exact error strings and fixes</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/chmod-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="chmod 775 explained: the correct permission for Laravel storage, WordPress uploads, and shared directories — group-writable without the security risk of 777.">
+    <meta name="keywords" content="chmod 775 laravel, chmod 775 wordpress uploads, chmod 775 meaning, chmod 775 vs 777, chmod 775 directory, linux group permissions 775">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/chmod-775.html">
+    <meta property="og:title" content="chmod 775 Explained: Group-Writable Directories for Laravel and WordPress">
+    <meta property="og:description" content="chmod 775 is the correct permission for Laravel storage and WordPress uploads — group-writable without the world-write security risk of 777.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/chmod-775.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>chmod 775 Explained: Group-Writable Directories for Laravel &amp; WordPress &ndash; JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "chmod 775 Explained: Group-Writable Directories for Laravel and WordPress",
+      "description": "chmod 775 is the correct permission for Laravel storage directories and WordPress uploads — group-writable without the security risk of chmod 777.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-06-17",
+      "dateModified": "2026-06-17",
+      "url": "https://jsondevtools.org/blog/chmod-775.html"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "chmod 775 Explained", "item": "https://jsondevtools.org/blog/chmod-775.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does chmod 775 mean?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 775 sets rwxrwxr-x. The owner and the group both get full read, write, and execute (7). Others (everyone outside the group) can only read and execute (5). It is used for shared directories where both a deploy user and a web server user need write access, without opening the directory to the entire world." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between chmod 775 and chmod 777?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 777 gives everyone — including all other users on the system — full read, write, and execute. chmod 775 restricts write access to the owner and group only; others can read and execute but not write. On a web server, 775 with the correct group setup is the safe alternative to 777." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I set up chmod 775 for Laravel storage?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Run: chown -R deployer:www-data storage bootstrap/cache && chmod -R 775 storage bootstrap/cache. Replace 'deployer' with your deploy user and 'www-data' with your web server user. This gives both your deploy process and the web server write access while keeping the directories closed to other users." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should WordPress wp-content/uploads be 755 or 775?",
+          "acceptedAnswer": { "@type": "Answer", "text": "If your web server user owns the uploads directory, 755 is sufficient — the owner (web server) can write. If a separate deploy user owns the directory and the web server is a different user in the same group, use 775. Never use 777 for wp-content/uploads as it makes the directory world-writable." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is chmod 775 safe?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, chmod 775 is safe when the group is configured correctly and limited to trusted users. The key requirement is that the group contains only the deploy user and the web server user — not a broad group that includes untrusted accounts. On shared hosting where multiple customers share a group, use 755 instead." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>chmod 775 Explained</span>
+            </nav>
+            <h1>chmod 775 Explained: Group-Writable Directories for Laravel &amp; WordPress</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published: June 17, 2026 &middot; Last updated: June 17, 2026 &middot; 6 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <section>
+                <p>Every Laravel and WordPress deployment hits the same friction point: the web server needs to write to certain directories (<code>storage/</code>, <code>wp-content/uploads/</code>), but your deploy user owns the files. The wrong answer is <a href="chmod-777.html">chmod 777</a>. The right answer is <strong>chmod 775</strong> combined with a shared group &mdash; it gives both your deploy process and the web server write access while keeping those directories closed to everyone else on the system.</p>
+
+                <div style="background:var(--light-bg); border-left:4px solid var(--primary-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0;">
+                    <strong>Quick answer:</strong> <code>chmod 775</code> means <code>rwxrwxr-x</code>. Owner and group get full read+write+execute (7). Others get read+execute only (5). Use it for Laravel <code>storage/</code>, <code>bootstrap/cache/</code>, and WordPress <code>wp-content/uploads/</code> when the web server and deploy user share a group.
+                </div>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Need to calculate or convert a chmod mode?</strong></p>
+                    <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>How 775 is calculated</h2>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Owner:  7 = 4 (read) + 2 (write) + 1 (execute) = rwx
+Group:  7 = 4 (read) + 2 (write) + 1 (execute) = rwx
+Others: 5 = 4 (read) + 0         + 1 (execute) = r-x
+
+Result: rwxrwxr-x</code></pre>
+                </div>
+                <p>The critical difference from <a href="chmod-777.html">777</a>: others get <code>r-x</code> (read + execute) but <strong>not write</strong>. Only the owner and group members can create, modify, or delete files inside the directory.</p>
+            </section>
+
+            <section>
+                <h2>The problem 775 solves</h2>
+                <p>A typical deployment setup has two users that need write access to the same directory:</p>
+                <ul>
+                    <li><strong>Deploy user</strong> (e.g. <code>deployer</code>) &mdash; runs <code>git pull</code>, <code>composer install</code>, clears cache</li>
+                    <li><strong>Web server user</strong> (e.g. <code>www-data</code>) &mdash; writes logs, cached views, uploaded files</li>
+                </ul>
+                <p>If the directory owner is <code>deployer</code> and permissions are 755, <code>www-data</code> falls into "others" and can only read. Setting 777 lets <code>www-data</code> write, but so does every other user on the system. The correct fix is:</p>
+                <ol>
+                    <li>Create a shared group (or use an existing one like <code>www-data</code>)</li>
+                    <li>Add both users to that group</li>
+                    <li>Set group ownership on the directory</li>
+                    <li>Set permissions to 775</li>
+                </ol>
+            </section>
+
+            <section>
+                <h2>Laravel setup: storage and bootstrap/cache</h2>
+                <p>Laravel writes logs, cached views, compiled routes, and uploaded files to <code>storage/</code> and <code>bootstrap/cache/</code>. These directories must be writable by the web server process:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Step 1: Add your deploy user to the www-data group
+sudo usermod -aG www-data deployer
+
+# Step 2: Set group ownership
+sudo chown -R deployer:www-data storage bootstrap/cache
+
+# Step 3: Set 775 permissions
+chmod -R 775 storage bootstrap/cache
+
+# Optional: Set the setgid bit so new files inherit the group
+chmod g+s storage bootstrap/cache
+
+# Verify
+ls -la storage/
+# drwxrwxr-x  app/
+# drwxrwxr-x  framework/
+# drwxrwxr-x  logs/</code></pre>
+                </div>
+                <p>The setgid bit (<code>chmod g+s</code>) ensures that files created inside the directory automatically inherit the <code>www-data</code> group rather than defaulting to the creating user's primary group. This prevents permission drift over time.</p>
+            </section>
+
+            <section>
+                <h2>WordPress setup: wp-content/uploads</h2>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Set group ownership to the web server user
+sudo chown -R deployer:www-data wp-content/uploads
+
+# Set 775 on the directory
+chmod -R 775 wp-content/uploads
+
+# Files inside the directory should be 664 (group-writable, not execute)
+find wp-content/uploads -type f -exec chmod 664 {} \;</code></pre>
+                </div>
+                <p>Note the difference between the directory (775) and the files inside (664). Files do not need the execute bit, so 664 gives group write without making them executable.</p>
+
+                <h3>Shared hosting caveat</h3>
+                <p>On shared hosting, multiple customers share the same web server process user (e.g. <code>nobody</code> or <code>www-data</code>). In that environment, 775 gives other customers' PHP code write access to your directory. Use 755 instead, and make sure the web server user owns the directory:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Shared hosting: owner is the web server user, use 755
+chown -R www-data:www-data wp-content/uploads
+chmod -R 755 wp-content/uploads</code></pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>chmod 775 vs other common modes</h2>
+                <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--border-color);">
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Mode</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Symbolic</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Others can write?</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Typical use</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">777</td><td style="padding:8px 12px;"><code>rwxrwxrwx</code></td><td style="padding:8px 12px;"><strong style="color:#dc3545;">Yes</strong></td><td style="padding:8px 12px;">Avoid &mdash; world-writable security risk</td></tr>
+                        <tr style="background:rgba(0,123,255,0.05); border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><strong>775</strong></td><td style="padding:8px 12px;"><code>rwxrwxr-x</code></td><td style="padding:8px 12px;"><strong style="color:#28a745;">No</strong></td><td style="padding:8px 12px;">Shared writable dirs (Laravel, WordPress, uploads)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">755</td><td style="padding:8px 12px;"><code>rwxr-xr-x</code></td><td style="padding:8px 12px;"><strong style="color:#28a745;">No</strong></td><td style="padding:8px 12px;">Public dirs, executables (only owner writes)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">664</td><td style="padding:8px 12px;"><code>rw-rw-r--</code></td><td style="padding:8px 12px;"><strong style="color:#28a745;">No</strong></td><td style="padding:8px 12px;">Group-writable files (no execute)</td></tr>
+                        <tr><td style="padding:8px 12px;">644</td><td style="padding:8px 12px;"><code>rw-r--r--</code></td><td style="padding:8px 12px;"><strong style="color:#28a745;">No</strong></td><td style="padding:8px 12px;">Web files, config files (only owner writes)</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>What does chmod 775 mean?</summary>
+                    <p><code>chmod 775</code> sets <code>rwxrwxr-x</code>. The owner and the group both get full read, write, and execute (7). Others can only read and execute (5) &mdash; they cannot write. It is the standard permission for shared directories where a deploy user and a web server user both need write access.</p>
+                </details>
+
+                <details>
+                    <summary>What is the difference between chmod 775 and chmod 777?</summary>
+                    <p><code>chmod 777</code> gives <em>everyone</em> on the system write access. <code>chmod 775</code> restricts write to the owner and group only &mdash; others can read and execute but not modify. On a web server, 775 with the correct group is the safe alternative to 777 for writable directories. <a href="chmod-777.html">See why 777 is dangerous.</a></p>
+                </details>
+
+                <details>
+                    <summary>How do I set up chmod 775 for Laravel storage?</summary>
+                    <p>First add your deploy user to the web server group: <code>sudo usermod -aG www-data deployer</code>. Then: <code>chown -R deployer:www-data storage bootstrap/cache &amp;&amp; chmod -R 775 storage bootstrap/cache</code>. Optionally add the setgid bit with <code>chmod g+s storage bootstrap/cache</code> to ensure new files inherit the group.</p>
+                </details>
+
+                <details>
+                    <summary>Should WordPress wp-content/uploads be 755 or 775?</summary>
+                    <p>If the web server user <em>owns</em> the uploads directory, <code>755</code> is enough &mdash; the owner (web server) can write. If a separate deploy user owns it and the web server is a different user in the same group, use <code>775</code>. Never use 777, and on shared hosting use 755 with the web server as owner.</p>
+                </details>
+
+                <details>
+                    <summary>Is chmod 775 safe?</summary>
+                    <p>Yes, when the group is configured correctly. The group should contain only trusted users (your deploy user and the web server user). On shared hosting where untrusted customers share a group, 775 is not safe because it gives those customers write access &mdash; use 755 instead and ensure the web server user owns the directory.</p>
+                </details>
+            </section>
+
+            <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                <p style="margin:0 0 0.75rem;"><strong>Calculate any chmod permission instantly</strong></p>
+                <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+            </div>
+
+            <section>
+                <h2>Related permission guides</h2>
+                <ul>
+                    <li><a href="chmod-777.html">chmod 777: why it's a security risk</a> &mdash; and how 775 solves the same problem safely</li>
+                    <li><a href="chmod-755.html">chmod 755 explained</a> &mdash; for public directories and executables</li>
+                    <li><a href="chmod-644.html">chmod 644 explained</a> &mdash; the standard for web files</li>
+                    <li><a href="chmod-600.html">chmod 600 for SSH keys and .env files</a></li>
+                </ul>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

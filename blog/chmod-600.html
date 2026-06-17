@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="chmod 600 explained: why SSH private keys, .env files, and SSL private keys must be owner-read-only, and how to fix the OpenSSH 'unprotected private key' error.">
+    <meta name="keywords" content="chmod 600 private key, chmod 600 ssh key, chmod 600 env file, unprotected private key file, chmod 600 meaning, linux file permissions 600">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/chmod-600.html">
+    <meta property="og:title" content="chmod 600: Protecting SSH Keys and .env Files">
+    <meta property="og:description" content="Why SSH private keys, .env files, and SSL keys must be chmod 600 — and how to fix the OpenSSH unprotected private key file error.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/chmod-600.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>chmod 600: Protecting SSH Keys and .env Files &ndash; JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "chmod 600: Protecting SSH Keys and .env Files",
+      "description": "Why SSH private keys, .env files, and SSL private keys must be chmod 600 — and how to fix the OpenSSH unprotected private key file error.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-06-17",
+      "dateModified": "2026-06-17",
+      "url": "https://jsondevtools.org/blog/chmod-600.html"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "chmod 600: SSH Keys and .env Files", "item": "https://jsondevtools.org/blog/chmod-600.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does chmod 600 mean?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 600 sets rw------- — the owner can read and write the file, but the group and all other users have no access at all (0 = no permissions). It is the required permission for SSH private keys, .env files, and SSL private keys." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does SSH say WARNING: UNPROTECTED PRIVATE KEY FILE?",
+          "acceptedAnswer": { "@type": "Answer", "text": "OpenSSH refuses to use a private key if the file's permissions are too open — specifically if the group or others have any access. Fix it with: chmod 600 ~/.ssh/id_rsa (or the path to your key). The ~/.ssh directory itself should also be chmod 700." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should .env files be chmod 600 or 644?",
+          "acceptedAnswer": { "@type": "Answer", "text": ".env files must be chmod 600 (or at most 640 if a group process needs to read them). A .env file set to 644 is readable by any user on the system — including other accounts on shared hosting. Since .env files typically contain database passwords, API keys, and secrets, world-readable permissions are a serious security risk." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between chmod 600 and chmod 400?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 600 gives the owner read and write (rw-------). chmod 400 gives the owner read only (r--------). For SSH private keys, either works — OpenSSH just requires that group and others have no access. 400 is slightly more secure because it prevents accidental overwriting, but 600 is the more common convention." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it dangerous to use chmod -R 600 on a directory?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, very dangerous. chmod -R 600 removes the execute bit from all directories in the tree. Without the execute bit, a directory cannot be entered — you lose the ability to cd into it or access any files inside. If you accidentally run this on ~/.ssh or your home directory, you can lock yourself out. Never use chmod -R 600 on a directory." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>chmod 600: SSH Keys and .env Files</span>
+            </nav>
+            <h1>chmod 600: Protecting SSH Keys and .env Files</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published: June 17, 2026 &middot; Last updated: June 17, 2026 &middot; 5 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <section>
+                <p>When you try to SSH into a server and get <code>WARNING: UNPROTECTED PRIVATE KEY FILE!</code>, the fix is almost always a single command: <code>chmod 600 ~/.ssh/id_rsa</code>. The same mode protects your <code>.env</code> files and SSL private keys &mdash; anything that must stay readable to you and invisible to everyone else on the system. This guide explains why these files need it and how to set it without locking yourself out.</p>
+
+                <div style="background:var(--light-bg); border-left:4px solid var(--primary-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0;">
+                    <strong>Quick answer:</strong> <code>chmod 600</code> means <code>rw-------</code>. The owner gets read+write (6 = 4+2). Group and others get nothing (0). Use it for <code>~/.ssh/id_rsa</code>, <code>.env</code> files, SSL private keys, and any file that must be completely private to its owner.
+                </div>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Need to calculate or convert a chmod mode?</strong></p>
+                    <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>How 600 is calculated</h2>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Owner:  6 = 4 (read) + 2 (write) + 0 = rw-
+Group:  0 = 0         + 0         + 0 = ---
+Others: 0 = 0         + 0         + 0 = ---
+
+Result: rw-------</code></pre>
+                </div>
+                <p>The group and others columns are all zeros &mdash; no read, no write, no execute. Only the file's owner can interact with it.</p>
+            </section>
+
+            <section>
+                <h2>Fixing the SSH "UNPROTECTED PRIVATE KEY FILE" error</h2>
+                <p>When OpenSSH connects to a server, it checks whether your private key file is accessible to anyone other than you. If the group or others have any permission bits set, SSH refuses to use the key and prints:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@         WARNING: UNPROTECTED PRIVATE KEY FILE!          @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+Permissions 0644 for '/home/user/.ssh/id_rsa' are too open.
+It is required that your private key files are NOT accessible
+by others.
+This private key will be ignored.</code></pre>
+                </div>
+                <p>The fix:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Fix the key file permissions
+chmod 600 ~/.ssh/id_rsa
+
+# The ~/.ssh directory itself must also be restricted
+chmod 700 ~/.ssh
+
+# Verify
+ls -la ~/.ssh/
+# drwx------  id_rsa
+# -rw-------  id_rsa</code></pre>
+                </div>
+                <p>Note: the <code>~/.ssh</code> directory needs <code>700</code> (not 600), because a directory needs the execute bit to be entered. The private key file inside it needs <code>600</code>.</p>
+            </section>
+
+            <section>
+                <h2>Files that must be chmod 600</h2>
+
+                <h3>SSH private keys</h3>
+                <p>Any file in <code>~/.ssh/</code> that is a private key: <code>id_rsa</code>, <code>id_ed25519</code>, <code>id_ecdsa</code>, and any key you download from cloud providers (e.g. AWS <code>.pem</code> files). OpenSSH enforces 600 strictly &mdash; it will not use a key with looser permissions.</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>chmod 600 ~/.ssh/id_rsa
+chmod 600 ~/.ssh/id_ed25519
+chmod 600 ~/downloads/my-server.pem</code></pre>
+                </div>
+
+                <h3>.env files</h3>
+                <p>A <code>.env</code> file typically contains database passwords, API keys, and other secrets. If it is readable by others (644 or 666), any user on the system can read those credentials &mdash; a major risk on shared hosting. Set it to 600:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>chmod 600 .env</code></pre>
+                </div>
+                <p>If your web server process needs to read <code>.env</code>, make the web server user the owner (<code>chown www-data .env</code>) rather than widening the permissions.</p>
+
+                <h3>SSL / TLS private keys</h3>
+                <p>Private keys for HTTPS certificates (e.g. <code>privkey.pem</code> in Let's Encrypt setups) must be unreadable by other users. The web server process reads them as root or a privileged user before dropping privileges:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>chmod 600 /etc/letsencrypt/live/example.com/privkey.pem</code></pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>chmod 600 vs similar modes</h2>
+                <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--border-color);">
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Mode</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Symbolic</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Typical use</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background:rgba(0,123,255,0.05); border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><strong>600</strong></td><td style="padding:8px 12px;"><code>rw-------</code></td><td style="padding:8px 12px;">SSH private keys, <code>.env</code>, SSL private keys</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">400</td><td style="padding:8px 12px;"><code>r--------</code></td><td style="padding:8px 12px;">Read-only secrets (prevents accidental overwrite)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">640</td><td style="padding:8px 12px;"><code>rw-r-----</code></td><td style="padding:8px 12px;">Config files readable by a specific group</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">644</td><td style="padding:8px 12px;"><code>rw-r--r--</code></td><td style="padding:8px 12px;">Public config files, web content</td></tr>
+                        <tr><td style="padding:8px 12px;">700</td><td style="padding:8px 12px;"><code>rwx------</code></td><td style="padding:8px 12px;">Private directories (e.g. <code>~/.ssh/</code>)</td></tr>
+                    </tbody>
+                </table>
+                <p><strong>600 vs 400:</strong> Both keep group and others out. The difference is that 400 removes the owner's write bit too, preventing accidental overwriting. For SSH keys, both work. 400 is slightly more defensive.</p>
+            </section>
+
+            <section>
+                <h2>The chmod -R 600 trap</h2>
+                <p>Never run <code>chmod -R 600</code> on a directory. The <code>-R</code> flag recurses into subdirectories and applies 600 to them too &mdash; stripping the execute bit that directories need to be traversed. The result: you can no longer <code>cd</code> into those directories or access any files inside them.</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># DANGEROUS — do not do this
+chmod -R 600 ~/.ssh   # locks you out of your own SSH directory
+
+# CORRECT — set files to 600, directory to 700
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_rsa
+chmod 600 ~/.ssh/id_ed25519
+chmod 644 ~/.ssh/authorized_keys  # public key file — readable is fine</code></pre>
+                </div>
+            </section>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>What does chmod 600 mean?</summary>
+                    <p><code>chmod 600</code> sets <code>rw-------</code>. The owner can read and write (6 = 4+2). The group and all other users have zero access. It is the required permission for SSH private keys, <code>.env</code> files, and SSL private keys.</p>
+                </details>
+
+                <details>
+                    <summary>Why does SSH say WARNING: UNPROTECTED PRIVATE KEY FILE?</summary>
+                    <p>OpenSSH refuses to use a private key if the group or others have any read or write access. Fix it with <code>chmod 600 ~/.ssh/id_rsa</code>. Also make sure the <code>~/.ssh</code> directory itself is <code>chmod 700</code>. OpenSSH enforces these permissions for security &mdash; a key readable by other users on the system could be silently copied.</p>
+                </details>
+
+                <details>
+                    <summary>Should .env files be chmod 600 or 644?</summary>
+                    <p><code>.env</code> files must be <strong>600</strong> (or at most 640 if a group process needs to read them). A <code>.env</code> file at 644 is readable by every user on the system. Since <code>.env</code> files typically contain database passwords and API keys, world-readable permissions are a serious security risk &mdash; especially on shared hosting.</p>
+                </details>
+
+                <details>
+                    <summary>What is the difference between chmod 600 and chmod 400?</summary>
+                    <p><code>chmod 600</code> gives the owner read and write (<code>rw-------</code>). <code>chmod 400</code> gives the owner read only (<code>r--------</code>). For SSH keys, either satisfies OpenSSH's requirements. <code>400</code> is slightly more defensive because it prevents accidental overwriting. <code>600</code> is the more common convention.</p>
+                </details>
+
+                <details>
+                    <summary>Is it dangerous to use chmod -R 600 on a directory?</summary>
+                    <p>Yes. <code>chmod -R 600</code> removes the execute bit from all directories in the tree. Without the execute bit, a directory cannot be entered and its files become inaccessible. If you run this on <code>~/.ssh</code> or your home directory you can lock yourself out of SSH. Always set directories and files separately: <code>chmod 700 ~/.ssh</code> and <code>chmod 600 ~/.ssh/id_rsa</code>.</p>
+                </details>
+            </section>
+
+            <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                <p style="margin:0 0 0.75rem;"><strong>Calculate any chmod permission instantly</strong></p>
+                <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+            </div>
+
+            <section>
+                <h2>Related permission guides</h2>
+                <ul>
+                    <li><a href="chmod-755.html">chmod 755 explained</a> &mdash; for directories and executable scripts</li>
+                    <li><a href="chmod-644.html">chmod 644 explained</a> &mdash; the standard for web files</li>
+                    <li><a href="chmod-777.html">chmod 777: why it's a security risk</a></li>
+                    <li><a href="chmod-775.html">chmod 775 for Laravel and WordPress directories</a></li>
+                </ul>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

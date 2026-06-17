@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="chmod 644 explained: learn what rw-r--r-- means, why it's the standard for web files and config files, and how to apply it recursively on a Linux server.">
+    <meta name="keywords" content="chmod 644 explained, chmod 644 meaning, rw-r--r-- permissions, chmod 644 file, linux file permissions 644, chmod 644 web server">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/chmod-644.html">
+    <meta property="og:title" content="chmod 644 Explained: Permissions for Files and Web Servers">
+    <meta property="og:description" content="Learn what rw-r--r-- means, why 644 is the standard for web files and configs, and how to apply it recursively.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/chmod-644.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>chmod 644 Explained: Permissions for Files and Web Servers &ndash; JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "chmod 644 Explained: Permissions for Files and Web Servers",
+      "description": "Learn what rw-r--r-- means, why 644 is the standard for web files and config files, and how to apply it recursively on a Linux server.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-06-17",
+      "dateModified": "2026-06-17",
+      "url": "https://jsondevtools.org/blog/chmod-644.html"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "chmod 644 Explained", "item": "https://jsondevtools.org/blog/chmod-644.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does chmod 644 mean?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 644 sets rw-r--r--. The owner can read and write the file (6 = 4+2). The group and others can only read it (4). It is the standard permission for web files, configuration files, and any file that should be publicly readable but only owner-writable." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should PHP files be 644 or 755?",
+          "acceptedAnswer": { "@type": "Answer", "text": "PHP files should be 644. The web server (Apache/Nginx) reads and executes PHP files as a server-side process — they do not need the Unix execute bit. Setting PHP files to 755 or 777 is unnecessary and increases the attack surface." }
+        },
+        {
+          "@type": "Question",
+          "name": "What should .htaccess permissions be?",
+          "acceptedAnswer": { "@type": "Answer", "text": ".htaccess files should be 644. The web server needs to read them, but only the owner should be able to write to them. Setting .htaccess to 777 is a security risk on shared hosting because other users on the same server could overwrite it." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between 644 and 640?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 644 allows everyone (others) to read the file. chmod 640 blocks others entirely — only the owner can write and the group can read. Use 640 for config files that contain group-level secrets, like database credentials that your web server group needs but the public should not see." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I set 644 on all files recursively?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use: find /path -type f -exec chmod 644 {} \\; This sets 644 only on regular files, not on directories (which need the execute bit to be entered). To also set directories to 755, run: find /path -type d -exec chmod 755 {} \\;" }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>chmod 644 Explained</span>
+            </nav>
+            <h1>chmod 644 Explained: Permissions for Files and Web Servers</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published: June 17, 2026 &middot; Last updated: June 17, 2026 &middot; 5 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <section>
+                <p>When you upload a website, reset a broken file permission, or harden a fresh server, <strong>chmod 644</strong> is the mode you reach for first. It is the permission you will apply to the vast majority of files on a Linux web server &mdash; HTML, CSS, PHP, images, and config files all belong here. This guide explains exactly what it controls and which files should (and should not) use it.</p>
+
+                <div style="background:var(--light-bg); border-left:4px solid var(--primary-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0;">
+                    <strong>Quick answer:</strong> <code>chmod 644</code> means <code>rw-r--r--</code>. The owner gets read+write (6 = 4+2). The group and others get read-only (4). No execute bit is set. Use it for HTML, CSS, PHP, config files, and most regular files on a web server.
+                </div>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Need to calculate or convert a chmod mode?</strong></p>
+                    <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>How 644 is calculated</h2>
+                <p>Each octal digit is the sum of three permission bits: read (4), write (2), execute (1). For chmod 644:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Owner:  6 = 4 (read) + 2 (write) + 0 = rw-
+Group:  4 = 4 (read) + 0         + 0 = r--
+Others: 4 = 4 (read) + 0         + 0 = r--
+
+Result: rw-r--r--</code></pre>
+                </div>
+                <p>Neither the group nor others has the write or execute bit, so a file with 644 can be read by anyone on the system but modified only by its owner.</p>
+            </section>
+
+            <section>
+                <h2>What files should be 644?</h2>
+
+                <h3>Web server files</h3>
+                <p>HTML, CSS, JavaScript, PHP, images, and most other files served by a web server should be 644. Apache and Nginx read these files as a server process &mdash; they do not need the Unix execute bit to interpret PHP or serve HTML. Giving web files the execute bit (e.g. 755) does not help anything and slightly widens the attack surface.</p>
+
+                <h3>Configuration files</h3>
+                <p>Config files that are not sensitive (e.g. <code>nginx.conf</code> snippets in a shared directory, <code>.htaccess</code>) work well at 644. The web server can read them and the owner can update them. If a config file contains credentials that the group should <em>not</em> see, use <a href="chmod-640.html">640</a> or <a href="chmod-600.html">600</a> instead.</p>
+
+                <h3>.htaccess files</h3>
+                <p>Apache's <code>.htaccess</code> should always be 644. The web server reads it on every request. Setting it to 777 on shared hosting is a security risk &mdash; any other user on the server could overwrite your rewrite rules.</p>
+
+                <h3>SSH authorized_keys</h3>
+                <p>The <code>~/.ssh/authorized_keys</code> file should be 644 (or stricter: 600). OpenSSH will refuse to use an authorized_keys file that is group- or world-writable.</p>
+            </section>
+
+            <section>
+                <h2>Shell examples</h2>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Set a single file
+chmod 644 index.html
+
+# Set all regular files in a directory tree
+find /var/www -type f -exec chmod 644 {} \;
+
+# Set files AND directories correctly at once
+find /var/www -type d -exec chmod 755 {} \;
+find /var/www -type f -exec chmod 644 {} \;
+
+# Verify
+ls -l index.html
+# -rw-r--r-- 1 www-data www-data 2048 Jun 17 index.html</code></pre>
+                </div>
+                <p>The two-command <code>find</code> approach above is the recommended way to reset a web root: directories get 755 (so they can be entered) and files get 644 (world-readable, owner-writable only).</p>
+            </section>
+
+            <section>
+                <h2>chmod 644 vs other common modes</h2>
+                <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--border-color);">
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Mode</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Symbolic</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Others can read?</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Typical use</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background:rgba(0,123,255,0.05); border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><strong>644</strong></td><td style="padding:8px 12px;"><code>rw-r--r--</code></td><td style="padding:8px 12px;">Yes</td><td style="padding:8px 12px;">Web files, configs, most regular files</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">640</td><td style="padding:8px 12px;"><code>rw-r-----</code></td><td style="padding:8px 12px;">No</td><td style="padding:8px 12px;">Group-readable configs (DB credentials)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">600</td><td style="padding:8px 12px;"><code>rw-------</code></td><td style="padding:8px 12px;">No</td><td style="padding:8px 12px;">SSH private keys, <code>.env</code> files</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">755</td><td style="padding:8px 12px;"><code>rwxr-xr-x</code></td><td style="padding:8px 12px;">Yes + execute</td><td style="padding:8px 12px;">Directories, shell scripts</td></tr>
+                        <tr><td style="padding:8px 12px;">664</td><td style="padding:8px 12px;"><code>rw-rw-r--</code></td><td style="padding:8px 12px;">Yes</td><td style="padding:8px 12px;">Group-collaborative files (use with sgid dir)</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>What does chmod 644 mean?</summary>
+                    <p><code>chmod 644</code> sets <code>rw-r--r--</code>. The owner can read and write the file (6 = 4+2). The group and others can only read it (4). No one but the owner can modify the file. It is the standard permission for web content, config files, and most regular files on a Linux server.</p>
+                </details>
+
+                <details>
+                    <summary>Should PHP files be 644 or 755?</summary>
+                    <p>PHP files should be <strong>644</strong>. The web server (Apache/Nginx) interprets PHP server-side &mdash; it does not need the Unix execute bit. Setting PHP files to 755 is harmless but unnecessary. Setting them to 777 is a security risk because it makes them world-writable.</p>
+                </details>
+
+                <details>
+                    <summary>What should .htaccess permissions be?</summary>
+                    <p><code>.htaccess</code> files should be <strong>644</strong>. Apache needs to read them on every request. On shared hosting, never set <code>.htaccess</code> to 777 &mdash; other users on the same server could overwrite your configuration.</p>
+                </details>
+
+                <details>
+                    <summary>What is the difference between 644 and 640?</summary>
+                    <p><code>chmod 644</code> allows everyone to read the file. <code>chmod 640</code> blocks others entirely &mdash; only the owner can write and the group can read. Use 640 for config files with credentials that your web server group (e.g. <code>www-data</code>) needs to read but the public should not access.</p>
+                </details>
+
+                <details>
+                    <summary>How do I set 644 on all files recursively?</summary>
+                    <p>Use <code>find /path -type f -exec chmod 644 {} \;</code>. This targets only regular files, not directories. Directories need the execute bit to be entered, so they should be set to 755 separately: <code>find /path -type d -exec chmod 755 {} \;</code>. Avoid <code>chmod -R 644</code> because it strips the execute bit from directories and makes them inaccessible.</p>
+                </details>
+            </section>
+
+            <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                <p style="margin:0 0 0.75rem;"><strong>Calculate any chmod permission instantly</strong></p>
+                <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+            </div>
+
+            <section>
+                <h2>Related permission guides</h2>
+                <ul>
+                    <li><a href="chmod-755.html">chmod 755 explained</a> &mdash; for directories and executable scripts</li>
+                    <li><a href="chmod-600.html">chmod 600 for SSH keys and .env files</a></li>
+                    <li><a href="chmod-777.html">chmod 777: why it's a security risk</a></li>
+                    <li><a href="chmod-775.html">chmod 775 for Laravel and WordPress directories</a></li>
+                </ul>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -56,6 +56,7 @@
         '                        <li><a href="' + r + 'uuid.html">UUID Generator</a></li>\n' +
         '                        <li><a href="' + r + 'hash.html">Hash Generator</a></li>\n' +
         '                        <li><a href="' + r + 'cron.html">CRON Generator</a></li>\n' +
+        '                        <li><a href="' + r + 'chmod.html">Chmod Calculator</a></li>\n' +
         '                    </ul>\n' +
         '                </li>\n' +
         '                <li class="nav-dropdown">\n' +

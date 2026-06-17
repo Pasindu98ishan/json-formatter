@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="What does chmod 755 mean? Learn how the octal number 755 maps to rwxr-xr-x, when to use it for files vs directories, and how it compares to 644 and 777.">
+    <meta name="keywords" content="chmod 755 meaning, what does chmod 755 mean, chmod 755 directory, chmod 755 file, rwxr-xr-x explained, linux file permissions 755">
+    <meta name="author" content="Pasindu Ishan">
+    <link rel="canonical" href="https://jsondevtools.org/blog/chmod-755.html">
+    <meta property="og:title" content="What Does chmod 755 Mean? (rwxr-xr-x Explained)">
+    <meta property="og:description" content="Learn how 755 maps to rwxr-xr-x, when to use it on files vs directories, and how it compares to 644 and 777.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/chmod-755.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>What Does chmod 755 Mean? (rwxr-xr-x Explained) &ndash; JSON Dev Tools</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "What Does chmod 755 Mean? (rwxr-xr-x Explained)",
+      "description": "Learn how the octal number 755 maps to rwxr-xr-x, when to use it for files vs directories, and how it compares to 644 and 777.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-06-17",
+      "dateModified": "2026-06-17",
+      "url": "https://jsondevtools.org/blog/chmod-755.html"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "What Does chmod 755 Mean?", "item": "https://jsondevtools.org/blog/chmod-755.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does chmod 755 mean?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 755 sets the permission rwxr-xr-x. The owner gets full read, write, and execute (7 = 4+2+1). The group and others each get read and execute only (5 = 4+1). It is the standard permission for directories and executable scripts." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should directories be 755 or 644?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Directories should be 755 (or at minimum 711). Directories need the execute bit to be entered — without it, even the owner cannot cd into the directory. Files that are not executables should be 644." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is chmod 755 safe?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, for directories and executable scripts chmod 755 is safe and is the recommended default. It allows everyone to read and execute but only the owner to write. Never apply 755 to files containing secrets — use 600 for those." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between chmod 755 and chmod 777?",
+          "acceptedAnswer": { "@type": "Answer", "text": "chmod 777 gives everyone (owner, group, and others) full read, write, and execute access. chmod 755 only gives the owner write access — the group and others can read and execute but cannot modify the file. 777 is almost always a security risk; 755 is safe for public directories and executables." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I check the current permissions of a file?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Run ls -l filename to see the symbolic permission string (e.g. -rwxr-xr-x). Run stat filename for the numeric octal mode. On Linux you can also run stat -c '%a %n' filename to print just the octal value." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>What Does chmod 755 Mean?</span>
+            </nav>
+            <h1>What Does chmod 755 Mean? (rwxr-xr-x Explained)</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published: June 17, 2026 &middot; Last updated: June 17, 2026 &middot; 5 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <section>
+                <p>You will see <strong>755</strong> constantly &mdash; on shell scripts, on web directories, and in nearly every deployment guide. It is the mode most tutorials reach for when something needs to be runnable or browsable by everyone, and for those cases it is exactly right. This guide breaks down what the number actually controls and when it is the correct choice.</p>
+
+                <div style="background:var(--light-bg); border-left:4px solid var(--primary-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0;">
+                    <strong>Quick answer:</strong> <code>chmod 755</code> means <code>rwxr-xr-x</code>. The owner gets full access (7 = read+write+execute), the group gets read+execute (5 = read+execute), and others get the same as the group (5). Use it for directories, shell scripts, and web server executables.
+                </div>
+
+                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                    <p style="margin:0 0 0.75rem;"><strong>Need to calculate or convert a chmod mode?</strong></p>
+                    <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+                </div>
+            </section>
+
+            <section>
+                <h2>How 755 is calculated</h2>
+                <p>Unix permissions are stored as three octal digits, one for each class: <strong>owner</strong>, <strong>group</strong>, and <strong>others</strong>. Each digit is the sum of three permission bits:</p>
+                <ul>
+                    <li><strong>Read (r) = 4</strong></li>
+                    <li><strong>Write (w) = 2</strong></li>
+                    <li><strong>Execute (x) = 1</strong></li>
+                </ul>
+                <p>For chmod 755:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Owner:  7 = 4 (read) + 2 (write) + 1 (execute) = rwx
+Group:  5 = 4 (read) + 0        + 1 (execute) = r-x
+Others: 5 = 4 (read) + 0        + 1 (execute) = r-x
+
+Result: rwxr-xr-x</code></pre>
+                </div>
+                <p>The missing write bit in group and others is shown as a dash (<code>-</code>), giving the full symbolic string <code>rwxr-xr-x</code>.</p>
+            </section>
+
+            <section>
+                <h2>Reading rwxr-xr-x character by character</h2>
+                <p>When you run <code>ls -l</code>, the permission string has 10 characters. The first is the file type (<code>-</code> for a regular file, <code>d</code> for a directory). The remaining 9 are three groups of three:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-  rwx  r-x  r-x
+^   ^    ^    ^
+|   |    |    others (r-x = read + execute)
+|   |    group  (r-x = read + execute)
+|   owner    (rwx = read + write + execute)
+file type (- = regular file, d = directory)</code></pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>When to use chmod 755</h2>
+
+                <h3>Directories</h3>
+                <p>Directories almost always need the execute bit set &mdash; without it, no one (not even the owner of a file inside) can enter the directory with <code>cd</code> or access its contents. <code>755</code> is the correct default for any directory that should be publicly accessible:</p>
+                <ul>
+                    <li>Web server document roots (<code>/var/www/html</code>)</li>
+                    <li>Application directories that multiple users need to read</li>
+                    <li>Shared project directories</li>
+                </ul>
+
+                <h3>Executable files</h3>
+                <p>Shell scripts, CLI tools, and compiled binaries that anyone should be able to run belong at 755:</p>
+                <ul>
+                    <li>Deploy scripts (<code>deploy.sh</code>)</li>
+                    <li>Cron job scripts</li>
+                    <li>System-wide CLI tools installed in <code>/usr/local/bin</code></li>
+                </ul>
+
+                <h3>What 755 is not for</h3>
+                <p>Do <strong>not</strong> use 755 on files containing sensitive data. For private keys, <code>.env</code> files, or any file that should only be read by the owner, use <a href="chmod-600.html">chmod 600</a> instead.</p>
+            </section>
+
+            <section>
+                <h2>Shell examples</h2>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Set a script to be executable by everyone
+chmod 755 deploy.sh
+
+# Set a directory to be publicly accessible
+chmod 755 /var/www/html
+
+# Recursively set all directories to 755 (files stay as-is)
+find /var/www -type d -exec chmod 755 {} \;
+
+# Verify the result
+ls -l deploy.sh
+# -rwxr-xr-x 1 user group 1234 Jun 17 deploy.sh</code></pre>
+                </div>
+
+                <h3>Recursive 755 &mdash; the safe way</h3>
+                <p>Running <code>chmod -R 755 /var/www</code> sets 755 on <em>both</em> files and directories. That is usually fine for a web root, but be aware it makes every file executable, which is unnecessary for plain HTML, CSS, and PHP files. The more precise approach is to set directories to 755 and regular files to 644 separately:</p>
+                <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>find /var/www -type d -exec chmod 755 {} \;
+find /var/www -type f -exec chmod 644 {} \;</code></pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>chmod 755 vs other common modes</h2>
+                <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--border-color);">
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Mode</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Symbolic</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Owner</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Group</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Others</th>
+                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Typical use</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background:rgba(0,123,255,0.05); border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;"><strong>755</strong></td><td style="padding:8px 12px;"><code>rwxr-xr-x</code></td><td style="padding:8px 12px;">rwx</td><td style="padding:8px 12px;">r-x</td><td style="padding:8px 12px;">r-x</td><td style="padding:8px 12px;">Directories, scripts, executables</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">644</td><td style="padding:8px 12px;"><code>rw-r--r--</code></td><td style="padding:8px 12px;">rw-</td><td style="padding:8px 12px;">r--</td><td style="padding:8px 12px;">r--</td><td style="padding:8px 12px;">Web files, config files</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">700</td><td style="padding:8px 12px;"><code>rwx------</code></td><td style="padding:8px 12px;">rwx</td><td style="padding:8px 12px;">---</td><td style="padding:8px 12px;">---</td><td style="padding:8px 12px;">Private directories (<code>~/.ssh</code>)</td></tr>
+                        <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:8px 12px;">600</td><td style="padding:8px 12px;"><code>rw-------</code></td><td style="padding:8px 12px;">rw-</td><td style="padding:8px 12px;">---</td><td style="padding:8px 12px;">---</td><td style="padding:8px 12px;">SSH keys, <code>.env</code> files</td></tr>
+                        <tr><td style="padding:8px 12px;">777</td><td style="padding:8px 12px;"><code>rwxrwxrwx</code></td><td style="padding:8px 12px;">rwx</td><td style="padding:8px 12px;">rwx</td><td style="padding:8px 12px;">rwx</td><td style="padding:8px 12px;">Avoid &mdash; world-writable security risk</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>What does chmod 755 mean?</summary>
+                    <p><code>chmod 755</code> sets the permission <code>rwxr-xr-x</code>. The owner gets full read, write, and execute (7 = 4+2+1). The group and others each get read and execute only (5 = 4+1). It is the standard permission for directories and executable scripts.</p>
+                </details>
+
+                <details>
+                    <summary>Should directories be 755 or 644?</summary>
+                    <p>Directories should be <strong>755</strong> (or at minimum 711). The execute bit on a directory means "permission to enter" &mdash; without it, no one can <code>cd</code> into the directory or access files inside it, even if the files themselves have open permissions. Regular non-executable files should be 644.</p>
+                </details>
+
+                <details>
+                    <summary>Is chmod 755 safe?</summary>
+                    <p>Yes, for directories and executable scripts, 755 is safe and is the recommended default on most Linux systems. It allows everyone to read and execute, but only the owner to write or modify the file. <strong>Do not</strong> apply 755 to files containing private data &mdash; use <a href="chmod-600.html">chmod 600</a> for secrets.</p>
+                </details>
+
+                <details>
+                    <summary>What is the difference between chmod 755 and chmod 777?</summary>
+                    <p><code>chmod 777</code> gives everyone (owner, group, and all other users) full read, write, <em>and</em> execute. <code>chmod 755</code> only gives the owner write access. On a web server, a world-writable file (777) means a compromised web process can overwrite or replace it. <a href="chmod-777.html">777 is almost always a security risk</a>; 755 is the safe alternative for executables and directories.</p>
+                </details>
+
+                <details>
+                    <summary>How do I check the current permissions of a file?</summary>
+                    <p>Run <code>ls -l filename</code> to see the symbolic string (e.g. <code>-rwxr-xr-x</code>). Run <code>stat filename</code> for detailed info including the octal mode. On Linux you can also run <code>stat -c '%a %n' filename</code> to print just the octal value and filename.</p>
+                </details>
+            </section>
+
+            <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
+                <p style="margin:0 0 0.75rem;"><strong>Calculate any chmod permission instantly</strong></p>
+                <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+            </div>
+
+            <section>
+                <h2>Related permission guides</h2>
+                <ul>
+                    <li><a href="chmod-644.html">chmod 644 explained</a> &mdash; the standard for web files and config files</li>
+                    <li><a href="chmod-777.html">chmod 777: why it's a security risk</a> &mdash; and what to use instead</li>
+                    <li><a href="chmod-600.html">chmod 600 for SSH keys and .env files</a></li>
+                    <li><a href="chmod-775.html">chmod 775 for Laravel and WordPress directories</a></li>
+                </ul>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
