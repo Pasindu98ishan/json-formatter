@@ -32,7 +32,15 @@
       "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
       "datePublished": "2026-06-17",
       "dateModified": "2026-06-17",
-      "url": "https://jsondevtools.org/blog/chmod-777.html"
+      "url": "https://jsondevtools.org/blog/chmod-777.html",
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://jsondevtools.org/blog/img/chmod-777-bits.svg",
+        "contentUrl": "https://jsondevtools.org/blog/img/chmod-777-bits.svg",
+        "caption": "chmod 777 permission bits — rwxrwxrwx, world-writable",
+        "width": 640,
+        "height": 232
+      }
     }
     </script>
     <script type="application/ld+json">
@@ -103,18 +111,51 @@
             <section>
                 <p>Countless tutorials and Stack Overflow answers end with <code>chmod 777</code> as the fix for a permission error. It works &mdash; and that is precisely the problem. <strong>chmod 777</strong> sets <code>rwxrwxrwx</code>: every user, group, and process on the system can read, write, and execute the file. On a web server that means any compromised script, any other user on shared hosting, and any web request can overwrite your files. It is one of the most common self-inflicted security vulnerabilities on Linux servers.</p>
 
-                <div style="background:#fff3cd; border-left:4px solid #f0ad4e; border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0;">
+                <div class="warning-box">
                     <strong>Security warning:</strong> Do not use <code>chmod 777</code> on production servers. If you ran it to fix a permission error, scroll to the <a href="#what-to-use-instead">safe alternatives section</a> below and fix it now.
                 </div>
 
-                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
-                    <p style="margin:0 0 0.75rem;"><strong>Calculate the right chmod mode for your situation</strong></p>
-                    <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+                <div class="tool-cta">
+                    <h3>Calculate the right chmod mode for your situation</h3>
+                    <a href="../chmod.html" class="btn">Open Chmod Calculator &rarr;</a>
                 </div>
             </section>
 
             <section>
                 <h2>What chmod 777 actually does</h2>
+
+                <figure class="perm-figure">
+                    <svg viewBox="0 0 640 232" role="img" aria-labelledby="pb777t pb777d" xmlns="http://www.w3.org/2000/svg">
+                        <title id="pb777t">chmod 777 permission bits</title>
+                        <desc id="pb777d">Owner, group, and others all have read, write, and execute (digit 7, binary 111), giving the symbolic mode rwxrwxrwx. The others-write bit is highlighted in red because it makes the file world-writable.</desc>
+                        <text x="320" y="28" text-anchor="middle"><tspan class="pb-mode" font-size="19">chmod 777</tspan><tspan class="pb-sym" font-size="19"> = rwxrwxrwx</tspan></text>
+                        <!-- Owner (7) -->
+                        <rect class="pb-card-fill pb-card-stroke" x="20" y="44" width="186" height="150" rx="12"/>
+                        <text class="pb-label" x="113" y="66" text-anchor="middle" font-size="12" letter-spacing="1.5">OWNER</text>
+                        <text x="113" y="98" text-anchor="middle"><tspan class="pb-digit" font-size="24">7</tspan><tspan class="pb-binary" font-size="13" dx="6">111</tspan></text>
+                        <rect class="pb-granted-fill" x="32" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="57" y="140" text-anchor="middle" font-size="18" font-weight="700">r</text><text class="pb-granted-text" x="57" y="158" text-anchor="middle" font-size="11">4</text>
+                        <rect class="pb-granted-fill" x="88" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="113" y="140" text-anchor="middle" font-size="18" font-weight="700">w</text><text class="pb-granted-text" x="113" y="158" text-anchor="middle" font-size="11">2</text>
+                        <rect class="pb-granted-fill" x="144" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="169" y="140" text-anchor="middle" font-size="18" font-weight="700">x</text><text class="pb-granted-text" x="169" y="158" text-anchor="middle" font-size="11">1</text>
+                        <!-- Group (7) -->
+                        <rect class="pb-card-fill pb-card-stroke" x="226" y="44" width="186" height="150" rx="12"/>
+                        <text class="pb-label" x="319" y="66" text-anchor="middle" font-size="12" letter-spacing="1.5">GROUP</text>
+                        <text x="319" y="98" text-anchor="middle"><tspan class="pb-digit" font-size="24">7</tspan><tspan class="pb-binary" font-size="13" dx="6">111</tspan></text>
+                        <rect class="pb-granted-fill" x="238" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="263" y="140" text-anchor="middle" font-size="18" font-weight="700">r</text><text class="pb-granted-text" x="263" y="158" text-anchor="middle" font-size="11">4</text>
+                        <rect class="pb-granted-fill" x="294" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="319" y="140" text-anchor="middle" font-size="18" font-weight="700">w</text><text class="pb-granted-text" x="319" y="158" text-anchor="middle" font-size="11">2</text>
+                        <rect class="pb-granted-fill" x="350" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="375" y="140" text-anchor="middle" font-size="18" font-weight="700">x</text><text class="pb-granted-text" x="375" y="158" text-anchor="middle" font-size="11">1</text>
+                        <!-- Others (7) — world-writable -->
+                        <rect class="pb-card-fill pb-card-stroke" x="432" y="44" width="186" height="150" rx="12"/>
+                        <text class="pb-label" x="525" y="66" text-anchor="middle" font-size="12" letter-spacing="1.5">OTHERS</text>
+                        <text x="525" y="98" text-anchor="middle"><tspan class="pb-digit" font-size="24">7</tspan><tspan class="pb-binary" font-size="13" dx="6">111</tspan></text>
+                        <rect class="pb-granted-fill" x="444" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="469" y="140" text-anchor="middle" font-size="18" font-weight="700">r</text><text class="pb-granted-text" x="469" y="158" text-anchor="middle" font-size="11">4</text>
+                        <rect class="pb-danger-fill pb-danger-stroke" x="500" y="116" width="50" height="50" rx="8"/><text class="pb-danger-text" x="525" y="140" text-anchor="middle" font-size="18" font-weight="700">w</text><text class="pb-danger-text" x="525" y="158" text-anchor="middle" font-size="11">2</text>
+                        <rect class="pb-granted-fill" x="556" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="581" y="140" text-anchor="middle" font-size="18" font-weight="700">x</text><text class="pb-granted-text" x="581" y="158" text-anchor="middle" font-size="11">1</text>
+                        <!-- World-writable flag -->
+                        <text class="pb-flag-text" x="320" y="216" text-anchor="middle" font-size="13">&#9888; World-writable: any user or process can modify this file</text>
+                    </svg>
+                    <figcaption>chmod 777 = <code>rwxrwxrwx</code>. Owner, group, and others all get read + write + execute. The red bit is the world-writable flag &mdash; green = granted, gray = denied.</figcaption>
+                </figure>
+
                 <p>Each digit in <code>777</code> is the sum of read (4) + write (2) + execute (1) = 7 &mdash; all three permissions, for all three classes:</p>
                 <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -157,9 +198,9 @@ Result: rwxrwxrwx</code></pre>
                 <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
                     <thead>
                         <tr style="border-bottom:2px solid var(--border-color);">
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Situation</th>
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Use instead</th>
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Why</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Situation</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Use instead</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Why</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -239,9 +280,9 @@ find /var/www -perm -o+w -type d</code></pre>
                 </details>
             </section>
 
-            <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
-                <p style="margin:0 0 0.75rem;"><strong>Calculate the right permission for your situation</strong></p>
-                <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+            <div class="tool-cta">
+                <h3>Calculate the right permission for your situation</h3>
+                <a href="../chmod.html" class="btn">Open Chmod Calculator &rarr;</a>
             </div>
 
             <section>

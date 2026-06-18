@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="chmod 644 explained: learn what rw-r--r-- means, why it's the standard for web files and config files, and how to apply it recursively on a Linux server.">
+    <meta name="description" content="chmod 644 explained: what rw-r--r-- means, why it's the standard for web files and configs, and how to apply it recursively on a Linux server.">
     <meta name="keywords" content="chmod 644 explained, chmod 644 meaning, rw-r--r-- permissions, chmod 644 file, linux file permissions 644, chmod 644 web server">
     <meta name="author" content="Pasindu Ishan">
     <link rel="canonical" href="https://jsondevtools.org/blog/chmod-644.html">
@@ -32,7 +32,15 @@
       "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
       "datePublished": "2026-06-17",
       "dateModified": "2026-06-17",
-      "url": "https://jsondevtools.org/blog/chmod-644.html"
+      "url": "https://jsondevtools.org/blog/chmod-644.html",
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://jsondevtools.org/blog/img/chmod-644-bits.svg",
+        "contentUrl": "https://jsondevtools.org/blog/img/chmod-644-bits.svg",
+        "caption": "chmod 644 permission bits — rw-r--r--",
+        "width": 640,
+        "height": 210
+      }
     }
     </script>
     <script type="application/ld+json">
@@ -103,18 +111,49 @@
             <section>
                 <p>When you upload a website, reset a broken file permission, or harden a fresh server, <strong>chmod 644</strong> is the mode you reach for first. It is the permission you will apply to the vast majority of files on a Linux web server &mdash; HTML, CSS, PHP, images, and config files all belong here. This guide explains exactly what it controls and which files should (and should not) use it.</p>
 
-                <div style="background:var(--light-bg); border-left:4px solid var(--primary-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0;">
+                <div class="quick-answer">
                     <strong>Quick answer:</strong> <code>chmod 644</code> means <code>rw-r--r--</code>. The owner gets read+write (6 = 4+2). The group and others get read-only (4). No execute bit is set. Use it for HTML, CSS, PHP, config files, and most regular files on a web server.
                 </div>
 
-                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
-                    <p style="margin:0 0 0.75rem;"><strong>Need to calculate or convert a chmod mode?</strong></p>
-                    <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+                <div class="tool-cta">
+                    <h3>Need to calculate or convert a chmod mode?</h3>
+                    <a href="../chmod.html" class="btn">Open Chmod Calculator &rarr;</a>
                 </div>
             </section>
 
             <section>
                 <h2>How 644 is calculated</h2>
+
+                <figure class="perm-figure">
+                    <svg viewBox="0 0 640 210" role="img" aria-labelledby="pb644t pb644d" xmlns="http://www.w3.org/2000/svg">
+                        <title id="pb644t">chmod 644 permission bits</title>
+                        <desc id="pb644d">Owner has read and write (digit 6, binary 110). Group and others have read only (digit 4, binary 100). No execute bit is set. Symbolic mode rw-r--r--.</desc>
+                        <text x="320" y="28" text-anchor="middle"><tspan class="pb-mode" font-size="19">chmod 644</tspan><tspan class="pb-sym" font-size="19"> = rw-r--r--</tspan></text>
+                        <!-- Owner (6) -->
+                        <rect class="pb-card-fill pb-card-stroke" x="20" y="44" width="186" height="150" rx="12"/>
+                        <text class="pb-label" x="113" y="66" text-anchor="middle" font-size="12" letter-spacing="1.5">OWNER</text>
+                        <text x="113" y="98" text-anchor="middle"><tspan class="pb-digit" font-size="24">6</tspan><tspan class="pb-binary" font-size="13" dx="6">110</tspan></text>
+                        <rect class="pb-granted-fill" x="32" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="57" y="140" text-anchor="middle" font-size="18" font-weight="700">r</text><text class="pb-granted-text" x="57" y="158" text-anchor="middle" font-size="11">4</text>
+                        <rect class="pb-granted-fill" x="88" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="113" y="140" text-anchor="middle" font-size="18" font-weight="700">w</text><text class="pb-granted-text" x="113" y="158" text-anchor="middle" font-size="11">2</text>
+                        <rect class="pb-denied-fill" x="144" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="169" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="169" y="158" text-anchor="middle" font-size="11">1</text>
+                        <!-- Group (4) -->
+                        <rect class="pb-card-fill pb-card-stroke" x="226" y="44" width="186" height="150" rx="12"/>
+                        <text class="pb-label" x="319" y="66" text-anchor="middle" font-size="12" letter-spacing="1.5">GROUP</text>
+                        <text x="319" y="98" text-anchor="middle"><tspan class="pb-digit" font-size="24">4</tspan><tspan class="pb-binary" font-size="13" dx="6">100</tspan></text>
+                        <rect class="pb-granted-fill" x="238" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="263" y="140" text-anchor="middle" font-size="18" font-weight="700">r</text><text class="pb-granted-text" x="263" y="158" text-anchor="middle" font-size="11">4</text>
+                        <rect class="pb-denied-fill" x="294" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="319" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="319" y="158" text-anchor="middle" font-size="11">2</text>
+                        <rect class="pb-denied-fill" x="350" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="375" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="375" y="158" text-anchor="middle" font-size="11">1</text>
+                        <!-- Others (4) -->
+                        <rect class="pb-card-fill pb-card-stroke" x="432" y="44" width="186" height="150" rx="12"/>
+                        <text class="pb-label" x="525" y="66" text-anchor="middle" font-size="12" letter-spacing="1.5">OTHERS</text>
+                        <text x="525" y="98" text-anchor="middle"><tspan class="pb-digit" font-size="24">4</tspan><tspan class="pb-binary" font-size="13" dx="6">100</tspan></text>
+                        <rect class="pb-granted-fill" x="444" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="469" y="140" text-anchor="middle" font-size="18" font-weight="700">r</text><text class="pb-granted-text" x="469" y="158" text-anchor="middle" font-size="11">4</text>
+                        <rect class="pb-denied-fill" x="500" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="525" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="525" y="158" text-anchor="middle" font-size="11">2</text>
+                        <rect class="pb-denied-fill" x="556" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="581" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="581" y="158" text-anchor="middle" font-size="11">1</text>
+                    </svg>
+                    <figcaption>chmod 644 = <code>rw-r--r--</code> &mdash; owner read + write (6), group and others read-only (4), no execute. Green = granted, gray = denied.</figcaption>
+                </figure>
+
                 <p>Each octal digit is the sum of three permission bits: read (4), write (2), execute (1). For chmod 644:</p>
                 <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -169,10 +208,10 @@ ls -l index.html
                 <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
                     <thead>
                         <tr style="border-bottom:2px solid var(--border-color);">
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Mode</th>
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Symbolic</th>
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Others can read?</th>
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Typical use</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Mode</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Symbolic</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Others can read?</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Typical use</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -214,9 +253,9 @@ ls -l index.html
                 </details>
             </section>
 
-            <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
-                <p style="margin:0 0 0.75rem;"><strong>Calculate any chmod permission instantly</strong></p>
-                <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+            <div class="tool-cta">
+                <h3>Calculate any chmod permission instantly</h3>
+                <a href="../chmod.html" class="btn">Open Chmod Calculator &rarr;</a>
             </div>
 
             <section>

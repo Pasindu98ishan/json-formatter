@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="chmod 600 explained: why SSH private keys, .env files, and SSL private keys must be owner-read-only, and how to fix the OpenSSH 'unprotected private key' error.">
+    <meta name="description" content="chmod 600 explained: why SSH keys, .env files, and SSL private keys must be owner-read-only, and how to fix the OpenSSH 'unprotected private key' error.">
     <meta name="keywords" content="chmod 600 private key, chmod 600 ssh key, chmod 600 env file, unprotected private key file, chmod 600 meaning, linux file permissions 600">
     <meta name="author" content="Pasindu Ishan">
     <link rel="canonical" href="https://jsondevtools.org/blog/chmod-600.html">
@@ -32,7 +32,15 @@
       "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
       "datePublished": "2026-06-17",
       "dateModified": "2026-06-17",
-      "url": "https://jsondevtools.org/blog/chmod-600.html"
+      "url": "https://jsondevtools.org/blog/chmod-600.html",
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://jsondevtools.org/blog/img/chmod-600-bits.svg",
+        "contentUrl": "https://jsondevtools.org/blog/img/chmod-600-bits.svg",
+        "caption": "chmod 600 permission bits — rw-------",
+        "width": 640,
+        "height": 210
+      }
     }
     </script>
     <script type="application/ld+json">
@@ -103,18 +111,49 @@
             <section>
                 <p>When you try to SSH into a server and get <code>WARNING: UNPROTECTED PRIVATE KEY FILE!</code>, the fix is almost always a single command: <code>chmod 600 ~/.ssh/id_rsa</code>. The same mode protects your <code>.env</code> files and SSL private keys &mdash; anything that must stay readable to you and invisible to everyone else on the system. This guide explains why these files need it and how to set it without locking yourself out.</p>
 
-                <div style="background:var(--light-bg); border-left:4px solid var(--primary-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0;">
+                <div class="quick-answer">
                     <strong>Quick answer:</strong> <code>chmod 600</code> means <code>rw-------</code>. The owner gets read+write (6 = 4+2). Group and others get nothing (0). Use it for <code>~/.ssh/id_rsa</code>, <code>.env</code> files, SSL private keys, and any file that must be completely private to its owner.
                 </div>
 
-                <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
-                    <p style="margin:0 0 0.75rem;"><strong>Need to calculate or convert a chmod mode?</strong></p>
-                    <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+                <div class="tool-cta">
+                    <h3>Need to calculate or convert a chmod mode?</h3>
+                    <a href="../chmod.html" class="btn">Open Chmod Calculator &rarr;</a>
                 </div>
             </section>
 
             <section>
                 <h2>How 600 is calculated</h2>
+
+                <figure class="perm-figure">
+                    <svg viewBox="0 0 640 210" role="img" aria-labelledby="pb600t pb600d" xmlns="http://www.w3.org/2000/svg">
+                        <title id="pb600t">chmod 600 permission bits</title>
+                        <desc id="pb600d">Owner has read and write (digit 6, binary 110). Group and others have no access at all (digit 0, binary 000). Symbolic mode rw-------.</desc>
+                        <text x="320" y="28" text-anchor="middle"><tspan class="pb-mode" font-size="19">chmod 600</tspan><tspan class="pb-sym" font-size="19"> = rw-------</tspan></text>
+                        <!-- Owner (6) -->
+                        <rect class="pb-card-fill pb-card-stroke" x="20" y="44" width="186" height="150" rx="12"/>
+                        <text class="pb-label" x="113" y="66" text-anchor="middle" font-size="12" letter-spacing="1.5">OWNER</text>
+                        <text x="113" y="98" text-anchor="middle"><tspan class="pb-digit" font-size="24">6</tspan><tspan class="pb-binary" font-size="13" dx="6">110</tspan></text>
+                        <rect class="pb-granted-fill" x="32" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="57" y="140" text-anchor="middle" font-size="18" font-weight="700">r</text><text class="pb-granted-text" x="57" y="158" text-anchor="middle" font-size="11">4</text>
+                        <rect class="pb-granted-fill" x="88" y="116" width="50" height="50" rx="8"/><text class="pb-granted-text" x="113" y="140" text-anchor="middle" font-size="18" font-weight="700">w</text><text class="pb-granted-text" x="113" y="158" text-anchor="middle" font-size="11">2</text>
+                        <rect class="pb-denied-fill" x="144" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="169" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="169" y="158" text-anchor="middle" font-size="11">1</text>
+                        <!-- Group (0) -->
+                        <rect class="pb-card-fill pb-card-stroke" x="226" y="44" width="186" height="150" rx="12"/>
+                        <text class="pb-label" x="319" y="66" text-anchor="middle" font-size="12" letter-spacing="1.5">GROUP</text>
+                        <text x="319" y="98" text-anchor="middle"><tspan class="pb-digit" font-size="24">0</tspan><tspan class="pb-binary" font-size="13" dx="6">000</tspan></text>
+                        <rect class="pb-denied-fill" x="238" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="263" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="263" y="158" text-anchor="middle" font-size="11">4</text>
+                        <rect class="pb-denied-fill" x="294" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="319" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="319" y="158" text-anchor="middle" font-size="11">2</text>
+                        <rect class="pb-denied-fill" x="350" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="375" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="375" y="158" text-anchor="middle" font-size="11">1</text>
+                        <!-- Others (0) -->
+                        <rect class="pb-card-fill pb-card-stroke" x="432" y="44" width="186" height="150" rx="12"/>
+                        <text class="pb-label" x="525" y="66" text-anchor="middle" font-size="12" letter-spacing="1.5">OTHERS</text>
+                        <text x="525" y="98" text-anchor="middle"><tspan class="pb-digit" font-size="24">0</tspan><tspan class="pb-binary" font-size="13" dx="6">000</tspan></text>
+                        <rect class="pb-denied-fill" x="444" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="469" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="469" y="158" text-anchor="middle" font-size="11">4</text>
+                        <rect class="pb-denied-fill" x="500" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="525" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="525" y="158" text-anchor="middle" font-size="11">2</text>
+                        <rect class="pb-denied-fill" x="556" y="116" width="50" height="50" rx="8"/><text class="pb-denied-text" x="581" y="141" text-anchor="middle" font-size="18" font-weight="700">&#8211;</text><text class="pb-denied-text" x="581" y="158" text-anchor="middle" font-size="11">1</text>
+                    </svg>
+                    <figcaption>chmod 600 = <code>rw-------</code> &mdash; owner read + write (6), group and others no access at all (0). Green = granted, gray = denied.</figcaption>
+                </figure>
+
                 <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre><code>Owner:  6 = 4 (read) + 2 (write) + 0 = rw-
@@ -189,9 +228,9 @@ chmod 600 ~/downloads/my-server.pem</code></pre>
                 <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
                     <thead>
                         <tr style="border-bottom:2px solid var(--border-color);">
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Mode</th>
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Symbolic</th>
-                            <th style="padding:8px 12px; text-align:left; color:var(--secondary-color); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Typical use</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Mode</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Symbolic</th>
+                            <th style="padding:8px 12px; text-align:left; color:#fff; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em;">Typical use</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -250,9 +289,9 @@ chmod 644 ~/.ssh/authorized_keys  # public key file — readable is fine</code><
                 </details>
             </section>
 
-            <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
-                <p style="margin:0 0 0.75rem;"><strong>Calculate any chmod permission instantly</strong></p>
-                <a href="../chmod.html" class="btn btn-primary" style="display:inline-block;">Open Chmod Calculator &rarr;</a>
+            <div class="tool-cta">
+                <h3>Calculate any chmod permission instantly</h3>
+                <a href="../chmod.html" class="btn">Open Chmod Calculator &rarr;</a>
             </div>
 
             <section>
