@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSONDecodeError: Unterminated string starting at means a JSON string opened but never closed — a missing or escaped closing quote, or truncated data.">
+    <meta name="keywords" content="JSONDecodeError Unterminated string starting at, python unterminated string json, json unescaped newline, json missing closing quote, python json.loads unterminated string, requests json unterminated">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/jsondecodeerror-unterminated-string.html">
+    <meta property="og:title" content="JSONDecodeError: Unterminated string starting at — Cause and Fix">
+    <meta property="og:description" content="This Python error means a JSON string was opened but never closed — a missing quote, a backslash escaping the quote, or truncated data. Diagnose and fix it with code examples.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/jsondecodeerror-unterminated-string.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JSONDecodeError: Unterminated string starting at — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "JSONDecodeError: Unterminated string starting at", "item": "https://jsondevtools.org/errors/jsondecodeerror-unterminated-string.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "JSONDecodeError: Unterminated string starting at — Cause and Fix",
+  "description": "This Python error means a JSON string was opened with a quote but never closed before the parser ran out of input — usually a missing closing quote, a backslash that escapes the closing quote, or truncated data. This reference explains every cause with code examples and fixes.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-18",
+  "dateModified": "2026-06-18",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  },
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/unterminated-string.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/unterminated-string.svg",
+    "caption": "A JSON string opened with a quote but never closed triggers Unterminated string starting at.",
+    "width": 640,
+    "height": 220
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does JSONDecodeError: Unterminated string starting at mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means Python's json module found a string that opened with a double quote but reached the end of the input before finding the closing quote. The position in the message points to where the string started, not where it ended. The usual causes are a missing closing quote, an unescaped newline inside the string, or data that was cut off before it finished."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does an unescaped newline cause Unterminated string starting at?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. A literal newline or tab inside a JSON string raises a different error — Invalid control character at — because JSON forbids raw control characters in strings. Unterminated string starting at specifically means the closing quote is missing or was escaped by a trailing backslash. If you have multiline text, escape newlines as \\n or build the JSON with json.dumps()."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix Unterminated string starting at in Python?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Look at the character index in the message and inspect the string that starts there. Confirm it has a matching closing quote and that no trailing backslash is escaping that quote, and check that the data was not truncated. The safest fix is to never hand-build JSON: serialize Python objects with json.dumps(), which quotes and escapes every string correctly."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can truncated or partial data cause this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. If a file was written partially, a network response was cut off, or you sliced a JSON string in code, the closing quote and braces may be missing. The parser reads up to the end of what it was given and reports the last open string as unterminated. Print the length and the last 50 characters of the data to check whether it ends where you expect."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between Unterminated string and Expecting value?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Expecting value: line 1 column 1 (char 0) means nothing valid was found at the very start — the input was empty or not JSON at all. Unterminated string starting at means parsing began successfully and got partway through a valid string before the input ended without closing it. The first is 'not JSON'; the second is 'JSON that stops mid-string'."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>JSONDecodeError: Unterminated string starting at</span>
+            </nav>
+            <h1>json.decoder.JSONDecodeError: Unterminated string starting at: line 1 column 10 (char 9)</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Python opened a JSON string at a double quote but hit the end of the input before finding the closing quote. The position points to where the string <em>started</em>. The usual causes are a <strong>missing closing quote</strong>, a <strong>backslash that escapes the closing quote</strong>, or <strong>truncated data</strong>. Build JSON with <code>json.dumps()</code> rather than by hand.</p>
+            </div>
+
+            <figure class="perm-figure">
+                <svg viewBox="0 0 640 220" role="img" aria-labelledby="ustitle usdesc" xmlns="http://www.w3.org/2000/svg">
+                    <title id="ustitle">How an unterminated string breaks JSON parsing</title>
+                    <desc id="usdesc">A valid JSON object closes every string with a matching double quote. An unterminated string opens with a quote but never closes it, so the parser reaches the end of input and fails, pointing back to where the string started.</desc>
+                    <text x="320" y="26" text-anchor="middle" class="dg-title" font-size="16" font-weight="700">A string that never closes</text>
+                    <!-- valid -->
+                    <rect class="pb-granted-fill" x="40" y="48" width="560" height="52" rx="10"/>
+                    <text x="60" y="70" font-size="11" font-weight="700" class="pb-granted-text" letter-spacing="1">VALID</text>
+                    <text x="60" y="90" font-family="'JetBrains Mono','Consolas',monospace" font-size="15" class="pb-granted-text">{"name": "Alice"}  &#8592; opening and closing quotes both present</text>
+                    <!-- invalid -->
+                    <rect class="pb-danger-fill pb-danger-stroke" x="40" y="120" width="560" height="52" rx="10"/>
+                    <text x="60" y="142" font-size="11" font-weight="700" class="pb-danger-text" letter-spacing="1">UNTERMINATED</text>
+                    <text x="60" y="162" font-family="'JetBrains Mono','Consolas',monospace" font-size="15" class="pb-danger-text">{"name": "Alice}   &#8592; no closing quote &rarr; parser runs to end of input</text>
+                    <text x="320" y="200" text-anchor="middle" class="dg-caption" font-size="13">The error reports where the open string <tspan font-style="italic">started</tspan> (char 9), not where it should have ended.</text>
+                </svg>
+                <figcaption>An unterminated string opens with <code>"</code> but never closes before the input ends.</figcaption>
+            </figure>
+
+            <h2>The exact error string</h2>
+            <p>The full traceback ends with a line like this:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "app.py", line 4, in &lt;module&gt;
+    data = json.loads(text)
+json.decoder.JSONDecodeError: Unterminated string starting at: line 1 column 10 (char 9)</code></pre>
+            </div>
+
+            <p>You may also see it raised through the <code>requests</code> library as <code>requests.exceptions.JSONDecodeError</code> when <code>response.json()</code> parses a body that was cut off mid-string. Both wrap the same <code>json.decoder.JSONDecodeError</code>.</p>
+
+            <h2>What &ldquo;starting at: line 1 column 10 (char 9)&rdquo; means</h2>
+            <p>Unlike <a href="jsondecodeerror-expecting-value.html">Expecting value at char 0</a>, this error means parsing <em>succeeded</em> for a while. The number is the index where the <strong>offending string opened</strong> &mdash; the last <code>"</code> the parser saw before it ran out of characters. To find the problem, slice the input from that index:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>text = '{"name": "Alice}'
+print(repr(text[9:]))   # '"Alice}' &mdash; the value string that was never closed</code></pre>
+            </div>
+
+            <h2>Cause 1: A missing closing quote</h2>
+            <p>The simplest case &mdash; a quote was dropped while hand-editing or hand-building JSON:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+text = '{"name": "Alice}'        # closing quote after Alice is missing
+data = json.loads(text)
+# json.decoder.JSONDecodeError: Unterminated string starting at: line 1 column 10 (char 9)</code></pre>
+            </div>
+
+            <h2>Cause 2: A backslash escapes the closing quote</h2>
+            <p>A backslash starts an escape sequence in JSON. If a value ends with a backslash, that backslash escapes the closing quote &mdash; the parser reads <code>\"</code> as a literal quote character and keeps going, looking for a closing quote that never comes:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+# The Python literal '...\\"...' is the JSON text: {"end": "value\"}
+text = '{"end": "value\\"}'
+data = json.loads(text)
+# json.decoder.JSONDecodeError: Unterminated string starting at: line 1 column 9 (char 8)</code></pre>
+            </div>
+
+            <p>This usually comes from Windows paths or other values that end in a backslash. The fix is to make sure every backslash in the data is itself escaped &mdash; which is exactly what <code>json.dumps()</code> does for you:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+# Python value is  C:\Users\  (one trailing backslash)
+path = "C:\\Users\\"
+text = json.dumps({"path": path})   # dumps escapes it to  {"path": "C:\\Users\\"}
+data = json.loads(text)             # round-trips cleanly</code></pre>
+            </div>
+
+            <h2>Cause 3: Truncated or partial data</h2>
+            <p>If a file was written incompletely, a stream was cut off, or a response was only partially read, the closing quote and braces never arrive. The parser reads to the end and reports the last open string:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+# Only the first 20 bytes were read / saved
+text = '{"name": "Alexand'
+data = json.loads(text)
+# json.decoder.JSONDecodeError: Unterminated string starting at: line 1 column 10 (char 9)
+
+print(len(text), repr(text[-30:]))   # confirm the data ends mid-string</code></pre>
+            </div>
+
+            <h2>Related: a literal newline raises a <em>different</em> error</h2>
+            <p>It is tempting to blame a multiline value, but a raw newline or tab inside a string does <strong>not</strong> give &ldquo;Unterminated string.&rdquo; JSON forbids raw control characters, so the parser stops at the control character itself with a different message:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+# '\n' here is a real newline character, not the two characters backslash-n
+text = '{"note": "line one\nline two"}'
+data = json.loads(text)
+# json.decoder.JSONDecodeError: Invalid control character at: line 1 column 19 (char 18)</code></pre>
+            </div>
+
+            <p>The two characters <code>backslash-n</code> (written <code>\\n</code> in a Python string, or coming verbatim from a file) are valid JSON and parse fine &mdash; it is the <em>real</em> line break that breaks. Escape newlines as <code>\n</code>, or let <code>json.dumps()</code> do it. See <a href="bad-control-character-in-json.html">Bad control character in string literal in JSON</a> for that error in detail.</p>
+
+            <h2>How to debug it</h2>
+            <p>Print the length and the tail of the input, then slice from the reported index to isolate the open string:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+try:
+    data = json.loads(text)
+except json.JSONDecodeError as e:
+    print(f"{e.msg} at char {e.pos}")     # the message and the start index
+    print("length:", len(text))
+    print("from error:", repr(text[e.pos:e.pos + 40]))
+    print("tail:", repr(text[-40:]))</code></pre>
+            </div>
+
+            <h2>The fix: let json.dumps() build the JSON</h2>
+            <p>Almost every version of this error comes from JSON that was typed or concatenated by hand. Serialize Python objects instead &mdash; <code>json.dumps()</code> quotes and escapes every string, including newlines, tabs, and backslashes:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+record = {
+    "name": "Alice",
+    "note": "line one\nline two",   # newline is fine — dumps() escapes it
+    "path": "C:\\Users\\alice",
+}
+
+text = json.dumps(record)   # guaranteed valid JSON
+data = json.loads(text)     # round-trips without error</code></pre>
+            </div>
+
+            <div class="tool-cta">
+                <h3>Find the unterminated string instantly</h3>
+                <p>Paste the JSON into the validator &mdash; it points to the exact line and column where the string is left open. Everything runs in your browser; nothing is uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="../json-validator.html" class="btn btn-primary">JSON Validator</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does JSONDecodeError: Unterminated string starting at mean?</summary>
+                    <p>It means Python's <code>json</code> module found a string that opened with a double quote but reached the end of the input before finding the closing quote. The position in the message points to where the string <em>started</em>, not where it ended. The usual causes are a missing closing quote, an unescaped newline inside the string, or data that was cut off before it finished.</p>
+                </details>
+                <details>
+                    <summary>Does an unescaped newline cause Unterminated string starting at?</summary>
+                    <p>No. A literal newline or tab inside a JSON string raises a different error &mdash; <a href="bad-control-character-in-json.html"><em>Invalid control character at</em></a> &mdash; because JSON forbids raw control characters in strings. <em>Unterminated string starting at</em> specifically means the closing quote is missing or was escaped by a trailing backslash. If you have multiline text, escape newlines as <code>\n</code> or build the JSON with <code>json.dumps()</code>.</p>
+                </details>
+                <details>
+                    <summary>How do I fix Unterminated string starting at in Python?</summary>
+                    <p>Look at the character index in the message and inspect the string that starts there. Confirm it has a matching closing quote and that no trailing backslash is escaping that quote, and check that the data was not truncated. The safest fix is to never hand-build JSON: serialize Python objects with <code>json.dumps()</code>, which quotes and escapes every string correctly.</p>
+                </details>
+                <details>
+                    <summary>Can truncated or partial data cause this error?</summary>
+                    <p>Yes. If a file was written partially, a network response was cut off, or you sliced a JSON string in code, the closing quote and braces may be missing. The parser reads up to the end of what it was given and reports the last open string as unterminated. Print the length and the last 50 characters of the data to check whether it ends where you expect.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between Unterminated string and Expecting value?</summary>
+                    <p><a href="jsondecodeerror-expecting-value.html">Expecting value: line 1 column 1 (char 0)</a> means nothing valid was found at the very start — the input was empty or not JSON at all. <em>Unterminated string starting at</em> means parsing began successfully and got partway through a valid string before the input ended without closing it. The first is &ldquo;not JSON&rdquo;; the second is &ldquo;JSON that stops mid-string.&rdquo;</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="jsondecodeerror-expecting-value.html">JSONDecodeError: Expecting value: line 1 column 1 (char 0)</a></li>
+                <li><a href="jsondecodeerror-extra-data.html">JSONDecodeError: Extra data: line 1 column N (char N)</a></li>
+                <li><a href="expecting-property-name-double-quotes.html">JSONDecodeError: Expecting property name enclosed in double quotes</a></li>
+                <li><a href="bad-control-character-in-json.html">Bad control character in string literal in JSON</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/json-string-escape.html">How to Escape Strings in JSON</a></li>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="../blog/json-parse-error-handling.html">JSON.parse Error Handling Patterns</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

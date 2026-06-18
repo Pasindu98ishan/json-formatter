@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: Object of type datetime is not JSON serializable means json.dumps() got a type it can't convert — datetime, Decimal, set, bytes, or a custom object.">
+    <meta name="keywords" content="Object of type datetime is not JSON serializable, TypeError not JSON serializable, json dumps datetime, Object of type Decimal is not JSON serializable, python json serialize set, numpy int64 not JSON serializable, json default encoder">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/object-not-json-serializable.html">
+    <meta property="og:title" content="TypeError: Object of type datetime is not JSON serializable — Fix">
+    <meta property="og:description" content="This Python error means json.dumps() was handed a type it can't convert — datetime, Decimal, set, bytes, or a custom object. Learn the fix for each with code examples.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/object-not-json-serializable.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: Object of type datetime is not JSON serializable — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TypeError: Object of type X is not JSON serializable", "item": "https://jsondevtools.org/errors/object-not-json-serializable.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: Object of type datetime is not JSON serializable — Fix",
+  "description": "This Python error means json.dumps() was given a value whose type has no JSON equivalent — datetime, Decimal, set, bytes, UUID, NumPy types, or a custom class. This reference shows the fix for each type with code examples.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-18",
+  "dateModified": "2026-06-18",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  },
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/not-json-serializable.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/not-json-serializable.svg",
+    "caption": "Which Python types json.dumps() can convert to JSON and which raise TypeError.",
+    "width": 640,
+    "height": 300
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does TypeError: Object of type datetime is not JSON serializable mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means json.dumps() received a value whose Python type has no built-in JSON representation. The json module only knows how to convert dict, list, tuple, str, int, float, bool, and None. Types like datetime, Decimal, set, bytes, UUID, and custom classes are not in that list, so json.dumps() raises TypeError unless you tell it how to convert them."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix Object of type datetime is not JSON serializable?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Pass a default function to json.dumps() that converts the unsupported type. For dates, json.dumps(obj, default=str) turns datetime into an ISO-8601 string. For full control, call obj.isoformat() inside a custom default function, or subclass json.JSONEncoder and override its default() method."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Decimal raise not JSON serializable?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "decimal.Decimal is a separate numeric type that json does not treat as a number, so it raises TypeError. Convert it explicitly with float(value) if minor precision loss is acceptable, or str(value) to preserve the exact value as a string. A default function such as default=lambda o: float(o) handles every Decimal in one place."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I serialize a Python set to JSON?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "JSON has no set type, so json.dumps() raises TypeError on a set. Convert it to a list first — json.dumps(list(my_set)) — or handle it in a default function with default=lambda o: list(o) if isinstance(o, set) else o. Note that converting to a list does not guarantee order, and the value will deserialize back as a list, not a set."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I make a custom class JSON serializable?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Give json.dumps() a way to turn the object into JSON-compatible types. The simplest options are a default function that returns vars(obj) or obj.__dict__, a dataclass with dataclasses.asdict(obj), or a Pydantic model with model.model_dump(). For reusable behavior, subclass json.JSONEncoder and implement default() for your type."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Object of type X is not JSON serializable</span>
+            </nav>
+            <h1>TypeError: Object of type datetime is not JSON serializable</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>json.dumps()</code> was handed a value whose type has no JSON equivalent &mdash; a <strong>datetime</strong>, <strong>Decimal</strong>, <strong>set</strong>, <strong>bytes</strong>, <strong>UUID</strong>, or a custom object. The quickest fix is <code>json.dumps(obj, default=str)</code>; for control, convert each type yourself in a <code>default</code> function or a custom <code>JSONEncoder</code>.</p>
+            </div>
+
+            <figure class="perm-figure">
+                <svg viewBox="0 0 640 300" role="img" aria-labelledby="nstitle nsdesc" xmlns="http://www.w3.org/2000/svg">
+                    <title id="nstitle">Which Python types convert to JSON</title>
+                    <desc id="nsdesc">json.dumps converts dict, list, str, int, float, bool and None directly. datetime, Decimal, set, bytes, UUID and custom classes have no JSON equivalent and raise TypeError unless a default function or custom encoder converts them.</desc>
+                    <text x="320" y="26" text-anchor="middle" class="dg-title" font-size="16" font-weight="700">What json.dumps() can and cannot convert</text>
+                    <!-- left: serializable -->
+                    <rect class="pb-card-fill pb-card-stroke" x="24" y="44" width="288" height="186" rx="12"/>
+                    <rect class="pb-granted-fill" x="24" y="44" width="288" height="30" rx="12"/>
+                    <text x="168" y="64" text-anchor="middle" class="pb-granted-text" font-size="13" font-weight="700">Converts directly &#10003;</text>
+                    <text x="44" y="98"  font-size="13" class="pb-granted-text" font-family="'JetBrains Mono','Consolas',monospace">dict&#8195; &rarr; object</text>
+                    <text x="44" y="122" font-size="13" class="pb-granted-text" font-family="'JetBrains Mono','Consolas',monospace">list, tuple &rarr; array</text>
+                    <text x="44" y="146" font-size="13" class="pb-granted-text" font-family="'JetBrains Mono','Consolas',monospace">str&#8195;&#8194; &rarr; string</text>
+                    <text x="44" y="170" font-size="13" class="pb-granted-text" font-family="'JetBrains Mono','Consolas',monospace">int, float &rarr; number</text>
+                    <text x="44" y="194" font-size="13" class="pb-granted-text" font-family="'JetBrains Mono','Consolas',monospace">True / False &rarr; true / false</text>
+                    <text x="44" y="218" font-size="13" class="pb-granted-text" font-family="'JetBrains Mono','Consolas',monospace">None&#8194; &rarr; null</text>
+                    <!-- right: not serializable -->
+                    <rect class="pb-card-fill pb-card-stroke" x="328" y="44" width="288" height="186" rx="12"/>
+                    <rect class="pb-danger-fill" x="328" y="44" width="288" height="30" rx="12"/>
+                    <text x="472" y="64" text-anchor="middle" class="pb-danger-text" font-size="13" font-weight="700">Raises TypeError &#10007;</text>
+                    <text x="348" y="98"  font-size="13" class="pb-danger-text" font-family="'JetBrains Mono','Consolas',monospace">datetime, date</text>
+                    <text x="348" y="122" font-size="13" class="pb-danger-text" font-family="'JetBrains Mono','Consolas',monospace">Decimal</text>
+                    <text x="348" y="146" font-size="13" class="pb-danger-text" font-family="'JetBrains Mono','Consolas',monospace">set, frozenset</text>
+                    <text x="348" y="170" font-size="13" class="pb-danger-text" font-family="'JetBrains Mono','Consolas',monospace">bytes</text>
+                    <text x="348" y="194" font-size="13" class="pb-danger-text" font-family="'JetBrains Mono','Consolas',monospace">UUID, numpy types</text>
+                    <text x="348" y="218" font-size="13" class="pb-danger-text" font-family="'JetBrains Mono','Consolas',monospace">your custom class</text>
+                    <!-- bridge -->
+                    <text x="320" y="262" text-anchor="middle" class="dg-caption" font-size="13">Bridge the gap with <tspan font-family="'JetBrains Mono','Consolas',monospace">json.dumps(obj, default=...)</tspan> or a custom JSONEncoder</text>
+                    <text x="320" y="284" text-anchor="middle" class="dg-muted" font-size="12">e.g. datetime &rarr; <tspan font-family="'JetBrains Mono','Consolas',monospace">.isoformat()</tspan>, Decimal &rarr; <tspan font-family="'JetBrains Mono','Consolas',monospace">float()</tspan>, set &rarr; <tspan font-family="'JetBrains Mono','Consolas',monospace">list()</tspan></text>
+                </svg>
+                <figcaption>Only the left-hand types map to JSON natively; everything on the right needs a converter.</figcaption>
+            </figure>
+
+            <h2>The exact error string</h2>
+            <p>The traceback ends with the type that could not be converted &mdash; <code>datetime</code> is the most common, but the same error names <code>Decimal</code>, <code>set</code>, <code>bytes</code>, <code>UUID</code>, and your own classes:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "app.py", line 5, in &lt;module&gt;
+    json.dumps(data)
+TypeError: Object of type datetime is not JSON serializable</code></pre>
+            </div>
+
+            <h2>Why it happens</h2>
+            <p>The <code>json</code> module maps a fixed set of Python types to JSON: <code>dict</code> &rarr; object, <code>list</code>/<code>tuple</code> &rarr; array, <code>str</code> &rarr; string, <code>int</code>/<code>float</code> &rarr; number, <code>True</code>/<code>False</code> &rarr; <code>true</code>/<code>false</code>, and <code>None</code> &rarr; <code>null</code>. Anything else has no JSON representation, so <code>json.dumps()</code> stops and raises <code>TypeError</code> rather than guess how to encode it.</p>
+
+            <h2>Cause: datetime / date</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+from datetime import datetime
+
+data = {"created": datetime.now()}
+json.dumps(data)
+# TypeError: Object of type datetime is not JSON serializable</code></pre>
+            </div>
+
+            <p>Convert the datetime to an ISO-8601 string. The quickest one-liner uses <code>default=str</code>; for explicit control use <code>isoformat()</code> in a <code>default</code> function:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+from datetime import datetime, date
+
+data = {"created": datetime.now()}
+
+# Quick fix — stringify anything json can't handle
+json.dumps(data, default=str)
+# {"created": "2026-06-18 14:03:55.123456"}
+
+# Explicit fix — control the format
+def encode(obj):
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+json.dumps(data, default=encode)
+# {"created": "2026-06-18T14:03:55.123456"}</code></pre>
+            </div>
+
+            <h2>Cause: Decimal</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+from decimal import Decimal
+
+json.dumps({"price": Decimal("19.99")})
+# TypeError: Object of type Decimal is not JSON serializable
+
+# Fix: float() (small precision risk) or str() (exact)
+json.dumps({"price": Decimal("19.99")}, default=float)   # {"price": 19.99}
+json.dumps({"price": Decimal("19.99")}, default=str)     # {"price": "19.99"}</code></pre>
+            </div>
+
+            <h2>Cause: set, bytes, UUID</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+from uuid import uuid4
+
+def encode(obj):
+    if isinstance(obj, set):
+        return list(obj)                 # JSON has no set type
+    if isinstance(obj, bytes):
+        return obj.decode("utf-8")       # or base64 for binary data
+    return str(obj)                       # UUID and anything else
+
+json.dumps({"tags": {"a", "b"}, "id": uuid4()}, default=encode)</code></pre>
+            </div>
+
+            <h2>Cause: NumPy types (np.int64, np.ndarray)</h2>
+            <p>NumPy scalars and arrays are their own types &mdash; <code>np.int64</code> is not a Python <code>int</code>, and <code>np.ndarray</code> is not a <code>list</code> &mdash; so <code>json.dumps()</code> rejects them. Convert scalars with <code>.item()</code> (or <code>int()</code>/<code>float()</code>) and arrays with <code>.tolist()</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+import numpy as np
+
+data = {"count": np.int64(42), "values": np.array([1, 2, 3])}
+json.dumps(data)
+# TypeError: Object of type int64 is not JSON serializable
+
+def encode(obj):
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+json.dumps(data, default=encode)
+# {"count": 42, "values": [1, 2, 3]}</code></pre>
+            </div>
+
+            <h2>Cause: a custom class, dataclass, or Pydantic model</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+from dataclasses import dataclass, asdict
+
+@dataclass
+class User:
+    name: str
+    age: int
+
+user = User("Alice", 30)
+
+json.dumps(user)                 # TypeError: Object of type User is not JSON serializable
+json.dumps(asdict(user))         # {"name": "Alice", "age": 30}
+
+# Plain class without dataclass:
+json.dumps(user, default=lambda o: o.__dict__)
+
+# Pydantic v2 model:
+# json.dumps(model.model_dump())  or  model.model_dump_json()</code></pre>
+            </div>
+
+            <h2>The reusable fix: a custom JSONEncoder</h2>
+            <p>When the same types appear across a codebase, subclass <code>json.JSONEncoder</code> once and pass it with <code>cls=</code> everywhere:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+from datetime import datetime, date
+from decimal import Decimal
+from uuid import UUID
+
+class SafeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return float(obj)
+        if isinstance(obj, (set, frozenset)):
+            return list(obj)
+        if isinstance(obj, (bytes, UUID)):
+            return str(obj)
+        return super().default(obj)
+
+json.dumps(data, cls=SafeEncoder)</code></pre>
+            </div>
+
+            <div class="tool-cta">
+                <h3>Check your serialized output</h3>
+                <p>Once <code>json.dumps()</code> succeeds, paste the result into the formatter to inspect and confirm it is valid JSON. Everything runs in your browser; nothing is uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does TypeError: Object of type datetime is not JSON serializable mean?</summary>
+                    <p>It means <code>json.dumps()</code> received a value whose Python type has no built-in JSON representation. The <code>json</code> module only knows how to convert <code>dict</code>, <code>list</code>, <code>tuple</code>, <code>str</code>, <code>int</code>, <code>float</code>, <code>bool</code>, and <code>None</code>. Types like <code>datetime</code>, <code>Decimal</code>, <code>set</code>, <code>bytes</code>, <code>UUID</code>, and custom classes are not in that list, so it raises <code>TypeError</code> unless you tell it how to convert them.</p>
+                </details>
+                <details>
+                    <summary>How do I fix Object of type datetime is not JSON serializable?</summary>
+                    <p>Pass a <code>default</code> function to <code>json.dumps()</code> that converts the unsupported type. For dates, <code>json.dumps(obj, default=str)</code> turns <code>datetime</code> into a string. For full control, call <code>obj.isoformat()</code> inside a custom <code>default</code> function, or subclass <code>json.JSONEncoder</code> and override its <code>default()</code> method.</p>
+                </details>
+                <details>
+                    <summary>Why does Decimal raise not JSON serializable?</summary>
+                    <p><code>decimal.Decimal</code> is a separate numeric type that <code>json</code> does not treat as a number, so it raises <code>TypeError</code>. Convert it with <code>float(value)</code> if minor precision loss is acceptable, or <code>str(value)</code> to preserve the exact value. A default such as <code>default=lambda o: float(o)</code> handles every Decimal in one place.</p>
+                </details>
+                <details>
+                    <summary>How do I serialize a Python set to JSON?</summary>
+                    <p>JSON has no set type, so <code>json.dumps()</code> raises <code>TypeError</code> on a set. Convert it to a list first &mdash; <code>json.dumps(list(my_set))</code> &mdash; or handle it in a default function. Note that converting to a list does not guarantee order, and the value deserializes back as a list, not a set.</p>
+                </details>
+                <details>
+                    <summary>How do I make a custom class JSON serializable?</summary>
+                    <p>Give <code>json.dumps()</code> a way to turn the object into JSON-compatible types. The simplest options are a default function returning <code>vars(obj)</code> or <code>obj.__dict__</code>, a dataclass with <code>dataclasses.asdict(obj)</code>, or a Pydantic model with <code>model.model_dump()</code>. For reusable behavior, subclass <code>json.JSONEncoder</code> and implement <code>default()</code>.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="../blog/json-circular-reference.html">TypeError: Converting circular structure to JSON</a> &mdash; the JavaScript serialization equivalent</li>
+                <li><a href="jsondecodeerror-expecting-value.html">JSONDecodeError: Expecting value: line 1 column 1 (char 0)</a></li>
+                <li><a href="jsondecodeerror-unterminated-string.html">JSONDecodeError: Unterminated string starting at</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/json-date-format.html">How to Format Dates in JSON</a></li>
+                <li><a href="../blog/jackson-json-serialization.html">JSON Serialization Explained</a></li>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
