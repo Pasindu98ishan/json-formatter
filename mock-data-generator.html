@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free client-side mock data generator. Build a schema or paste a JSON sample to generate realistic, coherent JSON, NDJSON, or CSV. Seedable, no row cap.">
+    <meta name="keywords" content="mock data generator, fake json generator, test data generator, json mock data, generate json from example, mockaroo alternative, faker.js alternative, sample data generator, dummy json, ndjson generator">
+    <link rel="canonical" href="https://jsondevtools.org/mock-data-generator.html">
+    <meta property="og:title" content="Mock Data Generator – Realistic Fake JSON, NDJSON & CSV">
+    <meta property="og:description" content="Generate realistic, coherent mock data from a field picker, a pasted JSON sample, or a JSON Schema. 100% in your browser — seedable, offline, no row cap.">
+    <meta property="og:url" content="https://jsondevtools.org/mock-data-generator.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Mock Data Generator – Realistic Fake JSON, NDJSON & CSV | JSON Dev Tools</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script src="/js/analytics.js"></script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Mock Data Generator", "item": "https://jsondevtools.org/mock-data-generator.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Mock Data Generator",
+      "url": "https://jsondevtools.org/mock-data-generator.html",
+      "description": "Generate realistic, coherent mock data as JSON, NDJSON, or CSV from a field picker, a pasted JSON sample, or a JSON Schema. Runs entirely in the browser with a seed for reproducible output and no row cap.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is the mock data generated in my browser?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Everything runs client-side in JavaScript — your schema and any sample you paste never leave your device, it works offline once loaded, and there is no row cap or signup." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I generate JSON that matches my existing data?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Open the 'From sample JSON' tab, paste one object or an array of objects, and the tool infers a field-by-field schema from your keys and value patterns, then generates as many new rows in the same shape as you want." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is a seed and why would I use one?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A seed is any text you type into the seed box. With a seed set, the generator is fully deterministic: the same schema and seed always produce byte-identical output, which is ideal for reproducible tests and fixtures. Leave it blank for fresh random data each run." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I export NDJSON or CSV instead of a JSON array?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Choose JSON array, NDJSON (one object per line), or CSV from the format selector. CSV flattens nested objects into dot-notation columns (address.city) and JSON-encodes arrays, so it is best suited to flat schemas." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is the generated data coherent — does the email match the name?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. A coherence layer keeps related fields consistent within each row: the email and username derive from that row's first and last name, city/state/zip/country come from one real location tuple, and updatedAt never falls before createdAt." }
+        }
+      ]
+    }
+    </script>
+    <style>
+        /* tighten the page chrome so the tool starts higher (less dead space) */
+        .header.header-compact { margin-bottom:14px; }
+        .formatter-section { padding:18px; margin:14px 0; }
+        @media (max-width:600px) { .formatter-section { padding:13px; } }
+
+        .mdg-banner {
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+            background:#fff; border:1px solid var(--border-color);
+            border-left:4px solid var(--primary-color); border-radius:8px;
+            padding:7px 12px; margin-bottom:12px; font-size:0.84rem; color:var(--secondary-color);
+        }
+        body.dark-mode .mdg-banner { background:#1c1c1e; border-color:#333; }
+
+        .mdg-tabs { display:flex; gap:4px; border-bottom:2px solid var(--border-color); margin-bottom:12px; flex-wrap:wrap; }
+        .mdg-tab {
+            padding:9px 16px; border:none; background:none; cursor:pointer;
+            font-size:0.92rem; font-weight:600; color:var(--secondary-color);
+            border-bottom:2px solid transparent; margin-bottom:-2px;
+        }
+        .mdg-tab[aria-selected="true"] { color:var(--primary-color); border-bottom-color:var(--primary-color); }
+
+        /* ── Two-pane workspace ─────────────────────────────────────────── */
+        .mdg-workspace { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; align-items:start; }
+        /* grid items default to min-width:auto (min-content); 0 lets the panes shrink so the
+           console scrolls internally instead of forcing page overflow (was LIVE-08) */
+        .mdg-pane { min-width:0; }
+        .mdg-pane-right { position:sticky; top:82px; } /* clear the 70px sticky site navbar */
+        .mdg-panel { display:none; }
+        .mdg-panel.active { display:block; }
+
+        /* category hues — encode the kind of data a field holds (light + dark) */
+        .mdg-pane-left, .mdg-modal-panel {
+            --t-id:#7c3aed;    --t-id-bg:#f3effe;
+            --t-person:#0e7490;--t-person-bg:#e6f6fa;
+            --t-geo:#b45309;   --t-geo-bg:#fdf3e7;
+            --t-num:#0e9f6e;   --t-num-bg:#e7f7f0;
+            --t-time:#be185d;  --t-time-bg:#fdecf3;
+            --t-text:#475569;  --t-text-bg:#eef1f5;
+            --t-struct:#3b5bff;--t-struct-bg:#eef1ff;
+        }
+        body.dark-mode .mdg-pane-left, body.dark-mode .mdg-modal-panel {
+            --t-id:#c4b5fd;    --t-id-bg:#2a2342;
+            --t-person:#67e8f9;--t-person-bg:#0c2b33;
+            --t-geo:#fcd9a8;   --t-geo-bg:#3a2a12;
+            --t-num:#6ee7b7;   --t-num-bg:#0e2f24;
+            --t-time:#f9a8d4;  --t-time-bg:#3a142a;
+            --t-text:#cbd5e1;  --t-text-bg:#222934;
+            --t-struct:#a9b8ff;--t-struct-bg:#1e2547;
+        }
+
+        /* ── Schema-as-code builder ─────────────────────────────────────── */
+        .mdg-schema { border:1px solid var(--border-color); border-radius:12px; background:#fff; overflow:hidden; }
+        body.dark-mode .mdg-schema { background:#1a1b1e; border-color:#333; }
+        .mdg-brace {
+            display:flex; align-items:center; justify-content:space-between; gap:10px;
+            font-family:'JetBrains Mono','Consolas',monospace; font-size:0.8rem; color:var(--secondary-color);
+            padding:8px 14px; border-bottom:1px solid var(--border-color); background:var(--light-bg);
+        }
+        body.dark-mode .mdg-brace { background:#161719; border-color:#2c2c2c; }
+        .mdg-brace b { color:var(--text-light); font-weight:600; }
+        body.dark-mode .mdg-brace b { color:#e0e0e0; }
+        .mdg-brace .mdg-bracket { color:var(--primary-color); }
+        .mdg-brace-actions { display:flex; gap:6px; }
+        .mdg-brace-btn {
+            font-family:inherit; font-size:0.7rem; font-weight:600; color:var(--secondary-color);
+            background:none; border:1px solid var(--border-color); border-radius:6px; padding:3px 9px; cursor:pointer;
+        }
+        .mdg-brace-btn:hover { border-color:var(--primary-color); color:var(--primary-color); }
+        body.dark-mode .mdg-brace-btn { border-color:#3a3a3a; }
+
+        .mdg-fields { display:flex; flex-direction:column; }
+        .mdg-field { padding:9px 14px; border-bottom:1px solid var(--light-bg); position:relative; }
+        body.dark-mode .mdg-field { border-bottom-color:#242424; }
+        .mdg-field:last-child { border-bottom:none; }
+        .mdg-field:hover { background:#fcfcfd; }
+        body.dark-mode .mdg-field:hover { background:#202123; }
+        .mdg-field.drag-over { box-shadow:inset 0 2px 0 var(--primary-color); }
+        .mdg-field-row { display:flex; align-items:center; gap:10px; }
+
+        .mdg-handle { width:13px; flex-shrink:0; color:var(--secondary-color); cursor:grab; opacity:0; font-size:0.85rem; line-height:1; user-select:none; }
+        .mdg-field:hover .mdg-handle { opacity:0.55; }
+        .mdg-handle:active { cursor:grabbing; }
+
+        .mdg-badge { width:30px; height:30px; flex-shrink:0; border-radius:7px; display:grid; place-items:center; }
+        .mdg-badge svg { width:15px; height:15px; }
+
+        .mdg-name {
+            flex:0 1 auto; min-width:60px; max-width:230px; padding:5px 8px; margin-left:-2px;
+            border:1px solid transparent; border-radius:6px; background:none;
+            font-family:'JetBrains Mono','Consolas',monospace; font-size:0.85rem; font-weight:600; color:var(--text-light);
+        }
+        .mdg-name:hover { border-color:var(--border-color); }
+        .mdg-name:focus { outline:none; border-color:var(--primary-color); background:#fff; box-shadow:0 0 0 3px rgba(59,91,255,0.12); }
+        body.dark-mode .mdg-name { color:#e8e8e8; }
+        body.dark-mode .mdg-name:focus { background:#222; }
+        .mdg-colon { font-family:'JetBrains Mono','Consolas',monospace; color:var(--secondary-color); margin:0 -3px 0 -5px; }
+
+        .mdg-tysel {
+            display:inline-flex; align-items:center; gap:6px; white-space:nowrap; cursor:pointer;
+            font-family:'JetBrains Mono','Consolas',monospace; font-size:0.76rem; font-weight:500;
+            padding:5px 9px; border:1px solid var(--border-color); border-radius:6px; background:#fff; color:var(--secondary-color);
+        }
+        .mdg-tysel:hover { border-color:var(--primary-color); color:var(--primary-color); }
+        body.dark-mode .mdg-tysel { background:#222; border-color:#3a3a3a; }
+        .mdg-tysel .caret { font-size:0.6rem; opacity:0.6; }
+
+        .mdg-spacer { flex:1; }
+        .mdg-card-actions { display:flex; gap:1px; flex-shrink:0; }
+        .mdg-iconbtn {
+            width:28px; height:28px; border:1px solid transparent; border-radius:6px; background:none;
+            color:var(--secondary-color); cursor:pointer; display:grid; place-items:center; font-size:0.9rem; line-height:1;
+        }
+        .mdg-iconbtn:hover { background:var(--light-bg); border-color:var(--border-color); color:var(--primary-color); }
+        body.dark-mode .mdg-iconbtn:hover { background:#2a2a2a; }
+        .mdg-iconbtn svg { width:15px; height:15px; }
+        .mdg-iconbtn.opts-toggle.active { color:var(--primary-color); background:var(--light-bg); border-color:var(--border-color); }
+        body.dark-mode .mdg-iconbtn.opts-toggle.active { background:#2a2a2a; }
+
+        /* options drawer is collapsed by default; the gear toggle (per field) reveals it */
+        .mdg-card-body { display:none; align-items:center; gap:14px; flex-wrap:wrap; padding:8px 0 1px 40px; }
+        .mdg-field.opts-open > .mdg-card-body { display:flex; }
+        .mdg-opt-field { display:flex; align-items:center; gap:5px; font-size:0.78rem; color:var(--secondary-color); white-space:nowrap; }
+        .mdg-opt-field input {
+            width:74px; padding:5px 8px; margin:0; border:1px solid var(--border-color); border-radius:6px;
+            font-family:'JetBrains Mono','Consolas',monospace; font-size:0.78rem; background:#fff; color:var(--text-light);
+        }
+        .mdg-opt-field input.mdg-opt-wide { width:150px; }
+        body.dark-mode .mdg-opt-field input { background:#222; border-color:#444; color:#e0e0e0; }
+        .mdg-nullable { display:flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--secondary-color); cursor:pointer; user-select:none; }
+        .mdg-nullable input { width:15px; height:15px; accent-color:var(--primary-color); }
+
+        .mdg-card-nest { margin:6px 0 2px 40px; padding-left:13px; border-left:2px solid var(--border-color); }
+        body.dark-mode .mdg-card-nest { border-color:#3a3a3a; }
+        .mdg-nest-note { font-size:0.76rem; color:var(--secondary-color); font-style:italic; padding:6px 0; }
+
+        .mdg-empty { text-align:center; padding:30px 18px; color:var(--secondary-color); }
+        .mdg-empty p { margin:0 0 12px; font-size:0.86rem; }
+        .mdg-addzone { padding:10px 14px 14px; }
+        .mdg-addfield {
+            display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+            padding:10px; border:1.5px dashed var(--border-color); border-radius:8px; background:none;
+            color:var(--primary-color); font-weight:600; font-size:0.86rem; cursor:pointer;
+        }
+        .mdg-addfield:hover { border-color:var(--primary-color); background:var(--light-bg); }
+        body.dark-mode .mdg-addfield:hover { background:#1d1e20; }
+        .mdg-card-nest .mdg-addfield { padding:7px; font-size:0.8rem; }
+
+        /* ── Right pane: toolbar, progress, console ─────────────────────── */
+        .mdg-toolbar {
+            display:flex; flex-direction:column; gap:9px;
+            padding:11px 12px; background:var(--light-bg); border:1px solid var(--border-color);
+            border-radius:8px 8px 0 0;
+        }
+        body.dark-mode .mdg-toolbar { background:#1a1a1a; border-color:#333; }
+        .mdg-toolbar-controls { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+        .mdg-ctl { display:flex; flex-direction:column; gap:3px; }
+        .mdg-ctl.mdg-ctl-grow { flex:1 1 120px; min-width:120px; }
+        .mdg-ctl label { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--secondary-color); }
+        .mdg-ctl input, .mdg-ctl select {
+            padding:7px 10px; border:1px solid var(--border-color); border-radius:6px;
+            font-size:0.9rem; background:#fff; color:var(--text-light);
+        }
+        body.dark-mode .mdg-ctl input, body.dark-mode .mdg-ctl select { background:#222; border-color:#444; color:#e0e0e0; }
+        #mdgRowCount { width:80px; }
+        #mdgSeed { width:110px; }
+        .mdg-ctl-grow select { width:100%; }
+        .mdg-btns { display:flex; gap:8px; }
+        .mdg-btns .btn { padding:8px 14px; }
+        .mdg-btns .btn-primary { flex:1 1 auto; }
+        .mdg-btns .btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+        .mdg-progress { height:6px; background:var(--border-color); overflow:hidden; }
+        .mdg-progress-bar { height:100%; width:0; background:var(--primary-color); transition:width 0.1s linear; }
+
+        .mdg-warn {
+            display:none; font-size:0.83rem; color:#854d0e; background:#fef9c3;
+            border:1px solid #fde68a; border-radius:6px; padding:7px 12px; margin:8px 0;
+        }
+        body.dark-mode .mdg-warn { background:#3b2f00; border-color:#665200; color:#fde68a; }
+
+        .mdg-statusbar {
+            display:flex; align-items:center; gap:9px; padding:8px 14px;
+            border:1px solid var(--border-color); border-bottom:none; background:#1c1d22;
+            font-family:'JetBrains Mono','Consolas',monospace; font-size:0.72rem; color:#9aa0ad;
+        }
+        .mdg-pip { width:7px; height:7px; border-radius:50%; background:#9aa0ad; flex-shrink:0; }
+        .mdg-pip.preview { background:#eab308; box-shadow:0 0 0 3px rgba(234,179,8,0.18); }
+        .mdg-pip.generated { background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,0.18); }
+        .mdg-statusbar.err { color:#fca5a5; }
+        #mdgStatus b { color:#cfd3dc; font-weight:500; }
+
+        .mdg-console { border:1px solid var(--border-color); border-top:none; border-radius:0 0 8px 8px; overflow:hidden; background:#16171c; }
+        #mdgOutput {
+            margin:0; padding:14px 16px; min-height:220px; max-height:46vh; overflow:auto;
+            font-family:'JetBrains Mono','Consolas',monospace; font-size:0.8rem; line-height:1.6;
+            color:#d4d7e0; white-space:pre; tab-size:2;
+        }
+        #mdgOutput:focus { outline:none; }
+        .tk-key{ color:#7ea2ff; } .tk-str{ color:#9fd29a; } .tk-num{ color:#e6b673; }
+        .tk-bool{ color:#c792ea; } .tk-punc{ color:#6b7080; }
+        #mdgOutput::-webkit-scrollbar { width:10px; height:10px; }
+        #mdgOutput::-webkit-scrollbar-thumb { background:#33353d; border-radius:6px; border:2px solid #16171c; }
+
+        .mdg-input-area {
+            width:100%; min-height:340px; padding:12px; border:1px solid var(--border-color);
+            border-radius:8px; font-family:'JetBrains Mono','Consolas',monospace; font-size:0.86rem;
+            background:#fff; color:var(--text-light); box-sizing:border-box; resize:vertical;
+        }
+        body.dark-mode .mdg-input-area { background:#1c1c1e; border-color:#333; color:#e0e0e0; }
+        .mdg-hint { font-size:0.82rem; color:var(--secondary-color); margin:6px 0 0; }
+
+        /* ── Picker modal ───────────────────────────────────────────────── */
+        .mdg-modal { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; }
+        .mdg-modal[hidden] { display:none; }
+        .mdg-modal-overlay { position:absolute; inset:0; background:rgba(18,19,23,0.5); }
+        .mdg-modal-panel {
+            position:relative; width:min(560px,92vw); max-height:82vh; display:flex; flex-direction:column;
+            background:#fff; border-radius:14px; box-shadow:0 18px 60px rgba(0,0,0,0.3); overflow:hidden; border:1px solid var(--border-color);
+        }
+        body.dark-mode .mdg-modal-panel { background:#1b1c1f; color:#e0e0e0; border-color:#333; }
+        .mdg-modal-head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border-color); }
+        body.dark-mode .mdg-modal-head { border-color:#333; }
+        .mdg-modal-head h2 { margin:0; font-size:1.02rem; }
+        .mdg-picker-search {
+            margin:12px 16px 6px; padding:9px 12px; border:1px solid var(--border-color); border-radius:9px;
+            font-size:0.95rem; background:var(--light-bg); color:var(--text-light);
+        }
+        body.dark-mode .mdg-picker-search { background:#222; border-color:#444; color:#e0e0e0; }
+        .mdg-picker-list { overflow-y:auto; padding:4px 8px 12px; }
+        .mdg-picker-group-label { font-family:'JetBrains Mono','Consolas',monospace; font-size:0.66rem; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:var(--secondary-color); padding:12px 9px 5px; }
+        .mdg-picker-item { display:flex; align-items:center; gap:11px; padding:8px 9px; border-radius:8px; cursor:pointer; }
+        .mdg-picker-item:hover, .mdg-picker-item.active { background:var(--light-bg); }
+        body.dark-mode .mdg-picker-item:hover, body.dark-mode .mdg-picker-item.active { background:#2a2a2a; }
+        .mdg-picker-item .mdg-badge { width:28px; height:28px; }
+        .mdg-pi-label { font-weight:500; font-size:0.9rem; }
+        .mdg-pi-key { margin-left:auto; font-family:'JetBrains Mono','Consolas',monospace; font-size:0.72rem; color:var(--secondary-color); }
+
+        @media (max-width:860px) {
+            /* minmax(0,1fr) — NOT 1fr — so the column can shrink below its content's min-content
+               width and the console scrolls internally instead of forcing page overflow (was LIVE-08) */
+            .mdg-workspace { grid-template-columns:minmax(0,1fr); }
+            .mdg-pane-right { position:static; }
+            .mdg-toolbar { position:sticky; top:0; z-index:5; }
+        }
+        @media (max-width:600px) {
+            .mdg-modal-panel { width:100vw; height:100vh; max-height:100vh; border-radius:0; }
+            /* keep the field row within the viewport: drop the drag handle, let the name flex,
+               and wrap the action buttons onto their own line (was LIVE-08 mobile overflow) */
+            .mdg-handle { display:none; }
+            .mdg-field-row { flex-wrap:wrap; row-gap:6px; }
+            .mdg-name { flex:1 1 80px; max-width:none; }
+            .mdg-spacer { display:none; }
+            .mdg-card-actions { width:100%; justify-content:flex-end; }
+            .mdg-card-body { padding-left:0; }
+            .mdg-card-nest { margin-left:0; }
+        }
+    </style>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>Mock Data Generator</h1>
+            <p>Generate realistic, coherent fake JSON, NDJSON, or CSV — from a field picker, a pasted sample, or a JSON Schema. Everything runs in your browser.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+
+            <div class="mdg-banner">
+                <strong>100% client-side</strong> — your data never leaves your browser. Works offline. No row cap.
+            </div>
+
+            <div class="mdg-tabs" role="tablist" aria-label="Generator input mode">
+                <button class="mdg-tab" role="tab" data-mode="fields" id="tab-fields" aria-selected="true">Field picker</button>
+                <button class="mdg-tab" role="tab" data-mode="sample" id="tab-sample" aria-selected="false">From sample JSON</button>
+                <button class="mdg-tab" role="tab" data-mode="schema" id="tab-schema" aria-selected="false">From JSON Schema</button>
+            </div>
+
+            <div class="mdg-workspace">
+                <!-- LEFT: input -->
+                <div class="mdg-pane mdg-pane-left">
+                    <div class="mdg-panel active" id="panel-fields" role="tabpanel" aria-labelledby="tab-fields" tabindex="0">
+                        <div class="mdg-schema">
+                            <div class="mdg-brace">
+                                <span><b>root</b> = <span class="mdg-bracket">{</span></span>
+                                <span class="mdg-brace-actions">
+                                    <button class="mdg-brace-btn" id="mdgReset" type="button">Reset</button>
+                                    <button class="mdg-brace-btn" id="mdgClearAll" type="button">Clear all</button>
+                                </span>
+                            </div>
+                            <div class="mdg-fields" id="mdgFields"></div>
+                            <div class="mdg-addzone"><button class="mdg-addfield" id="mdgAddField" type="button">＋ Add field</button></div>
+                        </div>
+                    </div>
+
+                    <div class="mdg-panel" id="panel-sample" role="tabpanel" aria-labelledby="tab-sample" tabindex="0">
+                        <textarea class="mdg-input-area" id="mdgSampleInput" spellcheck="false" placeholder='Paste one object or an array of objects, e.g.&#10;[&#10;  { "id": 1, "name": "Alice", "email": "alice@example.com", "createdAt": "2026-01-15T09:30:00Z" }&#10;]'></textarea>
+                        <p class="mdg-hint">Infers a generator for each field from your keys and value patterns (a value like <code>42</code> for <code>id</code> stays an integer; a UUID string becomes a UUID), then generates more rows in the same shape. <a href="#" id="mdgSampleExample">Load an example</a>.</p>
+                    </div>
+
+                    <div class="mdg-panel" id="panel-schema" role="tabpanel" aria-labelledby="tab-schema" tabindex="0">
+                        <textarea class="mdg-input-area" id="mdgSchemaInput" spellcheck="false" placeholder='Paste a JSON Schema (draft-07 subset), e.g.&#10;{ "type":"object", "properties": { "id": {"type":"integer"}, "email": {"type":"string","format":"email"} }, "required":["id"] }'></textarea>
+                        <p class="mdg-hint">Supports the common subset: <code>type, properties, required, items, enum, format, minimum/maximum, minItems/maxItems</code>. No OpenAPI or <code>$ref</code> yet. <a href="#" id="mdgSchemaExample">Load an example</a>.</p>
+                    </div>
+                </div>
+
+                <!-- RIGHT: output console -->
+                <div class="mdg-pane mdg-pane-right">
+                    <div class="mdg-toolbar">
+                        <div class="mdg-toolbar-controls">
+                            <div class="mdg-ctl">
+                                <label for="mdgRowCount">Rows</label>
+                                <input type="number" id="mdgRowCount" min="1" max="1000000" value="10">
+                            </div>
+                            <div class="mdg-ctl">
+                                <label for="mdgSeed">Seed</label>
+                                <input type="text" id="mdgSeed" placeholder="random" autocomplete="off">
+                            </div>
+                            <div class="mdg-ctl mdg-ctl-grow">
+                                <label for="mdgFormat">Format</label>
+                                <select id="mdgFormat">
+                                    <option value="json">JSON array</option>
+                                    <option value="ndjson">NDJSON</option>
+                                    <option value="csv">CSV</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mdg-btns">
+                            <button class="btn btn-primary" id="mdgGenerate" type="button">Generate</button>
+                            <button class="btn btn-secondary" id="mdgCopy" type="button">Copy</button>
+                            <button class="btn btn-secondary" id="mdgDownload" type="button">Download</button>
+                        </div>
+                    </div>
+                    <div class="mdg-progress" id="mdgProgress" hidden><div class="mdg-progress-bar" id="mdgProgressBar"></div></div>
+                    <div class="mdg-warn" id="mdgCsvWarn">CSV flattens nested objects into dot-notation columns (e.g. <code>address.city</code>) and JSON-encodes arrays. For nested data, JSON or NDJSON keeps the structure.</div>
+                    <div class="mdg-statusbar"><span class="mdg-pip" id="mdgPip"></span><span id="mdgStatus" role="status" aria-live="polite"></span></div>
+                    <div class="mdg-console"><pre id="mdgOutput" tabindex="0" aria-label="Generated output"></pre></div>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="info-section">
+            <h2>What this mock data generator does</h2>
+            <p>This is a free, privacy-first tool for generating <strong>realistic test data</strong> without sending anything to a server. Unlike most generators, it focuses on <em>coherence</em> — the values in a row make sense together — and on <strong>reproducibility</strong> through a seed, so the same configuration always yields the same data for your tests and fixtures.</p>
+            <p>There are three ways to describe the shape you want:</p>
+            <ul>
+                <li><strong>Field picker</strong> — add named fields and choose a generator for each (UUID, email, city, price, date, enum, and more), including nested objects and arrays.</li>
+                <li><strong>From sample JSON</strong> — paste a real object or array and the tool infers each field's generator from your keys and value patterns, then produces as many lookalike rows as you need. This is the fastest way to <a href="generate-json-from-example.html">generate JSON from an example</a>.</li>
+                <li><strong>From JSON Schema</strong> — paste a draft-07 schema (subset) and generate conforming data.</li>
+            </ul>
+
+            <h2>Coherent by design</h2>
+            <p>Most fake-data tools generate each field independently, so you get a row where the name is "Alice Smith" but the email is "qz8@example.com" and the city, state, and ZIP belong to three different places. This tool keeps related fields consistent within each row:</p>
+            <ul>
+                <li><code>email</code>, <code>username</code>, and <code>fullName</code> derive from that row's first and last name.</li>
+                <li><code>city</code>, <code>state</code>, <code>zip</code>, <code>country</code>, and latitude/longitude come from a single real location.</li>
+                <li><code>updatedAt</code> is always on or after <code>createdAt</code>.</li>
+            </ul>
+
+            <h2>Reproducible with a seed</h2>
+            <p>Type anything into the <strong>Seed</strong> box and generation becomes deterministic: the same schema and seed produce byte-identical output every time, on any machine. Leave the seed blank for fresh random data on each run. This makes the tool a good fit for snapshot tests and shareable fixtures.</p>
+
+            <h2>Export formats</h2>
+            <p>Export as a <strong>JSON array</strong>, <strong>NDJSON</strong> (one JSON object per line, ideal for log pipelines and bulk import), or <strong>CSV</strong>. CSV flattens nested objects into dot-notation columns and JSON-encodes arrays, so it is best for flat schemas — for nested data, prefer JSON or NDJSON.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>Is the mock data generated in my browser?</summary>
+                <p>Yes. Everything runs client-side in JavaScript — your schema and any sample you paste never leave your device, it works offline once loaded, and there is no row cap or signup.</p>
+            </details>
+            <details>
+                <summary>How do I generate JSON that matches my existing data?</summary>
+                <p>Open the <strong>From sample JSON</strong> tab, paste one object or an array of objects, and the tool infers a field-by-field schema from your keys and value patterns, then generates as many new rows in the same shape as you want.</p>
+            </details>
+            <details>
+                <summary>What is a seed and why would I use one?</summary>
+                <p>A seed is any text you type into the seed box. With a seed set, the generator is fully deterministic: the same schema and seed always produce byte-identical output, which is ideal for reproducible tests and fixtures. Leave it blank for fresh random data each run.</p>
+            </details>
+            <details>
+                <summary>Can I export NDJSON or CSV instead of a JSON array?</summary>
+                <p>Yes. Choose JSON array, NDJSON (one object per line), or CSV from the format selector. CSV flattens nested objects into dot-notation columns (<code>address.city</code>) and JSON-encodes arrays, so it is best suited to flat schemas.</p>
+            </details>
+            <details>
+                <summary>Is the generated data coherent — does the email match the name?</summary>
+                <p>Yes. A coherence layer keeps related fields consistent within each row: the email and username derive from that row's first and last name, city/state/zip/country come from one real location tuple, and <code>updatedAt</code> never falls before <code>createdAt</code>.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="generate-json-from-example.html">Generate JSON from an Example</a> &mdash; paste a sample, get more like it</li>
+                <li><a href="json-schema-generator.html">JSON Schema Generator</a> &mdash; infer a schema from JSON</li>
+                <li><a href="json-to-typescript.html">JSON to TypeScript</a> &mdash; types from your data</li>
+                <li><a href="json-schema-validator.html">JSON Schema Validator</a> &mdash; validate data against a schema</li>
+                <li><a href="json-tools.html">All JSON Tools</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <!-- Add / Change field-type picker -->
+    <div class="mdg-modal" id="mdgPicker" hidden>
+        <div class="mdg-modal-overlay" data-close></div>
+        <div class="mdg-modal-panel" role="dialog" aria-modal="true" aria-labelledby="mdgPickerTitle">
+            <div class="mdg-modal-head">
+                <h2 id="mdgPickerTitle">Add a field</h2>
+                <button class="mdg-iconbtn" id="mdgPickerClose" type="button" aria-label="Close dialog">✕</button>
+            </div>
+            <input type="text" id="mdgPickerSearch" class="mdg-picker-search" placeholder="Search field types…" autocomplete="off" aria-label="Search field types">
+            <div class="mdg-picker-list" id="mdgPickerList" role="listbox" aria-label="Field types"></div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="json-tools.html">All Tools</a> | <a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/mock-data-faker.js"></script>
+    <script src="js/mock-data-generator-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>
