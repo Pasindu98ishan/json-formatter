@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="npm ERR! code ERESOLVE — unable to resolve dependency tree. What the peer dependency conflict means, why npm 7+ throws it, and how to fix it with --legacy-peer-deps, overrides, or a proper version fix.">
+    <meta name="keywords" content="npm ERESOLVE, unable to resolve dependency tree, npm ERR code ERESOLVE, could not resolve dependency, legacy-peer-deps, peer dependency conflict npm, npm install fails">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/npm-eresolve-unable-to-resolve-dependency-tree.html">
+    <meta property="og:title" content="npm ERR! code ERESOLVE — Unable to Resolve Dependency Tree (Cause and Fix)">
+    <meta property="og:description" content="npm install fails with ERESOLVE because a package's peer dependency conflicts with what your project has installed. Learn the real fix, plus when --legacy-peer-deps and overrides are safe.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/npm-eresolve-unable-to-resolve-dependency-tree.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>npm ERR! code ERESOLVE — Unable to Resolve Dependency Tree | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "npm ERESOLVE: unable to resolve dependency tree", "item": "https://jsondevtools.org/errors/npm-eresolve-unable-to-resolve-dependency-tree.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "npm ERR! code ERESOLVE — Unable to Resolve Dependency Tree (Cause and Fix)",
+  "description": "npm install fails with ERESOLVE when a package's peer dependency cannot be satisfied by the versions already in your dependency tree. This reference explains the conflict, shows how to read the error, and gives the correct fix plus the safe use of --legacy-peer-deps and overrides.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-20",
+  "dateModified": "2026-06-20",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does npm ERR! code ERESOLVE mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "ERESOLVE means npm could not build a single dependency tree that satisfies every package's requirements at once. Almost always, one package declares a peer dependency on a version of another package that conflicts with the version your project (or another dependency) has installed. npm 7 and later refuse to install a tree it considers broken, so it stops with ERESOLVE instead of guessing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is --legacy-peer-deps safe to use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It is usually safe and is the most common workaround. --legacy-peer-deps tells npm to ignore peer dependency conflicts and install the tree the way npm 6 did. The risk is that you may install a combination of versions the package authors never tested together, which can cause subtle runtime bugs. Prefer fixing the actual version mismatch; use --legacy-peer-deps when a dependency simply has not updated its peer range yet."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between --legacy-peer-deps and --force?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "--legacy-peer-deps ignores peer dependencies entirely, behaving like npm 6 and skipping the conflict check. --force is broader and more dangerous: it overrides all conflicts, can install duplicate or mismatched versions, and may produce a genuinely broken node_modules. For ERESOLVE, --legacy-peer-deps is the targeted option; reach for --force only as a last resort."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I permanently fix ERESOLVE instead of using a flag every time?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Fix the version mismatch in package.json. Read the error to see which peer range is unmet, then either upgrade the conflicting package to a version whose peer range matches, downgrade the package that is too new, or add an overrides block (npm 8.3+) to force a specific transitive version. Once package.json and package-lock.json resolve cleanly, you no longer need any install flag."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did this start happening after I upgraded npm or Node?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "npm 6 silently ignored peer dependency conflicts; npm 7 (shipped with Node 16) began enforcing them and fails with ERESOLVE. Node 18, 20, and later bundle npm 8/9/10, which keep that strict behavior. The conflict was almost certainly present before — your old npm just installed a broken tree without telling you."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I set legacy-peer-deps in .npmrc for CI?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You can add legacy-peer-deps=true to a project .npmrc so local installs and CI behave identically, which avoids 'works on my machine' failures. Treat it as a temporary measure and document why it is there. The cleaner long-term fix is to resolve the peer conflict so the install succeeds without any override at all."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix the npm ERESOLVE unable to resolve dependency tree error",
+  "description": "Steps to diagnose and resolve an npm ERESOLVE peer dependency conflict.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Read which peer dependency is unmet", "text": "In the error output, find the 'Could not resolve dependency' block. It names the package that requires a peer and the version range it expects versus what is installed." },
+    { "@type": "HowToStep", "position": 2, "name": "Try the targeted version fix first", "text": "Upgrade or downgrade the package whose peer range is unmet so the installed version satisfies it. This is the only fix that produces a genuinely correct tree." },
+    { "@type": "HowToStep", "position": 3, "name": "Use an overrides block for stubborn transitive conflicts", "text": "If the conflict is buried in a sub-dependency you do not control, add an overrides field in package.json (npm 8.3+) to pin the resolved version." },
+    { "@type": "HowToStep", "position": 4, "name": "Fall back to --legacy-peer-deps when a peer range is just stale", "text": "If a dependency simply has not updated its peer range yet, install with npm install --legacy-peer-deps to skip the peer check the way npm 6 did." },
+    { "@type": "HowToStep", "position": 5, "name": "Commit the resolved lockfile", "text": "After a clean install, commit the updated package.json and package-lock.json so the resolution is reproducible in CI and for your team." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>npm ERESOLVE: unable to resolve dependency tree</span>
+            </nav>
+            <h1>npm ERR! code ERESOLVE &mdash; unable to resolve dependency tree</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>ERESOLVE</code> means a package's <strong>peer dependency</strong> conflicts with a version already in your tree, and npm 7+ refuses to install a broken tree. The real fix is to align the versions; the fast workaround is <code>npm install --legacy-peer-deps</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <p>A typical <code>ERESOLVE</code> failure from <code>npm install</code> looks like this:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>npm ERR! code ERESOLVE
+npm ERR! ERESOLVE unable to resolve dependency tree
+npm ERR!
+npm ERR! While resolving: my-app@1.0.0
+npm ERR! Found: react@18.2.0
+npm ERR! node_modules/react
+npm ERR!   react@"^18.2.0" from the root project
+npm ERR!
+npm ERR! Could not resolve dependency:
+npm ERR! peer react@"^17.0.0" from react-some-widget@2.1.0
+npm ERR! node_modules/react-some-widget
+npm ERR!   react-some-widget@"^2.1.0" from the root project
+npm ERR!
+npm ERR! Fix the upstream dependency conflict, or retry
+npm ERR! this command with --force or --legacy-peer-deps
+npm ERR! to accept an incorrect (and potentially broken) dependency resolution.</code></pre>
+            </div>
+
+            <p>Read it bottom-up. The <code>Could not resolve dependency</code> block is the key: <code>react-some-widget@2.1.0</code> declares a <strong>peer</strong> of <code>react@"^17.0.0"</code>, but the root project has <code>react@18.2.0</code> installed. 18 does not satisfy <code>^17</code>, so npm cannot build one tree that makes both happy.</p>
+
+            <h2>What is a peer dependency?</h2>
+            <p>A peer dependency is a package that a library expects <em>you</em> to provide, rather than bundling its own copy. Plugins do this constantly: a React component library declares <code>react</code> as a peer so it shares the single React instance in your app instead of shipping a second one. The library says &ldquo;I work with React 17,&rdquo; and it is your job to have a compatible React installed.</p>
+
+            <p>The trouble starts when two packages disagree about which version you should provide. One peer wants React 17, your app uses React 18, and there is no single version that satisfies both ranges. That irreconcilable overlap is exactly what <code>ERESOLVE</code> reports.</p>
+
+            <h2>Why npm 7+ throws this when npm 6 did not</h2>
+            <p>This error is new to most people because npm changed its behavior. npm 6 quietly <em>ignored</em> peer dependency conflicts &mdash; it would print a warning at most and install whatever it could, leaving you with a tree the package authors never tested. npm 7 (bundled with Node 16) began treating unmet peer dependencies as hard errors and stops with <code>ERESOLVE</code> rather than installing a tree it considers incorrect.</p>
+
+            <p>The change was deliberate. npm 7 introduced <strong>strict peer dependency resolution</strong> specifically to prevent broken dependency trees &mdash; the kind that installed cleanly under npm 6 but then failed at runtime with cryptic symptoms like <a href="cannot-find-module.html"><code>Cannot find module</code></a>, duplicate-React bugs, or mismatched type definitions. Surfacing the conflict at install time, when it is cheap to fix, is the entire point: a failed install is far better than a green install that crashes in production.</p>
+
+            <p>npm 8, 9, and 10 &mdash; shipped with Node 18, 20, and 22 &mdash; all keep this strict behavior. So if the error appeared right after you upgraded Node or switched machines, the conflict was almost certainly there all along; your older npm simply never told you about it.</p>
+
+            <h2>Fix 1: Align the versions (the correct fix)</h2>
+            <p>The only fix that yields a genuinely correct tree is to make the versions compatible. Read the error to see which range is unmet, then resolve it one of three ways:</p>
+
+            <ul>
+                <li><strong>Upgrade the conflicting package</strong> &mdash; check whether a newer version of <code>react-some-widget</code> supports React 18. This is the best outcome.</li>
+                <li><strong>Downgrade the package that is too new</strong> &mdash; if you must keep <code>react-some-widget@2.1.0</code> and it truly needs React 17, downgrade React (rarely worth it for a single widget).</li>
+                <li><strong>Find a maintained alternative</strong> &mdash; a peer stuck on an old major version is often a sign the package is unmaintained.</li>
+            </ul>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># See if a newer version supports your React
+npm view react-some-widget peerDependencies
+npm view react-some-widget versions --json
+
+# Upgrade to a version whose peer range matches React 18
+npm install react-some-widget@latest</code></pre>
+            </div>
+
+            <h2>Fix 2: --legacy-peer-deps (the common workaround)</h2>
+            <p>When the dependency simply has not updated its peer range yet &mdash; but you know it works with your version &mdash; tell npm to install the way npm 6 did and skip the peer check entirely:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>npm install --legacy-peer-deps
+
+# Make it the default for this project (local + CI behave the same):
+# create or edit .npmrc in the project root
+echo "legacy-peer-deps=true" >> .npmrc</code></pre>
+            </div>
+
+            <p>This is the right tool when a maintainer is slow to widen a peer range that is, in practice, compatible. The trade-off: you are installing a combination of versions nobody officially tested, so verify your app still runs. If you add it to <code>.npmrc</code>, leave a comment explaining why &mdash; treat it as temporary, not a permanent silencer.</p>
+
+            <h2>Fix 3: overrides for buried transitive conflicts</h2>
+            <p>Sometimes the conflict is not in a package you installed directly, but deep in a sub-dependency you do not control. npm 8.3+ lets you force a resolved version with an <code>overrides</code> block in <code>package.json</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "overrides": {
+    "react-some-widget": {
+      "react": "$react"
+    },
+    "some-deep-dep": "1.4.0"
+  }
+}</code></pre>
+            </div>
+
+            <p>The <code>"react": "$react"</code> syntax pins the nested peer to whatever version your root project uses. Use overrides surgically &mdash; you are overruling what a package author declared, so confirm the forced version actually works. (Yarn calls this <code>resolutions</code>; pnpm uses <code>pnpm.overrides</code>.)</p>
+
+            <h2>Fix 4: --force (last resort)</h2>
+            <p><code>npm install --force</code> overrides <em>all</em> conflicts, not just peer ones, and will happily install a duplicated or mismatched tree. It is broader and riskier than <code>--legacy-peer-deps</code> and can produce a <code>node_modules</code> that is genuinely broken at runtime. Reach for it only when nothing else works and you are prepared to debug the result.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Targeted: ignore ONLY peer dependency conflicts (prefer this)
+npm install --legacy-peer-deps
+
+# Heavy-handed: override ALL conflicts (can break your tree)
+npm install --force</code></pre>
+            </div>
+
+            <h2>Which fix should I use? (decision flow)</h2>
+            <p>Work top-down. Each step is one question; if the answer is yes, take the green action and stop. If no, drop to the next question. The last resort &mdash; <code>--legacy-peer-deps</code> &mdash; is only for when nothing above it is possible.</p>
+
+            <svg viewBox="0 0 900 612" role="img" aria-labelledby="dtTitle dtDesc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif" style="width:100%;height:auto;max-width:780px;display:block;margin:1.5rem auto;">
+                <title id="dtTitle">npm ERESOLVE decision flow</title>
+                <desc id="dtDesc">Step 1: if you can upgrade the conflicting package, do that (Fix 1). Otherwise step 2: if you can downgrade your framework, do that (Fix 1). Otherwise step 3: if the conflict is in a buried sub-dependency, add an overrides block (Fix 3). Otherwise, as a last resort, install with --legacy-peer-deps (Fix 2).</desc>
+                <defs>
+                    <style>
+                        .dt-card{fill:#f8f9fa;stroke:#dee2e6;stroke-width:1;}
+                        .dt-green{fill:#eaf7ee;}
+                        .dt-amber{fill:#fdf1e4;stroke:#d4740e;stroke-width:1;}
+                        .dt-blue{fill:#1e6bb8;}
+                        .dt-h{fill:#1a1a1a;}
+                        .dt-b{fill:#3f4a55;}
+                        .dt-muted{fill:#6c757d;}
+                        .dt-arrow{stroke:#9aa0a6;stroke-width:1.5;fill:none;}
+                        .dt-ah{fill:#9aa0a6;}
+                        .dt-code{fill:#0b5394;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+                        body.dark-mode .dt-card{fill:#1e1e1e;stroke:#3a3a3a;}
+                        body.dark-mode .dt-green{fill:#16271b;}
+                        body.dark-mode .dt-amber{fill:#33240f;}
+                        body.dark-mode .dt-h{fill:#e8e8e8;}
+                        body.dark-mode .dt-b{fill:#c2c8ce;}
+                        body.dark-mode .dt-code{fill:#9fd0ff;}
+                    </style>
+                    <marker id="dtHead" markerWidth="9" markerHeight="9" refX="4.5" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" class="dt-ah"/></marker>
+                </defs>
+
+                <!-- start node -->
+                <rect class="dt-blue" x="355" y="12" width="190" height="44" rx="8"/>
+                <text x="450" y="40" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="700">npm ERESOLVE</text>
+                <line class="dt-arrow" x1="450" y1="58" x2="450" y2="86" marker-end="url(#dtHead)"/>
+
+                <!-- step 1 -->
+                <rect class="dt-card" x="20" y="92" width="860" height="116" rx="8"/>
+                <text class="dt-h" x="40" y="126" font-size="16"><tspan font-weight="700">1. Can you upgrade the conflicting package</tspan><tspan font-weight="400"> to a version that supports your framework?</tspan></text>
+                <rect class="dt-green" x="40" y="144" width="820" height="48" rx="6"/>
+                <rect x="40" y="144" width="4" height="48" fill="#28a745"/>
+                <text class="dt-b" x="58" y="173" font-size="15"><tspan fill="#28a745" font-weight="700">&#10003; Yes</tspan> &#8594; upgrade the package (Fix 1). Done.</text>
+                <line class="dt-arrow" x1="450" y1="210" x2="450" y2="240" marker-end="url(#dtHead)"/>
+                <text class="dt-muted" x="468" y="229" font-size="13">no</text>
+
+                <!-- step 2 -->
+                <rect class="dt-card" x="20" y="244" width="860" height="116" rx="8"/>
+                <text class="dt-h" x="40" y="278" font-size="16"><tspan font-weight="700">2. Can you downgrade your framework</tspan><tspan font-weight="400"> (e.g. React) to satisfy the peer range?</tspan></text>
+                <rect class="dt-green" x="40" y="296" width="820" height="48" rx="6"/>
+                <rect x="40" y="296" width="4" height="48" fill="#28a745"/>
+                <text class="dt-b" x="58" y="325" font-size="15"><tspan fill="#28a745" font-weight="700">&#10003; Yes</tspan> &#8594; downgrade the framework (Fix 1). Done.</text>
+                <line class="dt-arrow" x1="450" y1="362" x2="450" y2="392" marker-end="url(#dtHead)"/>
+                <text class="dt-muted" x="468" y="381" font-size="13">no</text>
+
+                <!-- step 3 -->
+                <rect class="dt-card" x="20" y="396" width="860" height="116" rx="8"/>
+                <text class="dt-h" x="40" y="430" font-size="16"><tspan font-weight="700">3. Is the conflict in a buried sub-dependency</tspan><tspan font-weight="400"> you do not directly control?</tspan></text>
+                <rect class="dt-green" x="40" y="448" width="820" height="48" rx="6"/>
+                <rect x="40" y="448" width="4" height="48" fill="#28a745"/>
+                <text class="dt-b" x="58" y="477" font-size="15"><tspan fill="#28a745" font-weight="700">&#10003; Yes</tspan> &#8594; add an <tspan class="dt-code">overrides</tspan> block to pin the version (Fix 3). Done.</text>
+                <line class="dt-arrow" x1="450" y1="514" x2="450" y2="544" marker-end="url(#dtHead)"/>
+                <text class="dt-muted" x="468" y="533" font-size="13">still blocked</text>
+
+                <!-- last resort -->
+                <rect class="dt-amber" x="20" y="548" width="860" height="52" rx="8"/>
+                <text class="dt-h" x="40" y="580" font-size="15"><tspan font-weight="700">4. Last resort:</tspan><tspan font-weight="400"> install with </tspan><tspan class="dt-code">--legacy-peer-deps</tspan><tspan font-weight="400"> (Fix 2) and verify the app runs. Treat it as temporary.</tspan></text>
+            </svg>
+
+            <h2>Common scenarios</h2>
+            <p>Most <code>ERESOLVE</code> errors come from a handful of framework upgrades. If your conflict matches one of these, jump straight to the recommended action:</p>
+
+            <table>
+                <thead>
+                    <tr><th>What you have</th><th>What the package wants</th><th>Recommended fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>React 19</td>
+                        <td>peer <code>react@^18</code></td>
+                        <td>Upgrade the package to a React 19&ndash;compatible release; if none exists yet, <code>--legacy-peer-deps</code> until the author updates</td>
+                    </tr>
+                    <tr>
+                        <td>React 18</td>
+                        <td>peer <code>react@^17</code></td>
+                        <td>Upgrade the package, or pin <code>react</code> with an <code>overrides</code> block if it works in practice</td>
+                    </tr>
+                    <tr>
+                        <td>Next.js (mismatched React)</td>
+                        <td>Next pins its own React range</td>
+                        <td>Upgrade <strong>Next.js</strong> &mdash; it controls the supported React version; do not fight it by downgrading React</td>
+                    </tr>
+                    <tr>
+                        <td>Angular 17</td>
+                        <td>peer <code>@angular/*@^16</code></td>
+                        <td>Install the library version built for Angular 17 (Angular libraries are tightly version-locked)</td>
+                    </tr>
+                    <tr>
+                        <td>ESLint 9</td>
+                        <td>peer <code>eslint@^8</code></td>
+                        <td>Upgrade the plugin to its ESLint 9 (flat-config) release; many plugins shipped one</td>
+                    </tr>
+                    <tr>
+                        <td>TypeScript 5</td>
+                        <td>peer <code>typescript@^4</code></td>
+                        <td>Upgrade the types/plugin package; if it genuinely works on TS 5, <code>--legacy-peer-deps</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>ERESOLVE in CI but not locally</h2>
+            <p>A frequent variant: <code>npm install</code> works on your laptop but CI fails with <code>ERESOLVE</code>. The usual cause is a stale <code>package-lock.json</code> &mdash; your local <code>node_modules</code> was built before the conflict, while CI installs from scratch. If CI uses <code>npm ci</code> (which it should), it installs strictly from the lockfile and surfaces the conflict immediately.</p>
+
+            <p>The fix is to resolve the conflict locally, delete <code>node_modules</code> and <code>package-lock.json</code>, run a fresh <code>npm install</code>, and commit the regenerated lockfile. Never &ldquo;fix&rdquo; CI by hand-editing the lockfile &mdash; regenerate it from a clean install so the resolution is reproducible.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <code>Could not resolve dependency</code> block &mdash; it names the package and the unmet peer range</li>
+                <li>&#10003; Run <code>npm view &lt;package&gt; peerDependencies</code> to confirm what the package actually requires</li>
+                <li>&#10003; Check for a newer version of the conflicting package that supports your framework version</li>
+                <li>&#10003; If the peer range is merely stale, install with <code>--legacy-peer-deps</code> and verify the app runs</li>
+                <li>&#10003; For a buried sub-dependency, add an <code>overrides</code> block (npm 8.3+) rather than <code>--force</code></li>
+                <li>&#10003; After fixing, delete <code>node_modules</code> + <code>package-lock.json</code>, reinstall clean, and commit the new lockfile</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does npm ERR! code ERESOLVE mean?</summary>
+                    <p><code>ERESOLVE</code> means npm could not build a single dependency tree that satisfies every package's requirements at once. Almost always, one package declares a peer dependency on a version of another package that conflicts with the version your project (or another dependency) has installed. npm 7 and later refuse to install a tree they consider broken, so they stop with <code>ERESOLVE</code> instead of guessing.</p>
+                </details>
+                <details>
+                    <summary>Is --legacy-peer-deps safe to use?</summary>
+                    <p>It is usually safe and is the most common workaround. <code>--legacy-peer-deps</code> tells npm to ignore peer dependency conflicts and install the tree the way npm 6 did. The risk is that you may install a combination of versions the package authors never tested together, which can cause subtle runtime bugs. Prefer fixing the actual version mismatch; use <code>--legacy-peer-deps</code> when a dependency simply has not updated its peer range yet.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between --legacy-peer-deps and --force?</summary>
+                    <p><code>--legacy-peer-deps</code> ignores peer dependencies entirely, behaving like npm 6 and skipping the conflict check. <code>--force</code> is broader and more dangerous: it overrides all conflicts, can install duplicate or mismatched versions, and may produce a genuinely broken <code>node_modules</code>. For <code>ERESOLVE</code>, <code>--legacy-peer-deps</code> is the targeted option; reach for <code>--force</code> only as a last resort.</p>
+                </details>
+                <details>
+                    <summary>How do I permanently fix ERESOLVE instead of using a flag every time?</summary>
+                    <p>Fix the version mismatch in <code>package.json</code>. Read the error to see which peer range is unmet, then either upgrade the conflicting package to a version whose peer range matches, downgrade the package that is too new, or add an <code>overrides</code> block (npm 8.3+) to force a specific transitive version. Once <code>package.json</code> and <code>package-lock.json</code> resolve cleanly, you no longer need any install flag.</p>
+                </details>
+                <details>
+                    <summary>Why did this start happening after I upgraded npm or Node?</summary>
+                    <p>npm 6 silently ignored peer dependency conflicts; npm 7 (shipped with Node 16) began enforcing them and fails with <code>ERESOLVE</code>. Node 18, 20, and later bundle npm 8/9/10, which keep that strict behavior. The conflict was almost certainly present before &mdash; your old npm just installed a broken tree without telling you.</p>
+                </details>
+                <details>
+                    <summary>Should I set legacy-peer-deps in .npmrc for CI?</summary>
+                    <p>You can add <code>legacy-peer-deps=true</code> to a project <code>.npmrc</code> so local installs and CI behave identically, which avoids &ldquo;works on my machine&rdquo; failures. Treat it as a temporary measure and document why it is there. The cleaner long-term fix is to resolve the peer conflict so the install succeeds without any override at all.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with a JSON API?</h3>
+                <p>Format and validate any JSON response in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-find-module.html">Error: Cannot find module</a> &mdash; the runtime version of a missing dependency</li>
+                <li><a href="eaddrinuse-address-already-in-use.html">Error: listen EADDRINUSE: address already in use</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/env-file-format.html">The .env File Format Explained</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

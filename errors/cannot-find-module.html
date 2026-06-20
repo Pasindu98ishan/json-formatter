@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Error: Cannot find module (MODULE_NOT_FOUND) in Node.js — what the require stack tells you, why it happens for npm packages and local files, and how to fix it including the ESM 'must provide file extension' variant.">
+    <meta name="keywords" content="Error Cannot find module, MODULE_NOT_FOUND, cannot find module node, require stack, cannot find module nodejs, ERR_MODULE_NOT_FOUND, node cannot find local file">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/cannot-find-module.html">
+    <meta property="og:title" content="Error: Cannot find module (MODULE_NOT_FOUND) — Cause and Fix">
+    <meta property="og:description" content="Node.js throws Cannot find module when require() or import cannot resolve a package or file. Learn to read the require stack and fix every common cause — missing install, wrong path, case sensitivity, and ESM extensions.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/cannot-find-module.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Error: Cannot find module (MODULE_NOT_FOUND) — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Error: Cannot find module", "item": "https://jsondevtools.org/errors/cannot-find-module.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Error: Cannot find module (MODULE_NOT_FOUND) — Cause and Fix",
+  "description": "Node.js throws 'Error: Cannot find module' when require() or import cannot resolve a package or local file. This reference explains the require stack, MODULE_NOT_FOUND vs ERR_MODULE_NOT_FOUND, and fixes for every common cause.",
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
+  "datePublished": "2026-06-20",
+  "dateModified": "2026-06-20",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does Error: Cannot find module mean in Node.js?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means Node's module resolver could not locate the package or file you asked for with require() or import. For a bare name like 'express' it usually means the package is not installed in node_modules. For a path like './utils' it means the file does not exist at that resolved location. The error code is MODULE_NOT_FOUND (CommonJS) or ERR_MODULE_NOT_FOUND (ES modules)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I read the require stack in the error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The Require stack lists the chain of files that led to the failed import, with the file that actually called require() at the top. Read it top-down: the first entry is the file containing the broken require or import statement, so that is where you fix the path or add the dependency. The rest of the stack shows how Node reached that file."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it work on my machine but fail in Docker or CI?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Two common reasons. First, the package may be in devDependencies but the production install used --omit=dev (or NODE_ENV=production), so it was never installed. Second, Linux filesystems are case-sensitive while macOS and Windows are not — require('./Utils') resolves to ./utils locally but fails on Linux. Match the exact filename casing and confirm the dependency is in the right section of package.json."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get Cannot find module with an ES module import?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In ES modules (type: module or .mjs files), relative imports must include the file extension. import './utils' fails with ERR_MODULE_NOT_FOUND; you must write import './utils.js'. Unlike CommonJS require(), the ESM resolver does not automatically try adding .js or resolving an index file, so the extension is mandatory."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix Cannot find module after cloning a repository?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run npm install. A freshly cloned repo does not include node_modules (it is gitignored), so every dependency reports as missing until you install. If a specific package is still missing after install, it was probably never added to package.json — install it explicitly with npm install <package> so it is saved as a dependency."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between MODULE_NOT_FOUND and ERR_MODULE_NOT_FOUND?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "MODULE_NOT_FOUND is thrown by the CommonJS loader when require() cannot resolve a module. ERR_MODULE_NOT_FOUND is the ES module equivalent, thrown when an import specifier cannot be resolved. They mean the same thing — a module was not found — but the ESM version is stricter about file extensions and does not fall back to index files."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix the Error: Cannot find module in Node.js",
+  "description": "Steps to diagnose and resolve a MODULE_NOT_FOUND error.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Identify whether it is a package or a path", "text": "Look at the module name in the error. A bare name like 'express' is an npm package; a name starting with ./ or ../ is a local file. The two have different fixes." },
+    { "@type": "HowToStep", "position": 2, "name": "For a missing package, install it", "text": "Run npm install to install everything in package.json, or npm install <package> if it was never added. Confirm it appears in node_modules and in package.json dependencies." },
+    { "@type": "HowToStep", "position": 3, "name": "For a local path, verify the file and casing", "text": "Confirm the file exists at the resolved path and that the casing matches exactly — Linux is case-sensitive even though macOS and Windows are not." },
+    { "@type": "HowToStep", "position": 4, "name": "Add the file extension for ES modules", "text": "In ESM (type: module), relative imports must include the extension: import './utils.js', not import './utils'." },
+    { "@type": "HowToStep", "position": 5, "name": "Read the require stack to locate the call site", "text": "The top entry of the Require stack is the file containing the broken import — fix the path or dependency there." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Error: Cannot find module</span>
+            </nav>
+            <h1>Error: Cannot find module (MODULE_NOT_FOUND) &mdash; Cause and Fix</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>Cannot find module</code> means Node could not resolve a <code>require()</code> or <code>import</code>. A bare name like <code>'express'</code> usually means you forgot <code>npm install</code>; a path like <code>'./utils'</code> means the file is missing, mis-cased, or (in ESM) needs a <code>.js</code> extension.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <p>A typical CommonJS failure prints the missing module, a <strong>require stack</strong>, and the error code:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Error: Cannot find module 'express'
+Require stack:
+- /app/src/server.js
+- /app/index.js
+    at Function.Module._resolveFilename (node:internal/modules/cjs/loader:1145:15)
+    at Function.Module._load (node:internal/modules/cjs/loader:986:27)
+    at Module.require (node:internal/modules/cjs/loader:1233:19)
+    at require (node:internal/modules/helpers:179:18)
+    at Object.&lt;anonymous&gt; (/app/src/server.js:2:17) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/src/server.js', '/app/index.js' ]
+}</code></pre>
+            </div>
+
+            <p>The ES module variant looks slightly different and carries a different code:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>node:internal/process/esm_loader:97
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module
+'/app/src/utils' imported from /app/src/server.js
+Did you mean to import ./utils.js?
+    at finalizeResolution (node:internal/modules/esm/resolve:264:11) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}</code></pre>
+            </div>
+
+            <h2>How to read the require stack</h2>
+            <p>The <strong>require stack</strong> is the most useful part of the message, and most people skim past it. It lists the chain of files Node followed to reach the failed import, with the file that actually called <code>require()</code> at the <em>top</em>. Read it top-down: the first entry is the file containing the broken statement.</p>
+
+            <p>In the example above, <code>/app/src/server.js</code> is at the top &mdash; so line 2 of <code>server.js</code> is where <code>express</code> is required and where the problem lives. You do not need to inspect <code>index.js</code>; it merely loaded <code>server.js</code>. Jumping straight to the top frame saves you from guessing which file is at fault.</p>
+
+            <h2>Is it a package or a local file?</h2>
+            <p>Before fixing anything, classify the missing module &mdash; the two cases have completely different solutions:</p>
+
+            <ul>
+                <li><strong>Bare specifier</strong> (<code>'express'</code>, <code>'lodash'</code>, <code>'@scope/pkg'</code>) &mdash; Node looks in <code>node_modules</code>. A failure almost always means the package is not installed.</li>
+                <li><strong>Relative path</strong> (<code>'./utils'</code>, <code>'../config/db'</code>) &mdash; Node looks at that exact location on disk. A failure means the file does not exist where you pointed, the name is mis-cased, or the extension is missing.</li>
+            </ul>
+
+            <h2>Fix: missing npm package</h2>
+            <p>If the missing module is a package name, install it. After cloning a repository, <code>node_modules</code> is not included (it is gitignored), so <em>every</em> dependency is missing until you install:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Install everything listed in package.json
+npm install
+
+# If a specific package was never added to package.json, add it
+npm install express
+
+# Confirm it is actually there
+ls node_modules/express
+npm ls express</code></pre>
+            </div>
+
+            <p>If <code>npm install</code> runs but the package is still missing, it was never saved to <code>package.json</code> &mdash; someone installed it locally without <code>--save</code> long ago, or the dependency line was removed. Installing it explicitly fixes both the import and the manifest so the next person who clones the repo gets it too.</p>
+
+            <h2>Fix: wrong local path or filename</h2>
+            <p>For a relative import, the file simply is not where Node resolved it. Check three things in order: the path, the casing, and the extension. Casing is the sneaky one &mdash; <code>require('./Utils')</code> works on macOS and Windows (case-insensitive filesystems) but throws <code>Cannot find module</code> on Linux, which is why builds pass locally and fail in Docker or CI.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// File on disk:  src/userService.js
+
+const svc = require('./userservice');   // ❌ wrong case — fails on Linux
+const svc = require('./userService');   // ✅ matches the file exactly
+
+const cfg = require('../config/db');    // resolves ../config/db.js (CommonJS)
+const cfg = require('config/db');       // ❌ no ./ — Node treats it as a package</code></pre>
+            </div>
+
+            <p>Note the last line: forgetting the leading <code>./</code> makes Node treat <code>config/db</code> as a package in <code>node_modules</code>, not a local file. Always prefix local imports with <code>./</code> or <code>../</code>.</p>
+
+            <h2>Fix: ESM imports need the file extension</h2>
+            <p>In ES modules &mdash; a project with <code>"type": "module"</code> in <code>package.json</code>, or a <code>.mjs</code> file &mdash; relative imports <strong>must</strong> include the file extension. The ESM resolver does not guess <code>.js</code> for you and does not fall back to an <code>index.js</code> the way CommonJS <code>require()</code> does:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// In an ES module ("type": "module")
+import { parse } from './utils';      // ❌ ERR_MODULE_NOT_FOUND
+import { parse } from './utils.js';   // ✅ extension is required
+
+import db from './config';            // ❌ no automatic index resolution
+import db from './config/index.js';   // ✅ point at the file explicitly
+
+// TypeScript + ESM ("module": "NodeNext"): write .js even from a .ts file
+import { something } from './utils';     // ❌ even in a .ts file
+import { something } from './utils.js';  // ✅ .js refers to the COMPILED output</code></pre>
+            </div>
+
+            <p>If you are migrating a CommonJS codebase to ESM, this is the single most common breakage. The TypeScript twist trips up almost everyone: with <code>"module": "NodeNext"</code> you write <code>./utils.js</code> in the source even though the file on disk is <code>utils.ts</code>, because the import specifier points at the emitted JavaScript, not the source file.</p>
+
+            <p>For dynamic resolution, modern Node offers cleaner tools than guessing paths: <code>import.meta.resolve('./utils.js')</code> returns the fully resolved URL of a specifier from inside an ES module, and <code>createRequire(import.meta.url)</code> from the built-in <code>node:module</code> lets you use CommonJS-style <code>require()</code> (including its index/extension fallbacks) within an ESM file when you genuinely need it.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Resolve a specifier without importing it (Node 20.6+ stable)
+const url = import.meta.resolve('./utils.js');
+
+// Bridge to CommonJS resolution from inside an ES module
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const cfg = require('./config'); // CJS-style fallback (tries .js, index.js)</code></pre>
+            </div>
+
+            <h2>Fix: a package's exports map blocks the deep import</h2>
+            <p>If the package is clearly installed but Node still reports <code>Cannot find module '@scope/pkg/internal/thing'</code> (or <code>ERR_PACKAGE_PATH_NOT_EXPORTED</code>), the cause is the package's <code>exports</code> field in its own <code>package.json</code>. Since Node 12+, an <code>exports</code> map acts as an allow-list: only the subpaths it explicitly declares can be imported, and reaching into any other internal file is blocked &mdash; even though the file physically exists in <code>node_modules</code>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// The dependency's package.json exposes only these entry points:
+{
+  "name": "@scope/pkg",
+  "exports": {
+    ".": "./dist/index.js",
+    "./helpers": "./dist/helpers.js"
+  }
+}
+
+import x from '@scope/pkg';            // ✅ matches "."
+import h from '@scope/pkg/helpers';    // ✅ matches "./helpers"
+import y from '@scope/pkg/dist/util';  // ❌ not exported — Cannot find module</code></pre>
+            </div>
+
+            <p>The fix is to import only the documented public entry points &mdash; check the package's README or its <code>exports</code> map for what is actually exposed. Deep paths that worked years ago often break after a package adds an <code>exports</code> field; that is intentional encapsulation, not a bug. If you truly need an internal file, open an issue asking the maintainer to export it rather than relying on a path that may vanish in the next release.</p>
+
+            <h2>Other common causes</h2>
+            <ul>
+                <li><strong>Package in <code>devDependencies</code>, production install skipped it</strong> &mdash; <code>npm ci --omit=dev</code> or <code>NODE_ENV=production</code> will not install dev packages. Move anything required at runtime into <code>dependencies</code>.</li>
+                <li><strong>Corrupted or partial <code>node_modules</code></strong> &mdash; an interrupted install can leave gaps. Delete <code>node_modules</code> and <code>package-lock.json</code>, then reinstall clean.</li>
+                <li><strong>Monorepo / workspace hoisting</strong> &mdash; the package resolves from the workspace root, not the sub-package. Confirm the dependency is declared in the workspace that uses it.</li>
+                <li><strong>Built output references a missing file</strong> &mdash; a bundler or <code>tsc</code> output points at a path that was not emitted. Rebuild and check the <code>dist</code> folder.</li>
+                <li><strong>Wrong working directory</strong> &mdash; running the script from a different folder changes how relative paths resolve. Run from the project root or use absolute paths.</li>
+            </ul>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the top of the <strong>Require stack</strong> &mdash; that file contains the broken import</li>
+                <li>&#10003; Decide if the module is a <strong>package</strong> (bare name) or a <strong>local file</strong> (starts with <code>./</code> or <code>../</code>)</li>
+                <li>&#10003; Package missing? Run <code>npm install</code>, or <code>npm install &lt;name&gt;</code> if it was never in <code>package.json</code></li>
+                <li>&#10003; Local file? Verify the path, match the filename <strong>casing exactly</strong> (Linux is case-sensitive)</li>
+                <li>&#10003; Using ES modules? Add the <code>.js</code> extension to relative imports</li>
+                <li>&#10003; Fails only in production/CI? Check <code>devDependencies</code> vs <code>dependencies</code> and case sensitivity</li>
+                <li>&#10003; Still broken? Delete <code>node_modules</code> + lockfile and reinstall from clean</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does Error: Cannot find module mean in Node.js?</summary>
+                    <p>It means Node's module resolver could not locate the package or file you asked for with <code>require()</code> or <code>import</code>. For a bare name like <code>'express'</code> it usually means the package is not installed in <code>node_modules</code>. For a path like <code>'./utils'</code> it means the file does not exist at that resolved location. The error code is <code>MODULE_NOT_FOUND</code> (CommonJS) or <code>ERR_MODULE_NOT_FOUND</code> (ES modules).</p>
+                </details>
+                <details>
+                    <summary>How do I read the require stack in the error?</summary>
+                    <p>The <code>Require stack</code> lists the chain of files that led to the failed import, with the file that actually called <code>require()</code> at the top. Read it top-down: the first entry is the file containing the broken require or import statement, so that is where you fix the path or add the dependency. The rest of the stack shows how Node reached that file.</p>
+                </details>
+                <details>
+                    <summary>Why does it work on my machine but fail in Docker or CI?</summary>
+                    <p>Two common reasons. First, the package may be in <code>devDependencies</code> but the production install used <code>--omit=dev</code> (or <code>NODE_ENV=production</code>), so it was never installed. Second, Linux filesystems are case-sensitive while macOS and Windows are not &mdash; <code>require('./Utils')</code> resolves to <code>./utils</code> locally but fails on Linux. Match the exact filename casing and confirm the dependency is in the right section of <code>package.json</code>.</p>
+                </details>
+                <details>
+                    <summary>Why do I get Cannot find module with an ES module import?</summary>
+                    <p>In ES modules (<code>type: module</code> or <code>.mjs</code> files), relative imports must include the file extension. <code>import './utils'</code> fails with <code>ERR_MODULE_NOT_FOUND</code>; you must write <code>import './utils.js'</code>. Unlike CommonJS <code>require()</code>, the ESM resolver does not automatically try adding <code>.js</code> or resolving an index file, so the extension is mandatory.</p>
+                </details>
+                <details>
+                    <summary>How do I fix Cannot find module after cloning a repository?</summary>
+                    <p>Run <code>npm install</code>. A freshly cloned repo does not include <code>node_modules</code> (it is gitignored), so every dependency reports as missing until you install. If a specific package is still missing after install, it was probably never added to <code>package.json</code> &mdash; install it explicitly with <code>npm install &lt;package&gt;</code> so it is saved as a dependency.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between MODULE_NOT_FOUND and ERR_MODULE_NOT_FOUND?</summary>
+                    <p><code>MODULE_NOT_FOUND</code> is thrown by the CommonJS loader when <code>require()</code> cannot resolve a module. <code>ERR_MODULE_NOT_FOUND</code> is the ES module equivalent, thrown when an import specifier cannot be resolved. They mean the same thing &mdash; a module was not found &mdash; but the ESM version is stricter about file extensions and does not fall back to index files.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with a JSON API?</h3>
+                <p>Format and validate any JSON response in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="npm-eresolve-unable-to-resolve-dependency-tree.html">npm ERR! code ERESOLVE</a> &mdash; when the install itself fails to resolve dependencies</li>
+                <li><a href="eaddrinuse-address-already-in-use.html">Error: listen EADDRINUSE: address already in use</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/env-file-format.html">The .env File Format Explained</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
