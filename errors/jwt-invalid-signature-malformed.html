@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JsonWebTokenError: invalid signature and jwt malformed in Node.js — what each jsonwebtoken error means, the secret/key and token-format causes, and how to fix invalid signature, jwt malformed, jwt expired, and jwt must be provided.">
+    <meta name="keywords" content="JsonWebTokenError invalid signature, jwt malformed, jsonwebtoken error, jwt expired, jwt must be provided, invalid token jwt, node jwt verify error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/jwt-invalid-signature-malformed.html">
+    <meta property="og:title" content="JsonWebTokenError: invalid signature &amp; jwt malformed — Cause and Fix">
+    <meta property="og:description" content="The jsonwebtoken library throws 'invalid signature' when the verifying secret or key does not match, and 'jwt malformed' when the token is not a valid three-part JWT. Learn the cause and fix for every variant.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/jwt-invalid-signature-malformed.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JsonWebTokenError: invalid signature &amp; jwt malformed — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "JsonWebTokenError: invalid signature & jwt malformed", "item": "https://jsondevtools.org/errors/jwt-invalid-signature-malformed.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "JsonWebTokenError: invalid signature & jwt malformed — Cause and Fix",
+  "description": "The Node jsonwebtoken library throws 'invalid signature' when the secret or public key used to verify a token does not match the one used to sign it, and 'jwt malformed' when the string is not a valid three-part JWT. This reference explains every JsonWebTokenError variant and its fix.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-25",
+  "dateModified": "2026-06-25",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does JsonWebTokenError: invalid signature mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means the signature on the token does not match the one your server computes when verifying it. The token was signed with one secret or private key, but jwt.verify() is checking it with a different secret or key. Common causes are a mismatched JWT_SECRET between environments, an extra space or quote in the secret, or verifying an RS256 token with the wrong public key."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does jwt malformed mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "jwt malformed means the string you passed to jwt.verify() is not a structurally valid JWT. A JWT must be three Base64URL segments separated by dots (header.payload.signature). You get this error when the value is undefined, an empty string, still wrapped in the 'Bearer ' prefix, double-quoted, or is some other token format entirely."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix invalid signature when the token works locally but not in production?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The signing secret differs between the two environments. The token was issued by a server using your local JWT_SECRET, but the production server verifies it with a different value (or a default fallback). Ensure the exact same secret is set in both environments, with no trailing whitespace or quotes, and re-issue tokens after changing it — old tokens signed with the old secret will still fail."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get jwt malformed when I send a Bearer token?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because you passed the whole Authorization header value, including the 'Bearer ' prefix, to jwt.verify(). The verify function expects only the token itself. Strip the prefix first: const token = req.headers.authorization?.split(' ')[1]; then verify token. Passing 'Bearer eyJ...' instead of 'eyJ...' triggers jwt malformed."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between invalid signature and jwt expired?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Both are thrown by jwt.verify(), but they are different classes. invalid signature is a JsonWebTokenError meaning the token's signature does not verify against your key. jwt expired is a TokenExpiredError meaning the signature is valid but the exp claim is in the past. A valid-but-expired token still proves it was genuinely issued by you; an invalid-signature token does not."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can decoding a JWT without verifying it cause these errors?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. jwt.decode() only reads the payload and never checks the signature, so it never throws invalid signature. These errors come specifically from jwt.verify(), which validates the signature and claims. Decoding is useful for inspecting a token's contents, but you must verify before trusting it for authentication."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix JsonWebTokenError: invalid signature and jwt malformed",
+  "description": "Steps to diagnose and resolve jsonwebtoken verification errors in Node.js.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Identify which JsonWebTokenError you have", "text": "Read the message: 'invalid signature' is a key mismatch, 'jwt malformed' is a bad token string, 'jwt expired' is a past exp claim, and 'jwt must be provided' means the token was undefined." },
+    { "@type": "HowToStep", "position": 2, "name": "For jwt malformed, log the raw token", "text": "Print the exact value passed to jwt.verify(). Confirm it is a three-part dotted string and strip any 'Bearer ' prefix, surrounding quotes, or whitespace." },
+    { "@type": "HowToStep", "position": 3, "name": "For invalid signature, compare the signing and verifying keys", "text": "Ensure the same secret (HS256) or the matching public/private key pair (RS256) is used to sign and verify, with identical values across all environments." },
+    { "@type": "HowToStep", "position": 4, "name": "Re-issue tokens after changing the secret", "text": "Tokens signed with the old secret will keep failing. Generate new tokens once the secret is consistent everywhere." },
+    { "@type": "HowToStep", "position": 5, "name": "Handle each error type in your catch block", "text": "Branch on err.name (TokenExpiredError vs JsonWebTokenError) so you can return 401 with an accurate reason instead of a generic 500." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>JsonWebTokenError: invalid signature &amp; jwt malformed</span>
+            </nav>
+            <h1>JsonWebTokenError: invalid signature &amp; jwt malformed</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>invalid signature</code> means the secret or key verifying the token does not match the one that signed it. <code>jwt malformed</code> means the string is not a valid three-part JWT &mdash; usually it still has the <code>Bearer&nbsp;</code> prefix, is <code>undefined</code>, or is quoted.</p>
+            </div>
+
+            <h2>The exact error strings</h2>
+            <p>Both come from the Node <code>jsonwebtoken</code> library when you call <code>jwt.verify()</code>. The thrown objects look like this:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JsonWebTokenError: invalid signature
+    at /app/node_modules/jsonwebtoken/verify.js:171:19
+  name: 'JsonWebTokenError',
+  message: 'invalid signature'
+
+JsonWebTokenError: jwt malformed
+    at module.exports [as verify] (/app/node_modules/jsonwebtoken/verify.js:70:17)
+  name: 'JsonWebTokenError',
+  message: 'jwt malformed'</code></pre>
+            </div>
+
+            <p>They share the same <code>name</code> (<code>JsonWebTokenError</code>) but mean very different things. <code>jwt malformed</code> fails <em>before</em> any cryptography happens &mdash; the string is not even shaped like a JWT. <code>invalid signature</code> fails <em>during</em> verification &mdash; the token is well-formed, but the signature does not check out against your key.</p>
+
+            <h2>jsonwebtoken verify() errors explained</h2>
+            <p>Every error on this page is thrown by <code>jsonwebtoken</code>'s <code>jwt.verify()</code> &mdash; never by <code>jwt.sign()</code>, which only <em>creates</em> tokens. <code>verify()</code> does two jobs: it re-computes the signature with your key and it checks the claims (<code>exp</code>, <code>nbf</code>). A failure in the first job is <code>invalid signature</code>; a malformed input is <code>jwt malformed</code>; a claim problem is a different error class such as <code>TokenExpiredError</code>.</p>
+            <p>Which key <code>verify()</code> needs depends on the signing algorithm. With <strong>HS256</strong> (the default) the same <code>JWT_SECRET</code> string both signs and verifies. With <strong>RS256</strong> or <strong>ES256</strong> you <code>sign()</code> with a private key and <code>verify()</code> with the matching public key. The token also travels a specific path &mdash; from the client's <code>Authorization</code> header as a <code>Bearer</code> token to your <code>verify()</code> call &mdash; and a mistake anywhere on that path produces one of these errors.</p>
+
+            <h2>How a JWT is structured</h2>
+            <p>A JSON Web Token is three Base64URL-encoded segments joined by dots: <code>header.payload.signature</code>. The header and payload are just encoded JSON you can read with any decoder; the signature is an HMAC or RSA/ECDSA signature over the first two parts. Verification recomputes that signature with your key and compares it. If the recomputed value differs, you get <code>invalid signature</code>; if the string cannot be split into three valid parts at all, you get <code>jwt malformed</code>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9   &larr; header
+.eyJzdWIiOiIxMjM0NSIsIm5hbWUiOiJBbWkifQ  &larr; payload
+.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQ  &larr; signature</code></pre>
+            </div>
+
+            <p style="font-size:0.9rem;color:var(--secondary-color);">(Shown split across lines for clarity &mdash; a real JWT is a single string with no line breaks.)</p>
+
+            <h2>Fix: jwt malformed</h2>
+            <p><code>jwt malformed</code> is almost always a token-handling bug, not a crypto problem. Log the exact value you pass to <code>verify()</code> and check these in order:</p>
+
+            <ul>
+                <li><strong>The <code>Bearer&nbsp;</code> prefix is still attached</strong> &mdash; you passed the whole <code>Authorization</code> header instead of just the token.</li>
+                <li><strong>The token is <code>undefined</code> or empty</strong> &mdash; the header or cookie was missing and you passed <code>undefined</code> straight in.</li>
+                <li><strong>The token is wrapped in quotes</strong> &mdash; e.g. read from JSON or an env var as <code>"eyJ..."</code> including the quote characters.</li>
+                <li><strong>It is not a JWT</strong> &mdash; an opaque session ID, an API key, or a Base64 blob that is not three dotted parts.</li>
+            </ul>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ Passing the full header value → jwt malformed
+const token = req.headers.authorization;            // "Bearer eyJ..."
+jwt.verify(token, secret);
+
+// ✅ Strip the scheme and verify only the token
+const token = req.headers.authorization?.split(' ')[1]; // "eyJ..."
+if (!token) return res.status(401).json({ error: 'No token provided' });
+jwt.verify(token, secret);</code></pre>
+            </div>
+
+            <h2>Fix: invalid signature</h2>
+            <p><code>invalid signature</code> means the token is genuine JWT shape but was signed with a different key than the one verifying it. The cause depends on your algorithm.</p>
+
+            <h3>HS256 (shared secret)</h3>
+            <p>The same secret string must sign and verify. The usual culprit is a mismatched <code>JWT_SECRET</code> between environments &mdash; the token was issued on one server and verified on another with a different value, or a fallback default like <code>process.env.JWT_SECRET || 'dev'</code> kicked in. Whitespace and quotes in the env var count as part of the secret.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Signing and verifying MUST use the identical secret
+const token = jwt.sign({ sub: userId }, process.env.JWT_SECRET);
+jwt.verify(token, process.env.JWT_SECRET);
+
+// Common traps:
+// - process.env.JWT_SECRET is undefined in prod → falls back to a different value
+// - .env has JWT_SECRET="abc"  → the quotes become part of the secret
+// - trailing newline/space copied into a secrets manager</code></pre>
+            </div>
+
+            <h3>RS256 / ES256 (key pair)</h3>
+            <p>Asymmetric algorithms sign with a <strong>private</strong> key and verify with the matching <strong>public</strong> key. <code>invalid signature</code> means the public key does not pair with the private key that signed the token &mdash; often the wrong key file, a key rotated without re-issuing tokens, or PEM formatting mangled by env-var handling (lost newlines).</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const token = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
+jwt.verify(token, publicKey, { algorithms: ['RS256'] });
+
+// If the PEM came from an env var, restore real newlines:
+const publicKey = process.env.JWT_PUBLIC_KEY.replace(/\\n/g, '\n');</code></pre>
+            </div>
+
+            <p>After changing any secret or key, <strong>re-issue tokens</strong>: every token signed with the old key will keep failing verification until it is replaced.</p>
+
+            <h2>JWT_SECRET environment variable issues</h2>
+            <p>In practice, the single most common cause of <code>invalid signature</code> is a <code>JWT_SECRET</code> that is subtly different at sign time versus verify time. Three traps account for most cases:</p>
+
+            <h3>Quotes become part of the secret</h3>
+            <p>In a <code>.env</code> file, quoting changes the value. <code>JWT_SECRET="abc"</code> may load as the five characters <code>"abc"</code> (with quotes) under some loaders, while <code>JWT_SECRET=abc</code> loads as <code>abc</code>. If one environment quotes and another does not, the secrets differ and verification fails:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># .env — pick one style and use it everywhere
+JWT_SECRET=abc          # value is: abc
+JWT_SECRET="abc"        # value may be: "abc"  (quotes included by some parsers)
+
+# A trailing space or newline also counts:
+JWT_SECRET=abc␣         # value is: "abc " — different secret, invalid signature</code></pre>
+            </div>
+
+            <p>See <a href="../blog/env-file-format.html">the .env file format explained</a> for the exact quoting rules &mdash; this is where most &ldquo;works locally, fails in prod&rdquo; signature mismatches start.</p>
+
+            <h3>The fallback default trap</h3>
+            <p>A pattern like <code>process.env.JWT_SECRET || 'dev-secret'</code> silently signs (or verifies) with <code>'dev-secret'</code> whenever the env var is missing. If production forgets to set <code>JWT_SECRET</code>, tokens signed locally with the real secret fail against the fallback &mdash; or worse, everything &ldquo;works&rdquo; on an insecure hard-coded secret. Fail loudly instead:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ Hides a missing secret and causes invalid signature across envs
+const secret = process.env.JWT_SECRET || 'dev-secret';
+
+// ✅ Crash at startup if the secret is not configured
+const secret = process.env.JWT_SECRET;
+if (!secret) throw new Error('JWT_SECRET is not set');</code></pre>
+            </div>
+
+            <h3>The secret is undefined where you verify</h3>
+            <p>If <code>process.env.JWT_SECRET</code> is <code>undefined</code> at the point of <code>verify()</code> &mdash; because dotenv loaded too late or the variable was never set on the server &mdash; the comparison cannot succeed. This overlaps with <a href="process-env-undefined.html">process.env.X is undefined</a>: confirm the variable is actually populated (log <code>Boolean(process.env.JWT_SECRET)</code>, never the value itself) before chasing crypto causes.</p>
+
+            <h2>Related JsonWebTokenError messages</h2>
+            <ul>
+                <li><strong><code>jwt expired</code></strong> &mdash; a <code>TokenExpiredError</code> (a subclass), not a signature problem. The signature is valid but the <code>exp</code> claim is in the past. Issue a fresh token or use a refresh-token flow.</li>
+                <li><strong><code>jwt not active</code></strong> &mdash; a <code>NotBeforeError</code>: the <code>nbf</code> (not-before) claim is still in the future. Combined with spurious early <code>jwt expired</code> errors, this usually means <strong>clock skew</strong> &mdash; the signing and verifying servers' clocks have drifted. Allow a few seconds of tolerance with <code>jwt.verify(token, secret, { clockTolerance: 5 })</code> and sync server clocks with NTP.</li>
+                <li><strong><code>jwt must be provided</code></strong> &mdash; you called <code>verify()</code> with <code>undefined</code>. Guard for a missing token before verifying.</li>
+                <li><strong><code>invalid token</code></strong> &mdash; the segments decode but the header/payload is not valid JSON.</li>
+                <li><strong><code>invalid algorithm</code></strong> &mdash; the token's <code>alg</code> is not in the <code>algorithms</code> array you allowed in <code>verify()</code>.</li>
+                <li><strong><code>jwt signature is required</code></strong> &mdash; the token has no signature segment (an <code>alg: none</code> token), which <code>verify()</code> rejects.</li>
+            </ul>
+
+            <h2>Handle the errors correctly</h2>
+            <p>Branch on the error type so the client gets an accurate reason and you never leak a 500 for an expected auth failure:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>try {
+  const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
+  req.user = payload;
+} catch (err) {
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({ error: 'Token expired' });
+  }
+  if (err.name === 'JsonWebTokenError') {
+    // invalid signature, jwt malformed, invalid token, etc.
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  return res.status(500).json({ error: 'Auth check failed' });
+}</code></pre>
+            </div>
+
+            <h2>Inspect a token safely</h2>
+            <p>To see what is <em>inside</em> a token without verifying it, decode it &mdash; <code>jwt.decode()</code> reads the payload and never throws <code>invalid signature</code>. This is the fastest way to confirm the <code>alg</code>, <code>iss</code>, and <code>exp</code> you are actually receiving. You can paste a token into the <a href="../jwt-decoder.html">JWT Decoder</a> to read its header and payload in your browser (decoding happens locally and is safe; see <a href="../blog/is-it-safe-to-decode-jwt-online.html">is it safe to decode a JWT online?</a>). Remember: decoding is not verifying &mdash; never trust a token's claims until <code>verify()</code> passes.</p>
+
+            <h2>Never trust jwt.decode() for authentication</h2>
+            <p><code>jwt.decode()</code> reads a token's claims <strong>without checking the signature at all</strong>. That makes it safe for inspection &mdash; but dangerous if you use it to authenticate. Because the header and payload are just Base64URL-encoded JSON, anyone can craft a token with <code>"role": "admin"</code> and <code>decode()</code> will happily return it. Only <code>jwt.verify()</code> proves the token was genuinely issued by you.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ CRITICAL VULNERABILITY — decode does not verify the signature
+const user = jwt.decode(token);
+if (user.role === 'admin') grantAccess();   // attacker can forge this
+
+// ✅ verify() checks the signature before you trust any claim
+const user = jwt.verify(token, secret, { algorithms: ['HS256'] });
+if (user.role === 'admin') grantAccess();</code></pre>
+            </div>
+
+            <p>Rule of thumb: <strong>decode to read, verify to trust.</strong> Never make an authorization decision on the output of <code>decode()</code>, and always pin the allowed <code>algorithms</code> in <code>verify()</code> so an attacker cannot downgrade the token to <code>alg: none</code>.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Log the exact string passed to <code>verify()</code> &mdash; is it three dotted parts?</li>
+                <li>&#10003; Strip the <code>Bearer&nbsp;</code> prefix and any surrounding quotes before verifying</li>
+                <li>&#10003; Confirm the <strong>same</strong> secret (HS256) or matching key pair (RS256) signs and verifies</li>
+                <li>&#10003; Check the secret/key is identical across environments, with no trailing whitespace or quotes</li>
+                <li>&#10003; Restore real newlines in PEM keys loaded from env vars (<code>\n</code> &rarr; newline)</li>
+                <li>&#10003; Re-issue tokens after any secret or key change</li>
+                <li>&#10003; Branch on <code>err.name</code> to distinguish expired from invalid</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does JsonWebTokenError: invalid signature mean?</summary>
+                    <p>It means the signature on the token does not match the one your server computes when verifying it. The token was signed with one secret or private key, but <code>jwt.verify()</code> is checking it with a different secret or key. Common causes are a mismatched <code>JWT_SECRET</code> between environments, an extra space or quote in the secret, or verifying an RS256 token with the wrong public key.</p>
+                </details>
+                <details>
+                    <summary>What does jwt malformed mean?</summary>
+                    <p><code>jwt malformed</code> means the string you passed to <code>jwt.verify()</code> is not a structurally valid JWT. A JWT must be three Base64URL segments separated by dots (<code>header.payload.signature</code>). You get this error when the value is <code>undefined</code>, an empty string, still wrapped in the <code>Bearer&nbsp;</code> prefix, double-quoted, or is some other token format entirely.</p>
+                </details>
+                <details>
+                    <summary>How do I fix invalid signature when the token works locally but not in production?</summary>
+                    <p>The signing secret differs between the two environments. The token was issued by a server using your local <code>JWT_SECRET</code>, but the production server verifies it with a different value (or a default fallback). Ensure the exact same secret is set in both environments, with no trailing whitespace or quotes, and re-issue tokens after changing it &mdash; old tokens signed with the old secret will still fail.</p>
+                </details>
+                <details>
+                    <summary>Why do I get jwt malformed when I send a Bearer token?</summary>
+                    <p>Because you passed the whole <code>Authorization</code> header value, including the <code>Bearer&nbsp;</code> prefix, to <code>jwt.verify()</code>. The verify function expects only the token itself. Strip the prefix first: <code>const token = req.headers.authorization?.split(' ')[1];</code> then verify <code>token</code>. Passing <code>Bearer eyJ...</code> instead of <code>eyJ...</code> triggers <code>jwt malformed</code>.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between invalid signature and jwt expired?</summary>
+                    <p>Both are thrown by <code>jwt.verify()</code>, but they are different classes. <code>invalid signature</code> is a <code>JsonWebTokenError</code> meaning the token's signature does not verify against your key. <code>jwt expired</code> is a <code>TokenExpiredError</code> meaning the signature is valid but the <code>exp</code> claim is in the past. A valid-but-expired token still proves it was genuinely issued by you; an invalid-signature token does not.</p>
+                </details>
+                <details>
+                    <summary>Can decoding a JWT without verifying it cause these errors?</summary>
+                    <p>No. <code>jwt.decode()</code> only reads the payload and never checks the signature, so it never throws <code>invalid signature</code>. These errors come specifically from <code>jwt.verify()</code>, which validates the signature and claims. Decoding is useful for inspecting a token's contents, but you must verify before trusting it for authentication.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Need to inspect a token?</h3>
+                <p>Decode a JWT's header and payload in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../jwt-decoder.html" class="btn btn-primary">JWT Decoder</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-find-module.html">Error: Cannot find module</a> &mdash; if <code>jsonwebtoken</code> itself is not installed</li>
+                <li><a href="../http-status/401.html">HTTP 401 Unauthorized</a> &mdash; the status to return on a failed token check</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/is-it-safe-to-decode-jwt-online.html">Is It Safe to Decode a JWT Online?</a></li>
+                <li><a href="../blog/jwt-vs-session.html">JWT vs Session Authentication</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a> &mdash; read a token's claims locally</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

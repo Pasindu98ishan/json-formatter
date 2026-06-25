@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ReferenceError: require is not defined in ES module scope — why require() does not exist in an ES module, and how to fix it with import, createRequire, a .cjs extension, or __dirname replacements.">
+    <meta name="keywords" content="require is not defined in ES module scope, require is not defined, createRequire, __dirname is not defined, esm require error, you can use import instead, require is not defined typescript, require is not defined ts-node, commonjs vs es modules">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/require-is-not-defined-es-module-scope.html">
+    <meta property="og:title" content="ReferenceError: require is not defined in ES module scope — Cause and Fix">
+    <meta property="og:description" content="In an ES module, require() does not exist. Fix it by using import, recreating require with createRequire, renaming the file to .cjs, or replacing __dirname and __filename.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/require-is-not-defined-es-module-scope.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>ReferenceError: require is not defined in ES module scope — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "require is not defined in ES module scope", "item": "https://jsondevtools.org/errors/require-is-not-defined-es-module-scope.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "ReferenceError: require is not defined in ES module scope — Cause and Fix",
+  "description": "Node.js throws 'require is not defined in ES module scope' when CommonJS require() runs inside an ES module. This reference explains why require, module.exports, __dirname, and __filename do not exist in ESM, and shows every fix.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-25",
+  "dateModified": "2026-06-25",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does require is not defined in ES module scope mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means your file is being run as an ES module, where the CommonJS require() function does not exist. A file becomes an ES module when it ends in .mjs or the nearest package.json has \"type\": \"module\". In that context you must use import instead of require, because require, module.exports, __dirname, and __filename are CommonJS-only globals."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Replace require() with an import statement, which is the idiomatic ESM way. If you cannot easily convert (for example, requiring a JSON file or a CommonJS-only package), recreate require with createRequire from node:module. Alternatively, rename the file to .cjs to run it as CommonJS, or remove \"type\": \"module\" from package.json if the whole project should be CommonJS."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I use require for a CommonJS package inside an ES module?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Most CommonJS packages can be imported directly with a default import. If you genuinely need require() — for instance to load a JSON file or use require.resolve — recreate it: import { createRequire } from 'node:module'; const require = createRequire(import.meta.url); Then require() works within that ES module."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is __dirname not defined too?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "__dirname and __filename are CommonJS-only globals and do not exist in ES modules. Recreate them from import.meta.url: import { fileURLToPath } from 'node:url'; import { dirname } from 'node:path'; const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename). Newer Node also exposes import.meta.dirname and import.meta.filename directly."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I switch the file to .cjs or convert to import?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Converting to import is the better long-term choice and keeps the file as a modern ES module. Rename to .cjs only when you have a CommonJS file that you want to keep as-is inside an otherwise-ESM project — the .cjs extension forces CommonJS regardless of the package.json type field."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between this and Cannot use import statement outside a module?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are opposites. 'require is not defined in ES module scope' means CommonJS require() is running in an ES module. 'Cannot use import statement outside a module' means ESM import is running in a CommonJS file. Both are caused by mixing the two module systems; choose one per file and use it consistently."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix require is not defined in ES module scope",
+  "description": "Steps to resolve CommonJS require() running inside an ES module.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Confirm the file is an ES module", "text": "Check whether the file ends in .mjs or the nearest package.json has \"type\": \"module\". If so, require() is unavailable." },
+    { "@type": "HowToStep", "position": 2, "name": "Replace require with import", "text": "Convert require() calls to import statements and module.exports to export. This is the idiomatic ESM fix." },
+    { "@type": "HowToStep", "position": 3, "name": "Or recreate require with createRequire", "text": "When you must keep require (e.g. for JSON or require.resolve), use createRequire(import.meta.url) from node:module." },
+    { "@type": "HowToStep", "position": 4, "name": "Replace __dirname and __filename", "text": "Derive them from import.meta.url with fileURLToPath, or use import.meta.dirname on newer Node." },
+    { "@type": "HowToStep", "position": 5, "name": "Or force CommonJS with .cjs", "text": "If the file should stay CommonJS, rename it to .cjs so Node runs it as CommonJS regardless of the package type." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>require is not defined in ES module scope</span>
+            </nav>
+            <h1>ReferenceError: require is not defined in ES module scope</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Your file is running as an <strong>ES module</strong>, where <code>require()</code> does not exist. Use <code>import</code> instead &mdash; or recreate require with <code>createRequire(import.meta.url)</code>, or rename the file to <code>.cjs</code> to run it as CommonJS.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const express = require('express');
+                ^
+
+ReferenceError: require is not defined in ES module scope, you can use import instead
+This file is being treated as an ES module because it has a '.js' file
+extension and '/app/package.json' contains "type": "module". To treat it
+as a CommonJS script, rename it to use the '.cjs' file extension.
+    at file:///app/index.js:1:17</code></pre>
+            </div>
+
+            <p>Node's message is unusually helpful: it tells you exactly <em>why</em> the file is ESM (a <code>.js</code> extension plus <code>"type": "module"</code>) and offers the <code>.cjs</code> escape hatch. The root cause is always the same &mdash; CommonJS <code>require()</code> in an ES module context.</p>
+
+            <h2>Why require does not exist in ESM</h2>
+            <p><code>require()</code>, <code>module.exports</code>, <code>__dirname</code>, and <code>__filename</code> are <strong>CommonJS-only</strong> globals. Node injects them into every CommonJS module, but ES modules are a different specification &mdash; they use <code>import</code>/<code>export</code> and the <code>import.meta</code> object instead. When a file is treated as ESM, those CommonJS globals are simply not in scope, so referencing <code>require</code> throws a <code>ReferenceError</code>.</p>
+
+            <p>A file becomes an ES module when it ends in <code>.mjs</code>, or the nearest <code>package.json</code> contains <code>"type": "module"</code>. Adding that <code>type</code> field to enable <code>import</code> elsewhere is the most common way people accidentally break a file that still uses <code>require()</code> &mdash; which is exactly when Node prints <code>ReferenceError: require is not defined in ES module scope, you can use import instead</code>.</p>
+
+            <h2>CommonJS vs ES modules</h2>
+            <p>Every CommonJS global has an ES module equivalent. When you convert a file, swap each one for its ESM counterpart:</p>
+
+            <table>
+                <thead>
+                    <tr><th>Feature</th><th>CommonJS</th><th>ES modules (ESM)</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Import a module</td><td><code>require()</code></td><td><code>import</code></td></tr>
+                    <tr><td>Export</td><td><code>module.exports</code></td><td><code>export</code> / <code>export default</code></td></tr>
+                    <tr><td>Current file path</td><td><code>__filename</code></td><td><code>import.meta.filename</code></td></tr>
+                    <tr><td>Current directory</td><td><code>__dirname</code></td><td><code>import.meta.dirname</code></td></tr>
+                    <tr><td>Resolve a path</td><td><code>require.resolve()</code></td><td><code>import.meta.resolve()</code></td></tr>
+                    <tr><td>Conditional/lazy load</td><td><code>require()</code> inline</td><td><code>await import()</code> (dynamic)</td></tr>
+                    <tr><td>Enabled by</td><td>default for <code>.js</code></td><td><code>.mjs</code> or <code>"type": "module"</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Fix 1: use import (recommended)</h2>
+            <p>The idiomatic fix is to convert <code>require()</code> to <code>import</code> and <code>module.exports</code> to <code>export</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ CommonJS in an ES module
+const express = require('express');
+const { readFile } = require('node:fs/promises');
+module.exports = app;
+
+// ✅ ES module syntax
+import express from 'express';
+import { readFile } from 'node:fs/promises';
+export default app;</code></pre>
+            </div>
+
+            <h2>Fix 2: recreate require with createRequire</h2>
+            <p>Sometimes you cannot easily drop <code>require()</code> &mdash; for example, importing a JSON file the old way, or using <code>require.resolve()</code>. Node's built-in <code>node:module</code> lets you rebuild a working <code>require</code> inside an ES module:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+
+const config = require('./config.json');   // require() works again
+const pkgPath = require.resolve('some-pkg');</code></pre>
+            </div>
+
+            <p>This is the cleanest bridge when a CommonJS-only API has no ESM equivalent. (For JSON specifically, modern Node also supports <code>import data from './config.json' with { type: 'json' }</code> &mdash; formerly spelled <code>assert { type: 'json' }</code>, which you may still see in older code.)</p>
+
+            <h2>Fix 3: replace __dirname and __filename</h2>
+            <p>The same ESM/CommonJS split removes <code>__dirname</code> and <code>__filename</code> &mdash; a very common follow-on error. Recreate them from <code>import.meta.url</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Node 20.11+ / 21.2+ expose these directly:
+// import.meta.dirname  and  import.meta.filename</code></pre>
+            </div>
+
+            <h2>Fix 4: force CommonJS with .cjs</h2>
+            <p>If the file should stay CommonJS &mdash; an old script you do not want to rewrite &mdash; rename it to <code>.cjs</code>. That extension forces Node to run it as CommonJS regardless of the <code>"type": "module"</code> setting, so <code>require()</code> works again:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>mv script.js script.cjs
+node script.cjs   # require() works; the package "type" no longer applies</code></pre>
+            </div>
+
+            <p>If the <em>entire</em> project should be CommonJS, the simpler fix is to remove <code>"type": "module"</code> from <code>package.json</code> &mdash; but then any <code>import</code> statements will break with the mirror error, <a href="cannot-use-import-statement-outside-a-module.html">Cannot use import statement outside a module</a>.</p>
+
+            <h2>TypeScript and ts-node</h2>
+            <p>With TypeScript you can hit <code>require is not defined in ES module scope</code> even though your source uses <code>import</code> &mdash; because the <em>compiled output</em>, or a stray <code>require()</code> you wrote, runs as ESM. The fix is to make <code>tsconfig.json</code> and <code>package.json</code> agree on a module system. For modern Node ESM, use the NodeNext settings:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// tsconfig.json — compile to real ESM
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022"
+  }
+}
+// package.json has "type": "module"</code></pre>
+            </div>
+
+            <p>The error usually comes from a <strong>mismatch</strong>: <code>package.json</code> has <code>"type": "module"</code> while <code>tsconfig</code> emits <code>"module": "CommonJS"</code> (or vice-versa), so a <code>require()</code> in the output lands in an ESM context. Pick one system and align both files. If you would rather stay on CommonJS, set <code>"module": "CommonJS"</code> in tsconfig <em>and</em> remove <code>"type": "module"</code> from package.json &mdash; then <code>require()</code> works because the output runs as CommonJS.</p>
+
+            <p>For <code>ts-node</code>, run it with the ESM loader (<code>node --loader ts-node/esm src/index.ts</code>) when the project is ESM, so your TypeScript is executed as ES modules rather than being wrapped in a CommonJS shim that reintroduces <code>require</code>.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read Node's message &mdash; it names the file and why it is ESM (<code>.mjs</code> or <code>type: module</code>)</li>
+                <li>&#10003; Convert <code>require()</code> &rarr; <code>import</code> and <code>module.exports</code> &rarr; <code>export</code> (preferred)</li>
+                <li>&#10003; Must keep <code>require</code>? Use <code>createRequire(import.meta.url)</code> from <code>node:module</code></li>
+                <li>&#10003; <code>__dirname</code>/<code>__filename</code> also gone? Derive them from <code>import.meta.url</code></li>
+                <li>&#10003; Want CommonJS for this file only? Rename it to <code>.cjs</code></li>
+                <li>&#10003; Want CommonJS project-wide? Remove <code>"type": "module"</code> (watch for the mirror import error)</li>
+                <li>&#10003; TypeScript? Make <code>tsconfig</code>'s <code>module</code> and <code>package.json</code>'s <code>type</code> agree; use <code>ts-node/esm</code> for ESM</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does require is not defined in ES module scope mean?</summary>
+                    <p>It means your file is being run as an ES module, where the CommonJS <code>require()</code> function does not exist. A file becomes an ES module when it ends in <code>.mjs</code> or the nearest <code>package.json</code> has <code>"type": "module"</code>. In that context you must use <code>import</code> instead of <code>require</code>, because <code>require</code>, <code>module.exports</code>, <code>__dirname</code>, and <code>__filename</code> are CommonJS-only globals.</p>
+                </details>
+                <details>
+                    <summary>How do I fix it?</summary>
+                    <p>Replace <code>require()</code> with an <code>import</code> statement, which is the idiomatic ESM way. If you cannot easily convert (for example, requiring a JSON file or a CommonJS-only package), recreate require with <code>createRequire</code> from <code>node:module</code>. Alternatively, rename the file to <code>.cjs</code> to run it as CommonJS, or remove <code>"type": "module"</code> from <code>package.json</code> if the whole project should be CommonJS.</p>
+                </details>
+                <details>
+                    <summary>How do I use require for a CommonJS package inside an ES module?</summary>
+                    <p>Most CommonJS packages can be imported directly with a default import. If you genuinely need <code>require()</code> &mdash; for instance to load a JSON file or use <code>require.resolve</code> &mdash; recreate it: <code>import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);</code> Then <code>require()</code> works within that ES module.</p>
+                </details>
+                <details>
+                    <summary>Why is __dirname not defined too?</summary>
+                    <p><code>__dirname</code> and <code>__filename</code> are CommonJS-only globals and do not exist in ES modules. Recreate them from <code>import.meta.url</code>: <code>import { fileURLToPath } from 'node:url'; import { dirname } from 'node:path'; const __filename = fileURLToPath(import.meta.url); const __dirname = dirname(__filename)</code>. Newer Node also exposes <code>import.meta.dirname</code> and <code>import.meta.filename</code> directly.</p>
+                </details>
+                <details>
+                    <summary>Should I switch the file to .cjs or convert to import?</summary>
+                    <p>Converting to <code>import</code> is the better long-term choice and keeps the file as a modern ES module. Rename to <code>.cjs</code> only when you have a CommonJS file that you want to keep as-is inside an otherwise-ESM project &mdash; the <code>.cjs</code> extension forces CommonJS regardless of the <code>package.json</code> <code>type</code> field.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between this and Cannot use import statement outside a module?</summary>
+                    <p>They are opposites. <code>require is not defined in ES module scope</code> means CommonJS <code>require()</code> is running in an ES module. <a href="cannot-use-import-statement-outside-a-module.html"><code>Cannot use import statement outside a module</code></a> means ESM <code>import</code> is running in a CommonJS file. Both are caused by mixing the two module systems; choose one per file and use it consistently.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with a JSON API?</h3>
+                <p>Format and validate any JSON response in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-use-import-statement-outside-a-module.html">SyntaxError: Cannot use import statement outside a module</a> &mdash; the mirror-image error</li>
+                <li><a href="cannot-find-module.html">Error: Cannot find module</a> &mdash; missing <code>.js</code> extension in ESM imports</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+                <li><a href="../blog/env-file-format.html">The .env File Format Explained</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

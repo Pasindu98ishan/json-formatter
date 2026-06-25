@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory. Why Node hits the V8 heap ceiling during builds and big data jobs, and how to fix it with --max-old-space-size, NODE_OPTIONS, streaming, or finding the leak.">
+    <meta name="keywords" content="JavaScript heap out of memory, Reached heap limit Allocation failed, max-old-space-size, NODE_OPTIONS memory, node out of memory, FATAL ERROR ineffective mark-compacts">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/javascript-heap-out-of-memory.html">
+    <meta property="og:title" content="FATAL ERROR: JavaScript heap out of memory — Cause and Fix">
+    <meta property="og:description" content="Node ran out of V8 heap. Raise the limit with --max-old-space-size for big builds, or — if it keeps climbing — find the memory leak. Learn when to do which.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/javascript-heap-out-of-memory.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>FATAL ERROR: JavaScript heap out of memory — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "JavaScript heap out of memory", "item": "https://jsondevtools.org/errors/javascript-heap-out-of-memory.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "FATAL ERROR: JavaScript heap out of memory — Cause and Fix",
+  "description": "Node.js aborts with 'Reached heap limit Allocation failed - JavaScript heap out of memory' when the V8 heap is exhausted. This reference explains the V8 heap limit, when to raise it with --max-old-space-size, and how to tell a genuine memory need from a leak.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-25",
+  "dateModified": "2026-06-25",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does JavaScript heap out of memory mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means the Node process tried to allocate more memory than V8's heap limit allows, so V8 aborted the process with a fatal error. The heap is where your JavaScript objects live. When garbage collection can no longer free enough space to satisfy an allocation, V8 gives up rather than continuing in an unstable state."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I increase the Node memory limit?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Raise V8's old-space limit with the --max-old-space-size flag, in megabytes. For example, node --max-old-space-size=4096 app.js gives a 4 GB heap. To apply it to a tool you do not call directly (webpack, tsc, jest), set it via the environment: NODE_OPTIONS=--max-old-space-size=4096. Only raise it as high as the machine's available RAM allows."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just increase the memory limit or is it a leak?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If the job is legitimately large — a big production build, processing a huge file — raising --max-old-space-size is the right fix. If memory climbs steadily over time in a long-running server until it crashes, that is a memory leak and raising the limit only delays the crash. Watch the memory curve: a one-time spike means raise the limit; a steady climb means find the leak."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the default heap size in Node.js?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It depends on the Node version and available system memory. Older Node versions capped the old-space heap around 2 GB on 64-bit systems by default. Newer versions size the default heap based on the machine's physical RAM, so on a small container the default can be much lower than you expect — which is why builds that pass locally fail in CI or Docker."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen in Docker or CI but not locally?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Containers and CI runners often have far less memory than your laptop, and Node may size its default heap from the host rather than the container's cgroup limit. The same build that has 16 GB locally might get 512 MB in CI. Set NODE_OPTIONS=--max-old-space-size to a value that fits the container, and make sure the container itself is given enough memory."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find what is using the memory?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Take a heap snapshot. Run node with --heapsnapshot-near-heap-limit=1 to capture a snapshot just before the crash, or use the Chrome DevTools Memory tab against a --inspect session. Compare snapshots over time to find objects that keep growing — large arrays, caches without eviction, or event listeners that are never removed are the usual culprits."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix JavaScript heap out of memory in Node.js",
+  "description": "Steps to diagnose and resolve V8 heap exhaustion.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Decide: big job or leak", "text": "Determine whether the memory use is a one-time spike from a large task or a steady climb in a long-running process. This decides the fix." },
+    { "@type": "HowToStep", "position": 2, "name": "Raise the heap for a genuinely large job", "text": "Run with --max-old-space-size set to a value that fits available RAM, e.g. node --max-old-space-size=4096." },
+    { "@type": "HowToStep", "position": 3, "name": "Apply it to build tools via NODE_OPTIONS", "text": "For webpack, tsc, jest, or framework CLIs, set NODE_OPTIONS=--max-old-space-size=4096 in the environment." },
+    { "@type": "HowToStep", "position": 4, "name": "For a leak, capture a heap snapshot", "text": "Use --heapsnapshot-near-heap-limit or Chrome DevTools to find objects that grow without bound." },
+    { "@type": "HowToStep", "position": 5, "name": "Reduce memory pressure", "text": "Stream large files instead of buffering, paginate queries, add cache eviction, and remove leaked listeners so the heap stops growing." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>JavaScript heap out of memory</span>
+            </nav>
+            <h1>FATAL ERROR: JavaScript heap out of memory</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Node exhausted V8's heap. For a genuinely large job, raise the limit with <code>--max-old-space-size=4096</code> (or <code>NODE_OPTIONS</code> for build tools). If memory <em>steadily climbs</em> in a long-running process, it is a leak &mdash; raising the limit only delays the crash.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>&lt;--- Last few GCs ---&gt;
+[12345:0x...]    41523 ms: Mark-sweep 2047.8 (2068.1) -&gt; 2047.0 (2068.6) MB
+
+&lt;--- JS stacktrace ---&gt;
+
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+ 1: 0x... node::Abort()
+ 2: 0x... v8::internal::Heap::CollectGarbage(...)
+ ...</code></pre>
+            </div>
+
+            <p>The giveaway is the <code>Last few GCs</code> block: V8 ran garbage collection over and over, freed almost nothing (the numbers barely drop), and finally aborted.</p>
+
+            <h2>Ineffective mark-compacts near heap limit</h2>
+            <p>Just before the fatal error, V8 often prints <code>Ineffective mark-compacts near heap limit Allocation failed</code>. This is the warning sign, not a separate problem: a <em>mark-compact</em> is V8's most thorough garbage-collection pass, and &ldquo;ineffective&rdquo; means even that full sweep reclaimed almost no memory. V8 is spending more and more time in GC for less and less gain &mdash; the application is right up against the heap ceiling. If you catch this message in logs while the process is still alive, it is the moment to act before the crash: the fix is the same as for the fatal error below.</p>
+
+            <h2>What the heap is</h2>
+            <p>The <strong>heap</strong> is the region of memory where V8 stores your JavaScript objects, strings, arrays, and closures. V8 enforces a maximum heap size; when an allocation would exceed it and garbage collection cannot free enough room, V8 aborts the whole process rather than limp along in an unstable state. The crash is fatal and uncatchable &mdash; you cannot wrap it in a <code>try/catch</code>.</p>
+
+            <p>The default limit depends on your Node version and the machine's RAM. Older Node capped old-space around 2 GB on 64-bit systems; newer versions scale the default to physical memory &mdash; which is why a build can pass on a 16 GB laptop and fail in a 512 MB CI container.</p>
+
+            <h2>Most common causes</h2>
+            <p>The error shows up in two broad situations &mdash; heavy one-time work, and slow leaks. These are the cases developers hit most often:</p>
+            <ul>
+                <li>Webpack or Vite production builds on a large codebase</li>
+                <li>Next.js static site generation (SSG) over many pages</li>
+                <li>Loading a huge JSON file fully into memory with <code>JSON.parse</code></li>
+                <li>Reading an entire CSV into an array instead of streaming it</li>
+                <li>Memory leaks in an in-process cache with no eviction</li>
+                <li>Event listeners that are added but never removed</li>
+                <li>Large database result sets loaded all at once instead of paginated</li>
+                <li>Docker containers or CI runners with insufficient RAM</li>
+            </ul>
+
+            <h2>First, decide: large job or leak?</h2>
+            <p>This single question determines the correct fix, and getting it wrong wastes hours:</p>
+
+            <ul>
+                <li><strong>One-time spike (large job)</strong> &mdash; a big production build, bundling a large app, processing a huge JSON or CSV file. Memory rises once to a high peak. <strong>Fix: raise the heap limit.</strong></li>
+                <li><strong>Steady climb (leak)</strong> &mdash; a long-running server whose memory grows over hours or days until it crashes, then crashes again after restart. <strong>Fix: find the leak.</strong> Raising the limit only postpones the crash.</li>
+            </ul>
+
+            <h2>Fix: raise the heap limit (for large jobs)</h2>
+            <p>Give V8 a bigger old-space with <code>--max-old-space-size</code>, in megabytes. Run the script directly with the flag:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># 4 GB heap
+node --max-old-space-size=4096 app.js</code></pre>
+            </div>
+
+            <p>Most of the time the memory-hungry process is a build tool you do not invoke <code>node</code> for directly &mdash; webpack, <code>tsc</code>, Jest, Next.js, Vite. Pass the flag through the <code>NODE_OPTIONS</code> environment variable so every child Node process inherits it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># macOS / Linux
+NODE_OPTIONS=--max-old-space-size=4096 npm run build
+
+# Windows (PowerShell)
+$env:NODE_OPTIONS="--max-old-space-size=4096"; npm run build
+
+# Make it durable in package.json:
+{
+  "scripts": {
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack"
+  }
+}</code></pre>
+            </div>
+
+            <p>The <code>cross-env</code> in that <code>package.json</code> example sets the variable the same way on Windows, macOS, and Linux &mdash; install it first with <code>npm install -D cross-env</code>, or drop it if you only ever run the script on a single platform.</p>
+
+            <p>Only set the limit as high as the machine actually has RAM. Asking for <code>8192</code> on a 4 GB container will not help &mdash; the OS will kill the process (an OOM kill / exit code 137) before V8 reaches its limit.</p>
+
+            <p>One subtlety: <code>--max-old-space-size</code> caps only V8's <strong>old-space</strong>, not the entire process. Total resident memory (RSS) also includes the young generation, native buffers, and code, so a process you capped at <code>4096</code> can still show 5&nbsp;GB+ in <code>top</code> or Task Manager. Leave headroom above the flag value when sizing a container.</p>
+
+            <h2>JavaScript heap out of memory in Next.js, Vite, and Webpack</h2>
+            <p>Build tools are the most common place this error appears, because bundling holds the whole module graph in memory. The flag goes in the same place for each &mdash; via <code>NODE_OPTIONS</code> on the build script &mdash; but the script names differ:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// package.json (cross-env installed: npm install -D cross-env)
+{
+  "scripts": {
+    "build:next":    "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "build:vite":    "cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",
+    "build:webpack": "cross-env NODE_OPTIONS=--max-old-space-size=4096 webpack",
+    "build:tsc":     "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsc -p ."
+  }
+}</code></pre>
+            </div>
+
+            <p>If the build still dies after raising the limit, the bundle itself is the problem, not the ceiling: look for huge dependencies pulled in whole, source maps on a giant codebase, or a Next.js SSG run generating thousands of pages at once. Splitting the build, disabling source maps in CI, or upgrading the bundler often does more than another gigabyte of heap.</p>
+
+            <h2>Fix: it fails in Docker or CI</h2>
+            <p>Containers and CI runners usually have far less memory than your laptop, and Node may size its default heap from the host instead of the container's cgroup limit. Two things to set:</p>
+
+            <ul>
+                <li><strong>Give the container enough memory</strong> &mdash; raise the memory limit in your compose file, Kubernetes resources, or CI runner settings.</li>
+                <li><strong>Cap V8 to fit</strong> &mdash; set <code>NODE_OPTIONS=--max-old-space-size</code> to a value comfortably below the container limit, leaving headroom for non-heap memory.</li>
+            </ul>
+
+            <p>If you see exit code <strong>137</strong> rather than the V8 fatal error, the OOM killer terminated the process &mdash; the container itself is too small, regardless of the V8 flag.</p>
+
+            <h2>Fix: find and stop the leak</h2>
+            <p>If memory climbs steadily, capture a <strong>heap snapshot</strong> and compare snapshots over time to find what keeps growing. Node can dump one automatically just before the crash:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Write a .heapsnapshot just before V8 hits the limit
+node --heapsnapshot-near-heap-limit=1 app.js
+
+# Or inspect a live process in Chrome DevTools
+node --inspect app.js   # then open chrome://inspect → Memory → take snapshots</code></pre>
+            </div>
+
+            <p>Open the snapshot in Chrome DevTools &rarr; Memory and look for object types whose count or retained size grows between snapshots. The usual leak sources:</p>
+
+            <ul>
+                <li><strong>Unbounded caches</strong> &mdash; a <code>Map</code> or object used as a cache with no eviction policy.</li>
+                <li><strong>Leaked event listeners</strong> &mdash; listeners added on every request but never removed (watch for the <code>MaxListenersExceededWarning</code>).</li>
+                <li><strong>Closures holding large data</strong> &mdash; callbacks that capture big arrays or buffers and never release them.</li>
+                <li><strong>Accumulating arrays</strong> &mdash; pushing into a module-level array forever (logs, request history).</li>
+            </ul>
+
+            <h2>Reduce memory pressure</h2>
+            <p>Whether it is a leak or a genuinely large workload, processing data more frugally often removes the need for a bigger heap entirely. <strong>Stream</strong> large files instead of reading them fully into memory; <strong>paginate</strong> database queries instead of loading every row; process records in <strong>batches</strong>; and release references when you are done so GC can reclaim them. A streaming JSON parser, for instance, keeps memory flat regardless of file size.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Is this a one-time spike (build, big file) or a steady climb (long-running server)?</li>
+                <li>&#10003; Large job &rarr; raise <code>--max-old-space-size</code>, or <code>NODE_OPTIONS</code> for build tools</li>
+                <li>&#10003; Set the limit below the machine's actual RAM &mdash; check for OOM exit code <code>137</code></li>
+                <li>&#10003; Fails in Docker/CI? Give the container more memory <em>and</em> cap V8 to fit</li>
+                <li>&#10003; Steady climb &rarr; capture a heap snapshot (<code>--heapsnapshot-near-heap-limit=1</code>) and diff over time</li>
+                <li>&#10003; Stream/paginate/batch large data instead of buffering it all in memory</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does JavaScript heap out of memory mean?</summary>
+                    <p>It means the Node process tried to allocate more memory than V8's heap limit allows, so V8 aborted the process with a fatal error. The heap is where your JavaScript objects live. When garbage collection can no longer free enough space to satisfy an allocation, V8 gives up rather than continuing in an unstable state.</p>
+                </details>
+                <details>
+                    <summary>How do I increase the Node memory limit?</summary>
+                    <p>Raise V8's old-space limit with the <code>--max-old-space-size</code> flag, in megabytes. For example, <code>node --max-old-space-size=4096 app.js</code> gives a 4 GB heap. To apply it to a tool you do not call directly (webpack, tsc, jest), set it via the environment: <code>NODE_OPTIONS=--max-old-space-size=4096</code>. Only raise it as high as the machine's available RAM allows.</p>
+                </details>
+                <details>
+                    <summary>Should I just increase the memory limit or is it a leak?</summary>
+                    <p>If the job is legitimately large &mdash; a big production build, processing a huge file &mdash; raising <code>--max-old-space-size</code> is the right fix. If memory climbs steadily over time in a long-running server until it crashes, that is a memory leak and raising the limit only delays the crash. Watch the memory curve: a one-time spike means raise the limit; a steady climb means find the leak.</p>
+                </details>
+                <details>
+                    <summary>What is the default heap size in Node.js?</summary>
+                    <p>It depends on the Node version and available system memory. Older Node versions capped the old-space heap around 2 GB on 64-bit systems by default. Newer versions size the default heap based on the machine's physical RAM, so on a small container the default can be much lower than you expect &mdash; which is why builds that pass locally fail in CI or Docker.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen in Docker or CI but not locally?</summary>
+                    <p>Containers and CI runners often have far less memory than your laptop, and Node may size its default heap from the host rather than the container's cgroup limit. The same build that has 16 GB locally might get 512 MB in CI. Set <code>NODE_OPTIONS=--max-old-space-size</code> to a value that fits the container, and make sure the container itself is given enough memory.</p>
+                </details>
+                <details>
+                    <summary>How do I find what is using the memory?</summary>
+                    <p>Take a heap snapshot. Run node with <code>--heapsnapshot-near-heap-limit=1</code> to capture a snapshot just before the crash, or use the Chrome DevTools Memory tab against a <code>--inspect</code> session. Compare snapshots over time to find objects that keep growing &mdash; large arrays, caches without eviction, or event listeners that are never removed are the usual culprits.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with huge JSON files?</h3>
+                <p>Validate and inspect JSON in your browser before loading it into Node.js &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="eaddrinuse-address-already-in-use.html">Error: listen EADDRINUSE: address already in use</a></li>
+                <li><a href="cannot-find-module.html">Error: Cannot find module</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/env-file-format.html">The .env File Format Explained</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

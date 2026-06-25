@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="process.env.X is undefined in Node.js, Vite, or Next.js — why your environment variable reads as undefined, how dotenv loading order causes it, and the client-side prefix rules (VITE_, NEXT_PUBLIC_, REACT_APP_).">
+    <meta name="keywords" content="process.env undefined, environment variable undefined node, dotenv not working, import.meta.env undefined, NEXT_PUBLIC undefined, VITE_ env undefined, process.env not loading">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/process-env-undefined.html">
+    <meta property="og:title" content="process.env.X is undefined — Cause and Fix (Node, Vite, Next.js)">
+    <meta property="og:description" content="Your environment variable reads as undefined because dotenv loaded too late, the .env file is in the wrong place, or the variable is not prefixed for the client. Learn the fix for every framework.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/process-env-undefined.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>process.env.X is undefined — Cause and Fix (Node, Vite, Next.js) | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "process.env.X is undefined", "item": "https://jsondevtools.org/errors/process-env-undefined.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "process.env.X is undefined — Cause and Fix (Node, Vite, Next.js)",
+  "description": "An environment variable reads as undefined because dotenv was loaded after the code that uses it, the .env file is in the wrong directory, or the variable is not exposed to client-side code. This reference covers the cause and fix for Node, Vite, Next.js, and Create React App.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-25",
+  "dateModified": "2026-06-25",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why is process.env.MY_VAR undefined in Node.js?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The most common reason is that dotenv has not loaded the .env file before the code that reads the variable runs. require('dotenv').config() must execute before any module that uses process.env, and the .env file must be in the directory you run node from. Other causes are a typo in the variable name, the variable not being set in the deployment environment, or the .env file being gitignored and missing on the server."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is my environment variable undefined in the browser with Vite or React?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Client-side bundlers only expose variables with a specific prefix, for security. Vite exposes only VITE_-prefixed variables on import.meta.env; Create React App exposes only REACT_APP_-prefixed ones on process.env; Next.js exposes only NEXT_PUBLIC_-prefixed ones to the browser. An unprefixed variable is stripped from the client bundle and reads as undefined in browser code."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does process.env work locally but is undefined after deploying?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Your .env file is almost certainly gitignored (as it should be), so it never reaches the server. Production platforms do not read .env files automatically — you must set the variables in the host's environment settings (Vercel, Netlify, Docker, systemd, CI secrets). Set the same keys there that you have locally."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to restart the dev server after changing .env?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Environment variables are read once at process start. dotenv loads the file when the process boots, and bundlers inline the values at build time. After editing .env you must restart the dev server (and in Vite/Next, sometimes clear the cache) for the new values to take effect — hot reload does not pick them up."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is import.meta.env.VITE_X undefined?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Either the variable is missing the VITE_ prefix (Vite only exposes VITE_-prefixed keys to client code), the .env file is not in the project root, or you did not restart the dev server after adding it. Also note that in Vite you read client variables from import.meta.env, not process.env — process.env is largely empty in the browser."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is process.env.NEXT_PUBLIC_X undefined in the browser but defined on the server?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Next.js inlines NEXT_PUBLIC_ variables into the client bundle at build time. If the variable was added after the build, or the build ran without it set, the value is baked in as undefined. Rebuild with the variable present. Non-prefixed variables are server-only by design and are always undefined in browser code."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix process.env.X is undefined",
+  "description": "Steps to diagnose why an environment variable reads as undefined.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Confirm where the code runs", "text": "Decide whether the variable is read on the server (Node) or in the browser (client bundle). Client code can only see prefixed variables." },
+    { "@type": "HowToStep", "position": 2, "name": "Load dotenv before anything reads the variable", "text": "In Node, call require('dotenv').config() at the very top of your entry file, before importing modules that use process.env." },
+    { "@type": "HowToStep", "position": 3, "name": "Check the .env location and the variable name", "text": "Ensure the .env file is in the directory you launch the process from and that the key matches exactly, including case." },
+    { "@type": "HowToStep", "position": 4, "name": "Add the client prefix for browser code", "text": "Use VITE_ (Vite), NEXT_PUBLIC_ (Next.js), or REACT_APP_ (CRA) and read it from the correct object (import.meta.env or process.env)." },
+    { "@type": "HowToStep", "position": 5, "name": "Restart, and set the variable in production", "text": "Restart the dev server after editing .env, and set the variables in your host's environment settings for deployment." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>process.env.X is undefined</span>
+            </nav>
+            <h1>process.env.X is undefined</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>process.env.X</code> is <code>undefined</code> usually because <strong>dotenv loaded after</strong> the code that reads it, the <code>.env</code> file is in the wrong folder, or &mdash; in the browser &mdash; the variable lacks the required client prefix (<code>VITE_</code>, <code>NEXT_PUBLIC_</code>, <code>REACT_APP_</code>).</p>
+            </div>
+
+            <h2>The symptom</h2>
+            <p>You read a variable you are sure you set, and it comes back empty &mdash; often crashing a downstream call that expected a string:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>console.log(process.env.DATABASE_URL);   // undefined
+
+// …which then fails elsewhere:
+TypeError: Cannot read properties of undefined (reading 'connect')
+// or
+Error: connect ECONNREFUSED — because the URL was undefined</code></pre>
+            </div>
+
+            <p>There is no single &ldquo;undefined&rdquo; exception &mdash; <code>process.env.X</code> simply returns <code>undefined</code> when the key is not set, and the failure surfaces wherever you use the value. The fix depends entirely on <em>where</em> the code runs.</p>
+
+            <h2>Cause 1: dotenv loaded too late (Node)</h2>
+            <p>In plain Node, <code>process.env</code> only contains variables from your <code>.env</code> file <em>after</em> <code>dotenv</code> has run. If a module that reads <code>process.env</code> is imported before <code>config()</code> executes, it sees <code>undefined</code>. Because <code>import</code> statements are hoisted and run top-to-bottom, this happens constantly with ESM.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ db.js reads process.env at import time, before config() runs
+import { db } from './db.js';        // reads process.env.DATABASE_URL → undefined
+import dotenv from 'dotenv';
+dotenv.config();
+
+// ✅ Load env FIRST. Best: preload so it is set before any import.
+// package.json script:
+//   "dev": "node --env-file=.env server.js"   (Node 20.6+, no dotenv needed)
+// or, with dotenv, import the side-effect first:
+import 'dotenv/config';
+import { db } from './db.js';</code></pre>
+            </div>
+
+            <p>Modern Node (20.6+) has a built-in <code>--env-file</code> flag that loads the file before any code runs, sidestepping the ordering problem entirely.</p>
+
+            <h2>Cause 2: wrong .env location or name</h2>
+            <p>dotenv reads <code>.env</code> from the <strong>current working directory</strong> &mdash; the folder you run <code>node</code> from, not necessarily where the file lives. Running from a subfolder, or a monorepo package, means the file is never found. Check three things:</p>
+
+            <ul>
+                <li><strong>Location</strong> &mdash; the <code>.env</code> is in the directory you launch the process from, or pass an explicit path: <code>dotenv.config({ path: '/abs/path/.env' })</code>.</li>
+                <li><strong>Name</strong> &mdash; the variable key matches exactly, including case (<code>API_KEY</code> &ne; <code>api_key</code>).</li>
+                <li><strong>File name</strong> &mdash; it is literally <code>.env</code>, not <code>env</code> or <code>.env.txt</code> (Windows likes to add extensions). Worse, Explorer's default &ldquo;hide known file extensions&rdquo; setting <em>masks</em> the stray <code>.txt</code>, so the file looks correct while dotenv never finds it &mdash; turn extensions on to check.</li>
+            </ul>
+
+            <p>For the exact quoting and syntax rules of the file itself, see <a href="../blog/env-file-format.html">the .env file format explained</a> &mdash; a stray quote or space is a frequent reason a value loads but is wrong.</p>
+
+            <h2>Cause 3: browser code needs a prefix</h2>
+            <p>This is the big one for frontend developers. Client bundlers <strong>refuse to expose arbitrary environment variables to the browser</strong> &mdash; otherwise your server secrets would ship in the JavaScript. Only variables with a framework-specific prefix are inlined into client code; everything else is <code>undefined</code> in the browser <em>by design</em>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Vite — only VITE_* is exposed, and via import.meta.env (NOT process.env)
+import.meta.env.VITE_API_URL;     // ✅
+import.meta.env.API_URL;          // ❌ undefined (no VITE_ prefix)
+
+// Next.js — only NEXT_PUBLIC_* reaches the browser
+process.env.NEXT_PUBLIC_API_URL;  // ✅ in client components
+process.env.API_URL;              // ✅ server only / ❌ undefined in browser
+
+// Create React App — only REACT_APP_*
+process.env.REACT_APP_API_URL;    // ✅
+process.env.API_URL;              // ❌ undefined</code></pre>
+            </div>
+
+            <p>Two rules to remember: use the right <strong>prefix</strong>, and read from the right <strong>object</strong> (Vite uses <code>import.meta.env</code>, not <code>process.env</code>). Never put a secret behind a public prefix &mdash; anything exposed to the browser is readable by anyone.</p>
+
+            <p><strong>The CRA &rarr; Vite migration trap:</strong> developers moving from Create React App to Vite often rename the variable to <code>VITE_API_URL</code> but keep reading it as <code>process.env.VITE_API_URL</code> &mdash; which is <code>undefined</code> in Vite's browser code. You changed the prefix but not the object. In Vite you must read it as <code>import.meta.env.VITE_API_URL</code>. Getting one right and the other wrong is the single most common reason a freshly-migrated Vite app returns <code>undefined</code> for a variable that is clearly set.</p>
+
+            <h2>Cause 4: works locally, undefined after deploy</h2>
+            <p>Your <code>.env</code> is gitignored (correctly &mdash; see <a href="../blog/env-file-format.html#never-commit">never commit your .env</a>), so it never reaches the server. Production platforms do <strong>not</strong> read <code>.env</code> files automatically. You must set the variables in the host's own environment settings:</p>
+
+            <ul>
+                <li><strong>Vercel / Netlify</strong> &mdash; add them in the project's Environment Variables dashboard, then redeploy.</li>
+                <li><strong>Docker</strong> &mdash; pass <code>-e KEY=value</code>, an <code>--env-file</code>, or <code>environment:</code> in compose.</li>
+                <li><strong>CI</strong> &mdash; store them as encrypted secrets and expose them to the job's env.</li>
+                <li><strong>systemd / PM2</strong> &mdash; set them in the unit file or ecosystem config.</li>
+            </ul>
+
+            <p>For client-prefixed variables (<code>VITE_</code>, <code>NEXT_PUBLIC_</code>), the values are inlined <strong>at build time</strong> &mdash; they must be present when the build runs, not just at runtime, or they bake in as <code>undefined</code>.</p>
+
+            <h2>Cause 5: forgot to restart the dev server</h2>
+            <p>Environment variables are read once, at process start. dotenv loads the file when the process boots; bundlers inline values during the build. Editing <code>.env</code> while the server is running changes nothing until you restart it &mdash; hot module reload does not re-read environment variables. After any <code>.env</code> change, stop and restart the dev server. In <strong>Next.js</strong> specifically, if a stale build baked in the old value, delete the <code>.next</code> cache folder and rebuild &mdash; a plain restart sometimes reuses the cached, inlined value.</p>
+
+            <h2>process.env undefined in Docker</h2>
+            <p>A container starts with a clean environment, so variables you have on your host are <strong>not</strong> visible inside it unless you pass them in explicitly. A <code>.env</code> file copied into the image is also useless unless something loads it. There are two reliable ways to get variables into a container:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># docker-compose.yml — declare them under environment:
+services:
+  app:
+    environment:
+      DATABASE_URL: postgres://user:pass@db:5432/app
+    # …or point at a file:
+    env_file:
+      - .env
+
+# docker run — pass a file or individual vars
+docker run --env-file .env my-app
+docker run -e DATABASE_URL=postgres://... my-app</code></pre>
+            </div>
+
+            <p>Two gotchas specific to Docker: client-prefixed variables (<code>VITE_</code>, <code>NEXT_PUBLIC_</code>) are inlined at <strong>build</strong> time, so they must be passed as <code>ARG</code>/build args during <code>docker build</code> &mdash; setting them only at <code>docker run</code> is too late. And do not bake real secrets into the image with <code>ENV</code>; inject them at runtime so they are not committed into image layers.</p>
+
+            <h2>Monorepos and workspace projects</h2>
+            <p>Monorepos are a frequent source of this error because of the working-directory rule from Cause 2. The <code>.env</code> usually lives at the repo root, but you run a package from its own folder:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>root/
+  .env                 &larr; the file lives here
+  apps/
+    api/   (package.json, runs from here)
+    web/
+
+# You run:
+cd apps/api &amp;&amp; npm start
+# dotenv looks in apps/api for .env → not found → process.env.X is undefined</code></pre>
+            </div>
+
+            <p>Three ways to fix it: point dotenv at the root file explicitly with <code>dotenv.config({ path: '../../.env' })</code>; use a tool that walks up the tree, such as <code>dotenv-flow</code> or Turborepo/Nx env handling; or give each app its own <code>.env</code> in its folder. Whichever you choose, be consistent &mdash; mixing a root <code>.env</code> with per-app files is itself a common source of confusion about which value actually loaded.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Is the variable read on the <strong>server</strong> or in the <strong>browser</strong>? Client code needs a prefix</li>
+                <li>&#10003; Node: is <code>dotenv</code> loaded <em>before</em> the module that reads the variable? Prefer <code>import 'dotenv/config'</code> or <code>--env-file</code></li>
+                <li>&#10003; Is the <code>.env</code> in the directory you run the process from, with the exact key name?</li>
+                <li>&#10003; Browser: correct prefix (<code>VITE_</code> / <code>NEXT_PUBLIC_</code> / <code>REACT_APP_</code>) and correct object (<code>import.meta.env</code> vs <code>process.env</code>)?</li>
+                <li>&#10003; Deployed: are the variables set in the host's environment settings (not just in the gitignored <code>.env</code>)?</li>
+                <li>&#10003; Docker: passed via <code>env_file</code>/<code>environment</code> (or <code>--env-file</code>)? Client-prefixed vars passed as build <code>ARG</code>s?</li>
+                <li>&#10003; Monorepo: are you running from a subfolder while <code>.env</code> sits at the root? Point dotenv at the root path</li>
+                <li>&#10003; Did you <strong>restart</strong> the dev server (and clear <code>.next</code> in Next.js) after editing <code>.env</code>?</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Why is process.env.MY_VAR undefined in Node.js?</summary>
+                    <p>The most common reason is that dotenv has not loaded the <code>.env</code> file before the code that reads the variable runs. <code>require('dotenv').config()</code> must execute before any module that uses <code>process.env</code>, and the <code>.env</code> file must be in the directory you run <code>node</code> from. Other causes are a typo in the variable name, the variable not being set in the deployment environment, or the <code>.env</code> file being gitignored and missing on the server.</p>
+                </details>
+                <details>
+                    <summary>Why is my environment variable undefined in the browser with Vite or React?</summary>
+                    <p>Client-side bundlers only expose variables with a specific prefix, for security. Vite exposes only <code>VITE_</code>-prefixed variables on <code>import.meta.env</code>; Create React App exposes only <code>REACT_APP_</code>-prefixed ones on <code>process.env</code>; Next.js exposes only <code>NEXT_PUBLIC_</code>-prefixed ones to the browser. An unprefixed variable is stripped from the client bundle and reads as <code>undefined</code> in browser code.</p>
+                </details>
+                <details>
+                    <summary>Why does process.env work locally but is undefined after deploying?</summary>
+                    <p>Your <code>.env</code> file is almost certainly gitignored (as it should be), so it never reaches the server. Production platforms do not read <code>.env</code> files automatically &mdash; you must set the variables in the host's environment settings (Vercel, Netlify, Docker, systemd, CI secrets). Set the same keys there that you have locally.</p>
+                </details>
+                <details>
+                    <summary>Do I need to restart the dev server after changing .env?</summary>
+                    <p>Yes. Environment variables are read once at process start. dotenv loads the file when the process boots, and bundlers inline the values at build time. After editing <code>.env</code> you must restart the dev server (and in Vite/Next, sometimes clear the cache) for the new values to take effect &mdash; hot reload does not pick them up.</p>
+                </details>
+                <details>
+                    <summary>Why is import.meta.env.VITE_X undefined?</summary>
+                    <p>Either the variable is missing the <code>VITE_</code> prefix (Vite only exposes <code>VITE_</code>-prefixed keys to client code), the <code>.env</code> file is not in the project root, or you did not restart the dev server after adding it. Also note that in Vite you read client variables from <code>import.meta.env</code>, not <code>process.env</code> &mdash; <code>process.env</code> is largely empty in the browser.</p>
+                </details>
+                <details>
+                    <summary>Why is process.env.NEXT_PUBLIC_X undefined in the browser but defined on the server?</summary>
+                    <p>Next.js inlines <code>NEXT_PUBLIC_</code> variables into the client bundle at build time. If the variable was added after the build, or the build ran without it set, the value is baked in as <code>undefined</code>. Rebuild with the variable present. Non-prefixed variables are server-only by design and are always <code>undefined</code> in browser code.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with a JSON API?</h3>
+                <p>Format and validate any JSON response in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-find-module.html">Error: Cannot find module</a> &mdash; if <code>dotenv</code> itself is not installed</li>
+                <li><a href="err-connection-refused.html">net::ERR_CONNECTION_REFUSED</a> &mdash; common when a URL env var is undefined</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/env-file-format.html">The .env File Format Explained</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
