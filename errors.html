@@ -87,6 +87,21 @@
         body.dark-mode .err-runtime { background: #2e1f44; color: #c8a6e8; }
         .err-link { font-weight: 600; }
         .err-no-results { padding: 1rem; color: var(--secondary-color); display: none; }
+        .err-chip {
+            padding: 4px 14px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            background: var(--light-bg);
+            color: var(--text-color);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .err-chip:hover { border-color: var(--primary-color); }
+        .err-chip.active { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
+        body.dark-mode .err-chip { background: #2a2a2a; color: #d0d0d0; border-color: #444; }
+        body.dark-mode .err-chip.active { background: #2a6496; border-color: #2a6496; color: #e8f0f8; }
     </style>
 </head>
 <body>
@@ -107,6 +122,14 @@
 
         <section class="info-section" style="margin-top:1.5rem;">
             <h2>Error reference</h2>
+            <p style="margin:0 0 0.75rem;color:var(--secondary-color);font-size:14px;"><strong id="errCount">0</strong> errors documented &middot; jump to a category:</p>
+            <div class="err-jump" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.85rem;">
+                <button type="button" class="err-chip active" data-cat="">All</button>
+                <button type="button" class="err-chip" data-cat="json">JSON</button>
+                <button type="button" class="err-chip" data-cat="network">Network</button>
+                <button type="button" class="err-chip" data-cat="node">Node.js</button>
+                <button type="button" class="err-chip" data-cat="python">Python</button>
+            </div>
             <input type="text" id="errFilter" class="err-filter" placeholder="Filter by error string or keyword — e.g. CORS, fetch, SyntaxError, Python..." aria-label="Filter errors">
             <table id="errTable">
                 <thead>
@@ -121,6 +144,21 @@
                     <tr>
                         <td><a class="err-link" href="errors/cors-no-access-control-allow-origin.html">CORS policy: No &lsquo;Access-Control-Allow-Origin&rsquo; header is present</a></td>
                         <td>JavaScript / Browser</td>
+                        <td><span class="err-tag err-network">Network</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/err-name-not-resolved.html">net::ERR_NAME_NOT_RESOLVED</a></td>
+                        <td>Browser / DNS</td>
+                        <td><span class="err-tag err-network">Network</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/response-body-already-read.html">TypeError: body stream already read</a></td>
+                        <td>JavaScript / fetch</td>
+                        <td><span class="err-tag err-network">Network</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/aborterror-operation-aborted.html">AbortError: The operation was aborted</a></td>
+                        <td>JavaScript / fetch</td>
                         <td><span class="err-tag err-network">Network</span></td>
                     </tr>
                     <tr>
@@ -175,6 +213,21 @@
                     </tr>
                     <tr>
                         <td><a class="err-link" href="blog/json-parse-error-handling.html">SyntaxError in JSON.parse — error handling patterns</a></td>
+                        <td>JavaScript</td>
+                        <td><span class="err-tag err-json">JSON</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/json-stringify-missing-property.html">JSON.stringify drops a property (undefined / function / symbol)</a></td>
+                        <td>JavaScript</td>
+                        <td><span class="err-tag err-json">JSON</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/bigint-not-serializable.html">TypeError: Do not know how to serialize a BigInt</a></td>
+                        <td>JavaScript</td>
+                        <td><span class="err-tag err-json">JSON</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/unexpected-non-whitespace-after-json.html">SyntaxError: Unexpected non-whitespace character after JSON data</a></td>
                         <td>JavaScript</td>
                         <td><span class="err-tag err-json">JSON</span></td>
                     </tr>
@@ -261,8 +314,8 @@
         <section class="info-section" style="margin-top:1.5rem;">
             <h2>Error categories</h2>
             <ul>
-                <li><strong>Network errors</strong> &mdash; the request never reached the server: CORS blocks, <a href="errors/err-connection-refused.html">connection refused</a>, mixed content, offline. These throw <code>TypeError: Failed to fetch</code> (or browser-equivalent) and reject the fetch promise.</li>
-                <li><strong>JSON errors</strong> &mdash; <code>SyntaxError</code> thrown by <code>JSON.parse()</code> or <code>response.json()</code> when the response body is not valid JSON. The most common cause is the server returning HTML (a 404 or 500 error page) instead of JSON.</li>
+                <li><strong>Network errors</strong> &mdash; the request never reached the server (or was cancelled): CORS blocks, <a href="errors/err-name-not-resolved.html">DNS name not resolved</a>, <a href="errors/err-connection-refused.html">connection refused</a>, mixed content, offline. Most throw <code>TypeError: Failed to fetch</code> and reject the fetch promise. Closely related fetch gotchas include reading a body twice (<a href="errors/response-body-already-read.html">body stream already read</a>) and cancelled requests (<a href="errors/aborterror-operation-aborted.html">AbortError</a>).</li>
+                <li><strong>JSON errors</strong> &mdash; <code>SyntaxError</code> thrown by <code>JSON.parse()</code> or <code>response.json()</code> when the body is not valid JSON (often the server returned HTML), plus the <em>silent</em> serialization quirks: <a href="errors/json-stringify-missing-property.html"><code>JSON.stringify</code> dropping a property</a>, <a href="errors/bigint-not-serializable.html">refusing a BigInt</a>, and extra content after a value (<a href="errors/unexpected-non-whitespace-after-json.html">Unexpected non-whitespace character after JSON data</a>).</li>
                 <li><strong>Node.js &amp; npm errors</strong> &mdash; errors from the Node.js runtime and the npm CLI: port conflicts like <a href="errors/eaddrinuse-address-already-in-use.html"><code>EADDRINUSE</code></a>, dependency install failures like <a href="errors/npm-eresolve-unable-to-resolve-dependency-tree.html"><code>npm ERESOLVE</code></a>, module resolution failures like <a href="errors/cannot-find-module.html"><code>Cannot find module</code></a>, the CommonJS/ESM pair <a href="errors/cannot-use-import-statement-outside-a-module.html"><code>Cannot use import statement outside a module</code></a> and <a href="errors/require-is-not-defined-es-module-scope.html"><code>require is not defined</code></a>, environment-variable issues like <a href="errors/process-env-undefined.html"><code>process.env.X is undefined</code></a>, JWT verification errors like <a href="errors/jwt-invalid-signature-malformed.html"><code>invalid signature</code></a>, and memory limits like <a href="errors/javascript-heap-out-of-memory.html"><code>JavaScript heap out of memory</code></a>.</li>
                 <li><strong>Python errors</strong> &mdash; errors from Python's <code>json</code> module and the <code>requests</code> library: <a href="errors/jsondecodeerror-expecting-value.html"><code>Expecting value</code></a>, <a href="errors/expecting-property-name-double-quotes.html"><code>Expecting property name enclosed in double quotes</code></a>, <a href="errors/jsondecodeerror-extra-data.html"><code>Extra data</code></a>, <a href="errors/jsondecodeerror-unterminated-string.html"><code>Unterminated string starting at</code></a>, and the serialization error <a href="errors/object-not-json-serializable.html"><code>Object of type … is not JSON serializable</code></a>.</li>
             </ul>
@@ -323,9 +376,16 @@
         var input = document.getElementById('errFilter');
         var table = document.getElementById('errTable');
         var noResults = document.getElementById('errNoResults');
+        var count = document.getElementById('errCount');
+        var chips = Array.prototype.slice.call(document.querySelectorAll('.err-chip'));
         var rows = Array.prototype.slice.call(table.tBodies[0].rows);
-        input.addEventListener('input', function () {
-            var q = input.value.trim().toLowerCase();
+
+        // Trust signal: show the real number of documented errors.
+        if (count) count.textContent = rows.length;
+
+        // Text search filters on the whole row.
+        function applyText(q) {
+            q = (q || '').trim().toLowerCase();
             var shown = 0;
             rows.forEach(function (row) {
                 var match = row.textContent.toLowerCase().indexOf(q) !== -1;
@@ -333,6 +393,33 @@
                 if (match) shown++;
             });
             noResults.style.display = shown === 0 ? 'block' : 'none';
+        }
+
+        // Category chips filter on the row's category tag (err-json / err-network /
+        // err-node / err-python) — not the row text, so "JSON" doesn't also catch
+        // "JSONDecodeError" (Python) or "JsonWebTokenError" (Node).
+        function applyCategory(cat) {
+            var shown = 0;
+            rows.forEach(function (row) {
+                var match = !cat || !!row.querySelector('.err-' + cat);
+                row.style.display = match ? '' : 'none';
+                if (match) shown++;
+            });
+            noResults.style.display = shown === 0 ? 'block' : 'none';
+        }
+
+        input.addEventListener('input', function () {
+            chips.forEach(function (c) { c.classList.remove('active'); });
+            applyText(input.value);
+        });
+
+        chips.forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                chips.forEach(function (c) { c.classList.remove('active'); });
+                chip.classList.add('active');
+                input.value = '';
+                applyCategory(chip.getAttribute('data-cat'));
+            });
         });
     })();
     </script>

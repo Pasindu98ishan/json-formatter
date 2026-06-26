@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSON.stringify silently drops properties whose value is undefined, a function, or a symbol — and turns them into null inside arrays. Here is exactly why a key goes missing and how to keep it.">
+    <meta name="keywords" content="JSON.stringify missing property, JSON.stringify drops undefined, JSON.stringify ignores function, JSON.stringify removes key, json stringify undefined null, replacer function json">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/json-stringify-missing-property.html">
+    <meta property="og:title" content="JSON.stringify Drops a Property — Why undefined, Functions, and Symbols Disappear">
+    <meta property="og:description" content="JSON.stringify omits undefined, function, and symbol values from objects and converts them to null in arrays. Learn the array-vs-object difference and how to serialize the value you actually want.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/json-stringify-missing-property.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JSON.stringify Drops a Property — undefined, Functions &amp; Symbols | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "JSON.stringify drops a property", "item": "https://jsondevtools.org/errors/json-stringify-missing-property.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "JSON.stringify Drops a Property — Why undefined, Functions, and Symbols Disappear",
+  "description": "JSON.stringify silently omits object properties whose value is undefined, a function, or a symbol, and converts them to null inside arrays. This reference explains the spec behaviour and how to keep the value.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-25",
+  "dateModified": "2026-06-25",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why does JSON.stringify drop a property?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "JSON.stringify omits any object property whose value is undefined, a function, or a symbol, because JSON has no type to represent them. It is not a bug — it is the JSON specification's type system. The same values become null when they appear as array elements instead of object properties."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between how JSON.stringify treats undefined in an object versus an array?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In an object, an undefined, function, or symbol value causes the whole property to be omitted from the output. In an array, the same value is replaced by null so that array indexes are preserved. So {a: undefined} becomes {} but [undefined] becomes [null]."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does JSON.stringify(undefined) return undefined and not a string?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "When you pass undefined, a function, or a symbol as the top-level value, JSON.stringify returns the JavaScript value undefined — not the string 'undefined' and not '\"undefined\"'. There is no valid JSON document for those types, so nothing is produced. Always guard against an undefined return before writing or sending the result."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I keep an undefined or function property in JSON output?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Convert the value to something JSON can represent before stringifying. Use a replacer function as the second argument to JSON.stringify to substitute a value (for example null or a string), or build a plain serializable object first. For functions, serialize their source with toString() only if you truly need it — usually you should send data, not code."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does JSON.stringify drop null values too?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. null is a valid JSON value, so a property set to null is kept: {a: null} serializes to {\"a\":null}. Only undefined, functions, and symbols are dropped from objects. If you want missing data represented in the output, use null instead of undefined."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is my NaN or Infinity showing up as null?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "JSON has no representation for NaN, Infinity, or -Infinity, so JSON.stringify converts them to null rather than dropping the property. This is a related quirk of the same type system: the property stays, but its value becomes null. Replace these numbers with a sentinel of your choice in a replacer if null is not acceptable."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to stop JSON.stringify from dropping a property",
+  "description": "Steps to keep a property that JSON.stringify omits because its value is undefined, a function, or a symbol.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Identify the value's type", "text": "Check whether the missing property holds undefined, a function, or a symbol — those are the three types JSON.stringify drops from objects." },
+    { "@type": "HowToStep", "position": 2, "name": "Decide on a JSON-safe replacement", "text": "Choose what the value should become in JSON: null, a string, or a computed value. JSON has no native type for the dropped values, so you must map them." },
+    { "@type": "HowToStep", "position": 3, "name": "Use a replacer function", "text": "Pass a replacer as the second argument to JSON.stringify that returns a serializable value for the keys that would otherwise be dropped." },
+    { "@type": "HowToStep", "position": 4, "name": "Or build a serializable object first", "text": "Construct a plain object containing only JSON-safe values before calling JSON.stringify, instead of relying on a replacer." },
+    { "@type": "HowToStep", "position": 5, "name": "Guard against a top-level undefined return", "text": "If the whole value can be undefined, a function, or a symbol, handle the undefined return of JSON.stringify before writing or sending it." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>JSON.stringify drops a property</span>
+            </nav>
+            <h1>JSON.stringify Drops a Property &mdash; Why undefined, Functions, and Symbols Disappear</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>JSON.stringify</code> silently <strong>omits</strong> any object property whose value is <code>undefined</code>, a <strong>function</strong>, or a <strong>symbol</strong> &mdash; because JSON has no type for them. The same values become <code>null</code> inside an <strong>array</strong>. It is spec behaviour, not a bug. Convert the value (to <code>null</code>, a string, or a plain object) with a <code>replacer</code> before stringifying.</p>
+            </div>
+
+            <h2>The symptom: a key that vanishes</h2>
+            <p>There is no thrown error here &mdash; that is what makes this so confusing. The code runs fine, but a property you set is simply not in the output:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const user = {
+  name: 'Ada',
+  age: undefined,
+  greet: function () { return 'hi'; },
+  id: Symbol('uid'),
+};
+
+JSON.stringify(user);
+// =&gt; '{"name":"Ada"}'
+//    age, greet, and id are all gone</code></pre>
+            </div>
+
+            <p>Three of the four properties disappeared. No warning, no exception &mdash; <code>JSON.stringify</code> just left them out. Once you know the rule, the output is completely predictable.</p>
+
+            <h2>Why JSON.stringify drops these values</h2>
+            <p>JSON is a data format with a small, fixed set of types: <strong>string, number, boolean, null, object, and array</strong>. JavaScript has types that JSON cannot represent &mdash; <code>undefined</code>, functions, and symbols chief among them. When <code>JSON.stringify</code> meets a value it cannot map to a JSON type, it does not guess and it does not throw; it follows the specification:</p>
+
+            <ul>
+                <li><code>undefined</code> &mdash; no JSON equivalent (JSON only has <code>null</code>).</li>
+                <li>functions &mdash; JSON carries data, not executable code.</li>
+                <li>symbols &mdash; a JavaScript-only primitive with no serialized form.</li>
+            </ul>
+
+            <p>This is intentional and stable across every JavaScript engine. The trap is not the rule itself but the fact that <strong>the same value behaves differently depending on where it sits</strong>.</p>
+
+            <h2>The array-vs-object difference (the part everyone misses)</h2>
+            <p>This is the single most important thing to understand, and most explanations skip it. An unrepresentable value is treated <em>differently</em> depending on whether it is an object property or an array element:</p>
+
+            <table>
+                <thead>
+                    <tr><th>Value</th><th>As an object property</th><th>As an array element</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>undefined</code></td><td>property omitted</td><td><code>null</code></td></tr>
+                    <tr><td>function</td><td>property omitted</td><td><code>null</code></td></tr>
+                    <tr><td>symbol</td><td>property omitted</td><td><code>null</code></td></tr>
+                    <tr><td><code>null</code></td><td>kept as <code>null</code></td><td>kept as <code>null</code></td></tr>
+                    <tr><td><code>NaN</code> / <code>Infinity</code></td><td>value becomes <code>null</code> (kept)</td><td><code>null</code></td></tr>
+                </tbody>
+            </table>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JSON.stringify({ a: undefined });   // =&gt; '{}'        (key removed)
+JSON.stringify([undefined]);        // =&gt; '[null]'    (index preserved)
+
+JSON.stringify({ a: () =&gt; 1 });     // =&gt; '{}'
+JSON.stringify([() =&gt; 1]);          // =&gt; '[null]'</code></pre>
+            </div>
+
+            <p>The reason for the asymmetry: an array's meaning depends on its <strong>length and index positions</strong>. Dropping element <code>2</code> would shift every later element down and silently corrupt the data, so JSON.stringify substitutes <code>null</code> to hold the slot. An object has no positional contract, so the key is simply removed.</p>
+
+            <h2>The top-level case: stringify can return undefined</h2>
+            <p>If the value you pass <em>is itself</em> one of the dropped types, <code>JSON.stringify</code> does not return a string at all &mdash; it returns the JavaScript value <code>undefined</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JSON.stringify(undefined);        // =&gt; undefined   (not "undefined")
+JSON.stringify(function () {});   // =&gt; undefined
+JSON.stringify(Symbol('x'));      // =&gt; undefined
+
+// This bites when you write the result straight to disk or a response:
+fs.writeFileSync('out.json', JSON.stringify(maybeUndefined));
+// If maybeUndefined is undefined, you write the literal text "undefined"
+// — an invalid JSON file that later throws when parsed.</code></pre>
+            </div>
+
+            <p>That invalid file is a common root cause of a later <a href="jsondecodeerror-expecting-value.html">Expecting value</a> (Python) or <code>Unexpected token u in JSON</code> (JavaScript) error when something tries to read it back. Always guard the return value before persisting or sending it.</p>
+
+            <h2>Fix 1: use a replacer to substitute the value</h2>
+            <p>The second argument to <code>JSON.stringify</code> is a <strong>replacer</strong> function. It runs for every key and lets you return a JSON-safe value in place of one that would be dropped:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const data = { name: 'Ada', age: undefined, role: undefined };
+
+const json = JSON.stringify(data, (key, value) =&gt;
+  value === undefined ? null : value
+);
+// =&gt; '{"name":"Ada","age":null,"role":null}'</code></pre>
+            </div>
+
+            <p>Note that the replacer cannot see the <em>original</em> <code>undefined</code> for a key that JavaScript has already resolved in some engines for nested values &mdash; but for the common case above it works cleanly, turning every <code>undefined</code> into an explicit <code>null</code> you can rely on.</p>
+
+            <h2>Fix 2: build a serializable shape first (recommended)</h2>
+            <p>The most robust fix is to stop depending on <code>JSON.stringify</code>'s quirks entirely and construct a plain object that contains only JSON-safe values. This makes the output explicit and self-documenting:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function toDTO(user) {
+  return {
+    name: user.name,
+    age: user.age ?? null,          // undefined -&gt; null on purpose
+    role: user.role ?? 'guest',     // a real default
+    // functions and symbols are simply never included
+  };
+}
+
+JSON.stringify(toDTO(user));   // every key is intentional</code></pre>
+            </div>
+
+            <p>This is the same discipline as a serializer or DTO layer: decide what the wire format should contain, rather than letting the engine decide by omission.</p>
+
+            <h2>Fix 3: serialize a function only if you really mean to</h2>
+            <p>Occasionally people actually want the function's source text (for a config or a code-transport format). JSON cannot hold a function, but you can store its source as a string &mdash; with the strong caveat that re-creating a function from a string (<code>eval</code> / <code>new Function</code>) is a security risk and almost never the right design:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const obj = { handler: function () { return 42; } };
+
+JSON.stringify(obj, (k, v) =&gt;
+  typeof v === 'function' ? v.toString() : v
+);
+// =&gt; '{"handler":"function () { return 42; }"}'</code></pre>
+            </div>
+
+            <p>In the vast majority of cases the right answer is the opposite: you are trying to send <em>data</em>, and a function leaked into the object by accident. Removing it (Fix 2) is the real fix.</p>
+
+            <h2>Why Date works but Map and Set come out empty</h2>
+            <p>Two more surprises trip people up once they understand the basic rule. First, a <code>Date</code> serializes perfectly &mdash; but a <code>Map</code> or <code>Set</code> turns into <code>{}</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JSON.stringify({ when: new Date() });
+// =&gt; '{"when":"2026-06-25T10:00:00.000Z"}'   ✅ works
+
+JSON.stringify({ ids: new Map([['a', 1]]) });
+// =&gt; '{"ids":{}}'                            ⚠️ entries gone, not an error
+JSON.stringify({ tags: new Set([1, 2, 3]) });
+// =&gt; '{"tags":{}}'                           ⚠️ values gone</code></pre>
+            </div>
+
+            <p><code>Date</code> works because it has a built-in <code>toJSON()</code> method &mdash; if a value defines <code>toJSON()</code>, <code>JSON.stringify</code> calls it and serializes the return value. <code>Map</code> and <code>Set</code> have <em>no</em> <code>toJSON()</code> and no enumerable own properties, so they stringify as an empty object: the data is silently lost, with no error. Convert them explicitly first:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JSON.stringify({ ids: Object.fromEntries(map) });   // Map -&gt; object
+JSON.stringify({ tags: [...set] });                 // Set -&gt; array
+
+// Or give your own class a toJSON() to control its wire form:
+class Money {
+  constructor(cents) { this.cents = cents; }
+  toJSON() { return (this.cents / 100).toFixed(2); }
+}
+JSON.stringify({ price: new Money(1999) });   // =&gt; '{"price":"19.99"}'</code></pre>
+            </div>
+
+            <h2>The replacer array: an allowlist of keys</h2>
+            <p>The second argument can also be an <strong>array of strings</strong> instead of a function. In that form it is a key allowlist &mdash; only those keys survive, everything else is dropped. This is handy for stripping internal or sensitive fields, but it is a frequent source of "my property disappeared":</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const user = { id: 1, name: 'Ada', password: 'secret', token: 'xyz' };
+
+JSON.stringify(user, ['id', 'name']);
+// =&gt; '{"id":1,"name":"Ada"}'   — password and token intentionally dropped
+
+// Gotcha: the allowlist applies at EVERY level. A key you forgot to list
+// in a nested object vanishes too — check the array if nested data is missing.</code></pre>
+            </div>
+
+            <p>If a property is missing and you are passing an array as the second argument, that array &mdash; not the type rules &mdash; is almost certainly the cause.</p>
+
+            <h2>Compare before and after serialization</h2>
+            <p>The fastest way to catch a dropped key is to look at the input object and the parsed output side by side. Paste both into the <a href="../json-diff.html">JSON Diff</a> tool to see exactly which keys were removed or turned to <code>null</code> during the round trip.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Is the missing value <code>undefined</code>, a function, or a symbol? Those are dropped from objects.</li>
+                <li>&#10003; Is it inside an array? Then it became <code>null</code>, not removed &mdash; check for unexpected <code>null</code> holes.</li>
+                <li>&#10003; Did <code>JSON.stringify</code> return <code>undefined</code>? The top-level value was itself unrepresentable.</li>
+                <li>&#10003; Want the key present? Map the value to <code>null</code> or a string with a <strong>replacer</strong>.</li>
+                <li>&#10003; Want full control? Build a plain serializable object (DTO) before stringifying.</li>
+                <li>&#10003; Seeing <code>null</code> where a number should be? Check for <code>NaN</code> / <code>Infinity</code> &mdash; same type system, value coerced to <code>null</code>.</li>
+                <li>&#10003; Property is an empty <code>{}</code>? It was a <code>Map</code> or <code>Set</code> &mdash; convert with <code>Object.fromEntries</code> / spread first.</li>
+                <li>&#10003; Passing an array as the 2nd argument? That is a key allowlist &mdash; unlisted keys are dropped at every level.</li>
+                <li>&#10003; Reading the result back fails? A written <code>undefined</code> produced an invalid JSON file.</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Why does JSON.stringify drop a property?</summary>
+                    <p><code>JSON.stringify</code> omits any object property whose value is <code>undefined</code>, a function, or a symbol, because JSON has no type to represent them. It is not a bug &mdash; it is the JSON specification's type system. The same values become <code>null</code> when they appear as array elements instead of object properties.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between how JSON.stringify treats undefined in an object versus an array?</summary>
+                    <p>In an object, an <code>undefined</code>, function, or symbol value causes the whole property to be omitted from the output. In an array, the same value is replaced by <code>null</code> so that array indexes are preserved. So <code>{a: undefined}</code> becomes <code>{}</code> but <code>[undefined]</code> becomes <code>[null]</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does JSON.stringify(undefined) return undefined and not a string?</summary>
+                    <p>When you pass <code>undefined</code>, a function, or a symbol as the top-level value, <code>JSON.stringify</code> returns the JavaScript value <code>undefined</code> &mdash; not the string <code>'undefined'</code> and not <code>'"undefined"'</code>. There is no valid JSON document for those types, so nothing is produced. Always guard against an <code>undefined</code> return before writing or sending the result.</p>
+                </details>
+                <details>
+                    <summary>How do I keep an undefined or function property in JSON output?</summary>
+                    <p>Convert the value to something JSON can represent before stringifying. Use a <code>replacer</code> function as the second argument to <code>JSON.stringify</code> to substitute a value (for example <code>null</code> or a string), or build a plain serializable object first. For functions, serialize their source with <code>toString()</code> only if you truly need it &mdash; usually you should send data, not code.</p>
+                </details>
+                <details>
+                    <summary>Does JSON.stringify drop null values too?</summary>
+                    <p>No. <code>null</code> is a valid JSON value, so a property set to <code>null</code> is kept: <code>{a: null}</code> serializes to <code>{"a":null}</code>. Only <code>undefined</code>, functions, and symbols are dropped from objects. If you want missing data represented in the output, use <code>null</code> instead of <code>undefined</code>.</p>
+                </details>
+                <details>
+                    <summary>Why is my NaN or Infinity showing up as null?</summary>
+                    <p>JSON has no representation for <code>NaN</code>, <code>Infinity</code>, or <code>-Infinity</code>, so <code>JSON.stringify</code> converts them to <code>null</code> rather than dropping the property. This is a related quirk of the same type system: the property stays, but its value becomes <code>null</code>. Replace these numbers with a sentinel of your choice in a replacer if <code>null</code> is not acceptable. See <a href="../blog/json-nan-infinity.html">NaN / Infinity not allowed in JSON</a>.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>See exactly what your object serializes to</h3>
+                <p>Paste your <code>JSON.stringify</code> output into the formatter to spot missing keys and stray <code>null</code> holes &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-diff.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Diff</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="bigint-not-serializable.html">TypeError: Do not know how to serialize a BigInt</a> &mdash; when a value can't be stringified at all</li>
+                <li><a href="../blog/json-circular-reference.html">TypeError: Converting circular structure to JSON</a> &mdash; the error stringify <em>does</em> throw</li>
+                <li><a href="../blog/json-nan-infinity.html">JSON SyntaxError: NaN / Infinity Not Allowed</a> &mdash; the related null-coercion quirk</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="../blog/json-parse-error-handling.html">Error Handling Patterns for JSON.parse</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

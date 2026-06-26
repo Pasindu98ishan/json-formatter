@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: Do not know how to serialize a BigInt — why JSON.stringify refuses BigInt values, and how to convert them to a string safely with a replacer, toJSON, and a matching reviver.">
+    <meta name="keywords" content="Do not know how to serialize a BigInt, JSON.stringify BigInt, TypeError BigInt JSON, bigint to json, serialize bigint javascript, bigint replacer reviver">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/bigint-not-serializable.html">
+    <meta property="og:title" content="TypeError: Do not know how to serialize a BigInt — Cause and Fix">
+    <meta property="og:description" content="JSON.stringify throws on BigInt because JSON has no integer type that can hold values beyond Number.MAX_SAFE_INTEGER. Convert BigInt to a string with a replacer and parse it back with a reviver.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/bigint-not-serializable.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: Do not know how to serialize a BigInt — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Do not know how to serialize a BigInt", "item": "https://jsondevtools.org/errors/bigint-not-serializable.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: Do not know how to serialize a BigInt — Cause and Fix",
+  "description": "JSON.stringify throws 'TypeError: Do not know how to serialize a BigInt' because JSON has no integer type large enough to hold a BigInt without losing precision. This reference shows how to convert BigInt to a string and back.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-25",
+  "dateModified": "2026-06-25",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Do not know how to serialize a BigInt' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means you passed a BigInt value to JSON.stringify, which throws a TypeError because JSON has no type that can represent a BigInt. Unlike undefined or functions, which are silently dropped, a BigInt causes a hard error so you cannot accidentally lose a large number."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why can't JSON.stringify handle BigInt?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "JSON numbers are IEEE-754 doubles, which lose precision beyond Number.MAX_SAFE_INTEGER (2^53 - 1). BigInt exists precisely to hold integers larger than that, so writing it as a JSON number would silently corrupt the value. Rather than lose precision, JSON.stringify refuses and throws."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I serialize a BigInt to JSON?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Convert it to a string. Pass a replacer to JSON.stringify that returns value.toString() for any BigInt, for example JSON.stringify(data, (k, v) => typeof v === 'bigint' ? v.toString() : v). The value is preserved exactly as text; the trade-off is that it deserializes back as a string, not a BigInt, unless you use a matching reviver."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I parse a BigInt back from JSON?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use a reviver with JSON.parse that turns the known fields back into BigInt: JSON.parse(text, (k, v) => k === 'id' ? BigInt(v) : v). Because a plain JSON string carries no type information, you must know which keys are BigInt, or tag them with a wrapper object like {\"$bigint\": \"123\"}."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is it safe to add BigInt.prototype.toJSON globally?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It works — defining BigInt.prototype.toJSON = function () { return this.toString(); } makes JSON.stringify emit BigInt as a string everywhere — but it mutates a built-in prototype globally, which can surprise other code and libraries. Prefer a local replacer in application code; only patch the prototype in a controlled environment you fully own."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I serialize a BigInt as a string or a number?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use a string. Emitting it as a raw JSON number re-introduces the exact precision loss BigInt was meant to avoid the moment any standard JSON.parse reads it back as a Number. A string keeps the value lossless; the cost is an explicit conversion on both ends. There is no lossless standard JSON number for BigInt."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix 'Do not know how to serialize a BigInt'",
+  "description": "Steps to serialize and deserialize BigInt values with JSON without losing precision.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Find the BigInt value", "text": "Identify which property holds a BigInt — it is the value JSON.stringify is refusing to serialize." },
+    { "@type": "HowToStep", "position": 2, "name": "Convert BigInt to a string with a replacer", "text": "Pass a replacer to JSON.stringify that returns value.toString() when typeof value is 'bigint'." },
+    { "@type": "HowToStep", "position": 3, "name": "Restore BigInt with a reviver on parse", "text": "When reading the JSON back, use a reviver with JSON.parse to convert the known BigInt fields back with BigInt(value)." },
+    { "@type": "HowToStep", "position": 4, "name": "Or tag the value to make it self-describing", "text": "Wrap the value as {\"$bigint\": \"123\"} so the reviver can detect and restore it without knowing each key name." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Do not know how to serialize a BigInt</span>
+            </nav>
+            <h1>TypeError: Do not know how to serialize a BigInt</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>JSON.stringify</code> throws on a <strong>BigInt</strong> because JSON has no integer type that can hold values beyond <code>Number.MAX_SAFE_INTEGER</code> without losing precision. Convert the BigInt to a <strong>string</strong> with a <code>replacer</code> (<code>typeof v === 'bigint' ? v.toString() : v</code>), and convert it back with a matching <code>reviver</code> on <code>JSON.parse</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const payload = { id: 9007199254740993n, name: 'order' };
+
+JSON.stringify(payload);
+// Uncaught TypeError: Do not know how to serialize a BigInt
+//     at JSON.stringify (&lt;anonymous&gt;)</code></pre>
+            </div>
+
+            <p>Unlike <code>undefined</code> or a function &mdash; which <code>JSON.stringify</code> <a href="json-stringify-missing-property.html">silently drops</a> &mdash; a <code>BigInt</code> throws a hard <code>TypeError</code>. That is deliberate: a BigInt holds a value that would be <em>corrupted</em> if written as a JSON number, so the engine refuses rather than lose data quietly.</p>
+
+            <h2>Why JSON.stringify refuses a BigInt</h2>
+            <p>JSON numbers are IEEE-754 double-precision floats. They can represent integers exactly only up to <code>Number.MAX_SAFE_INTEGER</code>, which is <code>2^53 - 1</code> (<code>9007199254740991</code>). <code>BigInt</code> was added to JavaScript specifically to hold integers <em>larger</em> than that &mdash; database IDs, Twitter/X snowflake IDs, blockchain values, nanosecond timestamps.</p>
+
+            <p>If <code>JSON.stringify</code> wrote a BigInt as a plain JSON number, the moment any standard parser read it back with <code>JSON.parse</code> it would become a <code>Number</code> and silently lose its lowest digits. To avoid that trap, the spec makes BigInt serialization an explicit error you must handle &mdash; there is no lossless standard JSON number for it.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Why "just use a number" fails:
+const big = 9007199254740993n;          // one past MAX_SAFE_INTEGER
+Number(big);        // =&gt; 9007199254740992   ← wrong, lost the last digit
+JSON.parse('9007199254740993');         // =&gt; 9007199254740992   ← same loss</code></pre>
+            </div>
+
+            <h2>Fix 1: convert to a string with a replacer (recommended)</h2>
+            <p>Pass a <strong>replacer</strong> as the second argument to <code>JSON.stringify</code>. It runs for every value and lets you turn each BigInt into its exact string form:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const payload = { id: 9007199254740993n, name: 'order' };
+
+const json = JSON.stringify(payload, (key, value) =&gt;
+  typeof value === 'bigint' ? value.toString() : value
+);
+// =&gt; '{"id":"9007199254740993","name":"order"}'</code></pre>
+            </div>
+
+            <p>The value is preserved exactly as text. The trade-off &mdash; and the part to be honest about &mdash; is that <code>id</code> comes back as a <strong>string</strong>, not a BigInt, when someone parses this JSON. If the consumer needs the BigInt type again, it must convert explicitly (Fix 3).</p>
+
+            <h2>Fix 2: BigInt.prototype.toJSON (convenient, with a caveat)</h2>
+            <p>If a value has a <code>toJSON()</code> method, <code>JSON.stringify</code> calls it automatically. Defining one on <code>BigInt.prototype</code> makes every BigInt serialize as a string without a replacer:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Run once at startup:
+BigInt.prototype.toJSON = function () { return this.toString(); };
+
+JSON.stringify({ id: 9007199254740993n });
+// =&gt; '{"id":"9007199254740993"}'   — no replacer needed</code></pre>
+            </div>
+
+            <p><strong>Caveat:</strong> this mutates a built-in prototype <em>globally</em>. Every BigInt in your process &mdash; including ones inside third-party libraries &mdash; now serializes as a string, which can surprise code that expected the original throw. Use it only in an application you fully control; never ship it in a shared library. In most codebases the local replacer (Fix 1) is the safer choice.</p>
+
+            <h2>Fix 3: the round-trip problem &mdash; parse it back</h2>
+            <p>A JSON string carries <strong>no type information</strong>, so <code>"9007199254740993"</code> is just text when it comes back. To restore the BigInt, use a <strong>reviver</strong> with <code>JSON.parse</code> &mdash; but you must know <em>which</em> keys are BigInt:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const text = '{"id":"9007199254740993","name":"order"}';
+
+const data = JSON.parse(text, (key, value) =&gt;
+  key === 'id' ? BigInt(value) : value
+);
+data.id;            // =&gt; 9007199254740993n   ← BigInt restored
+typeof data.id;     // =&gt; 'bigint'</code></pre>
+            </div>
+
+            <h2>Fix 4: a self-describing wrapper (no key list needed)</h2>
+            <p>If you do not want to hard-code key names, tag each BigInt with a wrapper object on the way out, and detect that shape on the way in. This makes the value self-describing and round-trips cleanly regardless of where it sits:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Serialize: wrap every BigInt
+const json = JSON.stringify(payload, (k, v) =&gt;
+  typeof v === 'bigint' ? { $bigint: v.toString() } : v
+);
+
+// Parse: unwrap anything tagged $bigint
+const data = JSON.parse(json, (k, v) =&gt;
+  v &amp;&amp; typeof v === 'object' &amp;&amp; typeof v.$bigint === 'string'
+    ? BigInt(v.$bigint)
+    : v
+);</code></pre>
+            </div>
+
+            <p>Be honest with yourself about the cost: this changes the wire format (consumers see <code>{"$bigint":"..."}</code>), so it only works when both ends agree on the convention. There is no lossless, universally understood JSON encoding for BigInt &mdash; every option trades something.</p>
+
+            <h2>Where BigInt values come from</h2>
+            <p>You rarely type <code>123n</code> by hand &mdash; BigInt usually arrives from somewhere that needs the extra range, which is why the error appears deep in real apps:</p>
+            <ul>
+                <li><strong>Database drivers</strong> &mdash; Postgres <code>BIGINT</code>/<code>int8</code> and MySQL <code>BIGINT</code> columns. <code>node-postgres</code> returns them as strings by default, but many ORMs and drivers (or a custom type parser) hand back a <code>BigInt</code>.</li>
+                <li><strong>Snowflake IDs</strong> &mdash; Twitter/X, Discord, and Instagram IDs exceed <code>2^53</code> and are 64-bit integers.</li>
+                <li><strong>Timestamps in nanoseconds</strong> &mdash; <code>process.hrtime.bigint()</code> and high-resolution clocks.</li>
+                <li><strong>Crypto / blockchain</strong> &mdash; wei balances, token amounts, large nonces.</li>
+            </ul>
+
+            <h2>The parse side: JSON.parse loses precision too</h2>
+            <p>This is the trap on the way <em>in</em>, and it is worse than the stringify error because it is <strong>silent</strong>. If the JSON text contains a large number as a bare number (not a string), <code>JSON.parse</code> reads it as a <code>Number</code> and the value is already corrupted before you can convert it &mdash; there is no BigInt to recover:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const text = '{"id": 9007199254740993}';   // a 64-bit id as a JSON number
+
+const data = JSON.parse(text);
+data.id;            // =&gt; 9007199254740992   ← already wrong, last digit lost
+BigInt(data.id);    // =&gt; 9007199254740992n  ← too late, precision is gone</code></pre>
+            </div>
+
+            <p>The only lossless fix is to keep large integers as <strong>JSON strings</strong> end to end (<code>"id": "9007199254740993"</code>) so the digits survive the parse, then convert with <code>BigInt(value)</code>. Control the producer if you can &mdash; ask the API or set the DB driver to emit big integers as strings.</p>
+
+            <h2>Libraries that handle the round trip</h2>
+            <p>If you do not control the producer and the wire format already uses bare large numbers, a custom parser that reads numbers as BigInt is the only way to avoid the silent loss. Two well-known options:</p>
+            <ul>
+                <li><code>json-bigint</code> &mdash; drop-in <code>parse</code>/<code>stringify</code> that maps large JSON numbers to BigInt automatically.</li>
+                <li><code>lossless-json</code> &mdash; parses numbers into a lossless representation you opt into, avoiding precision loss without forcing BigInt everywhere.</li>
+            </ul>
+            <p>Be honest about the trade-off: these change the types your whole codebase sees and add a dependency. When you own both ends, the string convention (above) is simpler and dependency-free. Typing these IDs as <code>string</code> in your interfaces &mdash; which you can generate from a sample with <a href="../json-to-typescript.html">JSON to TypeScript</a> &mdash; documents the decision and stops someone "fixing" it back to <code>number</code>.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Confirm the offending value is a <code>BigInt</code> (a literal ending in <code>n</code>, or from a BigInt-returning API)</li>
+                <li>&#10003; Decide the format: a plain <strong>string</strong> (simplest) or a tagged wrapper (self-describing)</li>
+                <li>&#10003; Add a <code>replacer</code> to <code>JSON.stringify</code> that converts <code>typeof v === 'bigint'</code></li>
+                <li>&#10003; Add a matching <code>reviver</code> to <code>JSON.parse</code> if the consumer needs a BigInt back</li>
+                <li>&#10003; Never let a BigInt become a plain JSON number &mdash; that re-introduces precision loss</li>
+                <li>&#10003; Reading large numbers <em>in</em>? Keep them as JSON strings &mdash; bare numbers lose precision in <code>JSON.parse</code> before you can convert</li>
+                <li>&#10003; Don't control the producer? Use <code>json-bigint</code> / <code>lossless-json</code> to parse without loss</li>
+                <li>&#10003; Avoid <code>BigInt.prototype.toJSON</code> in shared libraries (global prototype mutation)</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Do not know how to serialize a BigInt' mean?</summary>
+                    <p>It means you passed a <code>BigInt</code> value to <code>JSON.stringify</code>, which throws a <code>TypeError</code> because JSON has no type that can represent a BigInt. Unlike <code>undefined</code> or functions, which are silently dropped, a BigInt causes a hard error so you cannot accidentally lose a large number.</p>
+                </details>
+                <details>
+                    <summary>Why can't JSON.stringify handle BigInt?</summary>
+                    <p>JSON numbers are IEEE-754 doubles, which lose precision beyond <code>Number.MAX_SAFE_INTEGER</code> (<code>2^53 - 1</code>). BigInt exists precisely to hold integers larger than that, so writing it as a JSON number would silently corrupt the value. Rather than lose precision, <code>JSON.stringify</code> refuses and throws.</p>
+                </details>
+                <details>
+                    <summary>How do I serialize a BigInt to JSON?</summary>
+                    <p>Convert it to a string. Pass a replacer to <code>JSON.stringify</code> that returns <code>value.toString()</code> for any BigInt, for example <code>JSON.stringify(data, (k, v) =&gt; typeof v === 'bigint' ? v.toString() : v)</code>. The value is preserved exactly as text; the trade-off is that it deserializes back as a string, not a BigInt, unless you use a matching reviver.</p>
+                </details>
+                <details>
+                    <summary>How do I parse a BigInt back from JSON?</summary>
+                    <p>Use a reviver with <code>JSON.parse</code> that turns the known fields back into BigInt: <code>JSON.parse(text, (k, v) =&gt; k === 'id' ? BigInt(v) : v)</code>. Because a plain JSON string carries no type information, you must know which keys are BigInt, or tag them with a wrapper object like <code>{"$bigint": "123"}</code>.</p>
+                </details>
+                <details>
+                    <summary>Is it safe to add BigInt.prototype.toJSON globally?</summary>
+                    <p>It works &mdash; defining <code>BigInt.prototype.toJSON = function () { return this.toString(); }</code> makes <code>JSON.stringify</code> emit BigInt as a string everywhere &mdash; but it mutates a built-in prototype globally, which can surprise other code and libraries. Prefer a local replacer in application code; only patch the prototype in a controlled environment you fully own.</p>
+                </details>
+                <details>
+                    <summary>Should I serialize a BigInt as a string or a number?</summary>
+                    <p>Use a string. Emitting it as a raw JSON number re-introduces the exact precision loss BigInt was meant to avoid the moment any standard <code>JSON.parse</code> reads it back as a <code>Number</code>. A string keeps the value lossless; the cost is an explicit conversion on both ends. There is no lossless standard JSON number for BigInt.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with large-number JSON?</h3>
+                <p>Format and validate any JSON payload in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-to-typescript.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON to TypeScript</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="json-stringify-missing-property.html">JSON.stringify drops a property</a> &mdash; the silent cousin (undefined / function / symbol)</li>
+                <li><a href="object-not-json-serializable.html">TypeError: Object of type … is not JSON serializable</a> &mdash; the Python equivalent</li>
+                <li><a href="../blog/json-circular-reference.html">TypeError: Converting circular structure to JSON</a> &mdash; the other stringify throw</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="../blog/json-parse-error-handling.html">Error Handling Patterns for JSON.parse</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

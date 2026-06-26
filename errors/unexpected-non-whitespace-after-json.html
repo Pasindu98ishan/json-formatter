@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SyntaxError: Unexpected non-whitespace character after JSON data — why JSON.parse fails when two JSON values are concatenated (NDJSON, a doubled body, or a trailing character) and how to fix each case.">
+    <meta name="keywords" content="Unexpected non-whitespace character after JSON data, JSON.parse error, NDJSON parse, json lines javascript, double encoded json, trailing character json">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/unexpected-non-whitespace-after-json.html">
+    <meta property="og:title" content="SyntaxError: Unexpected non-whitespace character after JSON data — Cause and Fix">
+    <meta property="og:description" content="JSON.parse throws this when there is extra content after the first complete JSON value — usually NDJSON fed to JSON.parse, a doubled response body, or a stray trailing character. Here is how to fix each.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/unexpected-non-whitespace-after-json.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>SyntaxError: Unexpected non-whitespace character after JSON data — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Unexpected non-whitespace character after JSON data", "item": "https://jsondevtools.org/errors/unexpected-non-whitespace-after-json.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "SyntaxError: Unexpected non-whitespace character after JSON data — Cause and Fix",
+  "description": "JSON.parse throws 'Unexpected non-whitespace character after JSON data' when the string contains more than one JSON value. This reference covers the NDJSON, double-encoding, and trailing-character causes and their fixes.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-25",
+  "dateModified": "2026-06-25",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Unexpected non-whitespace character after JSON data' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means JSON.parse successfully read one complete JSON value, then found more non-whitespace text after it. JSON.parse accepts exactly one value per call, so anything beyond the first value — a second object, a stray character, or another line — triggers the SyntaxError."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen with NDJSON or JSON Lines?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "NDJSON (newline-delimited JSON / JSON Lines) puts one JSON object per line, so the whole file is many values, not one. JSON.parse reads the first line then errors on the second. Split the text on newlines and JSON.parse each non-empty line individually instead of parsing the whole blob."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from 'Unexpected end of JSON input'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are opposites. 'Unexpected end of JSON input' means there was too little data — the value was cut off before it finished (often an empty body). 'Unexpected non-whitespace character after JSON data' means there was too much — a complete value was found, then extra content followed it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What causes a doubled or double-encoded JSON body?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A doubled body happens when a response is accidentally written twice, or when a value was JSON.stringify-ed twice and then concatenated. Inspect the raw text with response.text() before calling .json(); if you see two objects back to back like {\"a\":1}{\"b\":2}, the source is producing two values where one is expected."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find the extra character?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Log the raw string and its length, and look at the position the error reports. Common culprits are a trailing comma, a duplicated closing brace, a stray semicolon, an extra quote, or a BOM. Pasting the text into a JSON validator highlights exactly where the second value or stray character begins."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the error wording differ between browsers?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. V8 (Chrome, Node) says 'Unexpected non-whitespace character after JSON data', Firefox says 'unexpected non-whitespace character after JSON data' (and sometimes 'unexpected character'), and Safari may say 'Unexpected token' with a position. The cause is identical — extra content after the first JSON value."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix 'Unexpected non-whitespace character after JSON data'",
+  "description": "Steps to resolve JSON.parse failing because the string holds more than one JSON value.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Inspect the raw text", "text": "Log the string (or call response.text() before .json()) to see what comes after the first complete JSON value." },
+    { "@type": "HowToStep", "position": 2, "name": "Check for NDJSON / JSON Lines", "text": "If there is one JSON object per line, the data is NDJSON. Split on newlines and parse each non-empty line separately." },
+    { "@type": "HowToStep", "position": 3, "name": "Check for a doubled or double-encoded body", "text": "If you see two values back to back, fix the source that produces two values, or stop stringifying twice." },
+    { "@type": "HowToStep", "position": 4, "name": "Remove a stray trailing character", "text": "If only one or two extra characters follow the value, delete the trailing comma, brace, quote, or BOM at the source." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Unexpected non-whitespace character after JSON data</span>
+            </nav>
+            <h1>SyntaxError: Unexpected non-whitespace character after JSON data</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>JSON.parse</code> read <strong>one complete JSON value</strong>, then found more text after it. It accepts exactly one value per call. The three real causes are <strong>NDJSON / JSON Lines</strong> fed to <code>JSON.parse</code> (parse line by line), a <strong>doubled or double-encoded body</strong>, and a <strong>stray trailing character</strong>. Inspect the raw string with <code>response.text()</code> first.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JSON.parse('{"a":1}{"b":2}');
+// V8 / Chrome / Node:
+//   SyntaxError: Unexpected non-whitespace character after JSON data
+//   at JSON.parse (&lt;anonymous&gt;)
+
+// Firefox:
+//   SyntaxError: unexpected non-whitespace character after JSON data
+// Safari:
+//   SyntaxError: Unexpected token '{'</code></pre>
+            </div>
+
+            <p>The wording differs by engine, but the meaning is identical: a valid JSON value was parsed, and then something non-whitespace appeared <em>after</em> it. <code>JSON.parse</code> parses a single value &mdash; one object, one array, one string, one number &mdash; and nothing more.</p>
+
+            <h2>Why JSON.parse rejects a second value</h2>
+            <p>The JSON grammar defines a document as exactly one value, optionally surrounded by whitespace. <code>JSON.parse</code> reads that one value greedily, then verifies the rest of the string is only whitespace. The instant it meets a non-whitespace character &mdash; the <code>{</code> of a second object, a comma, a stray byte &mdash; it throws.</p>
+
+            <p>This is the <strong>mirror of Python's</strong> <a href="jsondecodeerror-extra-data.html"><code>json.decoder.JSONDecodeError: Extra data</code></a>: same root cause (more than one value), different runtime. If you also work in Python, that page covers the identical problem with <code>json.loads</code>.</p>
+
+            <h2>Cause 1: NDJSON / JSON Lines (the most common)</h2>
+            <p>NDJSON (newline-delimited JSON, also called JSON Lines or <code>.jsonl</code>) stores <strong>one JSON object per line</strong>. Log pipelines, LLM streaming responses, BigQuery exports, and many APIs use it. The whole file is many values, so a single <code>JSON.parse</code> fails on the second line:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const ndjson = `{"id":1,"name":"Ada"}
+{"id":2,"name":"Bob"}
+{"id":3,"name":"Cay"}`;
+
+JSON.parse(ndjson);   // ❌ Unexpected non-whitespace character after JSON data
+
+// ✅ Parse each line on its own:
+const rows = ndjson
+  .split('\n')
+  .filter(line =&gt; line.trim() !== '')
+  .map(line =&gt; JSON.parse(line));
+// rows = [{id:1,...}, {id:2,...}, {id:3,...}]</code></pre>
+            </div>
+
+            <p>If the data arrives as a stream (<code>fetch</code> with a chunked body, an LLM token stream), buffer the text and split on newlines, parsing only <em>complete</em> lines &mdash; the last chunk may be a partial line you should hold until the next chunk arrives.</p>
+
+            <h3>Parsing an NDJSON stream from fetch</h3>
+            <p>When NDJSON arrives over the network &mdash; a log tail, an LLM token stream, a large export &mdash; chunks do not align to line boundaries. A naive split on each chunk will eventually try to parse a <em>partial</em> line and fail. Buffer the text, emit only complete lines, and parse the remainder at the end:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/events');         // NDJSON stream
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+let buffer = '';
+
+for (;;) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  buffer += decoder.decode(value, { stream: true });
+
+  let nl;
+  while ((nl = buffer.indexOf('\n')) !== -1) {
+    const line = buffer.slice(0, nl).trim();
+    buffer = buffer.slice(nl + 1);              // keep the partial remainder
+    if (line) handle(JSON.parse(line));         // one complete value
+  }
+}
+if (buffer.trim()) handle(JSON.parse(buffer.trim()));  // last line, no trailing \n</code></pre>
+            </div>
+
+            <p>The key detail is <code>buffer = buffer.slice(nl + 1)</code>: whatever follows the last newline is an <em>incomplete</em> line and must wait for the next chunk. Parsing the whole buffer per chunk is exactly what produces <code>Unexpected non-whitespace character after JSON data</code> on streamed data.</p>
+
+            <h2>Cause 2: a doubled or double-encoded body</h2>
+            <p>Two complete values concatenated usually means the producer emitted the body twice, or a value was <code>JSON.stringify</code>-ed and then wrapped and stringified again. The fix is at the source, but you confirm it by inspecting the raw text:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/data');
+const raw = await res.text();        // read raw FIRST, don't call .json() yet
+console.log(JSON.stringify(raw));    // e.g. "{\"ok\":true}{\"ok\":true}"
+
+// If you see two objects back to back, the server is writing the body twice
+// (e.g. res.json(x) called twice, or res.write + res.json). Fix the handler.
+
+// Only call .json() once you know the body is a single value:
+const data = JSON.parse(raw);</code></pre>
+            </div>
+
+            <p>Reading the body with <code>.text()</code> first is the key debugging move &mdash; but remember a response body can only be read once, so read it as text and then <code>JSON.parse</code> the text, rather than calling <code>.json()</code> afterwards. (See <a href="response-body-already-read.html">body stream already read</a>.)</p>
+
+            <h2>Cause 3: a stray trailing character</h2>
+            <p>Sometimes only one or two extra characters follow a perfectly good value: a trailing comma, a duplicated closing brace, a stray semicolon copied from code, an extra quote, or a byte-order mark (BOM) at the <em>end</em> of a concatenation. The reported position points right at it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>JSON.parse('{"ok":true},');   // ❌ trailing comma after the object
+JSON.parse('{"ok":true}}');   // ❌ extra closing brace
+JSON.parse('{"ok":true};');   // ❌ stray semicolon (copied from JS source)
+
+// Fix at the source. If you must defend against trailing junk you control,
+// trim known characters — never blindly slice, which can corrupt valid data:
+const cleaned = raw.trim().replace(/;+$/, '');
+JSON.parse(cleaned);</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Log the <strong>raw string</strong> (and its <code>.length</code>) before parsing &mdash; never parse blind</li>
+                <li>&#10003; One JSON object per line? It is <strong>NDJSON</strong> &mdash; split on <code>\n</code> and parse each line</li>
+                <li>&#10003; Two values back to back? The source is producing a <strong>doubled body</strong> &mdash; fix the producer</li>
+                <li>&#10003; Only a character or two extra? Remove the trailing comma / brace / semicolon / BOM</li>
+                <li>&#10003; Using <code>fetch</code>? Read <code>response.text()</code> once, then <code>JSON.parse</code> it</li>
+                <li>&#10003; Getting the <em>opposite</em> (empty/cut-off)? That is <a href="../blog/json-unexpected-end-input.html">Unexpected end of JSON input</a>, not this</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Unexpected non-whitespace character after JSON data' mean?</summary>
+                    <p>It means <code>JSON.parse</code> successfully read one complete JSON value, then found more non-whitespace text after it. <code>JSON.parse</code> accepts exactly one value per call, so anything beyond the first value &mdash; a second object, a stray character, or another line &mdash; triggers the <code>SyntaxError</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen with NDJSON or JSON Lines?</summary>
+                    <p>NDJSON (newline-delimited JSON / JSON Lines) puts one JSON object per line, so the whole file is many values, not one. <code>JSON.parse</code> reads the first line then errors on the second. Split the text on newlines and <code>JSON.parse</code> each non-empty line individually instead of parsing the whole blob.</p>
+                </details>
+                <details>
+                    <summary>How is this different from 'Unexpected end of JSON input'?</summary>
+                    <p>They are opposites. <a href="../blog/json-unexpected-end-input.html">Unexpected end of JSON input</a> means there was too little data &mdash; the value was cut off before it finished (often an empty body). 'Unexpected non-whitespace character after JSON data' means there was too much &mdash; a complete value was found, then extra content followed it.</p>
+                </details>
+                <details>
+                    <summary>What causes a doubled or double-encoded JSON body?</summary>
+                    <p>A doubled body happens when a response is accidentally written twice, or when a value was <code>JSON.stringify</code>-ed twice and then concatenated. Inspect the raw text with <code>response.text()</code> before calling <code>.json()</code>; if you see two objects back to back like <code>{"a":1}{"b":2}</code>, the source is producing two values where one is expected.</p>
+                </details>
+                <details>
+                    <summary>How do I find the extra character?</summary>
+                    <p>Log the raw string and its length, and look at the position the error reports. Common culprits are a trailing comma, a duplicated closing brace, a stray semicolon, an extra quote, or a BOM. Pasting the text into a JSON validator highlights exactly where the second value or stray character begins.</p>
+                </details>
+                <details>
+                    <summary>Does the error wording differ between browsers?</summary>
+                    <p>Yes. V8 (Chrome, Node) says 'Unexpected non-whitespace character after JSON data', Firefox says 'unexpected non-whitespace character after JSON data' (and sometimes 'unexpected character'), and Safari may say 'Unexpected token' with a position. The cause is identical &mdash; extra content after the first JSON value.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Paste the body, see where the second value starts</h3>
+                <p>Drop the raw response into the validator to find exactly where the extra content begins &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-validator.html" class="btn btn-primary">JSON Validator</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="jsondecodeerror-extra-data.html">JSONDecodeError: Extra data</a> &mdash; the Python equivalent of this error</li>
+                <li><a href="../blog/json-unexpected-end-input.html">Unexpected end of JSON input</a> &mdash; the opposite (too little data)</li>
+                <li><a href="response-body-already-read.html">Response body already read</a> &mdash; reading the body to debug it</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="../blog/api-returning-html-instead-of-json.html">API Returning HTML Instead of JSON?</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

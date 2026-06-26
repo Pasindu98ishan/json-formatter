@@ -232,11 +232,16 @@ json.dumps({"price": Decimal("19.99")}, default=float)   # {"price": 19.99}
 json.dumps({"price": Decimal("19.99")}, default=str)     # {"price": "19.99"}</code></pre>
             </div>
 
+            <p><strong>Careful with the one-liner:</strong> <code>default=float</code> and <code>default=str</code> are applied to <em>every</em> unhandled type in the whole object, not just <code>Decimal</code>. If the same payload also contains a <code>datetime</code> or a custom object, <code>default=float</code> will crash on it and <code>default=str</code> will quietly stringify it in a format you did not choose. When more than one non-standard type can appear, use a type-dispatching <code>default</code> function (or the <a href="#reusable">custom <code>JSONEncoder</code></a> below) so each type is handled deliberately.</p>
+
             <h2>Cause: set, bytes, UUID</h2>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre><code>import json
 from uuid import uuid4
+
+json.dumps({"tags": {"a", "b"}})
+# TypeError: Object of type set is not JSON serializable
 
 def encode(obj):
     if isinstance(obj, set):
@@ -247,6 +252,7 @@ def encode(obj):
 
 json.dumps({"tags": {"a", "b"}, "id": uuid4()}, default=encode)</code></pre>
             </div>
+            <p>A <code>set</code> deserializes back as a <strong>list</strong>, not a set, and the order is not guaranteed &mdash; convert it back with <code>set(value)</code> on the receiving end if you need set semantics.</p>
 
             <h2>Cause: NumPy types (np.int64, np.ndarray)</h2>
             <p>NumPy scalars and arrays are their own types &mdash; <code>np.int64</code> is not a Python <code>int</code>, and <code>np.ndarray</code> is not a <code>list</code> &mdash; so <code>json.dumps()</code> rejects them. Convert scalars with <code>.item()</code> (or <code>int()</code>/<code>float()</code>) and arrays with <code>.tolist()</code>:</p>
@@ -296,7 +302,7 @@ json.dumps(user, default=lambda o: o.__dict__)
 # json.dumps(model.model_dump())  or  model.model_dump_json()</code></pre>
             </div>
 
-            <h2>The reusable fix: a custom JSONEncoder</h2>
+            <h2 id="reusable">The reusable fix: a custom JSONEncoder</h2>
             <p>When the same types appear across a codebase, subclass <code>json.JSONEncoder</code> once and pass it with <code>cls=</code> everywhere:</p>
 
             <div class="code-block">
@@ -364,6 +370,7 @@ json.dumps(data, cls=SafeEncoder)</code></pre>
             <h2>Related Errors</h2>
             <ul>
                 <li><a href="../blog/json-circular-reference.html">TypeError: Converting circular structure to JSON</a> &mdash; the JavaScript serialization equivalent</li>
+                <li><a href="bigint-not-serializable.html">TypeError: Do not know how to serialize a BigInt</a> &mdash; the JavaScript BigInt counterpart</li>
                 <li><a href="jsondecodeerror-expecting-value.html">JSONDecodeError: Expecting value: line 1 column 1 (char 0)</a></li>
                 <li><a href="jsondecodeerror-unterminated-string.html">JSONDecodeError: Unterminated string starting at</a></li>
                 <li><a href="../errors.html">&larr; All error references</a></li>

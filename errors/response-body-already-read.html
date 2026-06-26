@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: Failed to execute 'json' on 'Response': body stream already read — why a fetch Response body can only be read once, and how to fix it with response.clone() or by reading once and storing the result.">
+    <meta name="keywords" content="body stream already read, Failed to execute 'json' on 'Response', body already used, response clone fetch, TypeError body used already, fetch read body twice">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/response-body-already-read.html">
+    <meta property="og:title" content="TypeError: body stream already read — Cause and Fix">
+    <meta property="og:description" content="A fetch Response body is a one-shot stream. Calling .json() after .text() (or twice) throws 'body stream already read'. Fix it with response.clone() or by reading the body once and reusing the result.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/response-body-already-read.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: body stream already read — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "body stream already read", "item": "https://jsondevtools.org/errors/response-body-already-read.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: Failed to execute 'json' on 'Response': body stream already read — Cause and Fix",
+  "description": "A fetch Response body is a single-use stream. Reading it twice — for example calling .json() after a debug .text() — throws 'body stream already read'. This reference shows how to clone or read once.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-25",
+  "dateModified": "2026-06-25",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'body stream already read' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means you tried to read a fetch Response body more than once. The body is a one-shot ReadableStream — once .json(), .text(), .blob(), .arrayBuffer(), or .formData() consumes it, the stream is drained and any second read throws TypeError: Failed to execute 'json' on 'Response': body stream already read."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why can a fetch body only be read once?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The body is a stream, not a stored string. Streaming lets the browser process large responses without holding the whole thing in memory, so the data flows through once and is gone. The boolean response.bodyUsed becomes true after the first read, and further reads are rejected."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I read a fetch response body twice?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Call response.clone() before the first read and read each copy once, or — more commonly — read the body a single time and store the result in a variable to reuse. Cloning is for when two independent consumers each need the stream; storing the parsed value is simpler when you just need the data more than once."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "I added console.log(await res.text()) and now .json() fails — why?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "That debug log consumed the body stream, so the following res.json() has nothing left to read and throws 'body stream already read'. Either log res.clone().text() so the original is untouched, or read res.text() once into a variable and JSON.parse it instead of calling res.json()."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the error wording change between browsers and Node?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Chrome says \"Failed to execute 'json' on 'Response': body stream already read\", Firefox says \"Body has already been consumed\" or \"Response.json: Body has already been read\", and Node/undici says \"Body is unusable\" or \"already read\". They all mean the body stream was consumed twice."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does response.clone() copy the data twice in memory?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "clone() creates a second readable stream that tees off the original, so both copies must be consumed and the data is effectively buffered until both are read. For very large bodies, prefer reading once and reusing the parsed result rather than cloning, to avoid extra memory pressure."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to fix 'body stream already read'",
+  "description": "Steps to resolve reading a fetch Response body more than once.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Find the second read", "text": "Locate where the body is consumed twice — often a debug res.text() before res.json(), or .json() called in two places." },
+    { "@type": "HowToStep", "position": 2, "name": "Read the body once and store it", "text": "Call .json() or .text() a single time, assign the result to a variable, and reuse that variable everywhere the data is needed." },
+    { "@type": "HowToStep", "position": 3, "name": "Clone before reading if two consumers need the stream", "text": "When two independent code paths each need to read the body, call response.clone() before the first read and let each read its own copy." },
+    { "@type": "HowToStep", "position": 4, "name": "For debugging, log a clone", "text": "Replace console.log(await res.text()) with console.log(await res.clone().text()) so the original body stays unread for res.json()." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>body stream already read</span>
+            </nav>
+            <h1>TypeError: Failed to execute 'json' on 'Response': body stream already read</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A fetch <code>Response</code> body is a <strong>one-shot stream</strong> &mdash; you can read it only once. Calling <code>.json()</code> after a debug <code>.text()</code> (or reading it twice anywhere) throws this error. Fix it by <strong>reading the body once and storing the result</strong>, or call <code>response.clone()</code> before the first read if two consumers each need the stream.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/user');
+
+console.log(await res.text());   // debug: read #1 drains the stream
+const data = await res.json();   // read #2 ❌
+
+// Chrome / V8:
+//   TypeError: Failed to execute 'json' on 'Response': body stream already read
+// Firefox:
+//   TypeError: Response.json: Body has already been read
+// Node (undici):
+//   TypeError: Body is unusable: Body has already been read</code></pre>
+            </div>
+
+            <p>Every wording points to the same thing: the body was consumed once already, so the second read has nothing left. The most common way people hit this is exactly the snippet above &mdash; <strong>adding a debug log and forgetting it eats the body.</strong></p>
+
+            <h2>Why a fetch body can only be read once</h2>
+            <p>A <code>Response</code> body is a <code>ReadableStream</code>, not a stored string. Streaming is deliberate: it lets the browser hand you data as it arrives and process huge responses without buffering the whole payload in memory. But a stream flows in one direction and is consumed as it is read &mdash; once it is drained, it is gone.</p>
+
+            <p>The body-reading methods &mdash; <code>.json()</code>, <code>.text()</code>, <code>.blob()</code>, <code>.arrayBuffer()</code>, <code>.formData()</code> &mdash; each fully consume the stream. After any one of them runs, <code>response.bodyUsed</code> flips to <code>true</code> and every later read is rejected:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/user');
+res.bodyUsed;            // false
+const data = await res.json();
+res.bodyUsed;            // true  — any further read now throws</code></pre>
+            </div>
+
+            <h2>Fix 1: read once, store the result (recommended)</h2>
+            <p>In the overwhelming majority of cases you do not need to read the body twice &mdash; you need the <em>data</em> twice. Read it once and reuse the parsed value:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/user');
+const data = await res.json();   // read exactly once
+
+console.log(data);               // reuse the value, not the stream
+useUser(data);
+cache.set(url, data);</code></pre>
+            </div>
+
+            <h2>Fix 2: for debugging, read text once and parse it</h2>
+            <p>The classic trigger is logging the raw body to debug, then calling <code>.json()</code>. Instead, read the text a single time and parse <em>that</em> string &mdash; you get both the log and the object from one read:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/user');
+const raw = await res.text();    // one read
+console.log('raw body:', raw);   // debug
+
+const data = JSON.parse(raw);    // parse the string you already have</code></pre>
+            </div>
+
+            <p>This also gives you a clearer error if the body is not valid JSON: you can see the exact <code>raw</code> text that caused an <a href="../blog/json-unexpected-token.html">Unexpected token &lt; in JSON</a> or <a href="unexpected-non-whitespace-after-json.html">Unexpected non-whitespace character after JSON data</a> before <code>JSON.parse</code> throws.</p>
+
+            <h2>Fix 3: response.clone() when two consumers need the stream</h2>
+            <p>If two independent pieces of code each genuinely need to read the body &mdash; for example a logging interceptor <em>and</em> your application code &mdash; clone the response <strong>before</strong> the first read. Each copy can be read once:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch('/api/user');
+
+// Log the body without disturbing the original:
+const logCopy = res.clone();
+console.log('intercepted:', await logCopy.text());
+
+const data = await res.json();   // original is still unread — works</code></pre>
+            </div>
+
+            <p><strong>Trade-off:</strong> <code>clone()</code> tees the stream, so the data is buffered until both copies are consumed (and you must consume both). For very large bodies that adds memory pressure &mdash; prefer Fix 1 unless you truly need two separate readers. Also note you must clone <em>before</em> reading; once <code>bodyUsed</code> is <code>true</code>, <code>clone()</code> cannot recover the data.</p>
+
+            <h2>A common React / interceptor variant</h2>
+            <p>The same error shows up when a shared layer reads the body and your component reads it again &mdash; an Axios-style fetch wrapper, a service worker, or a retry helper that peeked at the body. The rule is the same: whoever reads first must either clone for the next reader or pass the already-parsed value forward instead of the raw response.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ wrapper reads the body, then returns res for the caller to read again
+async function http(url) {
+  const res = await fetch(url);
+  if (!res.ok) console.error(await res.text());  // drains the stream
+  return res;                                     // caller's .json() now throws
+}
+
+// ✅ return the parsed data, or clone for the error path
+async function http(url) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`HTTP ${res.status}: ${msg}`);
+  }
+  return res.json();                              // one read, value returned
+}</code></pre>
+            </div>
+
+            <h2>Retrying a request: clone before the first read</h2>
+            <p>A retry helper that needs to inspect the body to decide whether to retry must clone first &mdash; otherwise the body is consumed and the retry (or the success path) has nothing to read. The safe shape reads each response's body exactly once:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>async function fetchWithRetry(url, tries = 3) {
+  for (let i = 0; i &lt; tries; i++) {
+    const res = await fetch(url);
+    if (res.ok) return res.json();          // consume once on success
+
+    // peek at the error body without blocking a retry: read this response's
+    // body once (it's a fresh Response each loop, so no reuse problem)
+    const errText = await res.text();
+    if (res.status &lt; 500 || i === tries - 1) {
+      throw new Error(`HTTP ${res.status}: ${errText}`);
+    }
+    await new Promise(r =&gt; setTimeout(r, 2 ** i * 200));   // backoff
+  }
+}</code></pre>
+            </div>
+
+            <p>Each loop iteration gets a brand-new <code>Response</code>, so there is no cross-request reuse &mdash; the rule "one read per response" is still satisfied. You only need <code>clone()</code> when <em>the same</em> response must be read twice.</p>
+
+            <h2>Node.js and server-side variants</h2>
+            <p>The same one-shot-stream rule applies on the server, with different wording. In Node's <code>fetch</code> (undici) the message is <code>TypeError: Body is unusable</code>. And an incoming request body is also a stream you can only read once &mdash; a middleware that already consumed it leaves nothing for the next handler:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Express: body-parser / express.json() already read the stream,
+// so re-reading req as a stream yields nothing (or "stream is not readable").
+app.use(express.json());                 // consumes the request body once
+app.post('/x', (req, res) =&gt; {
+  req.on('data', () =&gt; {});               // ❌ never fires — already consumed
+  doSomething(req.body);                  // ✅ use the parsed body instead
+});</code></pre>
+            </div>
+
+            <p>The fix mirrors the browser case: read or parse the stream once, then pass the resulting value around &mdash; never re-read the stream.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Find every place the same <code>response</code> is read &mdash; only one read is allowed</li>
+                <li>&#10003; Remove or clone any debug <code>await res.text()</code> placed before <code>res.json()</code></li>
+                <li>&#10003; Need the data more than once? Store the parsed result, don't re-read the body</li>
+                <li>&#10003; Need two independent readers? <code>res.clone()</code> <em>before</em> the first read</li>
+                <li>&#10003; Check fetch wrappers / interceptors / service workers that may read the body first</li>
+                <li>&#10003; Log <code>res.bodyUsed</code> to confirm whether the stream was already consumed</li>
+                <li>&#10003; Node says "Body is unusable"? Same rule &mdash; the undici body was read twice</li>
+                <li>&#10003; Server side: read the request stream once (<code>express.json()</code>), then use <code>req.body</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'body stream already read' mean?</summary>
+                    <p>It means you tried to read a fetch <code>Response</code> body more than once. The body is a one-shot <code>ReadableStream</code> &mdash; once <code>.json()</code>, <code>.text()</code>, <code>.blob()</code>, <code>.arrayBuffer()</code>, or <code>.formData()</code> consumes it, the stream is drained and any second read throws <code>TypeError: Failed to execute 'json' on 'Response': body stream already read</code>.</p>
+                </details>
+                <details>
+                    <summary>Why can a fetch body only be read once?</summary>
+                    <p>The body is a stream, not a stored string. Streaming lets the browser process large responses without holding the whole thing in memory, so the data flows through once and is gone. The boolean <code>response.bodyUsed</code> becomes <code>true</code> after the first read, and further reads are rejected.</p>
+                </details>
+                <details>
+                    <summary>How do I read a fetch response body twice?</summary>
+                    <p>Call <code>response.clone()</code> before the first read and read each copy once, or &mdash; more commonly &mdash; read the body a single time and store the result in a variable to reuse. Cloning is for when two independent consumers each need the stream; storing the parsed value is simpler when you just need the data more than once.</p>
+                </details>
+                <details>
+                    <summary>I added console.log(await res.text()) and now .json() fails — why?</summary>
+                    <p>That debug log consumed the body stream, so the following <code>res.json()</code> has nothing left to read and throws 'body stream already read'. Either log <code>res.clone().text()</code> so the original is untouched, or read <code>res.text()</code> once into a variable and <code>JSON.parse</code> it instead of calling <code>res.json()</code>.</p>
+                </details>
+                <details>
+                    <summary>Does the error wording change between browsers and Node?</summary>
+                    <p>Yes. Chrome says "Failed to execute 'json' on 'Response': body stream already read", Firefox says "Body has already been consumed" or "Response.json: Body has already been read", and Node/undici says "Body is unusable" or "already read". They all mean the body stream was consumed twice.</p>
+                </details>
+                <details>
+                    <summary>Does response.clone() copy the data twice in memory?</summary>
+                    <p><code>clone()</code> creates a second readable stream that tees off the original, so both copies must be consumed and the data is effectively buffered until both are read. For very large bodies, prefer reading once and reusing the parsed result rather than cloning, to avoid extra memory pressure.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Logged the body and it wasn't JSON?</h3>
+                <p>Paste the raw response text into the formatter to see exactly what the server returned &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a> &mdash; the request failed before you could read a body</li>
+                <li><a href="../blog/json-unexpected-token.html">Unexpected token &lt; in JSON at position 0</a> &mdash; the body was HTML, not JSON</li>
+                <li><a href="unexpected-non-whitespace-after-json.html">Unexpected non-whitespace character after JSON data</a> &mdash; the body had extra content</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

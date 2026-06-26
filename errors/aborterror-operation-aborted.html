@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AbortError: The operation was aborted — why fetch throws it, how to tell an intentional cancel or timeout from a real bug, and how to handle React StrictMode cleanup aborts correctly.">
+    <meta name="keywords" content="AbortError: The operation was aborted, signal is aborted without reason, AbortController fetch, fetch timeout abort, react useEffect abort fetch, AbortSignal.timeout">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/aborterror-operation-aborted.html">
+    <meta property="og:title" content="AbortError: The operation was aborted — Cause and Fix">
+    <meta property="og:description" content="AbortError means an AbortController aborted the request — a manual cancel, a timeout, or React cleanup. Learn to separate the intentional aborts you should ignore from the ones that signal a real bug.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/aborterror-operation-aborted.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>AbortError: The operation was aborted — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "AbortError: The operation was aborted", "item": "https://jsondevtools.org/errors/aborterror-operation-aborted.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "AbortError: The operation was aborted — Cause and Fix",
+  "description": "AbortError is thrown when an AbortController aborts a fetch — a manual cancel, an AbortSignal.timeout, or React cleanup. This reference explains how to tell an intentional abort from a real bug and handle each.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-25",
+  "dateModified": "2026-06-25",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'AbortError: The operation was aborted' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means a fetch (or other abortable operation) was cancelled because an AbortController called abort(), or its AbortSignal fired. The request did not fail on the network — it was deliberately stopped, either by your own code, a timeout, or a framework cleanup."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is AbortError a real error or expected?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Most of the time it is expected. If you aborted on purpose — a timeout, a user navigating away, a newer request superseding an old one — AbortError is the normal signal that the cancel worked, and you should catch and ignore it. It is only a bug when nothing in your code intended to abort."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I ignore an intentional AbortError?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Check the error name in your catch block: if (err.name === 'AbortError') return; — swallow it and do nothing. Only report or retry for other errors. This stops a deliberate cancel from showing up as an error in the console or UI."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get AbortError in React useEffect?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "React 18 StrictMode mounts, unmounts, and remounts components in development, running each effect's cleanup. If your effect aborts the fetch on cleanup (the recommended pattern), the first run's request is aborted and throws AbortError. This is correct behaviour — catch and ignore AbortError so the false alarm disappears."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I add a fetch timeout with AbortController?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use AbortSignal.timeout(ms) as the fetch signal, or create an AbortController and call abort() from a setTimeout. When the time elapses the fetch rejects with AbortError (or a TimeoutError for AbortSignal.timeout in newer runtimes), which you handle as a timeout case."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is 'signal is aborted without reason'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It is the same family of error — the AbortSignal was aborted but no reason argument was passed to abort(). Pass a reason, e.g. controller.abort(new DOMException('timeout', 'TimeoutError')) or controller.abort('user cancelled'), so the rejection carries a meaningful cause you can branch on."
+      }
+    }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to handle 'AbortError: The operation was aborted'",
+  "description": "Steps to distinguish an intentional abort from a bug and handle each correctly.",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Decide whether you aborted on purpose", "text": "Determine if your code, a timeout, or a framework cleanup called abort(). If so, the AbortError is expected." },
+    { "@type": "HowToStep", "position": 2, "name": "Catch and ignore intentional aborts", "text": "In the catch block, return early when err.name === 'AbortError' so a deliberate cancel is not treated as a failure." },
+    { "@type": "HowToStep", "position": 3, "name": "Handle React cleanup aborts", "text": "Abort the fetch in the useEffect cleanup and ignore the resulting AbortError; this is the correct pattern despite StrictMode firing it." },
+    { "@type": "HowToStep", "position": 4, "name": "Investigate unexpected aborts", "text": "If nothing intended to abort, look for a shared AbortController reused across requests, a signal aborted too early, or a timeout set too short." }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>AbortError: The operation was aborted</span>
+            </nav>
+            <h1>AbortError: The operation was aborted</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>AbortError</code> means an <code>AbortController</code> cancelled the operation &mdash; a manual cancel, a timeout, or a framework cleanup. It is usually <strong>intentional</strong>, not a network failure. If you aborted on purpose, <strong>catch and ignore it</strong> with <code>if (err.name === 'AbortError') return;</code>. Only investigate when nothing in your code meant to abort.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const controller = new AbortController();
+const promise = fetch('/api/data', { signal: controller.signal });
+controller.abort();
+
+await promise;
+// DOMException: The operation was aborted.        (Chrome)
+// AbortError: The operation was aborted.          (.name === 'AbortError')
+// DOMException: The user aborted a request.       (Firefox wording)
+// AbortError: signal is aborted without reason    (no reason passed)</code></pre>
+            </div>
+
+            <p>The key insight: this is almost always the <em>success signal of a cancel</em>, not a failure. The whole point of <code>AbortController</code> is to stop an in-flight request, and <code>AbortError</code> is how that stop is reported. The real question is never "how do I stop the error" but "did I mean to abort?"</p>
+
+            <h2>Did you abort on purpose? (the decision that matters)</h2>
+            <p>Split every <code>AbortError</code> into one of two buckets:</p>
+            <ul>
+                <li><strong>Intentional</strong> &mdash; a timeout fired, the user navigated away, a newer search request superseded an older one, or a React effect cleaned up. Here <code>AbortError</code> is expected; swallow it.</li>
+                <li><strong>Unexpected</strong> &mdash; nothing in your code meant to cancel. Here it points to a bug: a shared controller reused across requests, a signal aborted too early, or a timeout set unrealistically short.</li>
+            </ul>
+
+            <h2>Fix 1: catch and ignore an intentional abort</h2>
+            <p>Branch on <code>err.name</code>. A deliberate cancel should never surface as an error in the console or UI:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>try {
+  const res = await fetch(url, { signal });
+  const data = await res.json();
+  render(data);
+} catch (err) {
+  if (err.name === 'AbortError') return;   // expected — we cancelled
+  // a real failure: network down, parse error, etc.
+  showError(err);
+}</code></pre>
+            </div>
+
+            <h2>Fix 2: the React useEffect cleanup pattern</h2>
+            <p>The highest-volume modern cause is React. In React 18 <strong>StrictMode</strong>, development mounts each component, unmounts it, and remounts it &mdash; running the effect's cleanup in between. If your effect correctly aborts the fetch on cleanup, that first request is cancelled and throws <code>AbortError</code>. This is the <em>recommended</em> pattern, not a bug &mdash; you just need to ignore the abort:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>useEffect(() =&gt; {
+  const controller = new AbortController();
+
+  fetch(`/api/user/${id}`, { signal: controller.signal })
+    .then(res =&gt; res.json())
+    .then(setUser)
+    .catch(err =&gt; {
+      if (err.name === 'AbortError') return;   // StrictMode cleanup — ignore
+      setError(err);
+    });
+
+  return () =&gt; controller.abort();             // cleanup cancels in-flight fetch
+}, [id]);</code></pre>
+            </div>
+
+            <p>Aborting on cleanup also fixes the classic "can't perform a React state update on an unmounted component" warning and prevents a stale response from overwriting a newer one when <code>id</code> changes quickly.</p>
+
+            <h2>Fix 3: a fetch timeout with AbortController</h2>
+            <p>Cancelling after a deadline is the other big intentional case. The modern one-liner is <code>AbortSignal.timeout()</code>; the portable version uses a manual controller:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Modern (Node 17.3+, current browsers): rejects with TimeoutError after 5s
+const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+
+// Portable: manual controller + setTimeout
+const controller = new AbortController();
+const t = setTimeout(() =&gt; controller.abort(), 5000);
+try {
+  const res = await fetch(url, { signal: controller.signal });
+  return await res.json();
+} finally {
+  clearTimeout(t);                 // always clear so a fast response isn't aborted
+}</code></pre>
+            </div>
+
+            <p>Forgetting <code>clearTimeout</code> is a subtle bug: the timer can fire <em>after</em> a successful response and abort a follow-up request that reused the same controller.</p>
+
+            <h2>Fix 4: give abort a reason ("aborted without reason")</h2>
+            <p>If you see <code>signal is aborted without reason</code>, you called <code>abort()</code> with no argument. Pass a reason so the rejection carries a cause you can branch on:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>controller.abort(new DOMException('Request timed out', 'TimeoutError'));
+// or a simple value:
+controller.abort('user navigated away');
+
+// then distinguish causes:
+catch (err) {
+  if (signal.reason === 'user navigated away') return;
+  if (err.name === 'TimeoutError') showTimeout();
+}</code></pre>
+            </div>
+
+            <h2>Aborting in axios (CanceledError)</h2>
+            <p>Axios uses the same <code>AbortController</code>, but reports the cancel as its own <code>CanceledError</code> (older versions: <code>axios.isCancel</code> / <code>Cancel</code>). Handle it the same way &mdash; treat a deliberate cancel as a no-op:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import axios, { isCancel } from 'axios';
+
+const controller = new AbortController();
+axios.get('/api/data', { signal: controller.signal })
+  .then(res =&gt; render(res.data))
+  .catch(err =&gt; {
+    if (isCancel(err)) return;             // expected cancel — ignore
+    if (err.name === 'CanceledError') return;
+    showError(err);
+  });
+
+controller.abort();   // cancels the axios request</code></pre>
+            </div>
+
+            <h2>Cancelling many requests at once</h2>
+            <p>One controller can abort any number of requests that share its signal &mdash; useful for tearing down a whole screen's worth of fetches. And <code>AbortSignal.any()</code> combines several signals so a request is cancelled if <em>any</em> of them fires (for example, a per-request timeout <em>or</em> a global "user navigated away"):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// One controller cancels a batch:
+const controller = new AbortController();
+const { signal } = controller;
+const results = await Promise.all([
+  fetch('/a', { signal }),
+  fetch('/b', { signal }),
+  fetch('/c', { signal }),
+]).catch(err =&gt; {
+  if (err.name === 'AbortError') return [];   // whole batch cancelled
+  throw err;
+});
+// controller.abort() now stops all three.
+
+// Combine a timeout with a manual cancel:
+const userCancel = new AbortController();
+const combined = AbortSignal.any([
+  userCancel.signal,
+  AbortSignal.timeout(5000),
+]);
+fetch('/slow', { signal: combined });   // aborts on whichever fires first</code></pre>
+            </div>
+
+            <p>Remember a controller cannot be reused after it aborts &mdash; for a fresh batch, create a new <code>AbortController</code>.</p>
+
+            <h2>When it really is a bug</h2>
+            <p>If you never call <code>abort()</code> and still get <code>AbortError</code>, check for: a single <code>AbortController</code> shared across multiple requests (aborting one aborts all and the controller cannot be reused after <code>abort()</code> &mdash; create a fresh one per request); a signal that was already aborted before the fetch started; or a timeout so short that normal responses never arrive. Each produces an abort you did not intend.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Ask first: did <em>I</em> mean to abort (cancel / timeout / cleanup)? If yes, ignore it</li>
+                <li>&#10003; Swallow intentional aborts with <code>if (err.name === 'AbortError') return;</code></li>
+                <li>&#10003; React? Abort in the <code>useEffect</code> cleanup and ignore the StrictMode abort</li>
+                <li>&#10003; Timeout? Use <code>AbortSignal.timeout(ms)</code>, and <code>clearTimeout</code> on the manual version</li>
+                <li>&#10003; Create a <strong>new</strong> <code>AbortController</code> per request &mdash; they can't be reused after <code>abort()</code></li>
+                <li>&#10003; "aborted without reason"? Pass a reason to <code>abort()</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'AbortError: The operation was aborted' mean?</summary>
+                    <p>It means a fetch (or other abortable operation) was cancelled because an <code>AbortController</code> called <code>abort()</code>, or its <code>AbortSignal</code> fired. The request did not fail on the network &mdash; it was deliberately stopped, either by your own code, a timeout, or a framework cleanup.</p>
+                </details>
+                <details>
+                    <summary>Is AbortError a real error or expected?</summary>
+                    <p>Most of the time it is expected. If you aborted on purpose &mdash; a timeout, a user navigating away, a newer request superseding an old one &mdash; <code>AbortError</code> is the normal signal that the cancel worked, and you should catch and ignore it. It is only a bug when nothing in your code intended to abort.</p>
+                </details>
+                <details>
+                    <summary>How do I ignore an intentional AbortError?</summary>
+                    <p>Check the error name in your catch block: <code>if (err.name === 'AbortError') return;</code> &mdash; swallow it and do nothing. Only report or retry for other errors. This stops a deliberate cancel from showing up as an error in the console or UI.</p>
+                </details>
+                <details>
+                    <summary>Why do I get AbortError in React useEffect?</summary>
+                    <p>React 18 StrictMode mounts, unmounts, and remounts components in development, running each effect's cleanup. If your effect aborts the fetch on cleanup (the recommended pattern), the first run's request is aborted and throws <code>AbortError</code>. This is correct behaviour &mdash; catch and ignore <code>AbortError</code> so the false alarm disappears.</p>
+                </details>
+                <details>
+                    <summary>How do I add a fetch timeout with AbortController?</summary>
+                    <p>Use <code>AbortSignal.timeout(ms)</code> as the fetch signal, or create an <code>AbortController</code> and call <code>abort()</code> from a <code>setTimeout</code>. When the time elapses the fetch rejects with <code>AbortError</code> (or a <code>TimeoutError</code> for <code>AbortSignal.timeout</code> in newer runtimes), which you handle as a timeout case.</p>
+                </details>
+                <details>
+                    <summary>What is 'signal is aborted without reason'?</summary>
+                    <p>It is the same family of error &mdash; the <code>AbortSignal</code> was aborted but no reason argument was passed to <code>abort()</code>. Pass a reason, e.g. <code>controller.abort(new DOMException('timeout', 'TimeoutError'))</code> or <code>controller.abort('user cancelled')</code>, so the rejection carries a meaningful cause you can branch on.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Building and testing API calls?</h3>
+                <p>See practical patterns for fetch, timeouts, and inspecting responses in our API testing guide.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../blog/developer-tools-api-testing.html" class="btn btn-primary">API Testing Guide</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a> &mdash; a genuine network failure (not a cancel)</li>
+                <li><a href="err-connection-refused.html">net::ERR_CONNECTION_REFUSED</a> &mdash; the server was unreachable</li>
+                <li><a href="response-body-already-read.html">body stream already read</a> &mdash; another common fetch gotcha</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+                <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
