@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="URIError: URI malformed — why decodeURIComponent and decodeURI throw on a lone % or invalid percent-encoding, and how to decode user input safely with a try/catch wrapper or URLSearchParams.">
+    <meta name="keywords" content="URIError: URI malformed, malformed URI sequence, decodeURIComponent error, decodeURI malformed, percent encoding error javascript, URLSearchParams decode">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/urierror-uri-malformed.html">
+    <meta property="og:title" content="URIError: URI malformed (decodeURIComponent percent-encoding error)">
+    <meta property="og:description" content="decodeURIComponent throws 'URIError: URI malformed' on a lone % or invalid percent-encoding. Learn why, and decode untrusted input safely with a guard, re-encoding, or URLSearchParams.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/urierror-uri-malformed.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>URIError: URI malformed — decodeURIComponent % Error Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "URIError: URI malformed", "item": "https://jsondevtools.org/errors/urierror-uri-malformed.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "URIError: URI malformed — Cause and Fix",
+  "description": "decodeURIComponent and decodeURI throw 'URIError: URI malformed' when the string contains a lone % or invalid percent-encoding. This reference explains the causes and shows how to decode untrusted input safely.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-26",
+  "dateModified": "2026-06-26",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'URIError: URI malformed' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means decodeURIComponent (or decodeURI) was given a string it cannot decode as valid percent-encoding. The usual trigger is a lone % that is not followed by two hexadecimal digits, like '100%' or 'a%b', or an invalid/incomplete UTF-8 escape sequence."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a percent sign break decodeURIComponent?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In a URI, % introduces a two-digit hex escape such as %20. decodeURIComponent treats every % that way, so a literal percent that was never encoded — '50% off' — looks like the start of a broken escape and throws. The percent should have been encoded as %25 before it entered the string."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I decode untrusted input without throwing?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Wrap the call in try/catch and fall back to the original string: function safeDecode(s){ try { return decodeURIComponent(s); } catch { return s; } }. This prevents user-supplied values containing a stray % from crashing your code."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What causes 'malformed URI sequence'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "That is Firefox's wording for the same URIError. It also appears when the percent-escapes are individually valid but do not form valid UTF-8 — for example a truncated multibyte sequence like %E0%A4 with the third byte missing, or bytes that are not a legal UTF-8 encoding."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I use URLSearchParams instead?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "For query strings, yes. new URLSearchParams(location.search).get('q') decodes values for you and is far more robust than splitting and calling decodeURIComponent by hand. It still cannot rescue genuinely invalid encoding, but it removes most of the manual mistakes that cause URIError."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does decoding twice throw?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If a value is decoded once, a sequence like %2520 becomes %20, and decoding again turns %20 into a space — but if the first decode produced a bare %, the second decode throws URIError. Decode exactly once; if you must encode for transport, encode and decode the same number of times on each side."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>URIError: URI malformed</span>
+            </nav>
+            <h1>URIError: URI malformed</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>decodeURIComponent</code> throws <code>URIError: URI malformed</code> when the string has a <strong>lone <code>%</code></strong> not followed by two hex digits (like <code>50% off</code>), or an <strong>invalid/incomplete UTF-8 escape</strong>. Encode literal percents as <code>%25</code> at the source, and wrap decoding of untrusted input in <code>try/catch</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>decodeURIComponent('100%');
+// Uncaught URIError: URI malformed
+//     at decodeURIComponent (&lt;anonymous&gt;)
+
+decodeURIComponent('%E0%A4');   // truncated UTF-8 sequence
+// Firefox: URIError: malformed URI sequence</code></pre>
+            </div>
+
+            <p>Both <code>decodeURIComponent</code> and <code>decodeURI</code> throw this. The message never names the offending character, so the trick is knowing the two shapes that cause it: a stray <code>%</code>, or bytes that are not valid UTF-8.</p>
+
+            <p>The same problem is searched under several names &mdash; <em>malformed URI sequence</em> (Firefox's wording), a <em>decodeURIComponent percent-encoding error</em>, or a generic <em>JavaScript URI decode error</em>. They are all the one <code>URIError</code> described here.</p>
+
+            <h2>Why a percent sign is special</h2>
+            <p>In a URI, <code>%</code> is the escape character: <code>%20</code> is a space, <code>%2F</code> is <code>/</code>. <code>decodeURIComponent</code> reads every <code>%</code> as "the next two characters are hex." When a <code>%</code> is followed by something that is not two hex digits &mdash; a space, a letter outside <code>A&ndash;F</code>, or the end of the string &mdash; the escape is malformed and it throws. A literal percent should have been encoded as <code>%25</code> before it ever reached the string.</p>
+
+            <h2>Cause 1: a literal % that was never encoded</h2>
+            <p>This is the overwhelming majority of cases &mdash; user text, a price, or a search term with a percent sign goes into a URL un-encoded:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const term = '50% off';
+
+// ❌ literal % placed straight into a URL, then decoded later
+const url = '/search?q=' + term;            // /search?q=50% off
+decodeURIComponent('50% off');              // URIError: URI malformed
+
+// ✅ encode on the way in — '%' becomes '%25', ' ' becomes '%20'
+const safe = '/search?q=' + encodeURIComponent(term);  // q=50%25%20off
+decodeURIComponent('50%25%20off');          // '50% off'</code></pre>
+            </div>
+
+            <h2>Cause 2: invalid or truncated UTF-8</h2>
+            <p>Each <code>%xx</code> can be valid hex yet still not form legal UTF-8 &mdash; for example a multibyte character cut off mid-sequence (a truncated query string, a sliced cookie). There is nothing to "fix" in the decoder; the bytes themselves are incomplete:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>decodeURIComponent('%E2%82');     // € is %E2%82%AC — last byte missing
+// URIError: URI malformed
+
+decodeURIComponent('%E2%82%AC');  // ✅ '€'  (complete sequence)</code></pre>
+            </div>
+
+            <h2>Fix: a safe decode wrapper</h2>
+            <p>When the input is untrusted (anything from the address bar, a form, or a third party), never let a stray <code>%</code> crash the page. Decode defensively:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function safeDecode(s) {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;                 // not valid encoding — return as-is
+  }
+}
+
+safeDecode('100%');           // '100%'   (no throw)
+safeDecode('a%20b');          // 'a b'</code></pre>
+            </div>
+
+            <h2>Fix: prefer URLSearchParams for query strings</h2>
+            <p>Most <code>URIError</code>s come from hand-parsing query strings. <code>URLSearchParams</code> decodes values for you and removes the manual <code>split</code>/<code>decodeURIComponent</code> dance that introduces the bug:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ manual and fragile
+const q = decodeURIComponent(location.search.split('q=')[1]);
+
+// ✅ robust
+const q2 = new URLSearchParams(location.search).get('q');</code></pre>
+            </div>
+
+            <h2>Real-world scenarios where this happens</h2>
+            <p>The abstract "lone <code>%</code>" rarely appears on its own &mdash; here is where it actually bites in real apps:</p>
+            <ul>
+                <li><strong>A URL copied from the address bar</strong> &mdash; browsers display some characters decoded, so a pasted URL can contain a raw <code>%</code> (or a literal space) that <code>decodeURIComponent</code> then chokes on.</li>
+                <li><strong>React Router / client-side query parsing</strong> &mdash; reading <code>location.search</code> and hand-decoding params throws on the first bad value. Use <code>URLSearchParams</code> (or the router's own <code>useSearchParams</code>) instead of manual <code>decodeURIComponent</code>.</li>
+                <li><strong>An API receiving an already-broken encoded string</strong> &mdash; a client that forgot to <code>encodeURIComponent</code> sends <code>?q=50% off</code>; your server-side decode then throws. Guard it with a <code>try/catch</code> wrapper and return a 400 rather than crashing the handler.</li>
+                <li><strong>Analytics / UTM tracking links</strong> &mdash; campaign URLs assembled by hand or in a spreadsheet often contain raw <code>%</code>, <code>&amp;</code>, or spaces, which throw when a tag manager or attribution script decodes them.</li>
+                <li><strong>Truncated values</strong> &mdash; a cookie, a sliced query string, or a database column cut to a length limit can split a <code>%E2%82%AC</code> sequence mid-escape, producing the "malformed URI sequence" variant.</li>
+            </ul>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Is there a <code>%</code> not followed by two hex digits? That's the cause &mdash; encode it as <code>%25</code></li>
+                <li>&#10003; Was the value <code>encodeURIComponent</code>-ed at the source? If not, encode there, not decode here</li>
+                <li>&#10003; Decoding untrusted input? Wrap in <code>try/catch</code> with a fallback</li>
+                <li>&#10003; Reading a query string? Use <code>URLSearchParams</code> instead of manual splitting</li>
+                <li>&#10003; "malformed URI sequence"? Check for a truncated multibyte UTF-8 escape</li>
+                <li>&#10003; Decoding more than once? Decode exactly once; match encode/decode counts</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'URIError: URI malformed' mean?</summary>
+                    <p>It means <code>decodeURIComponent</code> (or <code>decodeURI</code>) was given a string it cannot decode as valid percent-encoding. The usual trigger is a lone <code>%</code> that is not followed by two hexadecimal digits, like <code>100%</code> or <code>a%b</code>, or an invalid/incomplete UTF-8 escape sequence.</p>
+                </details>
+                <details>
+                    <summary>Why does a percent sign break decodeURIComponent?</summary>
+                    <p>In a URI, <code>%</code> introduces a two-digit hex escape such as <code>%20</code>. <code>decodeURIComponent</code> treats every <code>%</code> that way, so a literal percent that was never encoded &mdash; <code>50% off</code> &mdash; looks like the start of a broken escape and throws. The percent should have been encoded as <code>%25</code> before it entered the string.</p>
+                </details>
+                <details>
+                    <summary>How do I decode untrusted input without throwing?</summary>
+                    <p>Wrap the call in <code>try/catch</code> and fall back to the original string: <code>function safeDecode(s){ try { return decodeURIComponent(s); } catch { return s; } }</code>. This prevents user-supplied values containing a stray <code>%</code> from crashing your code.</p>
+                </details>
+                <details>
+                    <summary>What causes 'malformed URI sequence'?</summary>
+                    <p>That is Firefox's wording for the same <code>URIError</code>. It also appears when the percent-escapes are individually valid but do not form valid UTF-8 &mdash; for example a truncated multibyte sequence like <code>%E0%A4</code> with the third byte missing, or bytes that are not a legal UTF-8 encoding.</p>
+                </details>
+                <details>
+                    <summary>Should I use URLSearchParams instead?</summary>
+                    <p>For query strings, yes. <code>new URLSearchParams(location.search).get('q')</code> decodes values for you and is far more robust than splitting and calling <code>decodeURIComponent</code> by hand. It still cannot rescue genuinely invalid encoding, but it removes most of the manual mistakes that cause <code>URIError</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does decoding twice throw?</summary>
+                    <p>If a value is decoded once, a sequence like <code>%2520</code> becomes <code>%20</code>, and decoding again turns <code>%20</code> into a space &mdash; but if the first decode produced a bare <code>%</code>, the second decode throws <code>URIError</code>. Decode exactly once; if you must encode for transport, encode and decode the same number of times on each side.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Encode or decode a URL component safely</h3>
+                <p>Use the URL Encoder to percent-encode values (so <code>%</code> becomes <code>%25</code>) or decode a string and see exactly where it breaks &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../url-encoder.html" class="btn btn-primary">URL Encoder / Decoder</a>
+                    <a href="../string-escape.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">String Escape</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="atob-string-not-correctly-encoded.html">Failed to execute 'atob' — string not correctly encoded</a> &mdash; the base64 sibling</li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a> &mdash; often follows a badly built URL</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../url-encoder.html">URL Encoder / Decoder</a></li>
+                <li><a href="../string-escape.html">String Escape / Unescape</a></li>
+                <li><a href="../base64.html">Base64 Encoder / Decoder</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

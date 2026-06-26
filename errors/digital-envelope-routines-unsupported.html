@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Error: error:0308010C:digital envelope routines::unsupported — why Node.js 17+ (OpenSSL 3) breaks old webpack 4 / Create React App builds, and how to fix it properly by upgrading or with the openssl-legacy-provider flag.">
+    <meta name="keywords" content="error:0308010C:digital envelope routines::unsupported, digital envelope routines unsupported, ERR_OSSL_EVP_UNSUPPORTED, node openssl-legacy-provider, webpack OpenSSL 3 error, react-scripts digital envelope">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/digital-envelope-routines-unsupported.html">
+    <meta property="og:title" content="error:0308010C:digital envelope routines::unsupported — Cause and Fix">
+    <meta property="og:description" content="Node 17+ ships OpenSSL 3, which disabled the legacy MD4 hash old webpack relied on — giving ERR_OSSL_EVP_UNSUPPORTED. Fix it by upgrading the build tool, or with the openssl-legacy-provider flag as a stopgap.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/digital-envelope-routines-unsupported.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>error:0308010C:digital envelope routines::unsupported — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "digital envelope routines::unsupported", "item": "https://jsondevtools.org/errors/digital-envelope-routines-unsupported.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Error: error:0308010C:digital envelope routines::unsupported — Cause and Fix",
+  "description": "Node.js 17+ bundles OpenSSL 3, which disabled the legacy MD4 algorithm older webpack used for module hashing, producing ERR_OSSL_EVP_UNSUPPORTED. This reference explains the cause and the correct fixes.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-26",
+  "dateModified": "2026-06-26",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'error:0308010C:digital envelope routines::unsupported' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means a build tool asked OpenSSL for a cryptographic algorithm that OpenSSL 3 no longer enables by default — usually the legacy MD4 hash that older webpack uses to fingerprint modules. Node.js 17 and newer ship OpenSSL 3, so the call now fails with ERR_OSSL_EVP_UNSUPPORTED instead of returning a hash."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did it start after upgrading Node?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Node 17 upgraded its bundled OpenSSL from 1.1.1 to 3.0. OpenSSL 3 moved old algorithms like MD4 into a 'legacy provider' that is off by default. Webpack 4 (and Create React App built on it) used MD4 for hashing, so the same project that built on Node 16 breaks on Node 17+."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the proper fix?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upgrade the build tool. Webpack 5.61+ uses a Node-native hash that works on OpenSSL 3, and react-scripts 5 fixes it for Create React App. Updating webpack/react-scripts (and your other build dependencies) removes the error without weakening crypto. This is the long-term solution."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix it quickly without upgrading?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Set the environment variable NODE_OPTIONS=--openssl-legacy-provider before the build, which re-enables the legacy OpenSSL provider. It is a stopgap: it works immediately but keeps you on an old toolchain and re-enables deprecated crypto, so treat it as a bridge to upgrading."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I set the flag cross-platform in package.json?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use cross-env so the same script works on Windows, macOS, and Linux: \"start\": \"cross-env NODE_OPTIONS=--openssl-legacy-provider react-scripts start\". Install it with npm install -D cross-env. Setting NODE_OPTIONS inline without cross-env fails on Windows."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is --openssl-legacy-provider safe?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "For local development and a build pipeline it is acceptable as a temporary measure — the MD4 hash here is used only to name build artifacts, not to secure anything. But it re-enables deprecated algorithms process-wide, so do not treat it as a permanent fix; upgrade the toolchain so you can drop the flag."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>digital envelope routines::unsupported</span>
+            </nav>
+            <h1>Error: error:0308010C:digital envelope routines::unsupported</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><strong>Node.js 17+</strong> ships <strong>OpenSSL 3</strong>, which disabled the legacy <strong>MD4</strong> hash that old <strong>webpack 4</strong> / Create React App use for module hashing &mdash; so the build throws <code>ERR_OSSL_EVP_UNSUPPORTED</code>. The real fix is to <strong>upgrade</strong> (webpack 5.61+ / react-scripts 5). The quick stopgap is <code>NODE_OPTIONS=--openssl-legacy-provider</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Error: error:0308010C:digital envelope routines::unsupported
+    at new Hash (node:internal/crypto/hash:69:19)
+    at Object.createHash (node:crypto:138:10)
+    ...
+  opensslErrorStack: [ 'error:03000086:digital envelope routines::initialization error' ],
+  library: 'digital envelope routines',
+  reason: 'unsupported',
+  code: 'ERR_OSSL_EVP_UNSUPPORTED'</code></pre>
+            </div>
+
+            <p>The giveaway is the call stack: <code>createHash</code> &rarr; <code>new Hash</code>. A tool asked OpenSSL for a hash algorithm OpenSSL 3 will not provide by default. In a frontend project that algorithm is almost always <strong>MD4</strong>, used by webpack to fingerprint modules and chunks.</p>
+
+            <h2>Why upgrading Node triggered it</h2>
+            <p>Node.js 17 replaced its bundled <strong>OpenSSL 1.1.1</strong> with <strong>OpenSSL 3.0</strong>. OpenSSL 3 moved a set of old, weak algorithms &mdash; including MD4 &mdash; into a separate "legacy provider" that is <em>not loaded</em> by default. Webpack 4 calls <code>crypto.createHash('md4')</code>, which used to succeed and now throws. Nothing in your code changed; the crypto library underneath Node did.</p>
+
+            <p>This is the same class of "Node upgrade broke the build" issue as switching module systems &mdash; see <a href="cannot-use-import-statement-outside-a-module.html">Cannot use import statement outside a module</a> &mdash; and the principle is the same: align the toolchain with the runtime.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #d9a400;border-radius:8px;padding:0.85rem 1.25rem;margin:1.25rem 0;">
+                <p style="margin:0;"><strong>Who hits this:</strong> overwhelmingly <strong>Webpack 4</strong> and <strong>Create React App 4</strong> projects (and tools built on them &mdash; older <code>@vue/cli</code>, Storybook 6, some Gatsby setups). Projects on <strong>Vite</strong> or <strong>Webpack 5.61+</strong> generally do <em>not</em> see it. If you are on a modern bundler and still get the error, a nested dependency is pulling in old webpack &mdash; check with <code>npm ls webpack</code>.</p>
+            </div>
+
+            <h2>Fix 1: upgrade the build tool (recommended)</h2>
+            <p>Webpack 5.61+ stopped using MD4 and now uses a hash that works on OpenSSL 3; <code>react-scripts</code> 5 carries that fix for Create React App. Updating is the only option that removes the error <em>without</em> re-enabling deprecated crypto:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Create React App
+npm install react-scripts@latest
+
+# Plain webpack
+npm install webpack@latest webpack-cli@latest
+
+# then a clean install so the lockfile matches
+rm -rf node_modules package-lock.json
+npm install</code></pre>
+            </div>
+
+            <p>If a deep dependency still pins old webpack, check its release notes for an OpenSSL-3-compatible version, or use an <code>overrides</code> entry to lift it &mdash; the same technique covered in <a href="npm-eresolve-unable-to-resolve-dependency-tree.html">npm ERESOLVE</a>.</p>
+
+            <h2>Fix 2: the legacy-provider flag (stopgap)</h2>
+            <p>When you can't upgrade right now, re-enable the legacy OpenSSL provider with an environment variable. It works immediately, but it keeps you on an old toolchain and turns deprecated algorithms back on, so treat it as a bridge:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># macOS / Linux (one-off)
+export NODE_OPTIONS=--openssl-legacy-provider
+npm run build
+
+# Windows PowerShell (one-off)
+$env:NODE_OPTIONS = "--openssl-legacy-provider"
+npm run build</code></pre>
+            </div>
+
+            <h2>Fix 3: make the flag cross-platform in package.json</h2>
+            <p>Hard-coding <code>NODE_OPTIONS=...</code> inline breaks on Windows. Install <code>cross-env</code> first (<code>npm install -D cross-env</code>), then wrap the scripts so one definition works everywhere:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "scripts": {
+    "start": "cross-env NODE_OPTIONS=--openssl-legacy-provider react-scripts start",
+    "build": "cross-env NODE_OPTIONS=--openssl-legacy-provider react-scripts build"
+  }
+}</code></pre>
+            </div>
+
+            <h2>What not to do: downgrade Node</h2>
+            <p>Dropping back to Node 16 makes the error disappear, but Node 16 is end-of-life and unsupported, so you trade a build error for missing security updates. Only do this as a very short-term unblock while you plan the upgrade &mdash; never as the resting state.</p>
+
+            <h2>A note on the MD4 hash itself</h2>
+            <p>The algorithm at the centre of this error, MD4, is used here only to <em>name</em> build artifacts &mdash; it secures nothing, which is why re-enabling it for a build is low-risk. For any real hashing need (checksums, content fingerprints, integrity checks) use a modern algorithm like SHA-256. You can compute SHA-256/SHA-1/MD5 hashes of text in your browser with the <a href="../hash.html">Hash Generator</a>.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Is the stack in <code>createHash</code> / <code>new Hash</code>? Then it's the OpenSSL 3 / MD4 issue</li>
+                <li>&#10003; Check <code>node -v</code> &mdash; 17+ means OpenSSL 3 is in play</li>
+                <li>&#10003; Upgrade webpack to 5.61+ or react-scripts to 5 (the real fix)</li>
+                <li>&#10003; Can't upgrade yet? Set <code>NODE_OPTIONS=--openssl-legacy-provider</code></li>
+                <li>&#10003; Put it in <code>package.json</code> via <code>cross-env</code> for Windows compatibility</li>
+                <li>&#10003; Do a clean <code>node_modules</code> + lockfile reinstall after upgrading</li>
+                <li>&#10003; Avoid downgrading to the EOL Node 16 as a permanent fix</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'error:0308010C:digital envelope routines::unsupported' mean?</summary>
+                    <p>It means a build tool asked OpenSSL for a cryptographic algorithm that OpenSSL 3 no longer enables by default &mdash; usually the legacy MD4 hash that older webpack uses to fingerprint modules. Node.js 17 and newer ship OpenSSL 3, so the call now fails with <code>ERR_OSSL_EVP_UNSUPPORTED</code> instead of returning a hash.</p>
+                </details>
+                <details>
+                    <summary>Why did it start after upgrading Node?</summary>
+                    <p>Node 17 upgraded its bundled OpenSSL from 1.1.1 to 3.0. OpenSSL 3 moved old algorithms like MD4 into a "legacy provider" that is off by default. Webpack 4 (and Create React App built on it) used MD4 for hashing, so the same project that built on Node 16 breaks on Node 17+.</p>
+                </details>
+                <details>
+                    <summary>What is the proper fix?</summary>
+                    <p>Upgrade the build tool. Webpack 5.61+ uses a Node-native hash that works on OpenSSL 3, and <code>react-scripts</code> 5 fixes it for Create React App. Updating webpack/react-scripts (and your other build dependencies) removes the error without weakening crypto. This is the long-term solution.</p>
+                </details>
+                <details>
+                    <summary>How do I fix it quickly without upgrading?</summary>
+                    <p>Set the environment variable <code>NODE_OPTIONS=--openssl-legacy-provider</code> before the build, which re-enables the legacy OpenSSL provider. It is a stopgap: it works immediately but keeps you on an old toolchain and re-enables deprecated crypto, so treat it as a bridge to upgrading.</p>
+                </details>
+                <details>
+                    <summary>How do I set the flag cross-platform in package.json?</summary>
+                    <p>Use <code>cross-env</code> so the same script works on Windows, macOS, and Linux: <code>"start": "cross-env NODE_OPTIONS=--openssl-legacy-provider react-scripts start"</code>. Install it with <code>npm install -D cross-env</code>. Setting <code>NODE_OPTIONS</code> inline without cross-env fails on Windows.</p>
+                </details>
+                <details>
+                    <summary>Is --openssl-legacy-provider safe?</summary>
+                    <p>For local development and a build pipeline it is acceptable as a temporary measure &mdash; the MD4 hash here is used only to name build artifacts, not to secure anything. But it re-enables deprecated algorithms process-wide, so do not treat it as a permanent fix; upgrade the toolchain so you can drop the flag.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Need a real hash?</h3>
+                <p>Compute SHA-256, SHA-1, or MD5 hashes of any text in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../hash.html" class="btn btn-primary">Hash Generator</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="npm-eresolve-unable-to-resolve-dependency-tree.html">npm ERR! code ERESOLVE</a> &mdash; dependency conflicts when upgrading the toolchain</li>
+                <li><a href="javascript-heap-out-of-memory.html">JavaScript heap out of memory</a> &mdash; another Node build-time failure</li>
+                <li><a href="cannot-use-import-statement-outside-a-module.html">Cannot use import statement outside a module</a> &mdash; aligning toolchain with runtime</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../hash.html">Hash Generator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

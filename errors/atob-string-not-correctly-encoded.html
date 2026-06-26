@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="InvalidCharacterError: Failed to execute 'atob' on 'Window': The string to be decoded is not correctly encoded — why atob() rejects a base64 string, including base64url (JWT), data URI prefixes, whitespace, and Unicode, with the fix for each.">
+    <meta name="keywords" content="Failed to execute 'atob', The string to be decoded is not correctly encoded, atob InvalidCharacterError, atob base64url, atob data uri, decode base64 javascript error, atob unicode">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/atob-string-not-correctly-encoded.html">
+    <meta property="og:title" content="atob() InvalidCharacterError: The String to Be Decoded Is Not Correctly Encoded (Fix)">
+    <meta property="og:description" content="atob() throws InvalidCharacterError when its input is not valid base64. Learn the real causes — base64url, data URI prefixes, whitespace, Unicode — and the fix for each.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/atob-string-not-correctly-encoded.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Failed to execute 'atob': The String to Be Decoded Is Not Correctly Encoded (Fix) | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Failed to execute 'atob'", "item": "https://jsondevtools.org/errors/atob-string-not-correctly-encoded.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Failed to execute 'atob': The string to be decoded is not correctly encoded — Cause and Fix",
+  "description": "atob() throws InvalidCharacterError when its input is not valid standard base64. This reference covers base64url (JWT), data URI prefixes, whitespace, padding, and Unicode, with a fix for each.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-26",
+  "dateModified": "2026-06-26",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Failed to execute atob: the string to be decoded is not correctly encoded' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means you passed atob() a string that is not valid standard base64. atob only accepts the characters A-Z, a-z, 0-9, + and /, with optional = padding. Any other character — a space, newline, the URL-safe - or _, or a data: URI prefix — makes it throw InvalidCharacterError."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does atob fail on a JWT or URL-safe base64?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "JWTs and many tokens use base64url, a variant that replaces + with - and / with _ and usually drops the = padding. atob only understands standard base64, so it rejects - and _. Convert base64url to standard base64 first: replace - with +, _ with /, and re-add padding to a multiple of 4."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I decode a data URL with atob?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A data URL like data:image/png;base64,iVBOR... contains a prefix that is not base64. Strip everything up to and including the comma first: const b64 = dataUrl.split(',')[1]; then call atob(b64). Passing the whole data URL throws because of the data:...;base64, prefix."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does atob break on Unicode or emoji?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "atob returns a binary string where each character is one byte (0-255). For Unicode you must decode the bytes as UTF-8 afterwards: take the atob output, build a Uint8Array from its char codes, then new TextDecoder().decode(bytes). Skipping that step gives mojibake, and encoding multibyte text with btoa directly throws a different InvalidCharacterError."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does whitespace cause atob to fail?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It can. Base64 copied from a PEM file or wrapped email header often contains newlines or spaces. Strict atob implementations reject them. Remove all whitespace before decoding: atob(input.replace(/\\s/g, ''))."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is atob deprecated, and what should I use in Node.js?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "atob and btoa exist in modern browsers and Node, but in Node the idiomatic tool is Buffer: Buffer.from(b64, 'base64').toString('utf8'). New runtimes also offer Uint8Array.fromBase64() with a base64url option, which handles the URL-safe variant without manual conversion."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Failed to execute 'atob'</span>
+            </nav>
+            <h1>InvalidCharacterError: Failed to execute 'atob' &mdash; The string to be decoded is not correctly encoded</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>atob()</code> only accepts <strong>standard base64</strong> (<code>A&ndash;Z a&ndash;z 0&ndash;9 + /</code> with <code>=</code> padding). It throws when the input contains anything else &mdash; a <strong>data: URI prefix</strong>, <strong>base64url</strong> characters (<code>-</code> <code>_</code>, as in JWTs), or <strong>whitespace</strong>. In practice the URL-safe characters are the usual trigger. Clean the string to valid base64 first.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>atob('data:image/png;base64,iVBORw0KGgo=');
+// Uncaught InvalidCharacterError: Failed to execute 'atob' on 'Window':
+// The string to be decoded is not correctly encoded.
+
+// A JWT signature segment is base64url and usually contains '-' or '_':
+atob('SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c');
+// Same error — '_' is not part of the standard base64 alphabet</code></pre>
+            </div>
+
+            <p>The message is generic, but the cause is always the same: <code>atob</code> met a character that is not part of the standard base64 alphabet. The fix is to normalise the input <em>before</em> decoding.</p>
+
+            <h2>Why atob is strict about its input</h2>
+            <p><code>atob</code> ("ASCII to binary") decodes <strong>standard</strong> base64 as defined by RFC 4648: the 64 symbols <code>A&ndash;Z</code>, <code>a&ndash;z</code>, <code>0&ndash;9</code>, <code>+</code>, <code>/</code>, plus <code>=</code> for padding. It does not trim, does not accept the URL-safe alphabet, and does not understand any wrapper. Anything outside that set is a decode error, not a warning.</p>
+
+            <h2>At a glance: cause, symptom, fix</h2>
+            <table>
+                <thead>
+                    <tr><th>Cause</th><th>Symptom</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Data URL</td><td>String starts with <code>data:</code></td><td>Decode only the part after the comma</td></tr>
+                    <tr><td>base64url (JWT)</td><td>Contains <code>-</code> or <code>_</code></td><td>Convert to standard base64 first</td></tr>
+                    <tr><td>Whitespace</td><td>Copied from a PEM block or email header</td><td>Strip with <code>replace(/\s/g, '')</code></td></tr>
+                    <tr><td>Unicode</td><td>Output is mojibake after decoding</td><td>Re-decode the bytes with <code>TextDecoder</code></td></tr>
+                    <tr><td>Not base64 at all</td><td>Plain text or a URL passed in</td><td>Confirm the value is actually base64</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Cause 1: a data URL prefix</h2>
+            <p>The most common mistake is feeding the whole data URL to <code>atob</code>. The <code>data:...;base64,</code> part is metadata, not base64 &mdash; keep only what follows the comma:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+
+atob(dataUrl);                       // ❌ throws — the prefix isn't base64
+
+const b64 = dataUrl.split(',')[1];   // 'iVBORw0KGgoAAAANSUhEUg=='
+atob(b64);                           // ✅ decodes the image bytes</code></pre>
+            </div>
+
+            <h2>Cause 2: base64url (JWTs and tokens)</h2>
+            <p>JWTs, URL parameters, and many APIs use <strong>base64url</strong>, which swaps <code>+</code>&rarr;<code>-</code> and <code>/</code>&rarr;<code>_</code> and usually drops the <code>=</code> padding. The reason for the variant: in standard base64, <code>+</code>, <code>/</code>, and <code>=</code> are awkward inside URLs and HTTP headers (<code>+</code> means a space in a query string, <code>/</code> is a path separator, <code>=</code> is reserved) &mdash; base64url replaces them with URL-safe characters. Convert it back to standard base64 before <code>atob</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function fromBase64Url(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');   // url-safe -&gt; standard
+  while (s.length % 4) s += '=';                  // restore padding
+  return atob(s);
+}
+
+const sig = 'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';  // JWT signature
+atob(sig);             // ❌ throws — '_' is not standard base64
+fromBase64Url(sig);    // ✅ decodes (returns the raw signature bytes)</code></pre>
+            </div>
+
+            <p>If you are decoding a JWT to read its header or payload, you do not have to hand-roll this &mdash; paste the token into the <a href="../jwt-decoder.html">JWT Decoder</a>, which handles base64url and shows each segment. (And never trust a decoded JWT for auth &mdash; see <a href="jwt-invalid-signature-malformed.html">invalid signature &amp; jwt malformed</a>.)</p>
+
+            <h2>Cause 3: whitespace and newlines</h2>
+            <p>Base64 pulled from a PEM file, an email header, or a pretty-printed blob often carries line breaks. Strip all whitespace first:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const pem = `MIIBIjANBgkqhkiG9w0BAQ
+EFAAOCAQ8AMIIBCgKCAQEA`;        // wrapped at 64 cols
+
+atob(pem);                       // ❌ newlines are not base64
+atob(pem.replace(/\s/g, ''));    // ✅ whitespace removed</code></pre>
+            </div>
+
+            <h2>Cause 4: Unicode and emoji</h2>
+            <p>Here is the part that catches everyone: <code>atob</code> does <strong>not</strong> return UTF-8 text. It returns the raw decoded <em>bytes</em>, packed one-per-character into an ordinary JavaScript string (each character a code point 0&ndash;255). For ASCII that happens to look right, but multibyte UTF-8 comes out as mojibake unless you re-interpret those bytes as UTF-8 yourself:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const b64 = 'w6nDqQ==';                 // "éé" encoded as UTF-8
+
+atob(b64);                              // 'Ã©Ã©'  — wrong (raw bytes as Latin-1)
+
+// Decode the bytes as UTF-8:
+const bytes = Uint8Array.from(atob(b64), c =&gt; c.charCodeAt(0));
+new TextDecoder().decode(bytes);        // ✅ 'éé'
+
+// Modern runtimes: Uint8Array.fromBase64(b64, { alphabet: 'base64url' })</code></pre>
+            </div>
+
+            <h2>Node.js: prefer Buffer</h2>
+            <p>In Node, <code>atob</code> exists but <code>Buffer</code> is idiomatic and handles UTF-8 directly &mdash; and accepts base64url as an encoding name:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Buffer.from(b64, 'base64').toString('utf8');     // standard base64 -&gt; text
+Buffer.from(token, 'base64url').toString('utf8'); // url-safe, no manual swap</code></pre>
+            </div>
+
+            <h2>Quick check: is the string valid base64?</h2>
+            <p>Two one-liners catch the common cases before you ever call <code>atob</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Valid STANDARD base64? (what atob accepts)
+/^[A-Za-z0-9+/]*={0,2}$/.test(input);
+
+// Valid base64URL instead? (allows - and _ ; this is a JWT segment)
+/^[A-Za-z0-9_-]*={0,2}$/.test(input);
+
+input.length % 4;   // 0 for well-padded standard base64</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Does the string start with <code>data:</code>? Decode only the part after the comma</li>
+                <li>&#10003; Does it contain <code>-</code> or <code>_</code>? It's base64url &mdash; swap to <code>+</code>/<code>/</code> and re-pad</li>
+                <li>&#10003; Any spaces or newlines? Strip them with <code>replace(/\s/g, '')</code></li>
+                <li>&#10003; Length not a multiple of 4? Re-pad with <code>=</code> (defensive &mdash; modern browsers tolerate missing padding, so the usual culprit is <code>-</code>/<code>_</code>, not the absent <code>=</code>)</li>
+                <li>&#10003; Non-ASCII output looks wrong? Decode the bytes with <code>TextDecoder</code></li>
+                <li>&#10003; In Node? Use <code>Buffer.from(s, 'base64'|'base64url')</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Failed to execute atob: the string to be decoded is not correctly encoded' mean?</summary>
+                    <p>It means you passed <code>atob()</code> a string that is not valid standard base64. <code>atob</code> only accepts the characters <code>A-Z</code>, <code>a-z</code>, <code>0-9</code>, <code>+</code> and <code>/</code>, with optional <code>=</code> padding. Any other character &mdash; a space, newline, the URL-safe <code>-</code> or <code>_</code>, or a <code>data:</code> URI prefix &mdash; makes it throw <code>InvalidCharacterError</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does atob fail on a JWT or URL-safe base64?</summary>
+                    <p>JWTs and many tokens use base64url, a variant that replaces <code>+</code> with <code>-</code> and <code>/</code> with <code>_</code> and usually drops the <code>=</code> padding. <code>atob</code> only understands standard base64, so it rejects <code>-</code> and <code>_</code>. Convert base64url to standard base64 first: replace <code>-</code> with <code>+</code>, <code>_</code> with <code>/</code>, and re-add padding to a multiple of 4.</p>
+                </details>
+                <details>
+                    <summary>How do I decode a data URL with atob?</summary>
+                    <p>A data URL like <code>data:image/png;base64,iVBOR...</code> contains a prefix that is not base64. Strip everything up to and including the comma first: <code>const b64 = dataUrl.split(',')[1];</code> then call <code>atob(b64)</code>. Passing the whole data URL throws because of the <code>data:...;base64,</code> prefix.</p>
+                </details>
+                <details>
+                    <summary>Why does atob break on Unicode or emoji?</summary>
+                    <p><code>atob</code> returns a binary string where each character is one byte (0&ndash;255). For Unicode you must decode the bytes as UTF-8 afterwards: take the <code>atob</code> output, build a <code>Uint8Array</code> from its char codes, then <code>new TextDecoder().decode(bytes)</code>. Skipping that step gives mojibake, and encoding multibyte text with <code>btoa</code> directly throws a different <code>InvalidCharacterError</code>.</p>
+                </details>
+                <details>
+                    <summary>Does whitespace cause atob to fail?</summary>
+                    <p>It can. Base64 copied from a PEM file or wrapped email header often contains newlines or spaces. Strict <code>atob</code> implementations reject them. Remove all whitespace before decoding: <code>atob(input.replace(/\s/g, ''))</code>.</p>
+                </details>
+                <details>
+                    <summary>Is atob deprecated, and what should I use in Node.js?</summary>
+                    <p><code>atob</code> and <code>btoa</code> exist in modern browsers and Node, but in Node the idiomatic tool is <code>Buffer</code>: <code>Buffer.from(b64, 'base64').toString('utf8')</code>. New runtimes also offer <code>Uint8Array.fromBase64()</code> with a <code>base64url</code> option, which handles the URL-safe variant without manual conversion.</p>
+                </details>
+            </section>
+
+            <h2>Browser and runtime support</h2>
+            <p><code>atob</code> and <code>btoa</code> are available everywhere you are likely to run them &mdash; the error is about the <em>input</em>, not missing support:</p>
+            <table>
+                <thead>
+                    <tr><th>Environment</th><th>atob / btoa</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Chrome / Edge</td><td>&#9989; Supported</td></tr>
+                    <tr><td>Firefox</td><td>&#9989; Supported</td></tr>
+                    <tr><td>Safari</td><td>&#9989; Supported</td></tr>
+                    <tr><td>Node.js 16+</td><td>&#9989; Supported (global); <code>Buffer</code> is idiomatic</td></tr>
+                    <tr><td>Deno / Bun</td><td>&#9989; Supported</td></tr>
+                </tbody>
+            </table>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://www.rfc-editor.org/rfc/rfc4648" target="_blank" rel="noopener">RFC 4648</a> &mdash; The Base16, Base32, and Base64 Data Encodings (defines the standard and URL-safe alphabets)</li>
+                <li><a href="https://html.spec.whatwg.org/multipage/webappapis.html#atob" target="_blank" rel="noopener">WHATWG HTML Standard</a> &mdash; the <code>atob()</code> / <code>btoa()</code> specification</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>Decode or encode base64 in your browser</h3>
+                <p>Paste a base64 (or base64url) string into the Base64 tool to decode it instantly &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../base64.html" class="btn btn-primary">Base64 Encoder / Decoder</a>
+                    <a href="../jwt-decoder.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JWT Decoder</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="jwt-invalid-signature-malformed.html">JsonWebTokenError: invalid signature &amp; jwt malformed</a> &mdash; decoding JWT segments</li>
+                <li><a href="bad-control-character-in-json.html">Bad control character in string literal in JSON</a> &mdash; another encoding-level parse error</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../base64.html">Base64 Encoder / Decoder</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../string-escape.html">String Escape / Unescape</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

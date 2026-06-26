@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte — why Python can't read your file as UTF-8 (wrong encoding, a BOM, or binary data) and how to fix it with the right encoding or binary mode.">
+    <meta name="keywords" content="UnicodeDecodeError, utf-8 decode error, python encoding error, read csv encoding">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/unicodedecodeerror-utf-8-codec.html">
+    <meta property="og:title" content="UnicodeDecodeError: 'utf-8' codec can't decode byte — Cause and Fix">
+    <meta property="og:description" content="Python raises UnicodeDecodeError when a file isn't actually UTF-8 — often a Windows-1252/Latin-1 CSV, a UTF-16 BOM, or binary data. Learn to pick the right encoding or read in binary mode.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/unicodedecodeerror-utf-8-codec.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>UnicodeDecodeError: 'utf-8' codec can't decode byte — Cause and Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "UnicodeDecodeError: 'utf-8' codec can't decode byte", "item": "https://jsondevtools.org/errors/unicodedecodeerror-utf-8-codec.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "UnicodeDecodeError: 'utf-8' codec can't decode byte — Cause and Fix",
+  "description": "Python raises UnicodeDecodeError when bytes read as UTF-8 are not valid UTF-8 — commonly a Windows-1252/Latin-1 CSV, a UTF-16 BOM, or a binary file. This reference shows how to choose the right encoding or read in binary mode.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-26",
+  "dateModified": "2026-06-26",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'utf-8 codec can't decode byte 0xff' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means Python tried to read bytes as UTF-8 text, but those bytes are not valid UTF-8. The byte 0xff (or 0x80, 0x92, etc.) does not start a legal UTF-8 sequence, so decoding stops. The file is almost certainly in a different encoding, or it is binary data, not text."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix it when reading a file?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open the file with the encoding it actually uses, not the default UTF-8. For Western European text from Excel that is usually open(path, encoding='cp1252') or encoding='latin-1'. Latin-1 never fails because it maps all 256 byte values, but it can produce wrong characters if the file is really another encoding."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is 0xff or 0xfe at the start of the file?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Bytes 0xff 0xfe (or 0xfe 0xff) at position 0 are a UTF-16 byte-order mark. The file is UTF-16, not UTF-8. Read it with encoding='utf-16'. If you see 0xef 0xbb 0xbf, that is a UTF-8 BOM — use encoding='utf-8-sig' to strip it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I read a CSV that throws UnicodeDecodeError?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "CSV exported from Excel is often Windows-1252, not UTF-8. With pandas pass the encoding: pd.read_csv(path, encoding='cp1252') or encoding='latin-1'. If unsure, detect it first with charset-normalizer, or re-export the file as UTF-8 from the source application."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I use errors='ignore' or errors='replace'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only as a last resort. open(path, encoding='utf-8', errors='replace') replaces undecodable bytes with a placeholder and errors='ignore' drops them — both silently corrupt or lose data. Prefer finding the correct encoding; use these flags only for best-effort display of partly broken input."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I detect the encoding automatically?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use the charset-normalizer or chardet library: from charset_normalizer import from_path; best = from_path('file.csv').best(); print(best.encoding). Detection is a heuristic, not a guarantee, so treat the result as a strong hint and verify the decoded text looks right."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>UnicodeDecodeError: 'utf-8' codec can't decode byte</span>
+            </nav>
+            <h1>UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Python read bytes as UTF-8, but they are <strong>not valid UTF-8</strong>. The file is in a <strong>different encoding</strong> (often Windows-1252/Latin-1 from Excel), has a <strong>UTF-16/UTF-8 BOM</strong>, or is <strong>binary</strong>. Open it with the correct <code>encoding=</code> &mdash; <code>cp1252</code>, <code>utf-16</code>, or <code>utf-8-sig</code> &mdash; or in binary mode (<code>'rb'</code>) if it isn't text.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>with open('export.csv') as f:        # defaults to encoding='utf-8'
+    data = f.read()
+
+Traceback (most recent call last):
+  File "app.py", line 2, in &lt;module&gt;
+    data = f.read()
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte</code></pre>
+            </div>
+
+            <p>The same error appears with other bytes &mdash; <code>0x80</code>, <code>0x92</code> (a Windows "smart quote"), <code>0xe9</code> (<code>é</code> in Latin-1) &mdash; and a different position. The byte and position are the clue to which cause you have. Note the headline case specifically &mdash; <code>0xff</code> at <strong>position 0</strong> &mdash; is almost always a UTF-16 byte-order mark, so jump to <a href="#bom">Cause 2 (BOM)</a>; a bad byte <em>mid-file</em> points instead to a wrong encoding like <a href="#cp1252">Windows-1252 (Cause 1)</a>.</p>
+
+            <h2>Why UTF-8 decoding fails</h2>
+            <p>Python 3 opens files in text mode as UTF-8 by default. UTF-8 has strict rules about which byte values can start a character, so any file that is <em>not</em> UTF-8 will eventually hit a byte that is illegal as a "start byte" and raise <code>UnicodeDecodeError</code>. The decoder is correct &mdash; the assumption that the file is UTF-8 is wrong.</p>
+
+            <h2 id="cp1252">Cause 1: the file is Windows-1252 / Latin-1</h2>
+            <p>Spreadsheets exported from Excel, and a lot of legacy data, are <strong>Windows-1252</strong> (a.k.a. cp1252) or <strong>ISO-8859-1</strong> (Latin-1). Tell Python the real encoding:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Western European text from Excel:
+with open('export.csv', encoding='cp1252') as f:
+    data = f.read()
+
+# Latin-1 never raises (it maps all 256 byte values) — handy, but it will
+# produce WRONG characters if the file is actually some other encoding:
+with open('export.csv', encoding='latin-1') as f:
+    data = f.read()</code></pre>
+            </div>
+
+            <h2 id="bom">Cause 2: a byte-order mark (BOM)</h2>
+            <p>If the failing byte is at <strong>position 0</strong>, suspect a BOM. <code>0xff 0xfe</code> means the file is UTF-16; <code>0xef 0xbb 0xbf</code> is a UTF-8 BOM that the plain UTF-8 codec leaves as a stray character:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># 0xff 0xfe at position 0  -&gt;  the file is UTF-16
+with open('data.txt', encoding='utf-16') as f:
+    data = f.read()
+
+# 0xef 0xbb 0xbf  -&gt;  UTF-8 with BOM; utf-8-sig strips it
+with open('data.csv', encoding='utf-8-sig') as f:
+    data = f.read()</code></pre>
+            </div>
+
+            <h2>Cause 3: reading a CSV with pandas</h2>
+            <p>The same fix applies to <code>pandas.read_csv</code>, which also defaults to UTF-8 &mdash; pass the encoding the file actually uses (this is by far the most common place the error shows up, since <a href="../blog/csv-vs-json.html">CSV files</a> from Excel are rarely UTF-8):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import pandas as pd
+
+df = pd.read_csv('export.csv', encoding='cp1252')   # or 'latin-1', 'utf-16'</code></pre>
+            </div>
+
+            <p>Need the CSV as JSON for an API or config? Once it loads cleanly, convert it in your browser with <a href="../csv-to-json.html">CSV to JSON</a> &mdash; no upload, no server.</p>
+
+            <h2>Cause 4: the file is binary, not text</h2>
+            <p>If the data is an image, a zip, a Parquet file, or a pickle, it should never be decoded as text. Open it in binary mode and work with <code>bytes</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>with open('photo.png', 'rb') as f:   # 'rb' = read binary, no decoding
+    raw = f.read()                   # raw is bytes, not str
+
+# To move binary safely through JSON/text, base64-encode it:
+import base64
+b64 = base64.b64encode(raw).decode('ascii')</code></pre>
+            </div>
+
+            <p>To eyeball or sanity-check a base64 value by hand, paste it into the <a href="../base64.html">Base64 encoder / decoder</a>. Storing bytes in JSON this way is also the standard answer to the related Python error <a href="object-not-json-serializable.html">Object of type bytes is not JSON serializable</a>.</p>
+
+            <h2>Detecting an unknown encoding</h2>
+            <p>When you genuinely don't know the encoding, detect it &mdash; then verify the result, because detection is a heuristic:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># pip install charset-normalizer
+from charset_normalizer import from_path
+
+best = from_path('mystery.csv').best()
+print(best.encoding)                 # e.g. 'cp1252'
+text = str(best)                     # decoded with the detected encoding</code></pre>
+            </div>
+
+            <h2>A note on errors='ignore' / 'replace'</h2>
+            <p>You will see advice to add <code>errors='replace'</code> or <code>errors='ignore'</code>. These make the exception go away by substituting or dropping the bad bytes &mdash; which <strong>silently corrupts or loses data</strong>. Use them only for best-effort display of already-broken input; for data you care about, find the correct encoding instead.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the failing <strong>byte and position</strong> &mdash; position 0 usually means a BOM</li>
+                <li>&#10003; <code>0xff 0xfe</code> at start &rarr; <code>encoding='utf-16'</code>; <code>0xef 0xbb 0xbf</code> &rarr; <code>'utf-8-sig'</code></li>
+                <li>&#10003; Excel/legacy text &rarr; try <code>encoding='cp1252'</code> (or <code>'latin-1'</code> as a never-fail fallback)</li>
+                <li>&#10003; Using pandas? Pass <code>encoding=</code> to <code>read_csv</code></li>
+                <li>&#10003; Binary file? Open with <code>'rb'</code> and don't decode; base64 it to put in JSON</li>
+                <li>&#10003; Unknown? Detect with <code>charset-normalizer</code>, then verify the text</li>
+                <li>&#10003; Avoid <code>errors='ignore'/'replace'</code> for data you need intact</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'utf-8 codec can't decode byte 0xff' mean?</summary>
+                    <p>It means Python tried to read bytes as UTF-8 text, but those bytes are not valid UTF-8. The byte <code>0xff</code> (or <code>0x80</code>, <code>0x92</code>, etc.) does not start a legal UTF-8 sequence, so decoding stops. The file is almost certainly in a different encoding, or it is binary data, not text.</p>
+                </details>
+                <details>
+                    <summary>How do I fix it when reading a file?</summary>
+                    <p>Open the file with the encoding it actually uses, not the default UTF-8. For Western European text from Excel that is usually <code>open(path, encoding='cp1252')</code> or <code>encoding='latin-1'</code>. Latin-1 never fails because it maps all 256 byte values, but it can produce wrong characters if the file is really another encoding.</p>
+                </details>
+                <details>
+                    <summary>What is 0xff or 0xfe at the start of the file?</summary>
+                    <p>Bytes <code>0xff 0xfe</code> (or <code>0xfe 0xff</code>) at position 0 are a UTF-16 byte-order mark. The file is UTF-16, not UTF-8. Read it with <code>encoding='utf-16'</code>. If you see <code>0xef 0xbb 0xbf</code>, that is a UTF-8 BOM &mdash; use <code>encoding='utf-8-sig'</code> to strip it.</p>
+                </details>
+                <details>
+                    <summary>How do I read a CSV that throws UnicodeDecodeError?</summary>
+                    <p>CSV exported from Excel is often Windows-1252, not UTF-8. With pandas pass the encoding: <code>pd.read_csv(path, encoding='cp1252')</code> or <code>encoding='latin-1'</code>. If unsure, detect it first with charset-normalizer, or re-export the file as UTF-8 from the source application.</p>
+                </details>
+                <details>
+                    <summary>Should I use errors='ignore' or errors='replace'?</summary>
+                    <p>Only as a last resort. <code>open(path, encoding='utf-8', errors='replace')</code> replaces undecodable bytes with a placeholder and <code>errors='ignore'</code> drops them &mdash; both silently corrupt or lose data. Prefer finding the correct encoding; use these flags only for best-effort display of partly broken input.</p>
+                </details>
+                <details>
+                    <summary>How do I detect the encoding automatically?</summary>
+                    <p>Use the charset-normalizer or chardet library: <code>from charset_normalizer import from_path; best = from_path('file.csv').best(); print(best.encoding)</code>. Detection is a heuristic, not a guarantee, so treat the result as a strong hint and verify the decoded text looks right.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Got the CSV loading? Turn it into JSON</h3>
+                <p>Once the file decodes cleanly, convert CSV to JSON in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../csv-to-json.html" class="btn btn-primary">CSV to JSON</a>
+                    <a href="../base64.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Base64 Encoder / Decoder</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="object-not-json-serializable.html">TypeError: Object of type … is not JSON serializable</a> &mdash; the serialization-side Python error</li>
+                <li><a href="jsondecodeerror-expecting-value.html">JSONDecodeError: Expecting value</a> &mdash; when the decoded text still isn't valid JSON</li>
+                <li><a href="atob-string-not-correctly-encoded.html">Failed to execute 'atob'</a> &mdash; the JavaScript base64 decode error</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../csv-to-json.html">CSV to JSON</a></li>
+                <li><a href="../base64.html">Base64 Encoder / Decoder</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
