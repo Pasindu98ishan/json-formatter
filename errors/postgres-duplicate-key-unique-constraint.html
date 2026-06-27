@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="duplicate key value violates unique constraint — why PostgreSQL rejects an INSERT or UPDATE that would duplicate a unique/primary-key value, and how to fix it with ON CONFLICT (upsert), handling the error, or resetting an out-of-sync sequence.">
+    <meta name="keywords" content="duplicate key value violates unique constraint, postgres unique violation, ON CONFLICT DO NOTHING, postgres upsert, 23505, sequence out of sync postgres">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/postgres-duplicate-key-unique-constraint.html">
+    <meta property="og:title" content="duplicate key value violates unique constraint (PostgreSQL) — ON CONFLICT upsert &amp; 23505 fix">
+    <meta property="og:description" content="PostgreSQL rejects a row that duplicates a unique or primary-key value. Fix it with INSERT ... ON CONFLICT (upsert), by handling SQLSTATE 23505, or by resetting an out-of-sync serial sequence.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/postgres-duplicate-key-unique-constraint.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>duplicate key value violates unique constraint (PostgreSQL) — Fix with ON CONFLICT | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "duplicate key value violates unique constraint", "item": "https://jsondevtools.org/errors/postgres-duplicate-key-unique-constraint.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "duplicate key value violates unique constraint — Cause and Fix",
+  "description": "PostgreSQL raises 'duplicate key value violates unique constraint' when an INSERT/UPDATE would create a duplicate in a unique or primary key column. This reference covers ON CONFLICT upserts, error handling, and fixing an out-of-sync sequence.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-27",
+  "dateModified": "2026-06-27",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'duplicate key value violates unique constraint' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An INSERT or UPDATE tried to store a value that already exists in a column protected by a unique constraint or primary key. The DETAIL line shows the conflicting column and value: Key (email)=(a@b.com) already exists. Postgres rejects the row to keep the column unique."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I insert without failing if the row exists?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use INSERT ... ON CONFLICT. ON CONFLICT DO NOTHING skips the duplicate; ON CONFLICT (col) DO UPDATE SET ... performs an upsert (insert or update). This is atomic and race-safe, unlike checking for the row first and then inserting."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen on the id column after importing data?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A serial/identity sequence is out of sync. If rows were inserted with explicit ids (a restore or bulk import), the sequence still points at a low number, so the next auto id collides with an existing row. Fix it with setval to the current max id: SELECT setval(pg_get_serial_sequence('t','id'), (SELECT max(id) FROM t))."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I catch the error in code?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Catch SQLSTATE 23505 (unique_violation). In psycopg use psycopg2.errors.UniqueViolation; in node-postgres check err.code === '23505'. Catching it lets you return a clean 409 Conflict instead of a 500, or fall back to an update."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I check if the row exists first?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Prefer ON CONFLICT. A check-then-insert has a race condition: between your SELECT and your INSERT another transaction can insert the same key, and you still get the violation. ON CONFLICT does the check and the insert atomically inside the database."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which constraint was violated?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The error names it: violates unique constraint \"users_email_key\". The DETAIL gives the column and value. Look up the constraint with \\d tablename in psql to see which columns it covers — composite unique constraints span more than one column."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>duplicate key value violates unique constraint</span>
+            </nav>
+            <h1>duplicate key value violates unique constraint</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">An <code>INSERT</code>/<code>UPDATE</code> tried to store a value that already exists in a <strong>unique</strong> or <strong>primary-key</strong> column. The <code>DETAIL</code> names the column and value. Use <code>INSERT ... ON CONFLICT DO NOTHING</code> or <code>DO UPDATE</code> (an <strong>upsert</strong>) instead of failing, and catch <strong>SQLSTATE 23505</strong> in code. If it's the <code>id</code> after an import, the <strong>sequence is out of sync</strong> &mdash; reset it with <code>setval</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>ERROR:  duplicate key value violates unique constraint "users_email_key"
+DETAIL:  Key (email)=(ada@example.com) already exists.
+SQLSTATE: 23505</code></pre>
+            </div>
+
+            <p>The constraint name (<code>users_email_key</code>) and the <code>DETAIL</code> tell you exactly what collided: column <code>email</code>, value <code>ada@example.com</code>. Postgres enforces uniqueness, so it rejects the duplicate row.</p>
+
+            <h2>Fix 1: upsert with ON CONFLICT</h2>
+            <p>If a duplicate is expected (re-running an import, "create or update"), tell Postgres what to do on conflict instead of letting it raise:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- skip duplicates silently
+INSERT INTO users (email, name) VALUES ('ada@example.com', 'Ada')
+ON CONFLICT (email) DO NOTHING;
+
+-- or update the existing row (true upsert)
+INSERT INTO users (email, name) VALUES ('ada@example.com', 'Ada')
+ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name;</code></pre>
+            </div>
+
+            <p><code>EXCLUDED</code> refers to the row you tried to insert. This is atomic and race-safe &mdash; unlike a check-then-insert, which can still collide between the check and the insert.</p>
+
+            <h2>Fix 2: handle the violation in code</h2>
+            <p>When a duplicate is a real client error (e.g. signing up with an existing email), catch SQLSTATE <code>23505</code> and return a clean response instead of a 500:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Python / psycopg
+import psycopg2
+try:
+    cur.execute("INSERT INTO users (email) VALUES (%s)", (email,))
+except psycopg2.errors.UniqueViolation:
+    conn.rollback()
+    return "Email already registered", 409   # Conflict
+
+// node-postgres
+try { await pool.query('INSERT INTO users(email) VALUES($1)', [email]); }
+catch (e) { if (e.code === '23505') return res.status(409).send('exists'); throw e; }</code></pre>
+            </div>
+
+            <h2>Fix 3: the id sequence is out of sync</h2>
+            <p>A very common variant: after a data restore or bulk import that set explicit <code>id</code> values, the <code>SERIAL</code>/<code>IDENTITY</code> sequence still points at a low number, so the next auto-generated id collides. Reset the sequence to the current max:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- move the sequence past the highest existing id
+SELECT setval(
+  pg_get_serial_sequence('users', 'id'),
+  (SELECT COALESCE(MAX(id), 0) FROM users)
+);
+
+-- next INSERT now gets max(id)+1 and no longer collides</code></pre>
+            </div>
+
+            <h2>Fix 4: find which constraint and columns</h2>
+            <p>For a composite unique constraint, the conflict may span several columns. Inspect the table to see exactly what must be unique:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- in psql: list constraints and indexes on the table
+\d users
+
+-- the unique constraint shows its column list, e.g.
+-- "users_org_id_email_key" UNIQUE CONSTRAINT, (org_id, email)</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <code>DETAIL</code> &mdash; it names the column and the duplicate value</li>
+                <li>&#10003; Expected duplicate? Use <code>ON CONFLICT DO NOTHING</code> / <code>DO UPDATE</code> (upsert)</li>
+                <li>&#10003; Real client error? Catch SQLSTATE <code>23505</code> and return <code>409 Conflict</code></li>
+                <li>&#10003; Collision on <code>id</code> after an import? Reset the sequence with <code>setval</code></li>
+                <li>&#10003; Don't check-then-insert &mdash; it has a race; <code>ON CONFLICT</code> is atomic</li>
+                <li>&#10003; Composite constraint? <code>\d table</code> shows which columns must be unique together</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'duplicate key value violates unique constraint' mean?</summary>
+                    <p>An <code>INSERT</code> or <code>UPDATE</code> tried to store a value that already exists in a column protected by a unique constraint or primary key. The <code>DETAIL</code> line shows the conflicting column and value: <code>Key (email)=(a@b.com) already exists</code>. Postgres rejects the row to keep the column unique.</p>
+                </details>
+                <details>
+                    <summary>How do I insert without failing if the row exists?</summary>
+                    <p>Use <code>INSERT ... ON CONFLICT</code>. <code>ON CONFLICT DO NOTHING</code> skips the duplicate; <code>ON CONFLICT (col) DO UPDATE SET ...</code> performs an upsert (insert or update). This is atomic and race-safe, unlike checking for the row first and then inserting.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen on the id column after importing data?</summary>
+                    <p>A serial/identity sequence is out of sync. If rows were inserted with explicit ids (a restore or bulk import), the sequence still points at a low number, so the next auto id collides with an existing row. Fix it with <code>setval</code> to the current max id: <code>SELECT setval(pg_get_serial_sequence('t','id'), (SELECT max(id) FROM t))</code>.</p>
+                </details>
+                <details>
+                    <summary>How do I catch the error in code?</summary>
+                    <p>Catch SQLSTATE <code>23505</code> (unique_violation). In psycopg use <code>psycopg2.errors.UniqueViolation</code>; in node-postgres check <code>err.code === '23505'</code>. Catching it lets you return a clean <code>409 Conflict</code> instead of a 500, or fall back to an update.</p>
+                </details>
+                <details>
+                    <summary>Should I check if the row exists first?</summary>
+                    <p>Prefer <code>ON CONFLICT</code>. A check-then-insert has a race condition: between your <code>SELECT</code> and your <code>INSERT</code> another transaction can insert the same key, and you still get the violation. <code>ON CONFLICT</code> does the check and the insert atomically inside the database.</p>
+                </details>
+                <details>
+                    <summary>Which constraint was violated?</summary>
+                    <p>The error names it: <code>violates unique constraint "users_email_key"</code>. The <code>DETAIL</code> gives the column and value. Look up the constraint with <code>\d tablename</code> in psql to see which columns it covers &mdash; composite unique constraints span more than one column.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More backend &amp; build errors</h3>
+                <p>Browse the full reference for Node.js, Python, Docker, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="postgres-deadlock-detected.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Postgres: deadlock detected</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">HTTP 409 Conflict</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="postgres-deadlock-detected.html">ERROR: deadlock detected</a> &mdash; the concurrency Postgres error</li>
+                <li><a href="postgres-too-many-clients.html">FATAL: sorry, too many clients already</a> &mdash; the connection-limit Postgres error</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a> &mdash; map a unique violation to a 409 Conflict</li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -50,7 +50,9 @@
           { "@type": "ListItem", "position": 3, "name": "Encoding & Base64 Errors", "url": "https://jsondevtools.org/errors.html#encoding-errors" },
           { "@type": "ListItem", "position": 4, "name": "URI & URL Errors", "url": "https://jsondevtools.org/errors.html#uri-errors" },
           { "@type": "ListItem", "position": 5, "name": "Node.js & Build Errors", "url": "https://jsondevtools.org/errors.html#node-errors" },
-          { "@type": "ListItem", "position": 6, "name": "Network & Fetch Errors", "url": "https://jsondevtools.org/errors.html#network-errors" }
+          { "@type": "ListItem", "position": 6, "name": "Network & Fetch Errors", "url": "https://jsondevtools.org/errors.html#network-errors" },
+          { "@type": "ListItem", "position": 7, "name": "Database Errors", "url": "https://jsondevtools.org/errors.html#db-errors" },
+          { "@type": "ListItem", "position": 8, "name": "Docker Errors", "url": "https://jsondevtools.org/errors.html#docker-errors" }
         ]
       }
     }
@@ -102,11 +104,15 @@
         .err-node    { background: #d4edda; color: #155724; }
         .err-python  { background: #fff3cd; color: #856404; }
         .err-runtime { background: #e2d4f0; color: #5a2a82; }
+        .err-db      { background: #d1ecf1; color: #0c5460; }
+        .err-docker  { background: #e0e7ff; color: #3730a3; }
         body.dark-mode .err-json    { background: #11314f; color: #8fc1ff; }
         body.dark-mode .err-network { background: #3d1a1a; color: #f08080; }
         body.dark-mode .err-node    { background: #1a3d26; color: #6fd98a; }
         body.dark-mode .err-python  { background: #332d00; color: #ffd966; }
         body.dark-mode .err-runtime { background: #2e1f44; color: #c8a6e8; }
+        body.dark-mode .err-db      { background: #0c3a44; color: #7fd3e0; }
+        body.dark-mode .err-docker  { background: #222a52; color: #aab6f5; }
         .err-link { font-weight: 600; }
         .err-no-results { padding: 1rem; color: var(--secondary-color); display: none; }
         .err-chip {
@@ -209,6 +215,8 @@
                 <button type="button" class="err-chip" data-cat="node">Node.js</button>
                 <button type="button" class="err-chip" data-cat="python">Python</button>
                 <button type="button" class="err-chip" data-cat="runtime">Runtime</button>
+                <button type="button" class="err-chip" data-cat="db">Database</button>
+                <button type="button" class="err-chip" data-cat="docker">Docker</button>
             </div>
             <input type="text" id="errFilter" class="err-filter" placeholder="Filter by error string or keyword — e.g. CORS, fetch, SyntaxError, Python..." aria-label="Filter errors">
             <table id="errTable">
@@ -431,6 +439,31 @@
                         <td>Go</td>
                         <td><span class="err-tag err-json">JSON</span></td>
                     </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/postgres-too-many-clients.html">FATAL: sorry, too many clients already</a></td>
+                        <td>PostgreSQL</td>
+                        <td><span class="err-tag err-db">Database</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/postgres-deadlock-detected.html">ERROR: deadlock detected</a></td>
+                        <td>PostgreSQL</td>
+                        <td><span class="err-tag err-db">Database</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/postgres-duplicate-key-unique-constraint.html">duplicate key value violates unique constraint</a></td>
+                        <td>PostgreSQL</td>
+                        <td><span class="err-tag err-db">Database</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/docker-port-is-already-allocated.html">Error response from daemon: port is already allocated</a></td>
+                        <td>Docker</td>
+                        <td><span class="err-tag err-docker">Docker</span></td>
+                    </tr>
+                    <tr>
+                        <td><a class="err-link" href="errors/docker-exec-format-error.html">standard_init_linux.go: exec format error</a></td>
+                        <td>Docker</td>
+                        <td><span class="err-tag err-docker">Docker</span></td>
+                    </tr>
                 </tbody>
             </table>
             <p id="errNoResults" class="err-no-results">No errors match your filter.</p>
@@ -511,6 +544,21 @@
                 <li class="err-cat-item"><a class="err-cat-link" href="errors/response-body-already-read.html">TypeError: Failed to execute 'json' on 'Response': body stream already read</a><span class="err-cat-desc">the body was read twice</span></li>
                 <li class="err-cat-item"><a class="err-cat-link" href="errors/aborterror-operation-aborted.html">AbortError: The operation was aborted</a><span class="err-cat-desc">the request was cancelled or timed out</span></li>
                 <li class="err-cat-item"><a class="err-cat-link" href="errors/err-connection-refused.html">net::ERR_CONNECTION_REFUSED</a><span class="err-cat-desc">nothing is listening on that port</span></li>
+            </ul>
+
+            <h2 id="db-errors">Database Errors</h2>
+            <p>Errors from PostgreSQL &mdash; connections, locking, and constraint violations.</p>
+            <ul class="err-cat-list">
+                <li class="err-cat-item"><a class="err-cat-link" href="errors/postgres-too-many-clients.html">FATAL: sorry, too many clients already</a><span class="err-cat-desc">max_connections reached &mdash; pool connections</span></li>
+                <li class="err-cat-item"><a class="err-cat-link" href="errors/postgres-deadlock-detected.html">ERROR: deadlock detected</a><span class="err-cat-desc">two transactions waiting on each other</span></li>
+                <li class="err-cat-item"><a class="err-cat-link" href="errors/postgres-duplicate-key-unique-constraint.html">duplicate key value violates unique constraint</a><span class="err-cat-desc">a unique/primary key already exists</span></li>
+            </ul>
+
+            <h2 id="docker-errors">Docker Errors</h2>
+            <p>Errors from building and running Docker containers.</p>
+            <ul class="err-cat-list">
+                <li class="err-cat-item"><a class="err-cat-link" href="errors/docker-port-is-already-allocated.html">Error response from daemon: port is already allocated</a><span class="err-cat-desc">host port already bound by something</span></li>
+                <li class="err-cat-item"><a class="err-cat-link" href="errors/docker-exec-format-error.html">standard_init_linux.go: exec format error</a><span class="err-cat-desc">CPU architecture mismatch (amd64 vs arm64)</span></li>
             </ul>
         </section>
 

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="standard_init_linux.go: exec format error / exec format error — why a Docker container fails to start, almost always an architecture mismatch (amd64 image on arm64 / Apple Silicon) or a script missing a shebang, and how to fix each.">
+    <meta name="keywords" content="exec format error, standard_init_linux.go exec format error, docker exec format error, docker platform linux/amd64, arm64 amd64 docker, exec /app exec format error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-exec-format-error.html">
+    <meta property="og:title" content="Docker: exec format error — architecture mismatch (amd64 vs arm64) fix">
+    <meta property="og:description" content="A Docker 'exec format error' is almost always an architecture mismatch (amd64 image on Apple Silicon / arm64) or a script missing a shebang. Fix it with --platform, a multi-arch build, or by adding #!/bin/sh.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-exec-format-error.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker: exec format error (standard_init_linux.go) — amd64/arm64 Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "exec format error", "item": "https://jsondevtools.org/errors/docker-exec-format-error.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: exec format error — Cause and Fix",
+  "description": "Docker's 'exec format error' (standard_init_linux.go) is almost always an architecture mismatch — an amd64 image on arm64/Apple Silicon — or a script entrypoint missing a shebang. This reference shows how to fix each.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-27",
+  "dateModified": "2026-06-27",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'exec format error' mean in Docker?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The kernel could not execute the container's binary because its format does not match the CPU. Almost always it is an architecture mismatch: an image built for amd64 (x86-64) running on an arm64 host like Apple Silicon, or vice versa. Less often, a script entrypoint is missing a shebang line."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix the architecture mismatch?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run or build for the host's architecture. On Apple Silicon you can run an amd64 image under emulation with --platform linux/amd64, or better, pull/build a native arm64 image. When building, use docker buildx to produce a multi-arch image so it runs on both amd64 and arm64."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen on an M1/M2/M3 Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Apple Silicon is arm64. If an image (or a base image) only has an amd64 build, the binary inside doesn't match the CPU and fails with exec format error. Pull an arm64 variant, or pass --platform linux/amd64 to run it through emulation (slower but works)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my CI image fail to run in production?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You likely built on one architecture and deploy on another — for example building on an Apple Silicon laptop (arm64) and deploying to an amd64 server. Build for the target with --platform linux/amd64, or publish a multi-arch image with docker buildx --platform linux/amd64,linux/arm64."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a shell script cause exec format error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. If your ENTRYPOINT or CMD runs a script with no shebang (no #!/bin/sh or #!/bin/bash first line), the kernel doesn't know how to execute it and reports exec format error. Add the shebang as the very first line, and make the script executable."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Could Windows line endings (CRLF) cause it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. A script saved with CRLF line endings turns the shebang into '#!/bin/sh\\r', so the loader looks for an interpreter named 'sh\\r' and fails. Convert the file to LF (dos2unix, or set .gitattributes to keep shell scripts LF) and rebuild the image."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>exec format error</span>
+            </nav>
+            <h1>Docker: standard_init_linux.go &mdash; exec format error</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Almost always an <strong>architecture mismatch</strong> &mdash; an <code>amd64</code> image running on an <code>arm64</code> host (Apple Silicon) or vice versa. Run/build for the right arch: <code>--platform linux/amd64</code> to emulate, or a native/multi-arch image via <code>docker buildx</code>. The other cause is a <strong>script entrypoint missing a shebang</strong> (<code>#!/bin/sh</code>) or saved with <strong>CRLF</strong> line endings.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>standard_init_linux.go:228: exec user process caused: exec format error
+
+# newer Docker / runc wording:
+# exec /app: exec format error
+# exec /usr/local/bin/entrypoint.sh: exec format error</code></pre>
+            </div>
+
+            <p>The kernel was handed a binary it can't run. The format doesn't match the CPU &mdash; usually because the image was built for a different architecture than the machine it's running on.</p>
+
+            <h2>Step 1: confirm the architecture</h2>
+            <p>Compare the image's architecture with the host's. A mismatch is the cause in the large majority of cases:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker image inspect myimage --format '{{.Architecture}}'   # e.g. amd64
+uname -m                                                    # host: arm64 / aarch64 or x86_64</code></pre>
+            </div>
+
+            <h2>Fix 1: run for the right architecture</h2>
+            <p>On Apple Silicon (arm64), an amd64-only image needs emulation, or &mdash; better &mdash; a native arm64 image:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># run an amd64 image under emulation on arm64 (works, slower)
+docker run --platform linux/amd64 myimage
+
+# prefer a native image when one exists
+docker pull --platform linux/arm64 myimage</code></pre>
+            </div>
+
+            <h2>Fix 2: build for the target architecture</h2>
+            <p>If you build on one arch and deploy on another (e.g. build on an M-series Mac, deploy to an amd64 server), build for the <em>target</em> &mdash; or publish a multi-arch image with <code>buildx</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># build specifically for the deploy target
+docker build --platform linux/amd64 -t myimage .
+
+# one image that runs on both architectures
+docker buildx build --platform linux/amd64,linux/arm64 -t myrepo/myimage --push .</code></pre>
+            </div>
+
+            <h2>Fix 3: a script entrypoint with no shebang</h2>
+            <p>If the architectures match, suspect the entrypoint script. Without a shebang on the first line, the kernel can't choose an interpreter and reports <code>exec format error</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>#!/bin/sh
+# ^ must be the very first line of entrypoint.sh
+
+echo "starting..."
+exec "$@"</code></pre>
+            </div>
+
+            <p>Also make it executable in the image: <code>RUN chmod +x entrypoint.sh</code>.</p>
+
+            <h2>Fix 4: CRLF line endings break the shebang</h2>
+            <p>If the script was edited on Windows, CRLF turns <code>#!/bin/sh</code> into <code>#!/bin/sh\r</code> &mdash; the loader then looks for an interpreter literally named <code>sh\r</code> and fails. Convert to LF and keep it that way:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>dos2unix entrypoint.sh          # convert CRLF -> LF
+
+# keep shell scripts LF in git (.gitattributes):
+*.sh text eol=lf</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Compare image arch vs host: <code>docker image inspect --format '{{.Architecture}}'</code> vs <code>uname -m</code></li>
+                <li>&#10003; Apple Silicon running amd64? <code>--platform linux/amd64</code> (emulate) or pull an arm64 image</li>
+                <li>&#10003; Build for the deploy target with <code>--platform</code>, or multi-arch via <code>docker buildx</code></li>
+                <li>&#10003; Arch matches? Check the entrypoint script has a <code>#!/bin/sh</code> shebang on line 1</li>
+                <li>&#10003; Script edited on Windows? Convert <strong>CRLF &rarr; LF</strong> (dos2unix / <code>.gitattributes</code>)</li>
+                <li>&#10003; Make the script executable: <code>RUN chmod +x entrypoint.sh</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'exec format error' mean in Docker?</summary>
+                    <p>The kernel could not execute the container's binary because its format does not match the CPU. Almost always it is an architecture mismatch: an image built for <code>amd64</code> (x86-64) running on an <code>arm64</code> host like Apple Silicon, or vice versa. Less often, a script entrypoint is missing a shebang line.</p>
+                </details>
+                <details>
+                    <summary>How do I fix the architecture mismatch?</summary>
+                    <p>Run or build for the host's architecture. On Apple Silicon you can run an amd64 image under emulation with <code>--platform linux/amd64</code>, or better, pull/build a native arm64 image. When building, use <code>docker buildx</code> to produce a multi-arch image so it runs on both amd64 and arm64.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen on an M1/M2/M3 Mac?</summary>
+                    <p>Apple Silicon is arm64. If an image (or a base image) only has an amd64 build, the binary inside doesn't match the CPU and fails with <code>exec format error</code>. Pull an arm64 variant, or pass <code>--platform linux/amd64</code> to run it through emulation (slower but works).</p>
+                </details>
+                <details>
+                    <summary>Why does my CI image fail to run in production?</summary>
+                    <p>You likely built on one architecture and deploy on another &mdash; for example building on an Apple Silicon laptop (arm64) and deploying to an amd64 server. Build for the target with <code>--platform linux/amd64</code>, or publish a multi-arch image with <code>docker buildx --platform linux/amd64,linux/arm64</code>.</p>
+                </details>
+                <details>
+                    <summary>Can a shell script cause exec format error?</summary>
+                    <p>Yes. If your <code>ENTRYPOINT</code> or <code>CMD</code> runs a script with no shebang (no <code>#!/bin/sh</code> or <code>#!/bin/bash</code> first line), the kernel doesn't know how to execute it and reports <code>exec format error</code>. Add the shebang as the very first line, and make the script executable.</p>
+                </details>
+                <details>
+                    <summary>Could Windows line endings (CRLF) cause it?</summary>
+                    <p>Yes. A script saved with CRLF line endings turns the shebang into <code>#!/bin/sh\r</code>, so the loader looks for an interpreter named <code>sh\r</code> and fails. Convert the file to LF (<code>dos2unix</code>, or set <code>.gitattributes</code> to keep shell scripts LF) and rebuild the image.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More backend &amp; build errors</h3>
+                <p>Browse the full reference for Node.js, Python, Docker, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="docker-port-is-already-allocated.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker: port already allocated</a>
+                    <a href="digital-envelope-routines-unsupported.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Node build: OpenSSL error</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-port-is-already-allocated.html">Docker: port is already allocated</a> &mdash; the other common Docker startup failure</li>
+                <li><a href="digital-envelope-routines-unsupported.html">error:0308010C:digital envelope routines::unsupported</a> &mdash; a Node build/runtime mismatch</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

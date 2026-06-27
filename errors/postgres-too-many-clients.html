@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="FATAL: sorry, too many clients already — why PostgreSQL refuses new connections when max_connections is reached, and how to fix it with connection pooling (PgBouncer), closing connections, and a pooler for serverless.">
+    <meta name="keywords" content="FATAL sorry too many clients already, postgres too many connections, remaining connection slots are reserved, max_connections postgres, pgbouncer, postgres connection pool">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/postgres-too-many-clients.html">
+    <meta property="og:title" content="FATAL: sorry, too many clients already (PostgreSQL) — connection pooling fix">
+    <meta property="og:description" content="PostgreSQL hit max_connections. Fix it with a connection pool (PgBouncer / app pool), by closing leaked connections, or with a pooler for serverless — not by blindly raising max_connections.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/postgres-too-many-clients.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>FATAL: sorry, too many clients already — PostgreSQL max_connections &amp; Pooling Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "FATAL: sorry, too many clients already", "item": "https://jsondevtools.org/errors/postgres-too-many-clients.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "FATAL: sorry, too many clients already — Cause and Fix",
+  "description": "PostgreSQL raises 'FATAL: sorry, too many clients already' when open connections reach max_connections. This reference explains connection leaks, pooling with PgBouncer, and the serverless pooler fix.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-27",
+  "dateModified": "2026-06-27",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'FATAL: sorry, too many clients already' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "PostgreSQL has reached its max_connections limit (100 by default) and refuses any new connection. Every existing slot is in use, so the next client to connect is rejected with this FATAL error. It is a connection-count problem, not a query problem."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the real fix?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use a connection pool so your app reuses a small, fixed set of connections instead of opening a new one per request. PgBouncer in front of Postgres, or an application pool (SQLAlchemy, HikariCP, pg Pool) with a sensible max size, is the durable fix. Raising max_connections is a stopgap that costs RAM per connection."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I see what is using the connections?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Query pg_stat_activity: SELECT count(*), state FROM pg_stat_activity GROUP BY state;. A large number of 'idle' connections points to a leak — connections opened and never closed or returned to the pool. 'idle in transaction' points to transactions left open."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen on serverless (Lambda, Vercel)?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Each serverless instance opens its own database connections, and under load there can be hundreds of concurrent instances — each multiplying connections until Postgres is exhausted. Put a pooler between them and the database: PgBouncer in transaction mode, RDS Proxy, or a provider pooler (Supabase, Neon)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just raise max_connections?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only as a temporary measure. Each connection reserves memory (work_mem and more), so raising max_connections too high can exhaust RAM and slow the whole server. Pooling lets a few hundred clients share a few dozen real connections, which is far more efficient than a high max_connections."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is 'remaining connection slots are reserved'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Postgres reserves a few connection slots (superuser_reserved_connections) for superusers so admins can still log in during an outage. Regular users see 'too many clients already' once non-reserved slots are full, while a superuser can still connect to investigate."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>FATAL: sorry, too many clients already</span>
+            </nav>
+            <h1>FATAL: sorry, too many clients already</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">PostgreSQL hit its <code>max_connections</code> limit (100 by default) and is refusing new connections. The durable fix is a <strong>connection pool</strong> &mdash; <strong>PgBouncer</strong> in front of Postgres, or an app-level pool with a fixed max size &mdash; so a few real connections are reused instead of one per request. Raising <code>max_connections</code> is a stopgap that costs RAM.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>psql: error: connection to server failed:
+FATAL:  sorry, too many clients already
+
+# application drivers surface the same thing:
+# psycopg2.OperationalError: FATAL:  sorry, too many clients already
+# error: sorry, too many clients already   (node-postgres)</code></pre>
+            </div>
+
+            <p>Every connection slot is in use. Postgres allows <code>max_connections</code> simultaneous connections (default <strong>100</strong>); once they are all taken, the next client is rejected. This is about the <em>number of open connections</em>, not the queries themselves.</p>
+
+            <h2>Step 1: see what is holding connections</h2>
+            <p>Before changing anything, look at who is connected. A pile of <code>idle</code> connections is the classic sign of a leak:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- how many connections, grouped by state
+SELECT count(*), state FROM pg_stat_activity GROUP BY state;
+
+-- the configured ceiling
+SHOW max_connections;
+
+-- who is connected, and to what
+SELECT pid, usename, application_name, state, query
+FROM pg_stat_activity ORDER BY state;</code></pre>
+            </div>
+
+            <p>Lots of <code>idle</code> rows &rarr; connections opened and never closed. <code>idle in transaction</code> &rarr; transactions left open (a missing commit/rollback).</p>
+
+            <h2>Fix 1: use a connection pool (the real fix)</h2>
+            <p>The root cause is almost always "a new connection per request/worker." A pool keeps a small, fixed set of connections and reuses them. Set a sane max in your app's pool:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// node-postgres: one shared pool, capped
+import { Pool } from 'pg';
+const pool = new Pool({ max: 10 });          // not a client per request
+const { rows } = await pool.query('SELECT 1');
+
+# Python / SQLAlchemy: bounded pool
+engine = create_engine(url, pool_size=10, max_overflow=5)</code></pre>
+            </div>
+
+            <p>For many app instances (or serverless), put <strong>PgBouncer</strong> between the app and Postgres in <em>transaction</em> mode &mdash; hundreds of clients then share a few dozen real connections.</p>
+
+            <h2>Fix 2: close what you open</h2>
+            <p>If you create connections manually, always release them &mdash; use a context manager or <code>finally</code> so an exception can't leak the connection:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ✅ context manager returns the connection even on error
+with psycopg2.connect(dsn) as conn:
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1")
+
+// ✅ always release a pooled client
+const client = await pool.connect();
+try { await client.query('SELECT 1'); }
+finally { client.release(); }</code></pre>
+            </div>
+
+            <h2>Fix 3: serverless needs a pooler</h2>
+            <p>On Lambda, Vercel, or Cloud Functions, each concurrent instance opens its own connections &mdash; hundreds of instances exhaust Postgres instantly. Don't connect directly; route through a pooler: <strong>PgBouncer</strong>, <strong>RDS Proxy</strong>, or a provider pooler (<strong>Supabase</strong>, <strong>Neon</strong>). Use the pooled connection string, not the direct one.</p>
+
+            <h2>Fix 4: raise max_connections (last resort)</h2>
+            <p>Only after pooling. Each connection reserves memory, so a high limit can exhaust RAM:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- postgresql.conf  (requires a restart)
+max_connections = 200
+
+-- then verify
+SHOW max_connections;</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Count connections by state: <code>pg_stat_activity</code> &mdash; many <code>idle</code> means a leak</li>
+                <li>&#10003; Add or fix a <strong>connection pool</strong> with a bounded max size</li>
+                <li>&#10003; Release connections in <code>finally</code> / a context manager</li>
+                <li>&#10003; <code>idle in transaction</code>? Commit or roll back &mdash; don't leave transactions open</li>
+                <li>&#10003; Serverless? Route through PgBouncer / RDS Proxy / a provider pooler</li>
+                <li>&#10003; Raise <code>max_connections</code> only as a stopgap (it costs RAM per connection)</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'FATAL: sorry, too many clients already' mean?</summary>
+                    <p>PostgreSQL has reached its <code>max_connections</code> limit (100 by default) and refuses any new connection. Every existing slot is in use, so the next client to connect is rejected with this FATAL error. It is a connection-count problem, not a query problem.</p>
+                </details>
+                <details>
+                    <summary>What is the real fix?</summary>
+                    <p>Use a connection pool so your app reuses a small, fixed set of connections instead of opening a new one per request. PgBouncer in front of Postgres, or an application pool (SQLAlchemy, HikariCP, pg Pool) with a sensible max size, is the durable fix. Raising <code>max_connections</code> is a stopgap that costs RAM per connection.</p>
+                </details>
+                <details>
+                    <summary>How do I see what is using the connections?</summary>
+                    <p>Query <code>pg_stat_activity</code>: <code>SELECT count(*), state FROM pg_stat_activity GROUP BY state;</code>. A large number of <code>idle</code> connections points to a leak &mdash; connections opened and never closed or returned to the pool. <code>idle in transaction</code> points to transactions left open.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen on serverless (Lambda, Vercel)?</summary>
+                    <p>Each serverless instance opens its own database connections, and under load there can be hundreds of concurrent instances &mdash; each multiplying connections until Postgres is exhausted. Put a pooler between them and the database: PgBouncer in transaction mode, RDS Proxy, or a provider pooler (Supabase, Neon).</p>
+                </details>
+                <details>
+                    <summary>Should I just raise max_connections?</summary>
+                    <p>Only as a temporary measure. Each connection reserves memory (<code>work_mem</code> and more), so raising <code>max_connections</code> too high can exhaust RAM and slow the whole server. Pooling lets a few hundred clients share a few dozen real connections, which is far more efficient than a high <code>max_connections</code>.</p>
+                </details>
+                <details>
+                    <summary>What is 'remaining connection slots are reserved'?</summary>
+                    <p>Postgres reserves a few connection slots (<code>superuser_reserved_connections</code>) for superusers so admins can still log in during an outage. Regular users see 'too many clients already' once non-reserved slots are full, while a superuser can still connect to investigate.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More backend &amp; build errors</h3>
+                <p>Browse the full reference for Node.js, Python, Docker, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="postgres-deadlock-detected.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Postgres: deadlock detected</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="postgres-deadlock-detected.html">ERROR: deadlock detected</a> &mdash; another Postgres concurrency error</li>
+                <li><a href="postgres-duplicate-key-unique-constraint.html">duplicate key value violates unique constraint</a> &mdash; the insert-side Postgres error</li>
+                <li><a href="eaddrinuse-address-already-in-use.html">EADDRINUSE: address already in use</a> &mdash; the "resource already taken" sibling in Node</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a> &mdash; what a 503 from your API may really mean</li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

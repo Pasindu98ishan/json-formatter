@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Error response from daemon: ... port is already allocated — why Docker can't bind a host port that's already in use, and how to fix it by finding the conflicting container/process, changing the host port, or cleaning up with docker compose down.">
+    <meta name="keywords" content="port is already allocated, docker port already allocated, Bind for 0.0.0.0 failed, docker Error response from daemon port, docker change host port, docker compose down">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-port-is-already-allocated.html">
+    <meta property="og:title" content="Docker: port is already allocated — find the conflict &amp; change the host port">
+    <meta property="og:description" content="Docker can't bind a host port that another container or process already holds. Find what's using it, change the host port mapping, or clean up stale containers with docker compose down.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-port-is-already-allocated.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker: port is already allocated — Bind for 0.0.0.0 Failed (Causes &amp; Fixes) | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "port is already allocated", "item": "https://jsondevtools.org/errors/docker-port-is-already-allocated.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: port is already allocated — Cause and Fix",
+  "description": "Docker raises 'port is already allocated' when the host port in a -p mapping is already bound by another container or process. This reference shows how to find it, change the mapping, and clean up.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-27",
+  "dateModified": "2026-06-27",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'port is already allocated' mean in Docker?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The host port in your -p HOST:CONTAINER mapping is already bound by something else — usually another running container, a leftover container, or a non-Docker process on the host. Only one process can listen on a host port, so Docker can't start the new container."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find what is using the port?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Check Docker first: docker ps shows each container's PORTS column. If nothing there matches, a host process holds it — find it with lsof -i :8080 (macOS/Linux) or netstat -ano | findstr :8080 (Windows). Then stop that container or process, or pick a different host port."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I change the host port?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Edit the left side of the -p mapping (host port), not the right (container port). docker run -p 8081:8080 maps host 8081 to the container's 8080. In docker-compose.yml use ports: ['8081:8080']. The app inside the container is unchanged; only the host port differs."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen after a crash or Ctrl+C?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A container that didn't shut down cleanly can keep the port reserved. docker ps -a shows stopped containers still holding the mapping. Remove them with docker rm, or run docker compose down to stop and remove the whole stack before starting it again."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from EADDRINUSE?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It is the Docker-level version of the same problem. EADDRINUSE is what a Node.js process prints when it can't bind a port; 'port is already allocated' is what the Docker daemon prints when it can't bind a host port for a container. Both mean the port is taken — free it or use another."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can two containers share the same host port?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Each host port maps to exactly one container. To run several similar containers, map each to a different host port (8081, 8082, ...), or put them behind a reverse proxy / load balancer that listens on one host port and routes to the containers internally."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>port is already allocated</span>
+            </nav>
+            <h1>Docker: Error response from daemon &mdash; port is already allocated</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The <strong>host port</strong> in your <code>-p HOST:CONTAINER</code> mapping is already taken &mdash; by another container, a leftover stopped container, or a host process. Find it with <code>docker ps</code> (then <code>lsof -i :PORT</code>), and either <strong>stop the conflicting container/process</strong>, <strong>change the host port</strong> (<code>-p 8081:8080</code>), or run <code>docker compose down</code> to clean up.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker: Error response from daemon: driver failed programming external
+connectivity on endpoint web:
+Bind for 0.0.0.0:8080 failed: port is already allocated.
+
+# docker compose:
+# Error response from daemon: ... Bind for 0.0.0.0:8080 failed: port is already allocated</code></pre>
+            </div>
+
+            <p>A host port can be bound by only one thing at a time. Docker tried to bind <code>8080</code> on the host for your container, but something already holds it.</p>
+
+            <h2>Step 1: find what holds the port</h2>
+            <p>Check Docker first &mdash; the usual culprit is another container still mapping that port:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker ps              # look at the PORTS column for 8080
+docker ps -a           # include stopped containers still holding the mapping
+
+# not a container? a host process has it:
+lsof -i :8080                       # macOS / Linux
+netstat -ano | findstr :8080       # Windows (note the PID)</code></pre>
+            </div>
+
+            <h2>Fix 1: stop the conflicting container</h2>
+            <p>If another container owns the port, stop (and optionally remove) it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker stop &lt;container-id-or-name&gt;
+docker rm   &lt;container-id-or-name&gt;   # if it's a stale/old one
+
+# bring down a whole compose stack cleanly:
+docker compose down</code></pre>
+            </div>
+
+            <h2>Fix 2: change the host port</h2>
+            <p>If you actually want both things running, map your container to a <em>different host port</em>. Change the <strong>left</strong> side of the mapping (host), not the right (container):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># host 8081 -> container 8080  (app inside is unchanged)
+docker run -p 8081:8080 myimage
+
+# docker-compose.yml
+services:
+  web:
+    ports:
+      - "8081:8080"</code></pre>
+            </div>
+
+            <h2>Fix 3: a non-Docker process holds it</h2>
+            <p>If <code>lsof</code>/<code>netstat</code> shows a regular process (a local dev server, another app) on the port, stop that process or change <em>its</em> port. On the host this is the same conflict Node reports as <a href="eaddrinuse-address-already-in-use.html"><code>EADDRINUSE</code></a> &mdash; the OS allows only one listener per port.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># macOS / Linux: kill the PID lsof reported
+kill -9 &lt;pid&gt;
+
+# Windows: taskkill with the PID from netstat
+taskkill /PID &lt;pid&gt; /F</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>docker ps -a</code> &mdash; is another (or stale) container mapping the port?</li>
+                <li>&#10003; Not Docker? <code>lsof -i :PORT</code> / <code>netstat -ano | findstr :PORT</code> finds the host process</li>
+                <li>&#10003; Stop/remove the conflict, or <code>docker compose down</code> to clean the stack</li>
+                <li>&#10003; Want both? Change the <strong>host</strong> side of <code>-p HOST:CONTAINER</code></li>
+                <li>&#10003; One host port = one listener &mdash; the same rule as Node's <a href="eaddrinuse-address-already-in-use.html">EADDRINUSE</a></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'port is already allocated' mean in Docker?</summary>
+                    <p>The host port in your <code>-p HOST:CONTAINER</code> mapping is already bound by something else &mdash; usually another running container, a leftover container, or a non-Docker process on the host. Only one process can listen on a host port, so Docker can't start the new container.</p>
+                </details>
+                <details>
+                    <summary>How do I find what is using the port?</summary>
+                    <p>Check Docker first: <code>docker ps</code> shows each container's PORTS column. If nothing there matches, a host process holds it &mdash; find it with <code>lsof -i :8080</code> (macOS/Linux) or <code>netstat -ano | findstr :8080</code> (Windows). Then stop that container or process, or pick a different host port.</p>
+                </details>
+                <details>
+                    <summary>How do I change the host port?</summary>
+                    <p>Edit the left side of the <code>-p</code> mapping (host port), not the right (container port). <code>docker run -p 8081:8080</code> maps host 8081 to the container's 8080. In <code>docker-compose.yml</code> use <code>ports: ['8081:8080']</code>. The app inside the container is unchanged; only the host port differs.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen after a crash or Ctrl+C?</summary>
+                    <p>A container that didn't shut down cleanly can keep the port reserved. <code>docker ps -a</code> shows stopped containers still holding the mapping. Remove them with <code>docker rm</code>, or run <code>docker compose down</code> to stop and remove the whole stack before starting it again.</p>
+                </details>
+                <details>
+                    <summary>How is this different from EADDRINUSE?</summary>
+                    <p>It is the Docker-level version of the same problem. <a href="eaddrinuse-address-already-in-use.html">EADDRINUSE</a> is what a Node.js process prints when it can't bind a port; 'port is already allocated' is what the Docker daemon prints when it can't bind a host port for a container. Both mean the port is taken &mdash; free it or use another.</p>
+                </details>
+                <details>
+                    <summary>Can two containers share the same host port?</summary>
+                    <p>No. Each host port maps to exactly one container. To run several similar containers, map each to a different host port (8081, 8082, ...), or put them behind a reverse proxy / load balancer that listens on one host port and routes to the containers internally.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More backend &amp; build errors</h3>
+                <p>Browse the full reference for Node.js, Python, Docker, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="eaddrinuse-address-already-in-use.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Node: EADDRINUSE</a>
+                    <a href="docker-exec-format-error.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Docker: exec format error</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="eaddrinuse-address-already-in-use.html">Error: listen EADDRINUSE: address already in use</a> &mdash; the same port conflict in Node.js</li>
+                <li><a href="docker-exec-format-error.html">Docker: exec format error</a> &mdash; another common Docker startup failure</li>
+                <li><a href="err-connection-refused.html">net::ERR_CONNECTION_REFUSED</a> &mdash; nothing listening on the port you tried to reach</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
