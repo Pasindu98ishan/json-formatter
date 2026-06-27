@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: string indices must be integers — why Python raises it when you index a string with a string key, almost always because you treated a JSON string (or a dict key) as a dict, and how to fix it.">
+    <meta name="keywords" content="string indices must be integers, string indices must be integers not str, python json typeerror, json.loads dict, python loop dict keys">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/string-indices-must-be-integers.html">
+    <meta property="og:title" content="TypeError: string indices must be integers (Python) — Causes & Fixes">
+    <meta property="og:description" content="Python raises 'string indices must be integers' when you index a string with text — usually a JSON string you forgot to parse, or a dict key mistaken for a dict. Here is the fix.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/string-indices-must-be-integers.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: string indices must be integers (Python) — Causes, Examples &amp; Fixes | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "string indices must be integers", "item": "https://jsondevtools.org/errors/string-indices-must-be-integers.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: string indices must be integers — Cause and Fix",
+  "description": "Python raises 'string indices must be integers' when a string is indexed with a string key. This reference covers the JSON-not-parsed cause, the loop-over-a-dict cause, and how to fix each.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-27",
+  "dateModified": "2026-06-27",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'string indices must be integers' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means you used a string as the index into another string — like text['name'] — but strings can only be indexed by integer positions (text[0]). Python expected a number and got text. It almost always means the value you indexed is a string when you thought it was a dictionary."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen with JSON?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The most common cause is forgetting to parse JSON. A response body or file is text, so data['key'] fails because data is still a JSON string. Call json.loads(text) (or response.json()) first to turn it into a dict, then index it by key."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get it inside a for loop?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Iterating a dict yields its keys, which are strings. So for item in my_dict: makes item a key string, and item['field'] then fails. Loop over my_dict.values() or my_dict.items() instead, or index the dict directly with the key."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the Python 3.11 version of this message?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Python 3.11+ gives a more specific message: 'string indices must be integers, not str'. It is the same error with the offending index type named, which confirms you indexed a string with another string."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I confirm the variable is a string, not a dict?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Print its type and a slice: print(type(data)) and print(repr(data)[:200]). If it shows <class 'str'> and starts with a quote or a brace inside quotes, it is JSON text that still needs json.loads. If it is <class 'dict'>, the problem is a wrong key or a loop over keys."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Could double-encoded JSON cause it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. If an API returns JSON whose value is itself a JSON string, one json.loads gives you a string, not a dict, so indexing it fails. Parse again (json.loads twice) or, better, fix the producer so it does not double-encode the payload."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>string indices must be integers</span>
+            </nav>
+            <h1>TypeError: string indices must be integers</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You indexed a <strong>string</strong> with a <strong>text key</strong> (<code>data['name']</code>) &mdash; but strings only accept integer positions. The value is a string where you expected a <strong>dict</strong>. Usually you forgot to <strong>parse JSON</strong> (<code>json.loads(text)</code> first), or you are looping over a dict, which yields its <strong>keys</strong> (strings).</p>
+            </div>
+
+            <h2>Diagnose this error in under a minute</h2>
+            <p>Before changing anything, print the value's <strong>type</strong> &mdash; it points straight to the fix you need:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>print(type(data))
+print(repr(data)[:200])</code></pre>
+            </div>
+
+            <ul>
+                <li><code>&lt;class 'str'&gt;</code> &rarr; it's JSON text &mdash; <strong>parse it first</strong> with <code>json.loads()</code> / <code>response.json()</code> (Cause 1)</li>
+                <li><code>&lt;class 'dict'&gt;</code> &rarr; you're <strong>looping over it</strong> (keys are strings) or using a wrong key &mdash; iterate <code>.values()</code> / <code>.items()</code> (Cause 2)</li>
+                <li><code>&lt;class 'list'&gt;</code> &rarr; <strong>index by number first</strong>, then by key: <code>data[0]['key']</code> (Cause 3)</li>
+                <li>still a <code>str</code> after one <code>json.loads</code> &rarr; the payload was <strong>double-encoded</strong> &mdash; parse again or fix the producer (Cause 4)</li>
+            </ul>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>data = '{"name": "Ada", "age": 36}'   # this is a STRING, not a dict
+print(data['name'])
+
+Traceback (most recent call last):
+  File "app.py", line 2, in &lt;module&gt;
+    print(data['name'])
+TypeError: string indices must be integers, not 'str'</code></pre>
+            </div>
+
+            <p>Python read <code>data['name']</code> as "give me index <code>'name'</code> of this string," and string indexes must be integers like <code>data[0]</code>. The <code>not 'str'</code> suffix (Python 3.11+) confirms you handed it a string index.</p>
+
+            <h2>Where you'll usually see this</h2>
+            <p>It almost always appears at the boundary where text becomes data &mdash; the same root cause across the Python web stack:</p>
+            <ul>
+                <li><strong>requests</strong> &mdash; using <code>resp.text</code> instead of <code>resp.json()</code></li>
+                <li><strong>Flask / FastAPI / Django</strong> &mdash; reading a raw request body without parsing it</li>
+                <li><strong>AWS Lambda</strong> &mdash; <code>event['body']</code> arrives as a JSON <em>string</em>; parse it before indexing</li>
+                <li><strong>config &amp; JSON files</strong> &mdash; <code>f.read()</code> returns text; use <code>json.load(f)</code> instead</li>
+            </ul>
+
+            <h2>Cause 1: you forgot to parse the JSON</h2>
+            <p>A response body, a file's contents, or a message payload is <strong>text</strong>. Until you parse it, indexing by key fails:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json, requests
+
+resp = requests.get("https://api.example.com/user")
+
+# ❌ resp.text is a JSON string
+data = resp.text
+data["name"]                      # TypeError: string indices must be integers
+
+# ✅ parse it into a dict first
+data = resp.json()                # or json.loads(resp.text)
+data["name"]                      # 'Ada'</code></pre>
+            </div>
+
+            <p>The same applies to files: use <code>json.load(f)</code> (parses) rather than <code>f.read()</code> (returns text). If you are not sure what the payload looks like, paste it into the <a href="../formatter.html">JSON Formatter</a> to see whether it is an object you can key into.</p>
+
+            <h2>Cause 2: looping over a dict gives you keys</h2>
+            <p>Iterating a dict yields its <em>keys</em> &mdash; which are strings &mdash; so indexing the loop variable fails:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>users = {"u1": {"name": "Ada"}, "u2": {"name": "Bo"}}
+
+# ❌ item is the key string "u1", so item["name"] fails
+for item in users:
+    print(item["name"])           # TypeError: string indices must be integers
+
+# ✅ iterate values (or items) to get the inner dicts
+for user in users.values():
+    print(user["name"])           # 'Ada', 'Bo'
+
+for key, user in users.items():
+    print(key, user["name"])</code></pre>
+            </div>
+
+            <h2>Cause 3: a list of dicts indexed wrong</h2>
+            <p>If the data is a <strong>list</strong> of objects, you must index the list by number first, then the object by key &mdash; not the other way round:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>rows = [{"name": "Ada"}, {"name": "Bo"}]
+
+rows["name"]                      # ❌ rows is a list — wrong
+rows[0]["name"]                   # ✅ 'Ada'
+for row in rows:                  # ✅ each row is a dict
+    print(row["name"])</code></pre>
+            </div>
+
+            <h2>Cause 4: double-encoded JSON</h2>
+            <p>If one <code>json.loads</code> still leaves you with a string, the payload was encoded twice &mdash; a value that is itself a JSON string:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>raw = '"{\\"name\\": \\"Ada\\"}"'   # a JSON string whose content is JSON
+
+once = json.loads(raw)             # -&gt; '{"name": "Ada"}'  (still a str!)
+once["name"]                       # TypeError again
+
+twice = json.loads(once)           # -&gt; {'name': 'Ada'}
+twice["name"]                      # 'Ada'  — but fix the producer if you can</code></pre>
+            </div>
+
+            <h2>Errors often confused with this one</h2>
+            <p>These Python errors come from the same family of "wrong type / wrong shape" mix-ups:</p>
+            <ul>
+                <li><a href="json-object-must-be-str-bytes.html">TypeError: the JSON object must be str, bytes or bytearray, not dict</a> &mdash; the inverse: parsing something that's already parsed</li>
+                <li><a href="keyerror-python.html">KeyError</a> &mdash; the value <em>is</em> a dict, but the key is missing</li>
+                <li><a href="jsondecodeerror-expecting-value.html">JSONDecodeError</a> &mdash; the text isn't valid JSON to begin with</li>
+                <li><code>AttributeError: 'str' object has no attribute ...</code> and <code>IndexError</code> &mdash; the same "I assumed the wrong type" confusion, on a string or a list</li>
+            </ul>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Print <code>type(data)</code> &mdash; is it <code>str</code> or <code>dict</code>?</li>
+                <li>&#10003; <code>str</code> that looks like JSON? Run <code>json.loads()</code> / <code>response.json()</code> first</li>
+                <li>&#10003; In a <code>for</code> loop over a dict? Iterate <code>.values()</code> or <code>.items()</code></li>
+                <li>&#10003; Is it a list of dicts? Index by number first: <code>data[0]['key']</code></li>
+                <li>&#10003; Still a string after one parse? It was double-encoded &mdash; parse again or fix the source</li>
+                <li>&#10003; Inspect the real shape in the <a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:0.85rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:600;">Python versions</p>
+                <p style="margin:0.4rem 0 0;">Applies to Python <strong>3.8, 3.9, 3.10, 3.11, 3.12, and 3.13</strong>. The wording gained the <code>, not 'str'</code> suffix in 3.11+; the cause and every fix above are identical across all versions.</p>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'string indices must be integers' mean?</summary>
+                    <p>It means you used a string as the index into another string &mdash; like <code>text['name']</code> &mdash; but strings can only be indexed by integer positions (<code>text[0]</code>). Python expected a number and got text. It almost always means the value you indexed is a string when you thought it was a dictionary.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen with JSON?</summary>
+                    <p>The most common cause is forgetting to parse JSON. A response body or file is text, so <code>data['key']</code> fails because <code>data</code> is still a JSON string. Call <code>json.loads(text)</code> (or <code>response.json()</code>) first to turn it into a dict, then index it by key.</p>
+                </details>
+                <details>
+                    <summary>Why do I get it inside a for loop?</summary>
+                    <p>Iterating a dict yields its keys, which are strings. So <code>for item in my_dict:</code> makes <code>item</code> a key string, and <code>item['field']</code> then fails. Loop over <code>my_dict.values()</code> or <code>my_dict.items()</code> instead, or index the dict directly with the key.</p>
+                </details>
+                <details>
+                    <summary>What is the Python 3.11 version of this message?</summary>
+                    <p>Python 3.11+ gives a more specific message: <code>string indices must be integers, not 'str'</code>. It is the same error with the offending index type named, which confirms you indexed a string with another string.</p>
+                </details>
+                <details>
+                    <summary>How do I confirm the variable is a string, not a dict?</summary>
+                    <p>Print its type and a slice: <code>print(type(data))</code> and <code>print(repr(data)[:200])</code>. If it shows <code>&lt;class 'str'&gt;</code> and starts with a quote or a brace inside quotes, it is JSON text that still needs <code>json.loads</code>. If it is <code>&lt;class 'dict'&gt;</code>, the problem is a wrong key or a loop over keys.</p>
+                </details>
+                <details>
+                    <summary>Could double-encoded JSON cause it?</summary>
+                    <p>Yes. If an API returns JSON whose value is itself a JSON string, one <code>json.loads</code> gives you a string, not a dict, so indexing it fails. Parse again (<code>json.loads</code> twice) or, better, fix the producer so it does not double-encode the payload.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Not sure what shape your data is?</h3>
+                <p>Paste the response into the formatter to see whether it's an object, an array, or a string &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../csv-to-json.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">CSV to JSON</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="json-object-must-be-str-bytes.html">TypeError: the JSON object must be str, bytes or bytearray, not dict</a> &mdash; the opposite mix-up</li>
+                <li><a href="keyerror-python.html">KeyError in Python</a> &mdash; the key exists check</li>
+                <li><a href="jsondecodeerror-expecting-value.html">JSONDecodeError: Expecting value</a> &mdash; when the parse itself fails</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../csv-to-json.html">CSV to JSON</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes</a> &mdash; check the response status when a request fails</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

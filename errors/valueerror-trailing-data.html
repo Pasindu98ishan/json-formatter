@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ValueError: Trailing data — why Python's json and pandas.read_json fail when the input holds more than one JSON document (NDJSON / JSON Lines), and how to fix it with lines=True or line-by-line parsing.">
+    <meta name="keywords" content="ValueError: Trailing data, pandas read_json trailing data, json trailing data, NDJSON pandas, read_json lines=True, json lines python">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/valueerror-trailing-data.html">
+    <meta property="og:title" content="ValueError: Trailing data (Python) — pandas, NDJSON &amp; JSON Lines Fixes">
+    <meta property="og:description" content="Python raises 'ValueError: Trailing data' when the input contains more than one JSON document — usually NDJSON/JSON Lines fed to json.loads or pandas.read_json. Fix it with lines=True or per-line parsing.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/valueerror-trailing-data.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>ValueError: Trailing data (Python) — pandas, NDJSON &amp; JSON Lines Fixes | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ValueError: Trailing data", "item": "https://jsondevtools.org/errors/valueerror-trailing-data.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "ValueError: Trailing data — Cause and Fix",
+  "description": "Python's json module and pandas.read_json raise 'ValueError: Trailing data' when the input holds more than one JSON document, typically NDJSON / JSON Lines. This reference shows the lines=True and per-line fixes.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-27",
+  "dateModified": "2026-06-27",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'ValueError: Trailing data' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means the parser read one complete JSON document and then found more data after it. Both json.loads and pandas.read_json expect a single JSON value, so a file with multiple objects — one per line (NDJSON) — triggers 'Trailing data' on the second object."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix it in pandas.read_json?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Pass lines=True: pd.read_json(path, lines=True). That tells pandas the file is JSON Lines (one JSON object per line) rather than a single JSON document, and it reads each line into a row. Without lines=True, pandas tries to parse the whole file as one value and fails on the second line."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix it with json.loads?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "json.loads parses exactly one document. For NDJSON, split on newlines and parse each non-empty line: [json.loads(line) for line in text.splitlines() if line.strip()]. If the file is meant to be a single array, fix the producer to emit a JSON array instead of stacked objects."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is NDJSON / JSON Lines?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "NDJSON (newline-delimited JSON), also called JSON Lines or .jsonl, stores one JSON object per line with no enclosing array. Log pipelines, data exports, and streaming APIs use it because each line can be written and read independently. It is not a single JSON document, so a normal parser rejects it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from JSONDecodeError: Extra data?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are the same underlying problem — more than one JSON value in the input. json.loads raises json.decoder.JSONDecodeError: Extra data; pandas.read_json surfaces it as ValueError: Trailing data. The fixes are identical: treat the input as JSON Lines or parse one document at a time."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Could a stray character or BOM cause it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. If a single JSON document has trailing junk — an extra brace, a duplicated payload, or non-JSON text appended — the parser finishes the value and then hits the leftover, reporting trailing data. Inspect the raw text and trim the extra content, or fix whatever appended it."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ValueError: Trailing data</span>
+            </nav>
+            <h1>ValueError: Trailing data</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The input holds <strong>more than one JSON document</strong> &mdash; almost always <strong>NDJSON / JSON Lines</strong> (one object per line). <code>json.loads</code> and <code>pandas.read_json</code> each expect a single value. Fix it with <code>pd.read_json(path, <strong>lines=True</strong>)</code>, or parse each line yourself. (The <code>json</code> module's wording for the same thing is <a href="jsondecodeerror-extra-data.html">JSONDecodeError: Extra data</a>.)</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import pandas as pd
+
+# events.jsonl  (one JSON object per line)
+# {"id": 1, "type": "click"}
+# {"id": 2, "type": "view"}
+
+pd.read_json("events.jsonl")
+# ValueError: Trailing data</code></pre>
+            </div>
+
+            <p>pandas parsed the first object, then found a second one on the next line. Because it was told to expect a single JSON document, the leftover is "trailing data." The file is JSON Lines, not one JSON value.</p>
+
+            <h2>Why this happens</h2>
+            <p>A JSON <em>document</em> is exactly one value &mdash; one object, one array. NDJSON files stack many objects, one per line, with no wrapping array. A standard parser reads the first value greedily and then expects only whitespace; the next object is unexpected, so it reports trailing data. This is the Python sibling of JavaScript's <a href="unexpected-non-whitespace-after-json.html">Unexpected non-whitespace character after JSON data</a>.</p>
+
+            <figure style="margin:1.5rem 0;">
+            <svg viewBox="0 0 700 270" role="img" aria-labelledby="vdTitle vdDesc" style="width:100%;height:auto;max-width:680px;display:block;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+                <title id="vdTitle">JSON document versus NDJSON</title>
+                <desc id="vdDesc">A single JSON document parses cleanly, while NDJSON contains multiple documents and needs lines=True.</desc>
+                <style>
+                    .vd-bg     { fill:#f6f8fa; stroke:#e1e4e8; }
+                    .vd-code   { fill:#ffffff; stroke:#dfe3e8; }
+                    .vd-title  { fill:#24292e; font-size:16px; font-weight:700; }
+                    .vd-mono   { fill:#24292e; font-family:'JetBrains Mono','Consolas',monospace; font-size:13px; }
+                    .vd-note   { fill:#57606a; font-size:13px; }
+                    .vd-ok     { fill:#1a7f37; font-size:13px; font-weight:700; }
+                    .vd-pill   { fill:#fff3cd; stroke:#e0c200; }
+                    .vd-pillt  { fill:#7a5d00; font-family:'JetBrains Mono','Consolas',monospace; font-size:13px; font-weight:700; }
+                    .vd-arrow  { stroke:#9aa3ad; stroke-width:2; }
+                    .vd-head   { fill:#9aa3ad; }
+                    .vd-div    { stroke:#e1e4e8; stroke-width:1; stroke-dasharray:4 4; }
+                    body.dark-mode .vd-bg    { fill:#161b22; stroke:#30363d; }
+                    body.dark-mode .vd-code  { fill:#0d1117; stroke:#30363d; }
+                    body.dark-mode .vd-title { fill:#e6edf3; }
+                    body.dark-mode .vd-mono  { fill:#e6edf3; }
+                    body.dark-mode .vd-note  { fill:#9aa4ae; }
+                    body.dark-mode .vd-ok    { fill:#3fb950; }
+                    body.dark-mode .vd-pill  { fill:#3a2f00; stroke:#9e7d00; }
+                    body.dark-mode .vd-pillt { fill:#ffd966; }
+                    body.dark-mode .vd-arrow { stroke:#6b7681; }
+                    body.dark-mode .vd-head  { fill:#6b7681; }
+                    body.dark-mode .vd-div   { stroke:#30363d; }
+                </style>
+                <defs>
+                    <marker id="vdArrow" markerWidth="9" markerHeight="9" refX="5" refY="4" orient="auto">
+                        <path d="M0,0 L7,4 L0,8 Z" class="vd-head"/>
+                    </marker>
+                </defs>
+
+                <line x1="350" y1="20" x2="350" y2="250" class="vd-div"/>
+
+                <!-- Left: single JSON document -->
+                <text x="175" y="36" text-anchor="middle" class="vd-title">JSON</text>
+                <rect x="55" y="50" width="240" height="46" rx="6" class="vd-code"/>
+                <text x="175" y="78" text-anchor="middle" class="vd-mono">{ "id": 1 }</text>
+                <line x1="175" y1="104" x2="175" y2="138" class="vd-arrow" marker-end="url(#vdArrow)"/>
+                <text x="175" y="166" text-anchor="middle" class="vd-ok">&#10003; One document</text>
+                <text x="175" y="188" text-anchor="middle" class="vd-note">json.loads() / read_json() work</text>
+
+                <!-- Right: NDJSON, many documents -->
+                <text x="525" y="36" text-anchor="middle" class="vd-title">NDJSON &#183; JSON Lines</text>
+                <rect x="405" y="50" width="240" height="68" rx="6" class="vd-code"/>
+                <text x="525" y="72" text-anchor="middle" class="vd-mono">{"id": 1}</text>
+                <text x="525" y="91" text-anchor="middle" class="vd-mono">{"id": 2}</text>
+                <text x="525" y="110" text-anchor="middle" class="vd-mono">{"id": 3}</text>
+                <line x1="525" y1="124" x2="525" y2="150" class="vd-arrow" marker-end="url(#vdArrow)"/>
+                <text x="525" y="170" text-anchor="middle" class="vd-note">Multiple documents</text>
+                <line x1="525" y1="180" x2="525" y2="204" class="vd-arrow" marker-end="url(#vdArrow)"/>
+                <rect x="435" y="212" width="180" height="32" rx="16" class="vd-pill"/>
+                <text x="525" y="233" text-anchor="middle" class="vd-pillt">needs lines=True</text>
+            </svg>
+            <figcaption style="text-align:center;color:var(--secondary-color);font-size:13px;margin-top:0.5rem;">One JSON value parses directly; stacked objects (NDJSON) are many values &mdash; read them with <code>lines=True</code> or one line at a time.</figcaption>
+            </figure>
+
+            <h2>Fix 1: pandas — read it as JSON Lines</h2>
+            <p>Tell pandas the file is line-delimited with <code>lines=True</code>; each line becomes a row:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>df = pd.read_json("events.jsonl", lines=True)   # ✅ one row per line
+
+# huge file? stream it in chunks:
+reader = pd.read_json("events.jsonl", lines=True, chunksize=10_000)
+for chunk in reader:
+    process(chunk)</code></pre>
+            </div>
+
+            <h2>Fix 2: json — parse one line at a time</h2>
+            <p><code>json.loads</code> decodes a single document, so split the text and parse each non-empty line:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+with open("events.jsonl") as f:
+    rows = [json.loads(line) for line in f if line.strip()]
+
+# rows is now a list of dicts</code></pre>
+            </div>
+
+            <h2>Fix 3: it was supposed to be one document</h2>
+            <p>If the data is <em>not</em> meant to be NDJSON, then something appended extra content &mdash; a doubled payload, a stray brace, or non-JSON text. Inspect the raw text and fix the source that produced two values where one belongs:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>raw = open("data.json").read()
+print(repr(raw[-80:]))            # look at the tail for the leftover
+
+# a real single document should parse cleanly:
+data = json.loads(raw)            # fix the producer if this still raises</code></pre>
+            </div>
+
+            <p>To see exactly where the second value starts, paste the body into the <a href="../json-validator.html">JSON Validator</a> &mdash; it flags the first point that isn't part of one valid document.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; One JSON object per line? It's <strong>NDJSON</strong> &mdash; use <code>read_json(..., lines=True)</code></li>
+                <li>&#10003; Using <code>json.loads</code>? Split on newlines and parse each line</li>
+                <li>&#10003; Huge file? Stream with <code>chunksize=</code> (pandas) or iterate the file object</li>
+                <li>&#10003; Supposed to be one document? Inspect the tail and fix the producer</li>
+                <li>&#10003; Same error from <code>json.loads</code> is <a href="jsondecodeerror-extra-data.html">JSONDecodeError: Extra data</a> &mdash; identical cause</li>
+                <li>&#10003; Locate the leftover with the <a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'ValueError: Trailing data' mean?</summary>
+                    <p>It means the parser read one complete JSON document and then found more data after it. Both <code>json.loads</code> and <code>pandas.read_json</code> expect a single JSON value, so a file with multiple objects &mdash; one per line (NDJSON) &mdash; triggers 'Trailing data' on the second object.</p>
+                </details>
+                <details>
+                    <summary>How do I fix it in pandas.read_json?</summary>
+                    <p>Pass <code>lines=True</code>: <code>pd.read_json(path, lines=True)</code>. That tells pandas the file is JSON Lines (one JSON object per line) rather than a single JSON document, and it reads each line into a row. Without <code>lines=True</code>, pandas tries to parse the whole file as one value and fails on the second line.</p>
+                </details>
+                <details>
+                    <summary>How do I fix it with json.loads?</summary>
+                    <p><code>json.loads</code> parses exactly one document. For NDJSON, split on newlines and parse each non-empty line: <code>[json.loads(line) for line in text.splitlines() if line.strip()]</code>. If the file is meant to be a single array, fix the producer to emit a JSON array instead of stacked objects.</p>
+                </details>
+                <details>
+                    <summary>What is NDJSON / JSON Lines?</summary>
+                    <p>NDJSON (newline-delimited JSON), also called JSON Lines or <code>.jsonl</code>, stores one JSON object per line with no enclosing array. Log pipelines, data exports, and streaming APIs use it because each line can be written and read independently. It is not a single JSON document, so a normal parser rejects it.</p>
+                </details>
+                <details>
+                    <summary>How is this different from JSONDecodeError: Extra data?</summary>
+                    <p>They are the same underlying problem &mdash; more than one JSON value in the input. <code>json.loads</code> raises <a href="jsondecodeerror-extra-data.html">json.decoder.JSONDecodeError: Extra data</a>; <code>pandas.read_json</code> surfaces it as <code>ValueError: Trailing data</code>. The fixes are identical: treat the input as JSON Lines or parse one document at a time.</p>
+                </details>
+                <details>
+                    <summary>Could a stray character or BOM cause it?</summary>
+                    <p>Yes. If a single JSON document has trailing junk &mdash; an extra brace, a duplicated payload, or non-JSON text appended &mdash; the parser finishes the value and then hits the leftover, reporting trailing data. Inspect the raw text and trim the extra content, or fix whatever appended it.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Find where the extra data starts</h3>
+                <p>Paste the body into the validator to see the first point that isn't part of one valid JSON document &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-validator.html" class="btn btn-primary">JSON Validator</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="jsondecodeerror-extra-data.html">JSONDecodeError: Extra data</a> &mdash; the json.loads wording for the same cause</li>
+                <li><a href="unexpected-non-whitespace-after-json.html">Unexpected non-whitespace character after JSON data</a> &mdash; the JavaScript equivalent</li>
+                <li><a href="unicodedecodeerror-utf-8-codec.html">UnicodeDecodeError: 'utf-8' codec can't decode byte</a> &mdash; another file-reading error</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../csv-to-json.html">CSV to JSON</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

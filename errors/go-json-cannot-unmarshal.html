@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="json: cannot unmarshal string into Go value of type int — why Go's encoding/json fails when the JSON type doesn't match your struct field type, and how to fix it with the right types, json.Number, or a custom UnmarshalJSON.">
+    <meta name="keywords" content="json cannot unmarshal string into Go value of type int, go json unmarshal error, cannot unmarshal object into Go value, go encoding/json type mismatch, json.Number golang">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-json-cannot-unmarshal.html">
+    <meta property="og:title" content="json: cannot unmarshal string into Go value of type int — Fix">
+    <meta property="og:description" content="Go's encoding/json fails when the JSON value's type doesn't match the struct field. Learn to match types, accept numbers-as-strings, handle null with pointers, and write a custom UnmarshalJSON.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-json-cannot-unmarshal.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>json: cannot unmarshal string into Go value of type int — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "json: cannot unmarshal into Go value", "item": "https://jsondevtools.org/errors/go-json-cannot-unmarshal.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "json: cannot unmarshal string into Go value of type int — Cause and Fix",
+  "description": "Go's encoding/json raises 'cannot unmarshal ... into Go value of type ...' when the JSON value's type does not match the destination struct field. This reference explains the mismatch and shows every fix.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-27",
+  "dateModified": "2026-06-27",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'json: cannot unmarshal string into Go value of type int' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means the JSON contained a string where your Go struct field is an int (or another mismatch). Go's encoding/json is strictly typed, so a JSON value like \"42\" cannot go into an int field. Either the field type is wrong, or the API sends numbers as quoted strings."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I accept a number that the API sends as a string?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Add the ,string option to the struct tag: ID int `json:\"id,string\"`. This tells encoding/json the value arrives as a quoted string like \"42\" and should be parsed into the numeric field. It works for int, uint, and float fields; for bool it accepts only the quoted strings \"true\"/\"false\", not \"1\"/\"0\"."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does 'cannot unmarshal object into Go value of type []T' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The JSON is an object ({...}) but your destination is a slice ([]T), or vice versa. The shapes do not match. Check whether the payload is wrapped — for example {\"data\": [...]} — and unmarshal into a struct whose field matches, or change the destination type to fit the actual JSON."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I handle a field that can be more than one type?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use json.RawMessage to defer decoding, or implement a custom UnmarshalJSON on a wrapper type that inspects the raw bytes and decodes accordingly. For numbers of unknown int/float shape, decode into interface{} with Decoder.UseNumber() so they become json.Number instead of float64."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my number become a float64?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "When you unmarshal JSON into interface{} or map[string]interface{}, every number becomes float64 by default, which loses precision on large integers. Call decoder.UseNumber() so numbers decode as json.Number (a string-backed type) that you convert exactly with .Int64() or .Float64()."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I see exactly what the JSON contains?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Print the raw bytes before unmarshalling, or paste the payload into a JSON formatter to see each value's real type. The error names the JSON type and the Go type it could not fit, so confirming the actual shape tells you whether to fix the struct or the producer."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>json: cannot unmarshal into Go value</span>
+            </nav>
+            <h1>json: cannot unmarshal string into Go value of type int</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Go's <code>encoding/json</code> is strictly typed: this error means the <strong>JSON value's type doesn't match your struct field</strong> &mdash; e.g. JSON <code>"42"</code> (string) into an <code>int</code>. Fix the field type to match the JSON, or, if the API sends numbers as quoted strings, add the <code>,string</code> struct tag (<code>`json:"id,string"`</code>). For shape mismatches, make the destination type match the actual payload.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>package main
+
+import (
+    "encoding/json"
+    "fmt"
+)
+
+type User struct {
+    ID   int    `json:"id"`
+    Name string `json:"name"`
+}
+
+func main() {
+    data := []byte(`{"id": "42", "name": "Ada"}`) // id is a STRING in the JSON
+    var u User
+    err := json.Unmarshal(data, &amp;u)
+    fmt.Println(err)
+    // json: cannot unmarshal string into Go struct field User.id of type int
+}</code></pre>
+            </div>
+
+            <p>The message names both sides: the <strong>JSON type</strong> (<code>string</code>) and the <strong>Go type</strong> it couldn't fit (<code>int</code>), plus the field path (<code>User.id</code>). That tells you exactly which field to fix.</p>
+
+            <h2>Which JSON values fit which Go fields</h2>
+            <table>
+                <thead>
+                    <tr><th>JSON value</th><th>Go field</th><th>Result</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>42</code></td><td><code>int</code></td><td>&#9989; ok</td></tr>
+                    <tr><td><code>"42"</code></td><td><code>int</code></td><td>&#10060; cannot unmarshal</td></tr>
+                    <tr><td><code>"42"</code></td><td><code>int</code> with <code>,string</code></td><td>&#9989; ok</td></tr>
+                    <tr><td><code>42</code></td><td><code>string</code></td><td>&#10060; cannot unmarshal</td></tr>
+                    <tr><td><code>true</code></td><td><code>bool</code></td><td>&#9989; ok</td></tr>
+                    <tr><td><code>"true"</code></td><td><code>bool</code></td><td>&#10060; unless <code>,string</code> (only <code>"true"</code>/<code>"false"</code>, not <code>"1"</code>/<code>"0"</code>)</td></tr>
+                    <tr><td><code>null</code></td><td><code>int</code></td><td>&#9989; leaves the zero value (<code>0</code>)</td></tr>
+                    <tr><td><code>null</code></td><td><code>*int</code></td><td>&#9989; becomes <code>nil</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Cause 1: the field type is simply wrong</h2>
+            <p>If the JSON genuinely holds a string, number, or bool, make the Go field that type. Match each field to what the payload actually sends:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// JSON: {"id": 42, "active": true, "score": 9.5}
+type User struct {
+    ID     int     `json:"id"`
+    Active bool    `json:"active"`
+    Score  float64 `json:"score"`
+}</code></pre>
+            </div>
+
+            <h2>Cause 2: the API sends numbers as strings</h2>
+            <p>Some APIs quote their numbers (<code>"id": "42"</code>). Keep the numeric Go type and add the <code>,string</code> option to the tag &mdash; <code>encoding/json</code> will parse the quoted value:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type User struct {
+    ID    int     `json:"id,string"`     // accepts "42"
+    Score float64 `json:"score,string"`  // accepts "9.5"
+}</code></pre>
+            </div>
+
+            <p><strong>Caveat for <code>bool</code>:</strong> <code>,string</code> also works on a <code>bool</code> field, but it only accepts the quoted strings <code>"true"</code> and <code>"false"</code> &mdash; <em>not</em> <code>"1"</code>/<code>"0"</code> or <code>"yes"</code>/<code>"no"</code>. For those, decode the raw value and convert yourself in a custom <code>UnmarshalJSON</code>.</p>
+
+            <h2>Cause 3: object vs array (shape mismatch)</h2>
+            <p><code>cannot unmarshal object into Go value of type []User</code> means the JSON is an <em>object</em> but you unmarshalled into a <em>slice</em> (or the reverse). The payload is usually wrapped &mdash; match the destination to it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// JSON: {"data": [{"id":1}, {"id":2}]}  — an object wrapping an array
+
+var users []User
+json.Unmarshal(data, &amp;users)        // ❌ cannot unmarshal object into []User
+
+type Resp struct {
+    Data []User `json:"data"`
+}
+var r Resp
+json.Unmarshal(data, &amp;r)            // ✅ r.Data is the slice</code></pre>
+            </div>
+
+            <h2>Cause 4: a field that varies, or big numbers</h2>
+            <p>For a field whose type changes, defer decoding with <code>json.RawMessage</code> or a custom <code>UnmarshalJSON</code>. For numbers of unknown shape (and to avoid the <code>float64</code> precision trap when decoding into <code>interface{}</code>), use <code>UseNumber()</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>dec := json.NewDecoder(bytes.NewReader(data))
+dec.UseNumber()                      // numbers -&gt; json.Number, not float64
+
+var m map[string]interface{}
+dec.Decode(&amp;m)
+
+// use a safe type assertion — m["id"] may be absent or another type
+if n, ok := m["id"].(json.Number); ok {
+    id, _ := n.Int64()                   // exact, no precision loss
+    fmt.Println(id)
+}</code></pre>
+            </div>
+
+            <h2>Nullable fields: handling JSON null</h2>
+            <p>An API that sends <code>{"age": null}</code> is a frequent trigger. A plain value field decodes <code>null</code> as the <em>zero value</em>, so you can't tell "missing/null" from "actually zero." Use a <strong>pointer</strong> (or a <code>database/sql</code> Null type) when that distinction matters:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// JSON: {"age": null}
+type User struct {
+    Age *int `json:"age"`        // nil when null; non-nil pointer to 0 when 0
+}
+
+// database/sql alternative when reading from a DB:
+type Row struct {
+    Age sql.NullInt64            // .Valid is false when the value was null
+}</code></pre>
+            </div>
+
+            <h2>What interface{} decodes JSON into</h2>
+            <p>When you decode into <code>interface{}</code> or <code>map[string]interface{}</code>, Go maps each JSON type to a fixed Go type. Knowing this table prevents the wrong type assertion that causes a panic or a follow-on error:</p>
+
+            <table>
+                <thead>
+                    <tr><th>JSON</th><th>Go type inside interface{}</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>object</td><td><code>map[string]interface{}</code></td></tr>
+                    <tr><td>array</td><td><code>[]interface{}</code></td></tr>
+                    <tr><td>string</td><td><code>string</code></td></tr>
+                    <tr><td>number</td><td><code>float64</code> (or <code>json.Number</code> with <code>UseNumber()</code>)</td></tr>
+                    <tr><td>true / false</td><td><code>bool</code></td></tr>
+                    <tr><td>null</td><td><code>nil</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Catch unexpected fields with DisallowUnknownFields</h2>
+            <p>By default Go <em>silently ignores</em> JSON keys that have no matching struct field, which hides typos and schema drift. Make an unknown key an error during decoding:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>dec := json.NewDecoder(r)
+dec.DisallowUnknownFields()
+if err := dec.Decode(&amp;v); err != nil {
+    // json: unknown field "xyz" — a key your struct doesn't define
+}</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read both types in the message &mdash; the JSON type and the Go field type</li>
+                <li>&#10003; JSON value genuinely that type? Change the struct field to match</li>
+                <li>&#10003; API quotes its numbers? Add <code>,string</code> to the struct tag</li>
+                <li>&#10003; "object into []T" / "array into struct"? Fix the destination shape (often a wrapper)</li>
+                <li>&#10003; Field varies by response? Use <code>json.RawMessage</code> or a custom <code>UnmarshalJSON</code></li>
+                <li>&#10003; Big integers via <code>interface{}</code>? Use <code>Decoder.UseNumber()</code> to avoid float64</li>
+                <li>&#10003; Field can be <code>null</code>? Use a pointer (<code>*int</code>) or a <code>sql.Null*</code> type</li>
+                <li>&#10003; Want unknown keys to error? <code>Decoder.DisallowUnknownFields()</code></li>
+                <li>&#10003; Confirm the real value types in the <a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'json: cannot unmarshal string into Go value of type int' mean?</summary>
+                    <p>It means the JSON contained a string where your Go struct field is an <code>int</code> (or another mismatch). Go's <code>encoding/json</code> is strictly typed, so a JSON value like <code>"42"</code> cannot go into an <code>int</code> field. Either the field type is wrong, or the API sends numbers as quoted strings.</p>
+                </details>
+                <details>
+                    <summary>How do I accept a number that the API sends as a string?</summary>
+                    <p>Add the <code>,string</code> option to the struct tag: <code>ID int `json:"id,string"`</code>. This tells <code>encoding/json</code> the value arrives as a quoted string like <code>"42"</code> and should be parsed into the numeric field. It works for int, uint, and float fields; for <code>bool</code> it accepts only the quoted strings <code>"true"</code>/<code>"false"</code>, not <code>"1"</code>/<code>"0"</code>.</p>
+                </details>
+                <details>
+                    <summary>What does 'cannot unmarshal object into Go value of type []T' mean?</summary>
+                    <p>The JSON is an object (<code>{...}</code>) but your destination is a slice (<code>[]T</code>), or vice versa. The shapes do not match. Check whether the payload is wrapped &mdash; for example <code>{"data": [...]}</code> &mdash; and unmarshal into a struct whose field matches, or change the destination type to fit the actual JSON.</p>
+                </details>
+                <details>
+                    <summary>How do I handle a field that can be more than one type?</summary>
+                    <p>Use <code>json.RawMessage</code> to defer decoding, or implement a custom <code>UnmarshalJSON</code> on a wrapper type that inspects the raw bytes and decodes accordingly. For numbers of unknown int/float shape, decode into <code>interface{}</code> with <code>Decoder.UseNumber()</code> so they become <code>json.Number</code> instead of <code>float64</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does my number become a float64?</summary>
+                    <p>When you unmarshal JSON into <code>interface{}</code> or <code>map[string]interface{}</code>, every number becomes <code>float64</code> by default, which loses precision on large integers. Call <code>decoder.UseNumber()</code> so numbers decode as <code>json.Number</code> (a string-backed type) that you convert exactly with <code>.Int64()</code> or <code>.Float64()</code>.</p>
+                </details>
+                <details>
+                    <summary>How do I see exactly what the JSON contains?</summary>
+                    <p>Print the raw bytes before unmarshalling, or paste the payload into a JSON formatter to see each value's real type. The error names the JSON type and the Go type it could not fit, so confirming the actual shape tells you whether to fix the struct or the producer.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Check what types your JSON really uses</h3>
+                <p>Paste the payload into the formatter to see whether each value is a string, number, object, or array &mdash; nothing is uploaded to a server. Building the struct from scratch? Paste the JSON into the <a href="../json-to-typescript.html">TypeScript generator</a> and adapt the types &mdash; the field types map directly to Go.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="bigint-not-serializable.html">TypeError: Do not know how to serialize a BigInt</a> &mdash; the JS large-number counterpart</li>
+                <li><a href="object-not-json-serializable.html">TypeError: Object of type … is not JSON serializable</a> &mdash; the Python serialization error</li>
+                <li><a href="unexpected-non-whitespace-after-json.html">Unexpected non-whitespace character after JSON data</a> &mdash; extra content after a value</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes</a> &mdash; check the response status before unmarshalling</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

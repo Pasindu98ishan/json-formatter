@@ -174,7 +174,7 @@ text = ""           # empty — maybe an empty file or empty response body
 data = json.loads(text)   # JSONDecodeError: Expecting value: line 1 column 1 (char 0)</code></pre>
             </div>
 
-            <p>This frequently happens when reading a file that is empty, or when a network response had no body (a <code>204 No Content</code>, or a request that returned nothing).</p>
+            <p>This frequently happens when reading a file that is empty, or when a network response had no body (a <a href="../http-status/204.html">204 No Content</a>, or a request that returned nothing).</p>
 
             <h2>Cause 2: The response is HTML, not JSON</h2>
             <p>When you call an API with <code>requests</code> and the server returns an error page, the body is HTML &mdash; not JSON. <code>response.json()</code> still tries to parse it and fails at char 0 on the leading <code>&lt;</code>:</p>
@@ -190,7 +190,7 @@ response = requests.get("https://api.example.com/data")
 data = response.json()   # JSONDecodeError: Expecting value: line 1 column 1 (char 0)</code></pre>
             </div>
 
-            <p>This is the Python equivalent of JavaScript&rsquo;s <a href="../blog/json-unexpected-token.html">Unexpected token &lt; in JSON at position 0</a>. The fix is the same idea: check the status code and content type before parsing.</p>
+            <p>This is the Python equivalent of JavaScript&rsquo;s <a href="../blog/json-unexpected-token.html">Unexpected token &lt; in JSON at position 0</a>. The fix is the same idea: check the status code and content type before parsing &mdash; a <a href="../http-status/404.html">404 Not Found</a> or <a href="../http-status/500.html">500 Internal Server Error</a> almost always means an HTML error page, not JSON. See the full <a href="../http-status.html">HTTP status code reference</a> for what each response means.</p>
 
             <h2>Cause 3: Reading an empty or wrong file</h2>
             <div class="code-block">
@@ -315,6 +315,7 @@ except json.JSONDecodeError as e:
             <h2>Related Guides</h2>
             <ul>
                 <li><a href="../blog/api-returning-html-instead-of-json.html">API Returning HTML Instead of JSON?</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a> &mdash; what a 4xx/5xx response means</li>
                 <li><a href="../blog/json-parse-error-handling.html">JSON.parse Error Handling Patterns</a></li>
                 <li><a href="../blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
             </ul>
