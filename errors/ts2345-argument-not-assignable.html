@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2345: Argument of type 'X' is not assignable to parameter of type 'Y' — how to diagnose a function-call type mismatch and fix it by correcting the value, the signature, narrowing, or generating types from JSON. Includes React patterns and common variants.">
+    <meta name="keywords" content="Argument of type is not assignable to parameter of type, TS2345, typescript argument not assignable, function parameter type mismatch typescript, react setState updater type">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2345-argument-not-assignable.html">
+    <meta property="og:title" content="TS2345: Argument of type 'X' is not assignable to parameter of type 'Y' — Fix">
+    <meta property="og:description" content="TypeScript error TS2345 means a function argument's type doesn't match the parameter. Diagnose it, then fix the value, the signature, narrow undefined/null, or type your JSON.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2345-argument-not-assignable.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2345: Argument of type 'X' is not assignable to parameter of type 'Y' — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2345: Argument not assignable", "item": "https://jsondevtools.org/errors/ts2345-argument-not-assignable.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2345: Argument of type 'X' is not assignable to parameter of type 'Y' — Cause and Fix",
+  "description": "TypeScript raises TS2345 when a function call's argument type does not match the parameter type. This reference shows how to diagnose it and fix the value, signature, null narrowing, literal unions, React, and JSON types.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is the difference between TS2345 and TS2322?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Same kind of mismatch, different place. TS2322 fires on an assignment (const x: T = value); TS2345 fires on a function call (fn(value)) when the argument's type isn't assignable to the parameter. Both are fixed by aligning the value's type with the target."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the argument count also matter?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If you pass too many or too few arguments you get a different error (TS2554), but with overloads a wrong count surfaces as 'no overload matches this call' alongside TS2345. Check the argument count against the signature first, then the types."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does undefined sneak in from a default or optional?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An optional property or a value from find()/get()/an optional param is T | undefined, and passing it to a parameter typed plain T triggers TS2345. Narrow it (guard or ?? default) at the call site, or make the parameter accept undefined if that is valid."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix it on a React setState updater?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "setState's functional form expects (prev: T) => T. Returning a different shape, or returning undefined from a branch, makes the updater argument not assignable. Ensure every path returns a full T, and type the state correctly with useState<T>()."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does 'string' fail against a literal union parameter?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A parameter like 'asc' | 'desc' accepts only those literals, but a let-declared string is widened to string. Use a const, annotate the variable as the union, or add as const so the value keeps its literal type."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "The argument is parsed JSON typed as any — why does it still fail?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "any is assignable to anything, so a true any argument won't trigger TS2345 — but once you (correctly) type the parsed value, a real mismatch with the function's parameter appears. That is the type system surfacing a genuine shape difference; generate the interface from a real sample and convert as needed."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2345: Argument not assignable</span>
+            </nav>
+            <h1>TS2345: Argument of type 'X' is not assignable to parameter of type 'Y'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">It's <a href="ts2322-type-not-assignable.html">TS2322</a>'s twin for <strong>function calls</strong>: the argument's type doesn't match the parameter. <strong>Make them match</strong> &mdash; fix the value, fix the parameter type, or <strong>narrow</strong> a <code>| undefined</code>/<code>| null</code> argument before the call. For string-literal unions, type the source or use <code>as const</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function greet(name: string) { return "Hi " + name; }
+
+greet(42);
+// error TS2345: Argument of type 'number' is not assignable to
+// parameter of type 'string'.
+
+let maybe: string | undefined;
+greet(maybe);
+// error TS2345: Argument of type 'string | undefined' is not assignable
+// to parameter of type 'string'.</code></pre>
+            </div>
+
+            <h2>How to diagnose it</h2>
+            <p>Read the two types in the message, then ask which side is wrong &mdash; and read down to any nested <code>Types of property '...' are incompatible</code> line for object arguments, just like TS2322. The shape of the argument type tells you the fix:</p>
+            <ul>
+                <li>a plain mismatch (<code>number</code> vs <code>string</code>) &rarr; convert the value or fix the parameter.</li>
+                <li><code>... | undefined</code>/<code>| null</code> &rarr; narrow at the call site.</li>
+                <li>a wide <code>string</code> vs a literal union &rarr; type the source / <code>as const</code>.</li>
+                <li>an object with a deep nested mismatch &rarr; the innermost line names the offending field.</li>
+            </ul>
+
+            <h2>Fix 1: match the value to the parameter</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>greet(String(42));        // convert the value
+greet("Ada");             // or pass the right type</code></pre>
+            </div>
+
+            <h2>Fix 2: narrow undefined/null before the call</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>greet(maybe ?? "there");          // default
+if (maybe) greet(maybe);          // guard narrows to string
+
+// or, if undefined is genuinely valid, widen the parameter:
+function greet(name?: string) { /* ... */ }</code></pre>
+            </div>
+
+            <h2>Fix 3: string-literal unions</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function sort(order: "asc" | "desc") { /* ... */ }
+
+let dir = "asc";                  // inferred as string
+sort(dir);                        // ❌ TS2345
+
+const dir2 = "asc";               // inferred as "asc"
+sort(dir2);                       // ✅
+let dir3: "asc" | "desc" = "asc";
+sort(dir3);                       // ✅</code></pre>
+            </div>
+
+            <h2>Worked example: passing parsed JSON to a typed function</h2>
+            <p>You fetch data, type it, and pass it to a helper whose parameter expects a slightly different shape &mdash; TS2345 names the field that doesn't line up:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>interface ApiUser { id: string; name: string }   // API sends id as a string
+function saveUser(u: { id: number; name: string }) { /* ... */ }
+
+const user: ApiUser = await (await fetch("/api/user")).json();
+saveUser(user);
+// error TS2345: Argument of type 'ApiUser' is not assignable to parameter ...
+//   Types of property 'id' are incompatible: 'string' is not assignable to 'number'.
+
+saveUser({ ...user, id: Number(user.id) });   // ✅ convert at the boundary</code></pre>
+            </div>
+
+            <p>Generate <code>ApiUser</code> from a real sample with <a href="../json-to-typescript.html">JSON to TypeScript</a> so the mismatch is visible at the call, not hidden behind <code>any</code>.</p>
+
+            <h2>TS2345 in React</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const [count, setCount] = useState(0);
+
+// functional updater must return the same type T:
+setCount(prev =&gt; prev + "1");     // ❌ string not assignable to parameter (number)
+setCount(prev =&gt; prev + 1);       // ✅
+
+// passing an event handler with the wrong signature:
+function onClick(id: number) {}
+&lt;button onClick={onClick} /&gt;      // ❌ MouseEvent arg not assignable to (id: number)
+&lt;button onClick={() =&gt; onClick(1)} /&gt;   // ✅ adapt the signature</code></pre>
+            </div>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Variant</th><th>Typical cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>'number' is not assignable to parameter of type 'string'</code></td><td>wrong primitive</td><td>convert / fix the value</td></tr>
+                    <tr><td><code>'string | undefined' is not assignable to parameter of type 'string'</code></td><td>optional / <code>find()</code> result</td><td>narrow or <code>??</code></td></tr>
+                    <tr><td><code>'string' is not assignable to parameter of type '"asc" | "desc"'</code></td><td>widened literal</td><td><code>as const</code> / type the source</td></tr>
+                    <tr><td><code>Argument ... Types of property 'x' are incompatible</code></td><td>object field mismatch</td><td>fix that field / convert</td></tr>
+                    <tr><td><code>No overload matches this call</code></td><td>wrong count/types vs overloads</td><td>match a declared signature</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the argument type vs the parameter type the error names</li>
+                <li>&#10003; Fix the value, or fix the parameter's declared type</li>
+                <li>&#10003; <code>| undefined</code>/<code>| null</code> argument? Narrow with a guard or <code>??</code></li>
+                <li>&#10003; Literal union parameter? Type the source or use <code>as const</code></li>
+                <li>&#10003; Object argument? Read the nested message for the offending property</li>
+                <li>&#10003; React updater/handler? Return a full <code>T</code> / adapt the signature</li>
+                <li>&#10003; Argument is parsed JSON? Type it via <a href="../json-to-typescript.html">JSON to TypeScript</a> and convert</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What is the difference between TS2345 and TS2322?</summary>
+                    <p>Same kind of mismatch, different place. <a href="ts2322-type-not-assignable.html">TS2322</a> fires on an assignment (<code>const x: T = value</code>); TS2345 fires on a function call (<code>fn(value)</code>) when the argument's type isn't assignable to the parameter. Both are fixed by aligning the value's type with the target.</p>
+                </details>
+                <details>
+                    <summary>Why does the argument count also matter?</summary>
+                    <p>If you pass too many or too few arguments you get a different error (TS2554), but with overloads a wrong count surfaces as 'no overload matches this call' alongside TS2345. Check the argument count against the signature first, then the types.</p>
+                </details>
+                <details>
+                    <summary>Why does undefined sneak in from a default or optional?</summary>
+                    <p>An optional property or a value from <code>find()</code>/<code>get()</code>/an optional param is <code>T | undefined</code>, and passing it to a parameter typed plain <code>T</code> triggers TS2345. Narrow it (guard or <code>?? default</code>) at the call site, or make the parameter accept undefined if that is valid.</p>
+                </details>
+                <details>
+                    <summary>How do I fix it on a React setState updater?</summary>
+                    <p>setState's functional form expects <code>(prev: T) =&gt; T</code>. Returning a different shape, or returning <code>undefined</code> from a branch, makes the updater argument not assignable. Ensure every path returns a full <code>T</code>, and type the state correctly with <code>useState&lt;T&gt;()</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does 'string' fail against a literal union parameter?</summary>
+                    <p>A parameter like <code>'asc' | 'desc'</code> accepts only those literals, but a <code>let</code>-declared string is widened to <code>string</code>. Use a <code>const</code>, annotate the variable as the union, or add <code>as const</code> so the value keeps its literal type.</p>
+                </details>
+                <details>
+                    <summary>The argument is parsed JSON typed as any — why does it still fail?</summary>
+                    <p><code>any</code> is assignable to anything, so a true <code>any</code> argument won't trigger TS2345 &mdash; but once you (correctly) type the parsed value, a real mismatch with the function's parameter appears. That is the type system surfacing a genuine shape difference; generate the interface from a real sample and convert as needed.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Generate accurate types from your JSON</h3>
+                <p>Turn a real API response into a TypeScript interface so your function calls are properly type-checked &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts2322-type-not-assignable.html">TS2322: Type is not assignable to type</a> &mdash; the assignment twin of this error</li>
+                <li><a href="ts2532-object-possibly-undefined.html">TS2532: Object is possibly 'undefined'</a></li>
+                <li><a href="ts2349-expression-not-callable.html">TS2349: This expression is not callable</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

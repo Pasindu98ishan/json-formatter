@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2339: Property 'X' does not exist on type 'Y' — how to diagnose why TypeScript can't find a property, and fix it by typing the value, narrowing a union, typing DOM events, or generating types from your JSON. Includes React patterns and common variants.">
+    <meta name="keywords" content="Property does not exist on type, TS2339, typescript property does not exist, property does not exist on type never, event target value typescript, react props">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2339-property-does-not-exist.html">
+    <meta property="og:title" content="TS2339: Property 'X' does not exist on type 'Y' — Cause and Fix">
+    <meta property="og:description" content="TypeScript error TS2339 means the property isn't on the value's type. Diagnose it, then fix it by typing the value, narrowing a union, typing events, or generating an interface from JSON.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2339-property-does-not-exist.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2339: Property 'X' does not exist on type 'Y' — Cause &amp; Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2339: Property does not exist", "item": "https://jsondevtools.org/errors/ts2339-property-does-not-exist.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2339: Property 'X' does not exist on type 'Y' — Cause and Fix",
+  "description": "TypeScript raises TS2339 when a property is accessed on a type that does not declare it. This reference shows how to diagnose it and fix it with proper types, union narrowing, event typing, React patterns, and generated JSON types.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why does it work in plain JavaScript but error in TypeScript?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "JavaScript lets you read any property and returns undefined if it doesn't exist; TypeScript refuses unless the property is declared on the type. TS2339 is catching a likely bug — a typo or a wrong assumption about the shape — before it becomes an undefined at runtime."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does 'Property does not exist on type never' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The value was narrowed to never — every member of its union was eliminated by an earlier check, or a filter/guard left nothing. It usually means a type guard is wrong or too aggressive. Re-check the narrowing logic so the value keeps the member that actually has the property."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I type event.target.value in a DOM or React handler?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "event.target is typed as the generic EventTarget, which has no value. In the DOM, cast it: (e.target as HTMLInputElement).value. In React, type the handler instead: (e: React.ChangeEvent<HTMLInputElement>) => e.target.value, which is checked without a cast."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does TS2339 appear after Object.keys or a .filter?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Object.keys returns string[], not the object's key type, and some array methods widen or narrow the element type in ways you didn't intend. Cast the key to keyof typeof obj, or annotate the result, so the property access is on the specific type again."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I add the property to the interface or mark it optional?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If the property is always present, add it. If it is only sometimes there (an optional API field), add it with a ? so consumers must handle the undefined case. Do not add fields that the data does not actually return — that just moves the bug downstream."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is a window/globalThis property fixed by casting?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Casting (window as any).foo works but kills type safety. Instead augment the type once: declare global { interface Window { foo: string } }. Then window.foo is known everywhere and still type-checked."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2339: Property does not exist</span>
+            </nav>
+            <h1>TS2339: Property 'X' does not exist on type 'Y'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You accessed a property the value's <strong>type</strong> doesn't declare. Give the value a <strong>proper type/interface</strong> (especially for <code>JSON.parse</code> results and <code>{}</code>), <strong>narrow a union</strong> before accessing a member-specific property, or fix a typo. Avoid <code>(obj as any).prop</code> &mdash; it just hides the problem.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const obj = {};
+obj.name;
+// error TS2339: Property 'name' does not exist on type '{}'.
+
+const data = JSON.parse(text);   // type: any (or {} if annotated)
+data.user.name;                  // unchecked on any; TS2339 once typed</code></pre>
+            </div>
+
+            <h2>How to diagnose it (read the type it names)</h2>
+            <p>The fix is decided by the <strong>type after "on type"</strong>. Hover the value in your editor and read what TypeScript thinks it is &mdash; that tells you which case you're in:</p>
+            <ul>
+                <li><code>{}</code> / <code>object</code> / <code>unknown</code> &rarr; the value is untyped &mdash; give it an interface (Fix 1).</li>
+                <li>a <strong>union</strong> (<code>A | B</code>) &rarr; the property is on only one member &mdash; narrow first (Fix 2).</li>
+                <li>the <strong>right type, but the property is misspelled</strong> &rarr; fix the name (check casing).</li>
+                <li><code>never</code> &rarr; an earlier guard eliminated every member &mdash; the narrowing is wrong.</li>
+            </ul>
+
+            <h2>Fix 1: give the value a real type</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>interface User { id: number; name: string; }
+
+const user: User = JSON.parse(text);
+user.name;                       // ✅ known property
+
+const map: Record&lt;string, number&gt; = {};
+map["count"] = 1;                // ✅ index signature allows string keys</code></pre>
+            </div>
+
+            <h2>Fix 2: narrow a union before access</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type Shape = { kind: "circle"; r: number } | { kind: "square"; side: number };
+
+function area(s: Shape) {
+  s.r;                           // ❌ not on every member
+  if (s.kind === "circle") return Math.PI * s.r ** 2;   // ✅ narrowed
+}</code></pre>
+            </div>
+
+            <h2>Fix 3: augment a global or library type</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>declare global {
+  interface Window { dataLayer: unknown[]; }
+}
+window.dataLayer.push({});       // ✅ now known</code></pre>
+            </div>
+
+            <h2>Worked example: untyped API JSON</h2>
+            <p>The most common real trigger on a JSON app: <code>response.json()</code> returns <code>any</code>, so the moment you give it a real type (which you should), TS2339 flags the field that isn't actually there or is nested differently:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>interface User { id: number; profile: { name: string } }
+
+const user: User = await (await fetch("/api/user")).json();
+user.name;
+// error TS2339: Property 'name' does not exist on type 'User'.
+//   -&gt; it's nested: user.profile.name</code></pre>
+            </div>
+
+            <p>Generate the interface from a <em>real</em> response with <a href="../json-to-typescript.html">JSON to TypeScript</a> so the property names and nesting match the data &mdash; then TS2339 only fires on genuine typos.</p>
+
+            <h2>TS2339 in React</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// 1) event.target is the generic EventTarget — type the handler:
+const onChange = (e: React.ChangeEvent&lt;HTMLInputElement&gt;) =&gt; e.target.value;  // ✅
+
+// 2) accessing a prop not declared in Props:
+function Card({ title }: { title: string }) {
+  return &lt;h3&gt;{title} {subtitle}&lt;/h3&gt;;   // ❌ 'subtitle' not on props — add it to the type
+}
+
+// 3) useRef element access:
+const ref = useRef&lt;HTMLInputElement&gt;(null);
+ref.current?.focus();             // ✅ typed element, optional-chained</code></pre>
+            </div>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Variant</th><th>Typical cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>... does not exist on type '{}'</code></td><td>untyped / empty object</td><td>declare an interface</td></tr>
+                    <tr><td><code>... does not exist on type 'never'</code></td><td>over-narrowed union</td><td>fix the type guard</td></tr>
+                    <tr><td><code>... does not exist on type 'EventTarget'</code></td><td>DOM event target</td><td>cast or type the handler</td></tr>
+                    <tr><td><code>... does not exist on type 'A | B'</code></td><td>union member-only prop</td><td>narrow with <code>in</code>/<code>typeof</code>/discriminant</td></tr>
+                    <tr><td><code>... does not exist on type 'Window'</code></td><td>custom global</td><td><code>declare global</code> augmentation</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Hover the value &mdash; read the type after "on type" to pick the fix</li>
+                <li>&#10003; <code>{}</code>/<code>object</code>/<code>any</code>? Give it an interface</li>
+                <li>&#10003; Typo? Check the exact property name and casing</li>
+                <li>&#10003; Union? Narrow with <code>in</code>/<code>typeof</code>/a discriminant first</li>
+                <li>&#10003; DOM event? Type the handler (<code>React.ChangeEvent&lt;...&gt;</code>) or cast <code>e.target</code></li>
+                <li>&#10003; Global? <code>declare global { interface Window { ... } }</code></li>
+                <li>&#10003; API JSON? Generate the interface with <a href="../json-to-typescript.html">JSON to TypeScript</a> &mdash; avoid <code>as any</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Why does it work in plain JavaScript but error in TypeScript?</summary>
+                    <p>JavaScript lets you read any property and returns <code>undefined</code> if it doesn't exist; TypeScript refuses unless the property is declared on the type. TS2339 is catching a likely bug &mdash; a typo or a wrong assumption about the shape &mdash; before it becomes an <code>undefined</code> at runtime.</p>
+                </details>
+                <details>
+                    <summary>What does 'Property does not exist on type never' mean?</summary>
+                    <p>The value was narrowed to <code>never</code> &mdash; every member of its union was eliminated by an earlier check, or a filter/guard left nothing. It usually means a type guard is wrong or too aggressive. Re-check the narrowing logic so the value keeps the member that actually has the property.</p>
+                </details>
+                <details>
+                    <summary>How do I type event.target.value in a DOM or React handler?</summary>
+                    <p><code>event.target</code> is typed as the generic <code>EventTarget</code>, which has no <code>value</code>. In the DOM, cast it: <code>(e.target as HTMLInputElement).value</code>. In React, type the handler instead: <code>(e: React.ChangeEvent&lt;HTMLInputElement&gt;) =&gt; e.target.value</code>, which is checked without a cast.</p>
+                </details>
+                <details>
+                    <summary>Why does TS2339 appear after Object.keys or a .filter?</summary>
+                    <p><code>Object.keys</code> returns <code>string[]</code>, not the object's key type, and some array methods widen or narrow the element type in ways you didn't intend. Cast the key to <code>keyof typeof obj</code>, or annotate the result, so the property access is on the specific type again.</p>
+                </details>
+                <details>
+                    <summary>Should I add the property to the interface or mark it optional?</summary>
+                    <p>If the property is always present, add it. If it is only sometimes there (an optional API field), add it with a <code>?</code> so consumers must handle the <code>undefined</code> case. Do not add fields that the data does not actually return &mdash; that just moves the bug downstream.</p>
+                </details>
+                <details>
+                    <summary>Is a window/globalThis property fixed by casting?</summary>
+                    <p>Casting <code>(window as any).foo</code> works but kills type safety. Instead augment the type once: <code>declare global { interface Window { foo: string } }</code>. Then <code>window.foo</code> is known everywhere and still type-checked.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Generate accurate types from your JSON</h3>
+                <p>Paste a real API response and get a TypeScript interface with every property typed &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts2322-type-not-assignable.html">TS2322: Type is not assignable to type</a></li>
+                <li><a href="ts2532-object-possibly-undefined.html">TS2532: Object is possibly 'undefined'</a></li>
+                <li><a href="cannot-read-properties-of-null.html">TypeError: Cannot read properties of null</a> &mdash; the runtime version of a bad property access</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

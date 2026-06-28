@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: Cannot read properties of null (reading 'X') — how to find which value is null, fix it with optional chaining, guards and defaults, handle it in React and async API data, and a table of common variants.">
+    <meta name="keywords" content="Cannot read properties of null, Cannot read properties of undefined, reading length, reading map, cannot read property of null, optional chaining javascript, react useRef current null">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/cannot-read-properties-of-null.html">
+    <meta property="og:title" content="TypeError: Cannot read properties of null (reading 'X') — Fix">
+    <meta property="og:description" content="JavaScript throws 'Cannot read properties of null/undefined' when you read a property of a missing value. Find which value is null, then fix it with optional chaining, guards, React patterns, and loading checks.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/cannot-read-properties-of-null.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: Cannot read properties of null (reading 'X') — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Cannot read properties of null", "item": "https://jsondevtools.org/errors/cannot-read-properties-of-null.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: Cannot read properties of null (reading 'X') — Cause and Fix",
+  "description": "JavaScript throws 'Cannot read properties of null/undefined' when accessing a property of a value that is null or undefined. This reference shows how to find the null value and fix it in plain JS, React, and async API data.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does the '(reading 'length')' or '(reading 'map')' part tell me?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It names the property you tried to access, which tells you what type the missing value should have been. '(reading 'length')' or '(reading 'map')' means an array or string was undefined; '(reading 'name')' means an object was null/undefined. The value before that property is the one that is empty."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find which part of a.b.c.d is null?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The (reading 'X') names the last good step: whatever you accessed X on is the null/undefined one. Log the chain piece by piece, or temporarily add optional chaining and see where the result becomes undefined. The stack trace's file:line:column points to the exact access."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it only happen in production or after a build?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Usually because production hits real, varied data (an omitted field, an empty list) that your local sample didn't, or timing differs so data isn't loaded yet. Minification also renames variables, making the stack harder to read — ship source maps so the trace points to your original code."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen with useRef().current in React?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "useRef(null).current is null until the element mounts, so reading ref.current.focus() during the first render or in a top-level statement throws. Access it inside an effect or event handler, and guard it: ref.current?.focus()."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does optional chaining hurt performance?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No, not meaningfully. ?. compiles to a cheap null/undefined check — the cost is negligible compared to almost anything else in your code. Do not avoid it for performance; the readability and crash-safety are worth far more than the micro-cost."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I prevent this across the whole codebase?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use TypeScript with strictNullChecks, which flags the access at compile time as TS2532 before it can crash at runtime, and validate API data at the boundary (a schema check or generated types) so missing fields are caught where data enters, not deep in a component."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Cannot read properties of null</span>
+            </nav>
+            <h1>TypeError: Cannot read properties of null (reading 'X')</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You read a property of a value that is <strong>null</strong> or <strong>undefined</strong>. The <code>(reading 'X')</code> part names the property &mdash; the value <em>before</em> <code>.X</code> is the empty one. Use <strong>optional chaining</strong> <code>value?.X</code> (+ <code>?? fallback</code>), <strong>guard</strong> the value, and for the DOM/React make sure it exists before you read it. In TypeScript, <a href="ts2532-object-possibly-undefined.html">TS2532</a> catches this at compile time.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const user = null;
+console.log(user.name);
+// Uncaught TypeError: Cannot read properties of null (reading 'name')
+
+const data = {};
+data.items.length;
+// Uncaught TypeError: Cannot read properties of undefined (reading 'length')
+// (older engines: "Cannot read property 'length' of undefined")</code></pre>
+            </div>
+
+            <h2>How to find which value is null (in 30 seconds)</h2>
+            <p>The message tells you exactly where to look. The property in <code>(reading 'X')</code> is what you tried to access &mdash; so <strong>the value immediately before <code>.X</code> is the null/undefined one</strong>, and the property name hints at the type it should have been:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>order.customer.address.city
+// TypeError: Cannot read properties of undefined (reading 'city')
+//   -&gt; 'address' is undefined (city is read on address)
+//   -&gt; so order.customer exists, but .address does not
+
+// confirm by logging the chain, or narrow with optional chaining:
+console.log(order.customer);          // ok?
+console.log(order.customer.address);  // undefined -&gt; found it</code></pre>
+            </div>
+
+            <p>The stack trace's <code>file:line:column</code> points at the exact access; <code>(reading 'length')</code> or <code>(reading 'map')</code> means an <em>array</em> was missing, <code>(reading 'then')</code> means a non-promise, and <code>(reading 'current')</code> usually means a React ref (below).</p>
+
+            <h2>Fix 1: optional chaining (quickest)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>user?.name;                       // undefined instead of throwing
+data?.items?.length ?? 0;         // safe down a chain, with a fallback
+order?.customer?.address?.city;   // stops at the first null/undefined</code></pre>
+            </div>
+
+            <h2>Fix 2: guard before you use it</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>if (user) {
+  console.log(user.name);         // user is non-null here
+}
+
+const items = data.items ?? [];   // default so .map/.length are safe
+items.forEach(/* ... */);</code></pre>
+            </div>
+
+            <h2>Fix 3: DOM — element not found</h2>
+            <p><code>getElementById</code>/<code>querySelector</code> return <code>null</code> when nothing matches, and run too early if the script is in <code>&lt;head&gt;</code> before the element exists:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const el = document.getElementById("app");
+if (!el) throw new Error("#app not found");   // or handle gracefully
+el.innerHTML = "ok";
+
+// run after the DOM is parsed:
+// &lt;script src="app.js" defer&gt;&lt;/script&gt;  or DOMContentLoaded</code></pre>
+            </div>
+
+            <h2>Fix 4: async data not loaded yet</h2>
+            <p>Before a fetch resolves, your value is often null/undefined &mdash; render defensively for the loading state:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>if (!data) return "Loading...";   // handle the empty first pass
+return data.user?.name ?? "Anonymous";
+
+const { items = [] } = response ?? {};   // destructure with defaults</code></pre>
+            </div>
+
+            <h2>Worked example: an API field that isn't there</h2>
+            <p>The crash often isn't "data hasn't loaded" but "the field you assumed exists is missing or nested differently." Inspect the real shape before you trust it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch("/api/order/42");
+const order = await res.json();
+renderCity(order.customer.address.city);
+// TypeError: Cannot read properties of undefined (reading 'city')
+
+// The API actually returned { "customer": { "address": null } } for guest orders.
+// Inspect the payload, then read defensively:
+const city = order.customer?.address?.city ?? "—";</code></pre>
+            </div>
+
+            <p>Paste the response into the <a href="../formatter.html">JSON Formatter</a> to see which fields really exist and how deep they are. If the request itself failed, the body is an error page, not your object &mdash; check the <a href="../http-status.html">HTTP status</a> first.</p>
+
+            <h2>Cannot read properties of null in React</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// 1) refs are null until mount
+const ref = useRef(null);
+ref.current.focus();              // ❌ null on first render
+useEffect(() =&gt; { ref.current?.focus(); }, []);   // ✅ after mount, guarded
+
+// 2) state that starts empty
+const [user, setUser] = useState(null);
+return &lt;span&gt;{user.name}&lt;/span&gt;;   // ❌ null before the fetch resolves
+return &lt;span&gt;{user?.name ?? "…"}&lt;/span&gt;;   // ✅
+
+// 3) mapping data that may be undefined
+{items?.map(i =&gt; &lt;li key={i.id}&gt;{i.name}&lt;/li&gt;)}   // ✅ guard the array</code></pre>
+            </div>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>What was empty</th><th>Usual cause</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>... (reading 'length')</code></td><td>an array/string</td><td>a list that was never set / API omitted it</td></tr>
+                    <tr><td><code>... (reading 'map')</code></td><td>an array</td><td>rendering before data loads</td></tr>
+                    <tr><td><code>... (reading 'name')</code> / any field</td><td>an object</td><td>missing or differently-nested field</td></tr>
+                    <tr><td><code>... of null (reading 'X')</code></td><td>explicit <code>null</code></td><td><code>getElementById</code>, a DB null</td></tr>
+                    <tr><td><code>... (reading 'current')</code></td><td>a React ref</td><td>reading <code>ref.current</code> before mount</td></tr>
+                    <tr><td><code>... (reading 'then')</code></td><td>a non-promise</td><td>awaiting a function that returned nothing</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read <code>(reading 'X')</code> &mdash; the value <em>before</em> <code>.X</code> is the null/undefined one</li>
+                <li>&#10003; Quick read? Optional chaining <code>?.</code> (+ <code>??</code> fallback)</li>
+                <li>&#10003; Doing work with it? Guard with <code>if (value)</code> or a default</li>
+                <li>&#10003; DOM? Confirm the element exists and the script runs after load (<code>defer</code>)</li>
+                <li>&#10003; React? Guard <code>ref.current?.</code> and typed-null state; access refs in effects</li>
+                <li>&#10003; API field missing? Check the real shape in the <a href="../formatter.html">JSON Formatter</a></li>
+                <li>&#10003; Prevent it codebase-wide with TypeScript <code>strictNullChecks</code> (<a href="ts2532-object-possibly-undefined.html">TS2532</a>)</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does the "(reading 'length')" or "(reading 'map')" part tell me?</summary>
+                    <p>It names the property you tried to access, which tells you what type the missing value should have been. <code>(reading 'length')</code> or <code>(reading 'map')</code> means an array or string was undefined; <code>(reading 'name')</code> means an object was null/undefined. The value before that property is the one that is empty.</p>
+                </details>
+                <details>
+                    <summary>How do I find which part of a.b.c.d is null?</summary>
+                    <p>The <code>(reading 'X')</code> names the last good step: whatever you accessed <code>X</code> on is the null/undefined one. Log the chain piece by piece, or temporarily add optional chaining and see where the result becomes <code>undefined</code>. The stack trace's <code>file:line:column</code> points to the exact access.</p>
+                </details>
+                <details>
+                    <summary>Why does it only happen in production or after a build?</summary>
+                    <p>Usually because production hits real, varied data (an omitted field, an empty list) that your local sample didn't, or timing differs so data isn't loaded yet. Minification also renames variables, making the stack harder to read &mdash; ship source maps so the trace points to your original code.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen with useRef().current in React?</summary>
+                    <p><code>useRef(null).current</code> is <code>null</code> until the element mounts, so reading <code>ref.current.focus()</code> during the first render or in a top-level statement throws. Access it inside an effect or event handler, and guard it: <code>ref.current?.focus()</code>.</p>
+                </details>
+                <details>
+                    <summary>Does optional chaining hurt performance?</summary>
+                    <p>No, not meaningfully. <code>?.</code> compiles to a cheap null/undefined check &mdash; the cost is negligible compared to almost anything else in your code. Do not avoid it for performance; the readability and crash-safety are worth far more than the micro-cost.</p>
+                </details>
+                <details>
+                    <summary>How do I prevent this across the whole codebase?</summary>
+                    <p>Use TypeScript with <code>strictNullChecks</code>, which flags the access at compile time as <a href="ts2532-object-possibly-undefined.html">TS2532</a> before it can crash at runtime, and validate API data at the boundary (a schema check or generated types) so missing fields are caught where data enters, not deep in a component.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Is the data shaped how you think?</h3>
+                <p>Paste the API response into the formatter to see exactly which fields exist and how they're nested &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../jsonpath.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSONPath Tester</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts2532-object-possibly-undefined.html">TS2532: Object is possibly 'undefined'</a> &mdash; the TypeScript compile-time guard for this</li>
+                <li><a href="ts2339-property-does-not-exist.html">TS2339: Property does not exist on type</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a> &mdash; when the data never arrived</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

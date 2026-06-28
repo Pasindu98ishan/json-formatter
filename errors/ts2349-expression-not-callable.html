@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2349: This expression is not callable — how to diagnose why a value can't be called as a function (unions, non-function types, optional callbacks, overloads) and fix each, with React patterns and common variants.">
+    <meta name="keywords" content="This expression is not callable, TS2349, typescript not callable, Type has no call signatures, union type not callable, react optional callback">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2349-expression-not-callable.html">
+    <meta property="og:title" content="TS2349: This expression is not callable — Cause and Fix">
+    <meta property="og:description" content="TypeScript error TS2349 means you tried to call something that isn't a function for all its possible types. Diagnose it, then narrow a union, fix the type, optional-call it, or match an overload.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2349-expression-not-callable.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2349: This expression is not callable — Cause &amp; Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2349: This expression is not callable", "item": "https://jsondevtools.org/errors/ts2349-expression-not-callable.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2349: This expression is not callable — Cause and Fix",
+  "description": "TypeScript raises TS2349 when you call a value that has no call signature for all of its possible types. This reference shows how to diagnose it and fix unions, non-function types, optional callbacks, overloads, and React handlers.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does \"Type X has no call signatures\" mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means the value isn't a function type at all — you tried to call an object, number, or string. The companion message 'not all constituents ... are callable' means it's a union where only some members are functions. Both are TS2349 variants; the first means fix the value, the second means narrow."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I call an optional callback safely?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use optional call syntax: fn?.(). It calls fn only when it is not null/undefined and is a no-op otherwise. This is the cleanest fix for a callback typed (() => void) | undefined, such as an optional React prop onClick?."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does narrowing with typeof fix it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "On a union like (() => void) | number, TypeScript can't call it because number has no call signature. if (typeof fn === 'function') narrows the union to just the callable member inside the block, so the call is allowed and type-checked."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this prevent the runtime 'x is not a function'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. TS2349 is the compile-time guard against TypeError: x is not a function. Fixing it properly — narrowing or correcting the type rather than casting — stops that runtime crash from shipping."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does an overloaded function report not callable?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If your arguments match none of the declared overload signatures, TypeScript reports the call as not callable / 'no overload matches this call'. Compare the argument count and types to each overload and pass values that fit one of them."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is casting to any or Function a good fix?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No — (fn as any)() or the Function type both disable argument and return-type checking, so a genuine 'not a function' bug survives to runtime. Narrow the union or give the value a proper callable type instead; cast only after you've verified at runtime that it's callable."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2349: This expression is not callable</span>
+            </nav>
+            <h1>TS2349: This expression is not callable</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You called a value (<code>value()</code>) whose type isn't callable for all its possibilities. Usually it's a <strong>union</strong> where only some members are functions &mdash; <strong>narrow</strong> with <code>typeof fn === 'function'</code> first. A <code>() =&gt; void | undefined</code> value? Use <code>fn?.()</code>. This is the compile-time guard against the runtime <em>x is not a function</em>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let fn: (() =&gt; void) | number = () =&gt; {};
+fn();
+// error TS2349: This expression is not callable.
+//   Not all constituents of type '(() =&gt; void) | number' are callable.
+//     Type 'number' has no call signatures.</code></pre>
+            </div>
+
+            <h2>How to diagnose it (read the bottom line)</h2>
+            <p>The last line of the error tells you the situation:</p>
+            <ul>
+                <li><code>Type 'X' has no call signatures</code> on the <strong>whole type</strong> &rarr; the value isn't a function &mdash; you likely meant a method call, or the variable holds the wrong value (Fix 3).</li>
+                <li><code>Not all constituents ... are callable</code> &rarr; it's a <strong>union</strong>; narrow to the function member (Fix 1).</li>
+                <li>the type includes <code>undefined</code> &rarr; an <strong>optional callback</strong>; optional-call it (Fix 2).</li>
+                <li><code>No overload matches this call</code> &rarr; arguments don't fit any <strong>overload</strong> (Fix 4).</li>
+            </ul>
+
+            <h2>Fix 1: narrow a union to the callable member</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>if (typeof fn === "function") {
+  fn();                          // ✅ narrowed to () =&gt; void
+}</code></pre>
+            </div>
+
+            <h2>Fix 2: possibly-undefined function → optional call</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type Props = { onClick?: () =&gt; void };
+function handle(p: Props) {
+  p.onClick();                   // ❌ might be undefined
+  p.onClick?.();                 // ✅ called only if defined
+}</code></pre>
+            </div>
+
+            <h2>Fix 3: it isn't a function — fix the type or the access</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const api = { send: () =&gt; {} };
+api();                           // ❌ api is an object
+api.send();                      // ✅ call the method</code></pre>
+            </div>
+
+            <h2>Fix 4: overloads — match a signature</h2>
+            <p>If the function is overloaded and your arguments match none of the signatures, the call is reported as not callable. Check the argument count and types against the declared overloads and pass values that fit one.</p>
+
+            <h2>Worked example: a callback from config/JSON</h2>
+            <p>A handler map is loaded or built dynamically and a looked-up entry might not be a function (a typo'd key, a non-function value in the config). Narrow before calling:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type Handlers = Record&lt;string, (() =&gt; void) | undefined&gt;;
+const handlers: Handlers = { save: () =&gt; {}, /* delete missing */ };
+
+handlers[action]();              // ❌ TS2349 (entry may be undefined)
+handlers[action]?.();            // ✅ call only if present and callable</code></pre>
+            </div>
+
+            <p>If the map comes from external JSON, type the parsed value (e.g. <code>Record&lt;string, unknown&gt;</code>) and check each entry with <code>typeof === 'function'</code> before calling &mdash; JSON can't actually contain functions, so a "callable from JSON" is usually a design smell worth re-checking.</p>
+
+            <h2>TS2349 in React</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// 1) optional event-handler prop
+function Modal({ onClose }: { onClose?: () =&gt; void }) {
+  return &lt;button onClick={() =&gt; onClose?.()}&gt;Close&lt;/button&gt;;   // ✅ optional call
+}
+
+// 2) a ref to a child's imperative handle
+const ref = useRef&lt;{ focus: () =&gt; void } | null&gt;(null);
+ref.current.focus();             // ❌ possibly null + call
+ref.current?.focus();            // ✅</code></pre>
+            </div>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Variant</th><th>Meaning</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>Not all constituents ... are callable</code></td><td>union with a non-function member</td><td>narrow with <code>typeof</code></td></tr>
+                    <tr><td><code>Type 'X' has no call signatures</code></td><td>value isn't a function</td><td>call a method / fix the value</td></tr>
+                    <tr><td>type includes <code>undefined</code></td><td>optional callback</td><td><code>fn?.()</code></td></tr>
+                    <tr><td><code>No overload matches this call</code></td><td>args fit no overload</td><td>match a declared signature</td></tr>
+                    <tr><td>calling a namespace/type</td><td>used a type/namespace as a value</td><td>reference the actual function</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the last line &mdash; which member/type "has no call signatures"?</li>
+                <li>&#10003; Union? Narrow with <code>typeof x === 'function'</code> before calling</li>
+                <li>&#10003; Optional function (<code>| undefined</code>)? Call with <code>fn?.()</code></li>
+                <li>&#10003; Whole type not callable? It isn't a function &mdash; call a method or fix the value</li>
+                <li>&#10003; Overloaded? Match the argument count/types to one signature</li>
+                <li>&#10003; React handler/ref? Optional-call it (<code>onClose?.()</code>, <code>ref.current?.()</code>)</li>
+                <li>&#10003; This prevents the runtime <code>x is not a function</code> &mdash; fix the type, don't cast blindly</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "Type X has no call signatures" mean?</summary>
+                    <p>It means the value isn't a function type at all &mdash; you tried to call an object, number, or string. The companion message 'not all constituents ... are callable' means it's a union where only some members are functions. Both are TS2349 variants; the first means fix the value, the second means narrow.</p>
+                </details>
+                <details>
+                    <summary>How do I call an optional callback safely?</summary>
+                    <p>Use optional call syntax: <code>fn?.()</code>. It calls <code>fn</code> only when it is not null/undefined and is a no-op otherwise. This is the cleanest fix for a callback typed <code>(() =&gt; void) | undefined</code>, such as an optional React prop <code>onClick?</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does narrowing with typeof fix it?</summary>
+                    <p>On a union like <code>(() =&gt; void) | number</code>, TypeScript can't call it because <code>number</code> has no call signature. <code>if (typeof fn === 'function')</code> narrows the union to just the callable member inside the block, so the call is allowed and type-checked.</p>
+                </details>
+                <details>
+                    <summary>Does this prevent the runtime 'x is not a function'?</summary>
+                    <p>Yes. TS2349 is the compile-time guard against <code>TypeError: x is not a function</code>. Fixing it properly &mdash; narrowing or correcting the type rather than casting &mdash; stops that runtime crash from shipping.</p>
+                </details>
+                <details>
+                    <summary>Why does an overloaded function report not callable?</summary>
+                    <p>If your arguments match none of the declared overload signatures, TypeScript reports the call as not callable / 'no overload matches this call'. Compare the argument count and types to each overload and pass values that fit one of them.</p>
+                </details>
+                <details>
+                    <summary>Is casting to any or Function a good fix?</summary>
+                    <p>No &mdash; <code>(fn as any)()</code> or the <code>Function</code> type both disable argument and return-type checking, so a genuine 'not a function' bug survives to runtime. Narrow the union or give the value a proper callable type instead; cast only after you've verified at runtime that it's callable.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More TypeScript &amp; JSON errors</h3>
+                <p>Browse the full reference, or generate accurate interfaces from your JSON.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="ts2339-property-does-not-exist.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">TS2339: Property does not exist</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts2345-argument-not-assignable.html">TS2345: Argument is not assignable to parameter</a></li>
+                <li><a href="ts2339-property-does-not-exist.html">TS2339: Property does not exist on type</a></li>
+                <li><a href="cannot-read-properties-of-null.html">TypeError: Cannot read properties of undefined</a> &mdash; the runtime crash family</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2532: Object is possibly 'undefined' — how to diagnose why a value might be undefined under strictNullChecks, and fix it with optional chaining, guards, defaults, or a non-null assertion. Includes React patterns and common variants.">
+    <meta name="keywords" content="Object is possibly undefined, TS2532, typescript possibly undefined, optional chaining, strictNullChecks, noUncheckedIndexedAccess, react useContext undefined">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2532-object-possibly-undefined.html">
+    <meta property="og:title" content="TS2532: Object is possibly 'undefined' — Cause and Fix">
+    <meta property="og:description" content="TypeScript error TS2532 means the value might be undefined. Diagnose it, then fix it with optional chaining (?.), a guard, a default (??), or a non-null assertion — plus React patterns.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2532-object-possibly-undefined.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2532: Object is possibly 'undefined' — Cause &amp; Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2532: Object is possibly undefined", "item": "https://jsondevtools.org/errors/ts2532-object-possibly-undefined.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2532: Object is possibly 'undefined' — Cause and Fix",
+  "description": "TypeScript raises TS2532 under strictNullChecks when you access a value that could be undefined. This reference shows how to diagnose it and fix it with optional chaining, guards, defaults, non-null assertions, and React patterns.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How is TS2532 different from TS18048 and TS2533?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are the same null-safety family. TS2532 is 'Object is possibly undefined' (an expression result); TS18048 is \"'x' is possibly 'undefined'\" (newer wording naming a specific value); TS2533 is 'Object is possibly null or undefined'. All are fixed by narrowing or guarding before access."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does TS2532 appear on arr[i] after I enabled a flag?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "noUncheckedIndexedAccess types every indexed access arr[i] and obj[key] as T | undefined, because the index might be out of range or the key absent. That is intentional safety — guard the result, use optional chaining, or check length/existence before using it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a guard like if (a && a.b) still narrow in TS2532?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes for locals, but a narrowing can be 'lost' if a function call happens in between, or if the value is a mutable object property TypeScript can't prove is unchanged. Copy it to a const first (const x = obj.maybe; if (x) x.use()), which narrows reliably."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is useContext possibly undefined in React?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If you call createContext<Ctx | undefined>(undefined), the hook returns Ctx | undefined, so every use hits TS2532. Either provide a non-undefined default, or write a custom useX hook that throws if the context is missing and returns the narrowed, defined value."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is the non-null assertion (!) safe to use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only when you are certain the value is defined and the compiler cannot see it. value! removes the check but does nothing at runtime, so a wrong assertion throws 'cannot read properties of undefined'. Prefer a real guard whenever the value could genuinely be missing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Will disabling strictNullChecks make TS2532 go away?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, but don't. strictNullChecks is what turns runtime 'cannot read properties of undefined' crashes into compile-time errors. Turning it off removes the safety across the whole project. Fix the single undefined case the error points at instead."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2532: Object is possibly undefined</span>
+            </nav>
+            <h1>TS2532: Object is possibly 'undefined'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Under <code>strictNullChecks</code> the value's type includes <code>undefined</code>, so accessing it could crash. Prove it's defined first: <strong>optional chaining</strong> <code>value?.prop</code>, a <strong>guard</strong> (<code>if (value)</code>), or a <strong>default</strong> (<code>value ?? fallback</code>). Use <code>value!</code> only when you're certain. It's the compile-time version of the runtime <a href="cannot-read-properties-of-null.html">Cannot read properties of undefined</a>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function len(s?: string) {
+  return s.length;
+}
+// error TS2532: Object is possibly 'undefined'.
+
+const el = document.getElementById("app");
+el.innerHTML = "";
+// error TS2532: Object is possibly 'null'. (getElementById returns T | null)</code></pre>
+            </div>
+
+            <h2>How to diagnose it (where does undefined come from?)</h2>
+            <p>TS2532 always points at a value whose type is <code>T | undefined</code>. Hover it and find <em>why</em> undefined is in the type &mdash; the source decides the cleanest fix:</p>
+            <ul>
+                <li>an <strong>optional</strong> param/field (<code>s?: string</code>, <code>obj.maybe</code>) &rarr; guard or default.</li>
+                <li>an <strong>indexed access</strong> (<code>arr[i]</code>, <code>map[key]</code>) under <code>noUncheckedIndexedAccess</code> &rarr; guard the result.</li>
+                <li>a function that <strong>can return undefined</strong> (<code>find</code>, <code>getElementById</code> &rarr; <code>null</code>, a <code>Map.get</code>) &rarr; check before use.</li>
+                <li>narrowing <strong>lost</strong> across a function call &rarr; copy to a <code>const</code> first.</li>
+            </ul>
+
+            <h2>Fix 1: optional chaining (quickest)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>return s?.length;             // undefined instead of throwing
+return s?.length ?? 0;        // with a fallback value</code></pre>
+            </div>
+
+            <h2>Fix 2: a guard (narrows the type)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function len(s?: string) {
+  if (s === undefined) return 0;   // early return
+  return s.length;                 // ✅ s is string here
+}
+
+if (el) el.innerHTML = "";         // narrowed inside the block</code></pre>
+            </div>
+
+            <h2>Fix 3: a default with ??</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const value = s ?? "";           // never undefined from here
+return value.length;</code></pre>
+            </div>
+
+            <h2>Fix 4: non-null assertion (only when certain)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const el = document.getElementById("app")!;   // you know #app exists
+el.innerHTML = "";</code></pre>
+            </div>
+
+            <h2>Worked example: optional fields in API JSON</h2>
+            <p>APIs omit optional fields, so a generated/accurate interface marks them <code>?</code> &mdash; and then every access is correctly flagged by TS2532. That's the type system doing its job:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>interface User { name: string; address?: { city: string } }  // address is optional
+
+const user: User = await (await fetch("/api/user")).json();
+user.address.city;               // error TS2532: Object is possibly 'undefined'
+user.address?.city ?? "—";       // ✅ handle the missing case</code></pre>
+            </div>
+
+            <p>Generate the interface from a real payload with <a href="../json-to-typescript.html">JSON to TypeScript</a> and mark genuinely-optional fields <code>?</code> &mdash; TS2532 then forces you to handle exactly the cases the API can actually produce.</p>
+
+            <h2>TS2532 in React</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// 1) useContext with an undefined default
+const Ctx = createContext&lt;Theme | undefined&gt;(undefined);
+const theme = useContext(Ctx);
+theme.color;                      // ❌ TS2532
+// custom hook that throws if missing -&gt; returns a defined Theme:
+function useTheme() {
+  const t = useContext(Ctx);
+  if (!t) throw new Error("useTheme must be used within ThemeProvider");
+  return t;                       // ✅ Theme, not Theme | undefined
+}
+
+// 2) router params / a find() result
+const item = items.find(i =&gt; i.id === id);
+item?.name;                       // ✅ find() can return undefined</code></pre>
+            </div>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Variant</th><th>Typical cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>Object is possibly 'undefined'</code></td><td>optional value / <code>find()</code></td><td>optional chaining or guard</td></tr>
+                    <tr><td><code>Object is possibly 'null'</code></td><td><code>getElementById</code> etc.</td><td>guard or <code>!</code> when certain</td></tr>
+                    <tr><td><code>Object is possibly 'null' or 'undefined'</code> (TS2533)</td><td>value is <code>T | null | undefined</code></td><td>narrow both</td></tr>
+                    <tr><td><code>'x' is possibly 'undefined'</code> (TS18048)</td><td>newer wording, named value</td><td>same — narrow/guard</td></tr>
+                    <tr><td>appears on <code>arr[i]</code></td><td><code>noUncheckedIndexedAccess</code></td><td>guard the indexed result</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Hover the value &mdash; find why <code>undefined</code> is in its type</li>
+                <li>&#10003; Quick read? Optional chaining <code>?.</code> (+ <code>??</code> fallback)</li>
+                <li>&#10003; Doing real work? <code>if</code> guard / early return to narrow</li>
+                <li>&#10003; Narrowing lost across a call? Copy to a <code>const</code> first</li>
+                <li>&#10003; React <code>useContext</code>? Throw-if-missing custom hook</li>
+                <li>&#10003; <code>arr[i]</code> with <code>noUncheckedIndexedAccess</code>? Guard the result</li>
+                <li>&#10003; Don't disable <code>strictNullChecks</code> to silence it</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How is TS2532 different from TS18048 and TS2533?</summary>
+                    <p>They are the same null-safety family. TS2532 is 'Object is possibly undefined' (an expression result); TS18048 is "'x' is possibly 'undefined'" (newer wording naming a specific value); TS2533 is 'Object is possibly null or undefined'. All are fixed by narrowing or guarding before access.</p>
+                </details>
+                <details>
+                    <summary>Why does TS2532 appear on arr[i] after I enabled a flag?</summary>
+                    <p><code>noUncheckedIndexedAccess</code> types every indexed access <code>arr[i]</code> and <code>obj[key]</code> as <code>T | undefined</code>, because the index might be out of range or the key absent. That is intentional safety &mdash; guard the result, use optional chaining, or check length/existence before using it.</p>
+                </details>
+                <details>
+                    <summary>Does a guard like if (a &amp;&amp; a.b) still narrow in TS2532?</summary>
+                    <p>Yes for locals, but a narrowing can be "lost" if a function call happens in between, or if the value is a mutable object property TypeScript can't prove is unchanged. Copy it to a <code>const</code> first (<code>const x = obj.maybe; if (x) x.use()</code>), which narrows reliably.</p>
+                </details>
+                <details>
+                    <summary>Why is useContext possibly undefined in React?</summary>
+                    <p>If you call <code>createContext&lt;Ctx | undefined&gt;(undefined)</code>, the hook returns <code>Ctx | undefined</code>, so every use hits TS2532. Either provide a non-undefined default, or write a custom <code>useX</code> hook that throws if the context is missing and returns the narrowed, defined value.</p>
+                </details>
+                <details>
+                    <summary>Is the non-null assertion (!) safe to use?</summary>
+                    <p>Only when you are certain the value is defined and the compiler cannot see it. <code>value!</code> removes the check but does nothing at runtime, so a wrong assertion throws 'cannot read properties of undefined'. Prefer a real guard whenever the value could genuinely be missing.</p>
+                </details>
+                <details>
+                    <summary>Will disabling strictNullChecks make TS2532 go away?</summary>
+                    <p>Yes, but don't. <code>strictNullChecks</code> is what turns runtime 'cannot read properties of undefined' crashes into compile-time errors. Turning it off removes the safety across the whole project. Fix the single undefined case the error points at instead.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Typing an API response?</h3>
+                <p>Generate an interface from a real payload (with optional fields marked) using JSON to TypeScript &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-read-properties-of-null.html">TypeError: Cannot read properties of null/undefined</a> &mdash; the runtime crash TS2532 prevents</li>
+                <li><a href="ts2322-type-not-assignable.html">TS2322: Type is not assignable</a> &mdash; the <code>| undefined</code> assignment sibling</li>
+                <li><a href="ts2339-property-does-not-exist.html">TS2339: Property does not exist on type</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

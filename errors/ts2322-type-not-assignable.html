@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2322: Type 'X' is not assignable to type 'Y' — how to read the nested error, diagnose the real mismatch, and fix it in plain TS, React (useState/props), and mistyped API JSON, with a table of common variants.">
+    <meta name="keywords" content="Type is not assignable to type, TS2322, typescript not assignable, type string is not assignable to type number, not assignable to type never, react useState type">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2322-type-not-assignable.html">
+    <meta property="og:title" content="TS2322: Type 'X' is not assignable to type 'Y' — Cause and Fix">
+    <meta property="og:description" content="TypeScript error TS2322 means a value's type doesn't match where it's assigned. Read the nested error, then fix it in plain TS, React, and mistyped API JSON.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2322-type-not-assignable.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2322: Type 'X' is not assignable to type 'Y' — Cause &amp; Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2322: Type is not assignable", "item": "https://jsondevtools.org/errors/ts2322-type-not-assignable.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2322: Type 'X' is not assignable to type 'Y' — Cause and Fix",
+  "description": "TypeScript raises TS2322 when a value's type is not assignable to the target type. This reference shows how to read the nested error and fix it in plain TS, React, and mistyped API JSON.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does \"is not assignable to type 'never'\" mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "'never' usually means TypeScript inferred an empty type. The classic case is const arr = [] which is inferred as never[], so pushing or assigning a value fails. Annotate the variable — const arr: number[] = [] — so it isn't never. It also appears in the impossible branch of an exhaustive switch."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the error say \"Types of property 'x' are incompatible\"?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "That nested line is the real cause. The two outer types differ only because one inner property doesn't match. Read down to the innermost \"Type 'A' is not assignable to type 'B'\" — it names the exact field and the exact types to fix, instead of the broad outer types."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does TS2322 fail the build or only show in the editor?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Both. tsc exits with a non-zero code on TS2322, so it fails CI and production builds, and the editor underlines it. They share the same type-checker, so fixing the type clears both. A red squiggle with a passing build usually means the editor and tsconfig disagree on settings."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix TS2322 on a React useState?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Give useState an explicit type argument. useState(null) infers the state type as null, so a later setUser({...}) is not assignable. Write useState<User | null>(null) so the state accepts the values you will actually set."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I suppress TS2322 with @ts-expect-error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Prefer fixing the type. If you must suppress temporarily, @ts-expect-error is better than @ts-ignore because it itself errors if the line later stops having an error, so it self-cleans. Keep either rare, on the single offending line, and commented with why."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is 'unknown' not assignable to a specific type?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "unknown is the type-safe top type: you must narrow it before assigning it to anything specific. Validate or guard the value (typeof, an 'in' check, or a schema parse) and TypeScript narrows it, then the assignment is allowed. any would let it through silently — that is exactly the safety unknown adds."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2322: Type is not assignable</span>
+            </nav>
+            <h1>TS2322: Type 'X' is not assignable to type 'Y'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A value's type doesn't match where you're assigning it. Read the error <strong>top-down to the innermost line</strong> to find the exact field, then <strong>make the types match</strong> &mdash; fix the value, correct the declared type, or <strong>narrow</strong> it. The most common variant is <code>string | undefined</code> not assignable to <code>string</code> under <code>strictNullChecks</code> &mdash; guard it or use <code>?? ''</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let count: number = "5";
+// error TS2322: Type 'string' is not assignable to type 'number'.
+
+interface User { id: number; name: string; }
+const u: User = { id: 1, name: 42 };
+// error TS2322: Type 'number' is not assignable to type 'string'.  (on name)</code></pre>
+            </div>
+
+            <h2>How to read a TS2322 error (find the real cause)</h2>
+            <p>The first line names the two <em>top-level</em> types, but the actual mismatch is usually deeper. Read down to the innermost <code>Types of property 'x' are incompatible</code> / <code>Type 'A' is not assignable to type 'B'</code> line &mdash; that pinpoints the field and the exact types to change. In your editor, hover the red underline to see the same nested breakdown.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const users: User[] = [{ id: "42", name: "Ada" }];
+// error TS2322: Type '{ id: string; name: string; }[]' is not assignable to type 'User[]'.
+//   Type '{ id: string; name: string; }' is not assignable to type 'User'.
+//     Types of property 'id' are incompatible.
+//       Type 'string' is not assignable to type 'number'.   &lt;-- the real cause</code></pre>
+            </div>
+
+            <p>Ignore the noisy outer types and jump to the last line: <code>id</code> is a <code>string</code> where <code>User.id</code> is a <code>number</code>. That single field is what you fix.</p>
+
+            <h2>Fix 1: make the value and the type agree</h2>
+            <p>Decide which side is correct &mdash; the value or the declared type &mdash; and fix that one:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let count: number = 5;            // value corrected
+let id: string = "5";            // or the type corrected to match the value</code></pre>
+            </div>
+
+            <h2>Fix 2: strictNullChecks — handle null/undefined</h2>
+            <p>The single most common TS2322 is a possibly-undefined value assigned to a non-optional type. Narrow it before assigning:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function f(name?: string) {
+  const s: string = name;          // ❌ string | undefined not assignable to string
+
+  const s1: string = name ?? "";   // ✅ default
+  if (name !== undefined) {
+    const s2: string = name;       // ✅ narrowed
+  }
+}</code></pre>
+            </div>
+
+            <h2>Fix 3: widen the target with a union (when both are valid)</h2>
+            <p>If the target legitimately holds more than one type, declare a union &mdash; but only when both values truly belong there:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let id: string | number;
+id = 5;       // ✅
+id = "abc";   // ✅</code></pre>
+            </div>
+
+            <h2>Fix 4: assertions — last resort</h2>
+            <p>A type assertion silences the check without changing the value, so use it only when you genuinely know more than the compiler (e.g. right after validating external data):</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const el = document.getElementById("app") as HTMLDivElement;   // you verified it's a div
+const n = (value as unknown) as number;   // double assertion — a red flag, avoid</code></pre>
+            </div>
+
+            <h2>Worked example: TS2322 from a mistyped API payload</h2>
+            <p>This is the most common real-world trigger on a JSON-heavy app: a hand-written interface that has drifted from what the API actually returns. The API sends an <code>id</code> as a quoted string, your interface says <code>number</code>, and the assignment fails:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>interface User { id: number; name: string; }
+
+// The API actually returns: { "id": "42", "name": "Ada" }
+const res = await fetch("/api/user");
+const user: User = await res.json();
+// error TS2322: Type 'string' is not assignable to type 'number'. (on id)</code></pre>
+            </div>
+
+            <p>The fix is accurate types, not a cast. Generate the interface from a <em>real</em> response with <a href="../json-to-typescript.html">JSON to TypeScript</a> &mdash; it types <code>id</code> as <code>string</code> to match the data &mdash; then convert deliberately if your app needs a number:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>interface ApiUser { id: string; name: string; }    // generated from a real sample
+
+const apiUser = (await res.json()) as ApiUser;
+const user: User = { ...apiUser, id: Number(apiUser.id) };   // explicit conversion</code></pre>
+            </div>
+
+            <h2>TS2322 in React</h2>
+            <p>React surfaces TS2322 in a few recurring spots:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// 1) useState infers from the initial value
+const [user, setUser] = useState(null);          // inferred type: null
+setUser({ id: 1, name: "Ada" });                 // ❌ TS2322
+const [user2, setUser2] = useState&lt;User | null&gt;(null);   // ✅ type it
+
+// 2) a typed prop given the wrong type
+function Badge({ count }: { count: number }) { return &lt;span&gt;{count}&lt;/span&gt;; }
+&lt;Badge count="3" /&gt;                              // ❌ Type 'string' is not assignable to type 'number'
+&lt;Badge count={3} /&gt;                              // ✅
+
+// 3) controlled input value can't be null
+&lt;input value={name} /&gt;    // if name is string | null -&gt; TS2322; use {name ?? ""}</code></pre>
+            </div>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Variant</th><th>Typical cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>Type 'string' is not assignable to type 'number'</code></td><td>wrong primitive type</td><td>convert the value or fix the type</td></tr>
+                    <tr><td><code>Type 'string | undefined' is not assignable to type 'string'</code></td><td>strictNullChecks</td><td>narrow, or <code>?? ''</code></td></tr>
+                    <tr><td><code>Type 'null' is not assignable to type 'string'</code></td><td>null where non-null expected</td><td>allow <code>| null</code> or guard</td></tr>
+                    <tr><td><code>Type 'X' is not assignable to type 'never'</code></td><td><code>[]</code> inferred as <code>never[]</code></td><td>annotate the variable</td></tr>
+                    <tr><td><code>Object literal may only specify known properties</code></td><td>excess property</td><td>remove/rename the extra key</td></tr>
+                    <tr><td><code>'string' is not assignable to type '"asc" | "desc"'</code></td><td>literal union</td><td>type the source or <code>as const</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read to the <strong>innermost</strong> error line &mdash; it names the real field and types</li>
+                <li>&#10003; Decide which is correct (value or declared type) and fix that one</li>
+                <li>&#10003; <code>... | undefined</code> / <code>| null</code>? Narrow with a guard or <code>??</code> default</li>
+                <li>&#10003; Both types valid? Widen the target to a <strong>union</strong></li>
+                <li>&#10003; React <code>useState</code>? Give it a type argument: <code>useState&lt;T | null&gt;(null)</code></li>
+                <li>&#10003; From API JSON? Generate the interface with <a href="../json-to-typescript.html">JSON to TypeScript</a> and convert deliberately</li>
+                <li>&#10003; <code>as</code> only when you truly know more than the compiler</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "is not assignable to type 'never'" mean?</summary>
+                    <p>'never' usually means TypeScript inferred an empty type. The classic case is <code>const arr = []</code> which is inferred as <code>never[]</code>, so pushing or assigning a value fails. Annotate the variable &mdash; <code>const arr: number[] = []</code> &mdash; so it isn't <code>never</code>. It also appears in the impossible branch of an exhaustive <code>switch</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does the error say "Types of property 'x' are incompatible"?</summary>
+                    <p>That nested line is the real cause. The two outer types differ only because one inner property doesn't match. Read down to the innermost <code>Type 'A' is not assignable to type 'B'</code> &mdash; it names the exact field and the exact types to fix, instead of the broad outer types.</p>
+                </details>
+                <details>
+                    <summary>Does TS2322 fail the build or only show in the editor?</summary>
+                    <p>Both. <code>tsc</code> exits with a non-zero code on TS2322, so it fails CI and production builds, and the editor underlines it. They share the same type-checker, so fixing the type clears both. A red squiggle with a passing build usually means the editor and tsconfig disagree on settings.</p>
+                </details>
+                <details>
+                    <summary>How do I fix TS2322 on a React useState?</summary>
+                    <p>Give <code>useState</code> an explicit type argument. <code>useState(null)</code> infers the state type as <code>null</code>, so a later <code>setUser({...})</code> is not assignable. Write <code>useState&lt;User | null&gt;(null)</code> so the state accepts the values you will actually set.</p>
+                </details>
+                <details>
+                    <summary>Should I suppress TS2322 with @ts-expect-error?</summary>
+                    <p>Prefer fixing the type. If you must suppress temporarily, <code>@ts-expect-error</code> is better than <code>@ts-ignore</code> because it itself errors if the line later stops having an error, so it self-cleans. Keep either rare, on the single offending line, and commented with why.</p>
+                </details>
+                <details>
+                    <summary>Why is 'unknown' not assignable to a specific type?</summary>
+                    <p><code>unknown</code> is the type-safe top type: you must narrow it before assigning it to anything specific. Validate or guard the value (<code>typeof</code>, an <code>in</code> check, or a schema parse) and TypeScript narrows it, then the assignment is allowed. <code>any</code> would let it through silently &mdash; that is exactly the safety <code>unknown</code> adds.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Generate accurate types from your JSON</h3>
+                <p>Paste a real API response and get a TypeScript interface whose field types match the data &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts2345-argument-not-assignable.html">TS2345: Argument of type 'X' is not assignable to parameter of type 'Y'</a> &mdash; the same mismatch on a function call</li>
+                <li><a href="ts2532-object-possibly-undefined.html">TS2532: Object is possibly 'undefined'</a> &mdash; the null-safety sibling</li>
+                <li><a href="ts2339-property-does-not-exist.html">TS2339: Property does not exist on type</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

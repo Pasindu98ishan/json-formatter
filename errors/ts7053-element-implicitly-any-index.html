@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS7053: Element implicitly has an 'any' type because the index expression can't be used to index the type — how to diagnose dynamic indexing and fix it with keyof typeof, an index signature, Record, or a Map. Includes React patterns and common variants.">
+    <meta name="keywords" content="Element implicitly has an any type, TS7053, no index signature, can't be used to index type, keyof typeof typescript, Record typescript, react dynamic key">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts7053-element-implicitly-any-index.html">
+    <meta property="og:title" content="TS7053: Element implicitly has an 'any' type (index signature) — Fix">
+    <meta property="og:description" content="TypeScript blocks indexing an object with a dynamic string key when there's no index signature. Diagnose it, then fix with keyof typeof, a Record type, an index signature, or a Map.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts7053-element-implicitly-any-index.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS7053: Element implicitly has an 'any' type (index signature) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS7053: Element implicitly has an any type", "item": "https://jsondevtools.org/errors/ts7053-element-implicitly-any-index.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS7053: Element implicitly has an 'any' type — index signature — Cause and Fix",
+  "description": "TypeScript raises TS7053 when an object is indexed with a dynamic key and the type has no index signature. This reference shows how to diagnose it and fix it with keyof typeof, Record, index signatures, Map, React patterns, and common variants.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "When should I use keyof typeof versus Record?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use keyof typeof when the key is guaranteed to be one of a fixed object's own keys — it keeps each value's specific type. Use Record<string, T> (or an index signature) when the object is a dictionary with arbitrary string keys. keyof preserves precision; Record accepts any key."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Object.keys(obj).forEach trigger TS7053?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Object.keys is typed to return string[], not (keyof typeof obj)[], because an object can have extra keys at runtime. So using each string key to index the object is a dynamic access. Cast the key inside the loop: const k = key as keyof typeof obj."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does adding an index signature weaken my types?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Somewhat: with { [k: string]: T } TypeScript will allow any string key and won't flag typos, and (with noUncheckedIndexedAccess) results become T | undefined. For a true dictionary that's correct; for a fixed-shape object, prefer keyof typeof so misspelled keys are still caught."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "When is a Map better than an indexed object?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "When keys are genuinely dynamic, added/removed at runtime, or not strings (numbers, objects). Map<K, V> gives get/set/has with clean typing and no index-signature workarounds, and .get() returns V | undefined so you handle misses explicitly."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does enabling a flag suddenly cause TS7053?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TS7053 is gated by noImplicitAny (part of strict). Turning on strict mode surfaces previously-silent implicit-any index accesses. That's the check working — add the keyof/Record typing rather than disabling noImplicitAny."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I index a JSON object without losing type safety?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. If it's a dictionary, type the parsed value as Record<string, T>. If it has fixed keys, generate an interface from a sample and index with keyof typeof. Either way the parsed value gets a real type, so the index access is checked instead of any."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS7053: Element implicitly has an any type</span>
+            </nav>
+            <h1>TS7053: Element implicitly has an 'any' type because the index expression can't be used to index the type</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You indexed an object with a <strong>dynamic string key</strong> but its type has <strong>no index signature</strong>, so the result would be an implicit <code>any</code>. If the key is one of the object's own keys, type it as <code>keyof typeof obj</code>. For a dictionary, use a <strong>Record</strong> / index signature (<code>Record&lt;string, T&gt;</code>) or a real <code>Map</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const colors = { red: "#f00", green: "#0f0" };
+const key: string = "red";
+colors[key];
+// error TS7053: Element implicitly has an 'any' type because expression
+// of type 'string' can't be used to index type '{ red: string; green: string; }'.
+//   No index signature with a parameter of type 'string' was found.</code></pre>
+            </div>
+
+            <h2>How to diagnose it</h2>
+            <p>The question is whether the object has a <em>fixed</em> set of keys or is a <em>dictionary</em> &mdash; that decides the fix:</p>
+            <ul>
+                <li>Fixed keys (a lookup table, a config object) and the key is one of them &rarr; <code>keyof typeof obj</code> (Fix 1) keeps each value's type.</li>
+                <li>Arbitrary string keys (counts, caches, form state) &rarr; <code>Record&lt;string, T&gt;</code> / index signature (Fix 2).</li>
+                <li>Key comes from <code>Object.keys</code> &rarr; it's <code>string</code>, so cast it (Fix 3).</li>
+                <li>Keys are fully dynamic or non-string &rarr; a <code>Map</code> (Fix 4).</li>
+            </ul>
+
+            <h2>Fix 1: key is one of the object's keys → keyof typeof</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const key = "red" as keyof typeof colors;   // "red" | "green"
+colors[key];                                 // ✅ typed as string
+
+function pick(k: keyof typeof colors) { return colors[k]; }</code></pre>
+            </div>
+
+            <h2>Fix 2: it's a dictionary → index signature / Record</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const counts: Record&lt;string, number&gt; = {};
+counts["apples"] = 3;            // ✅ any string key -&gt; number
+
+interface Counts { [key: string]: number; }   // equivalent index signature</code></pre>
+            </div>
+
+            <h2>Fix 3: Object.keys loops</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Object.keys(colors).forEach((k) =&gt; {
+  const key = k as keyof typeof colors;
+  console.log(colors[key]);     // ✅
+});</code></pre>
+            </div>
+
+            <h2>Fix 4: truly dynamic data → Map</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const m = new Map&lt;string, number&gt;();
+m.set("apples", 3);
+m.get("apples");                // number | undefined</code></pre>
+            </div>
+
+            <h2>Worked example: indexing a parsed JSON dictionary</h2>
+            <p>A config or i18n file is loaded as JSON and looked up by a runtime key. Untyped, the lookup is an implicit <code>any</code>; type it as a <code>Record</code> and the access is checked:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const messages = JSON.parse(text);          // any
+messages[userLocale];                        // unchecked
+
+// type it as a dictionary:
+const messages2: Record&lt;string, string&gt; = JSON.parse(text);
+const msg = messages2[userLocale] ?? messages2["en"];   // ✅ string</code></pre>
+            </div>
+
+            <p>For a fixed-shape config object, generate an interface from a sample with <a href="../json-to-typescript.html">JSON to TypeScript</a> and index with <code>keyof typeof</code> so misspelled keys are still caught.</p>
+
+            <h2>TS7053 in React</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// 1) a theme/styles lookup by a dynamic variant
+const styles = { primary: "...", danger: "..." };
+function Button({ variant }: { variant: keyof typeof styles }) {
+  return &lt;button className={styles[variant]} /&gt;;   // ✅ variant is a known key
+}
+
+// 2) controlled form state keyed by the input name
+const [form, setForm] = useState&lt;Record&lt;string, string&gt;&gt;({});
+const onChange = (e: React.ChangeEvent&lt;HTMLInputElement&gt;) =&gt;
+  setForm(f =&gt; ({ ...f, [e.target.name]: e.target.value }));   // ✅ Record key</code></pre>
+            </div>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>key is a known property</td><td><code>string</code> vs fixed keys</td><td><code>as keyof typeof obj</code></td></tr>
+                    <tr><td>dictionary object</td><td>no index signature</td><td><code>Record&lt;string, T&gt;</code></td></tr>
+                    <tr><td><code>Object.keys(obj).forEach</code></td><td><code>keys()</code> returns <code>string[]</code></td><td>cast each key</td></tr>
+                    <tr><td>enum/number key</td><td>numeric index expression</td><td><code>keyof</code> or numeric index signature</td></tr>
+                    <tr><td>fully dynamic key/value</td><td>runtime-built map</td><td><code>Map&lt;K, V&gt;</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Fixed keys + key is one of them? Type it <code>as keyof typeof obj</code></li>
+                <li>&#10003; Dictionary? Use <code>Record&lt;string, T&gt;</code> / an index signature</li>
+                <li>&#10003; Looping <code>Object.keys</code>? Cast each key to <code>keyof typeof obj</code></li>
+                <li>&#10003; Fully dynamic key/value? Consider a <code>Map&lt;string, T&gt;</code></li>
+                <li>&#10003; React form/theme? Key the state <code>Record</code> or constrain the prop to <code>keyof</code></li>
+                <li>&#10003; From JSON? Type it (Record or generated interface) before indexing</li>
+                <li>&#10003; Avoid <code>as any</code> &mdash; it drops checking on the result</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>When should I use keyof typeof versus Record?</summary>
+                    <p>Use <code>keyof typeof</code> when the key is guaranteed to be one of a fixed object's own keys &mdash; it keeps each value's specific type. Use <code>Record&lt;string, T&gt;</code> (or an index signature) when the object is a dictionary with arbitrary string keys. <code>keyof</code> preserves precision; <code>Record</code> accepts any key.</p>
+                </details>
+                <details>
+                    <summary>Why does Object.keys(obj).forEach trigger TS7053?</summary>
+                    <p><code>Object.keys</code> is typed to return <code>string[]</code>, not <code>(keyof typeof obj)[]</code>, because an object can have extra keys at runtime. So using each string key to index the object is a dynamic access. Cast the key inside the loop: <code>const k = key as keyof typeof obj</code>.</p>
+                </details>
+                <details>
+                    <summary>Does adding an index signature weaken my types?</summary>
+                    <p>Somewhat: with <code>{ [k: string]: T }</code> TypeScript will allow any string key and won't flag typos, and (with <code>noUncheckedIndexedAccess</code>) results become <code>T | undefined</code>. For a true dictionary that's correct; for a fixed-shape object, prefer <code>keyof typeof</code> so misspelled keys are still caught.</p>
+                </details>
+                <details>
+                    <summary>When is a Map better than an indexed object?</summary>
+                    <p>When keys are genuinely dynamic, added/removed at runtime, or not strings (numbers, objects). <code>Map&lt;K, V&gt;</code> gives <code>get</code>/<code>set</code>/<code>has</code> with clean typing and no index-signature workarounds, and <code>.get()</code> returns <code>V | undefined</code> so you handle misses explicitly.</p>
+                </details>
+                <details>
+                    <summary>Why does enabling a flag suddenly cause TS7053?</summary>
+                    <p>TS7053 is gated by <code>noImplicitAny</code> (part of <code>strict</code>). Turning on strict mode surfaces previously-silent implicit-any index accesses. That's the check working &mdash; add the <code>keyof</code>/<code>Record</code> typing rather than disabling <code>noImplicitAny</code>.</p>
+                </details>
+                <details>
+                    <summary>Can I index a JSON object without losing type safety?</summary>
+                    <p>Yes. If it's a dictionary, type the parsed value as <code>Record&lt;string, T&gt;</code>. If it has fixed keys, generate an interface from a sample and index with <code>keyof typeof</code>. Either way the parsed value gets a real type, so the index access is checked instead of <code>any</code>.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Typing a JSON object?</h3>
+                <p>Generate a Record or interface from a real payload with JSON to TypeScript &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts2339-property-does-not-exist.html">TS2339: Property does not exist on type</a> &mdash; the static-property sibling</li>
+                <li><a href="ts2322-type-not-assignable.html">TS2322: Type is not assignable</a></li>
+                <li><a href="keyerror-python.html">KeyError in Python</a> &mdash; the dynamic-key problem in Python</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

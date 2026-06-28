@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="UnhandledPromiseRejectionWarning / Unhandled promise rejection — how to find the un-handled promise, and fix it with try/catch in async functions, .catch(), forgotten await, React effects, and a process-level safety net. Crashes Node 15+.">
+    <meta name="keywords" content="UnhandledPromiseRejectionWarning, unhandled promise rejection, node unhandledRejection, async await try catch, promise catch, forgot await, react useEffect async">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/unhandled-promise-rejection.html">
+    <meta property="og:title" content="UnhandledPromiseRejectionWarning — Cause and Fix">
+    <meta property="og:description" content="A rejected promise with no catch crashes modern Node.js. Find the un-awaited promise, then fix it with try/catch, .catch(), and proper async handling in Express and React.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/unhandled-promise-rejection.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>UnhandledPromiseRejectionWarning — Cause &amp; Fix (Node.js) | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Unhandled promise rejection", "item": "https://jsondevtools.org/errors/unhandled-promise-rejection.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "UnhandledPromiseRejectionWarning — Cause and Fix",
+  "description": "A rejected promise with no rejection handler triggers an unhandled rejection, which crashes Node.js 15+. This reference shows how to find it and fix it with try/catch, .catch(), forgotten await, Express, React, and process handlers.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I find which promise rejected?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Read the reason and stack the warning prints. If the stack is unhelpful, run node with --trace-warnings (or --unhandled-rejections=strict) for a full trace, and add a process.on('unhandledRejection', r => console.error(r)) handler temporarily to log the rejection value. The reason is the original error that was never caught."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it really crash the process in modern Node?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Since Node.js 15 the default unhandled-rejections mode is 'throw', so an unhandled rejection terminates the process with a non-zero exit code. Earlier versions only printed UnhandledPromiseRejectionWarning. Don't rely on the old warning-only behaviour."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What's the difference between unhandledRejection and uncaughtException?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "uncaughtException is a synchronous throw that no try/catch caught; unhandledRejection is a rejected promise with no .catch/await. Async errors become rejections, so in promise-heavy code unhandledRejection is the one you hit. Both are last-resort process events, not a substitute for handling errors locally."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why can't I make a React useEffect callback async?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An async function returns a promise, but useEffect expects either nothing or a cleanup function — so the rejection is unhandled and the cleanup contract breaks. Define an async function inside the effect and call it with a .catch, or wrap the body in try/catch."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does returning a promise without awaiting cause it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If you return the promise to a caller that awaits or catches it, you're fine. The problem is fire-and-forget: calling an async function and ignoring the returned promise. Either await it inside try/catch, attach .catch(), or explicitly mark it ignored with void only when you truly don't care (rare)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Will a global handler make my app safe?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. process.on('unhandledRejection') is a safety net for logging what slipped through; it doesn't make the code correct and shouldn't be used to keep a broken process alive. Handle rejections where they happen, and use the handler to catch the rare miss, then exit/restart under a supervisor."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Unhandled promise rejection</span>
+            </nav>
+            <h1>UnhandledPromiseRejectionWarning / Unhandled promise rejection</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A promise rejected (or an <code>async</code> function threw) and <strong>nothing handled it</strong> &mdash; no <code>try/catch</code>, no <code>.catch()</code>. In <strong>Node.js 15+ this crashes the process</strong>. Fix it by wrapping awaited calls in <code>try/catch</code>, attaching <code>.catch()</code>, and never firing async work without handling its errors. The usual culprit is a <strong>forgotten <code>await</code></strong>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// older Node:
+(node:123) UnhandledPromiseRejectionWarning: Error: boom
+
+// Node 15+ (default — the process exits):
+node:internal/process/promises:288
+            triggerUncaughtException(err, true /* fromPromise */);
+Error: boom
+    ... (exit code 1)</code></pre>
+            </div>
+
+            <h2>How to find the rejecting promise</h2>
+            <p>The warning prints the <strong>reason</strong> (the original error) and a stack. When that isn't enough, force more detail and log the rejection centrally while you hunt:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>node --trace-warnings app.js          # full stack for the warning
+node --unhandled-rejections=strict app.js   # throw immediately at the source
+
+// temporary global logger to capture the reason + where it came from:
+process.on("unhandledRejection", (reason) =&gt; {
+  console.error("UNHANDLED:", reason);
+});</code></pre>
+            </div>
+
+            <p>The reason is the real error; trace back to the <code>async</code> call that produced it and that has no <code>await</code>/<code>.catch</code> around it.</p>
+
+            <h2>Fix 1: try/catch in async functions</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>async function load() {
+  try {
+    const res = await fetch(url);
+    return await res.json();
+  } catch (err) {
+    console.error("load failed:", err);
+    return null;                  // handle / rethrow deliberately
+  }
+}</code></pre>
+            </div>
+
+            <h2>Fix 2: forgotten await / fire-and-forget</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>save(data);                       // ❌ if save() rejects, it's unhandled
+
+await save(data);                 // ✅ inside a try/catch
+save(data).catch(err =&gt; log(err));// ✅ or attach a .catch()</code></pre>
+            </div>
+
+            <h2>Fix 3: .catch() on a promise chain</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fetch(url)
+  .then(res =&gt; res.json())
+  .then(use)
+  .catch(err =&gt; console.error(err));   // always terminate the chain</code></pre>
+            </div>
+
+            <h2>Fix 4: Express routes</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>app.get("/u/:id", async (req, res, next) =&gt; {
+  try {
+    res.json(await getUser(req.params.id));
+  } catch (err) {
+    next(err);                    // hand to Express error middleware
+  }
+});</code></pre>
+            </div>
+
+            <h2>Worked example: a forgotten await on an API call</h2>
+            <p>The classic real-world trigger: an <code>async</code> helper is called without <code>await</code> (or its returned promise is dropped), so a network/parse rejection escapes and crashes the app later, far from the cause:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>async function syncUser(id) {
+  const res = await fetch(`/api/user/${id}`);
+  return res.json();              // rejects if the body isn't JSON
+}
+
+function onLogin(id) {
+  syncUser(id);                   // ❌ promise dropped — rejection is unhandled
+}
+
+// ✅ handle it where you start the work
+async function onLogin(id) {
+  try { await syncUser(id); }
+  catch (err) { showError(err); }
+}</code></pre>
+            </div>
+
+            <p>If the rejection is a JSON parse error, the body probably wasn't JSON &mdash; inspect it with the <a href="../formatter.html">JSON Formatter</a> and check the <a href="../http-status.html">HTTP status</a> (a 4xx/5xx returns an error page, not your object).</p>
+
+            <h2>Unhandled rejections in React</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ an async effect callback returns a promise React won't catch
+useEffect(async () =&gt; {
+  const data = await fetchUser();   // a rejection here is unhandled
+  setUser(data);
+}, []);
+
+// ✅ define an async fn inside and catch it
+useEffect(() =&gt; {
+  (async () =&gt; {
+    try { setUser(await fetchUser()); }
+    catch (err) { setError(err); }
+  })();
+}, []);</code></pre>
+            </div>
+
+            <h2>Common causes of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Cause</th><th>Where</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>forgotten <code>await</code> / fire-and-forget</td><td>any async call</td><td>await in try/catch or <code>.catch()</code></td></tr>
+                    <tr><td><code>.then()</code> with no <code>.catch()</code></td><td>promise chains</td><td>terminate with <code>.catch()</code></td></tr>
+                    <tr><td>async route handler throws</td><td>Express (pre-v5)</td><td><code>try/catch</code> + <code>next(err)</code></td></tr>
+                    <tr><td>async <code>useEffect</code> callback</td><td>React</td><td>inner async fn + catch</td></tr>
+                    <tr><td>async event listener throws</td><td>emitters/DOM</td><td>wrap the listener body in try/catch</td></tr>
+                    <tr><td><code>Promise.all</code> member rejects</td><td>concurrent work</td><td>catch the combined promise</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Last resort: a process-level safety net</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>process.on("unhandledRejection", (reason) =&gt; {
+  console.error("Unhandled rejection:", reason);
+  // log, flush, then let the process exit / restart under a supervisor
+});</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <strong>reason</strong>; use <code>--trace-warnings</code> for a full stack</li>
+                <li>&#10003; <code>await</code> inside <code>try/catch</code>, or attach <code>.catch()</code></li>
+                <li>&#10003; Forgot an <code>await</code>? Fire-and-forget rejections escape</li>
+                <li>&#10003; Always terminate <code>.then()</code> chains with <code>.catch()</code></li>
+                <li>&#10003; Async Express/event handler? <code>try/catch</code> + <code>next(err)</code></li>
+                <li>&#10003; React? Don't make <code>useEffect</code> async &mdash; use an inner async fn + catch</li>
+                <li>&#10003; Node 15+ <strong>crashes</strong> on unhandled rejections &mdash; the global handler is only for logging</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How do I find which promise rejected?</summary>
+                    <p>Read the reason and stack the warning prints. If the stack is unhelpful, run node with <code>--trace-warnings</code> (or <code>--unhandled-rejections=strict</code>) for a full trace, and add a <code>process.on('unhandledRejection', r =&gt; console.error(r))</code> handler temporarily to log the rejection value. The reason is the original error that was never caught.</p>
+                </details>
+                <details>
+                    <summary>Does it really crash the process in modern Node?</summary>
+                    <p>Yes. Since Node.js 15 the default unhandled-rejections mode is <code>throw</code>, so an unhandled rejection terminates the process with a non-zero exit code. Earlier versions only printed <code>UnhandledPromiseRejectionWarning</code>. Don't rely on the old warning-only behaviour.</p>
+                </details>
+                <details>
+                    <summary>What's the difference between unhandledRejection and uncaughtException?</summary>
+                    <p><code>uncaughtException</code> is a synchronous throw that no <code>try/catch</code> caught; <code>unhandledRejection</code> is a rejected promise with no <code>.catch</code>/<code>await</code>. Async errors become rejections, so in promise-heavy code <code>unhandledRejection</code> is the one you hit. Both are last-resort process events, not a substitute for handling errors locally.</p>
+                </details>
+                <details>
+                    <summary>Why can't I make a React useEffect callback async?</summary>
+                    <p>An <code>async</code> function returns a promise, but <code>useEffect</code> expects either nothing or a cleanup function &mdash; so the rejection is unhandled and the cleanup contract breaks. Define an async function inside the effect and call it with a <code>.catch</code>, or wrap the body in <code>try/catch</code>.</p>
+                </details>
+                <details>
+                    <summary>Does returning a promise without awaiting cause it?</summary>
+                    <p>If you return the promise to a caller that awaits or catches it, you're fine. The problem is fire-and-forget: calling an async function and ignoring the returned promise. Either await it inside <code>try/catch</code>, attach <code>.catch()</code>, or explicitly mark it ignored with <code>void</code> only when you truly don't care (rare).</p>
+                </details>
+                <details>
+                    <summary>Will a global handler make my app safe?</summary>
+                    <p>No. <code>process.on('unhandledRejection')</code> is a safety net for logging what slipped through; it doesn't make the code correct and shouldn't be used to keep a broken process alive. Handle rejections where they happen, and use the handler to catch the rare miss, then exit/restart under a supervisor.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Debugging async API calls?</h3>
+                <p>See practical fetch, error-handling, and inspection patterns in our API testing guide.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../blog/developer-tools-api-testing.html" class="btn btn-primary">API Testing Guide</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="aborterror-operation-aborted.html">AbortError: The operation was aborted</a> &mdash; an expected rejection you should catch and ignore</li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a> &mdash; a common rejection inside async fetch code</li>
+                <li><a href="javascript-heap-out-of-memory.html">JavaScript heap out of memory</a> &mdash; another Node process crash</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
