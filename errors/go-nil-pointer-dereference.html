@@ -44,8 +44,8 @@
   "headline": "panic: runtime error: invalid memory address or nil pointer dereference — Cause and Fix",
   "description": "Go panics with a nil pointer dereference when you dereference a nil pointer, write to a nil map, or call a method on a nil interface. This reference shows how to read the panic and fix each cause.",
   "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
-  "datePublished": "2026-06-28",
-  "dateModified": "2026-06-28",
+  "datePublished": "2026-07-01",
+  "dateModified": "2026-07-01",
   "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
 }
     </script>
@@ -67,7 +67,7 @@
     {
       "@type": "Question",
       "name": "Why does writing to a map panic?",
-      "acceptedAnswer": { "@type": "Answer", "text": "A declared-but-not-initialized map is nil, and writing to a nil map panics (reading returns the zero value, which hides it). Initialize it with make(map[K]V) or a literal map[K]V{} before assigning keys. The same applies to nil slices you index into." }
+      "acceptedAnswer": { "@type": "Answer", "text": "A declared-but-not-initialized map is nil, and writing to a nil map panics (reading returns the zero value, which hides it). Initialize it with make(map[K]V) or a literal map[K]V{} before assigning keys. Note a nil slice is different: len, range, and append all work on it — only indexing past its (zero) length fails, and that's an 'index out of range' panic, not a nil-map or nil-pointer one." }
     },
     {
       "@type": "Question",
@@ -101,7 +101,7 @@
             </nav>
             <h1>panic: runtime error: invalid memory address or nil pointer dereference</h1>
             <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
-            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
         </div>
     </header>
 
@@ -141,9 +141,21 @@ if u != nil {               // ✅ guard
 }
 u = &amp;User{Name: "Ada"}      // ✅ or initialize it</code></pre>
             </div>
+            <p>Many nil-pointer bugs are just a forgotten initialization. A <strong>constructor function</strong> that always returns a ready-to-use value is the idiomatic guard &mdash; callers can't accidentally get a nil (or a struct with nil fields) back:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type Service struct{ cache map[string]int }
+
+func NewService() *Service {          // ✅ always returns a usable *Service
+    return &amp;Service{cache: make(map[string]int)}  // fields initialized too
+}
+
+svc := NewService()
+svc.cache["hits"]++                   // no nil pointer, no nil map</code></pre>
+            </div>
 
             <h2>Cause 2: writing to a nil map</h2>
-            <p>A declared map is nil until you make it; <em>reading</em> a nil map is fine (zero value), but <em>writing</em> panics:</p>
+            <p><strong>A note on the message:</strong> writing to a nil map panics with <code>assignment to entry in nil map</code> &mdash; a <em>separate</em> runtime panic with a different string from <code>invalid memory address or nil pointer dereference</code>. Developers hit them together (both come from an uninitialized value), so this page covers both, but they are distinct messages. A declared map is nil until you <code>make</code> it; <em>reading</em> a nil map is fine (zero value), but <em>writing</em> panics:</p>
 
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -153,6 +165,33 @@ m["a"] = 1                  // ❌ panic: assignment to entry in nil map
 m = make(map[string]int)    // ✅ initialize before writing
 m["a"] = 1</code></pre>
             </div>
+
+            <h2>Nil map vs nil slice vs nil pointer</h2>
+            <p>These are easy to confuse but behave differently &mdash; the difference is Go's philosophy of <strong>useful zero values</strong>. A nil <em>slice</em> is far more forgiving than a nil <em>map</em>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>var s []int                 // nil slice
+_ = len(s)                  // ✅ 0
+_ = append(s, 1)            // ✅ append works on a nil slice
+for range s {}              // ✅ zero iterations
+// _ = s[0]                 // ❌ index out of range (it's empty), not a nil panic
+
+var m map[string]int        // nil map
+_ = m["x"]                  // ✅ read returns the zero value
+// m["x"] = 1               // ❌ assignment to entry in nil map</code></pre>
+            </div>
+            <p>So <code>var s []int</code> is usually safe to use immediately, while <code>var m map[string]int</code> must be <code>make</code>d before you write to it. Quick reference for the zero value of each type:</p>
+            <table>
+                <thead>
+                    <tr><th>Type</th><th>Zero value</th><th>Usable as-is?</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>slice</td><td><code>nil</code></td><td><code>len</code>, <code>range</code>, <code>append</code> ✓ &middot; index ✗ (empty)</td></tr>
+                    <tr><td>map</td><td><code>nil</code></td><td>read ✓ &middot; write ✗ (panics)</td></tr>
+                    <tr><td>pointer</td><td><code>nil</code></td><td>dereference ✗ (panics)</td></tr>
+                    <tr><td>channel</td><td><code>nil</code></td><td>send/receive block forever</td></tr>
+                </tbody>
+            </table>
 
             <h2>Cause 3: using a result without checking err</h2>
             <p>When a function returns <code>(T, error)</code> and errors, <code>T</code> is usually its zero value (often a nil pointer). Using it dereferences nil:</p>
@@ -222,7 +261,7 @@ func find() error { return nil }</code></pre>
                 </details>
                 <details>
                     <summary>Why does writing to a map panic?</summary>
-                    <p>A declared-but-not-initialized map is nil, and writing to a nil map panics (reading returns the zero value, which hides it). Initialize it with <code>make(map[K]V)</code> or a literal <code>map[K]V{}</code> before assigning keys. The same applies to nil slices you index into.</p>
+                    <p>A declared-but-not-initialized map is nil, and writing to a nil map panics (reading returns the zero value, which hides it). Initialize it with <code>make(map[K]V)</code> or a literal <code>map[K]V{}</code> before assigning keys. Note a nil <em>slice</em> is different: <code>len</code>, <code>range</code>, and <code>append</code> all work on it &mdash; only indexing past its (zero) length fails, and that's an <a href="go-index-out-of-range.html">index out of range</a> panic, not a nil-map or nil-pointer one.</p>
                 </details>
                 <details>
                     <summary>Why do I get a nil panic right after a function that returns an error?</summary>

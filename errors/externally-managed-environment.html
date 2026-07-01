@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="error: externally-managed-environment — why pip refuses to install into a system Python (PEP 668), and the right fix: a virtual environment, pipx, or --user.">
-    <meta name="keywords" content="externally-managed-environment, pip externally managed environment, PEP 668, error externally managed environment, pip install error, break-system-packages">
+    <meta name="description" content="error: externally-managed-environment — why pip refuses to install into a system Python (PEP 668) on Ubuntu 24.04, Debian, Fedora, and Homebrew, and the right fix: a virtual environment or pipx.">
+    <meta name="keywords" content="externally-managed-environment, pip externally managed environment, ubuntu 24.04 pip externally managed environment, ubuntu pip install error, PEP 668, debian externally managed, homebrew python externally managed, break-system-packages">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jsondevtools.org/errors/externally-managed-environment.html">
@@ -44,8 +44,8 @@
   "headline": "error: externally-managed-environment — Cause and Fix",
   "description": "pip refuses to install into a distro-managed system Python under PEP 668. This reference explains why and gives the correct fixes: venv, pipx, and --user.",
   "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
-  "datePublished": "2026-06-28",
-  "dateModified": "2026-06-28",
+  "datePublished": "2026-07-01",
+  "dateModified": "2026-07-01",
   "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
 }
     </script>
@@ -83,6 +83,11 @@
       "@type": "Question",
       "name": "How do I install a package globally on Debian/Ubuntu the supported way?",
       "acceptedAnswer": { "@type": "Answer", "text": "Use the distro's own packages: sudo apt install python3-<name> pulls a version the OS manages and won't conflict with pip. For anything not packaged, use a venv or pipx. Reserve apt for system integration and venv/pipx for everything else." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did pip install stop working after upgrading to Ubuntu 24.04?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Ubuntu 23.04 introduced the PEP 668 EXTERNALLY-MANAGED marker and Ubuntu 24.04 LTS (system Python 3.12) enforces it by default, so a global pip install that used to work now errors. Nothing is broken — the OS is protecting its system Python. Install into a virtual environment (python3 -m venv .venv) or use pipx instead." }
     }
   ]
 }
@@ -101,7 +106,7 @@
             </nav>
             <h1>error: externally-managed-environment</h1>
             <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
-            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
         </div>
     </header>
 
@@ -129,6 +134,9 @@
 
             <h2>Why pip is refusing (PEP 668)</h2>
             <p>The distribution dropped an <code>EXTERNALLY-MANAGED</code> marker file beside the Python install. pip honors it and declines to touch the system <code>site-packages</code>, because OS tools depend on exact versions there &mdash; a <code>pip install</code> (or worse, <code>pip install --upgrade</code>) could replace them and break your package manager. The message isn't a bug to defeat; it's pointing you to an isolated environment.</p>
+
+            <h2>Why this suddenly appeared on Ubuntu 24.04</h2>
+            <p>If <code>pip install</code> worked for years and then started failing after an upgrade, PEP 668 is why. <strong>Ubuntu 23.04 was the first release to ship the <code>EXTERNALLY-MANAGED</code> marker</strong>, and <strong>Ubuntu 24.04 LTS</strong> (with its system Python 3.12) enforces it by default &mdash; which is when most people hit it, because 24.04 is the long-term-support release everyone upgraded to. Debian 12 (Bookworm), Fedora 38+, and recent Homebrew Python did the same thing around the same time. Nothing is broken on your machine; the distro simply started protecting its system Python. The fix is not to re-enable global installs &mdash; it's to move your packages into a <code>venv</code> or <code>pipx</code>, below.</p>
 
             <h2>Fix 1: a virtual environment (per project) &mdash; recommended</h2>
             <div class="code-block">
@@ -161,11 +169,29 @@ black --version</code></pre>
             <h2>Fix 3: the distro package (for system integration)</h2>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
-<pre><code># Debian / Ubuntu
+<pre><code># Debian / Ubuntu (incl. 24.04 LTS)
 sudo apt install python3-requests
 
 # Fedora
-sudo dnf install python3-requests</code></pre>
+sudo dnf install python3-requests
+
+# Arch Linux
+sudo pacman -S python-requests</code></pre>
+            </div>
+
+            <h2>On macOS (Homebrew Python)</h2>
+            <p>Homebrew's Python is externally managed too, so you'll see the same error. Use <code>pipx</code> for CLI tools and a <code>venv</code> for project code:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># install pipx once, then isolate CLI tools
+brew install pipx
+pipx ensurepath
+pipx install black
+
+# for a project, use a venv exactly as on Linux
+python3 -m venv .venv
+source .venv/bin/activate
+pip install requests</code></pre>
             </div>
 
             <h2>What NOT to do</h2>
@@ -227,7 +253,19 @@ sudo pip install requests --break-system-packages</code></pre>
                     <summary>How do I install a package globally on Debian/Ubuntu the supported way?</summary>
                     <p>Use the distro's own packages: <code>sudo apt install python3-&lt;name&gt;</code> pulls a version the OS manages and won't conflict with pip. For anything not packaged, use a venv or pipx. Reserve apt for system integration and venv/pipx for everything else.</p>
                 </details>
+                <details>
+                    <summary>Why did pip install stop working after upgrading to Ubuntu 24.04?</summary>
+                    <p>Ubuntu 23.04 introduced the PEP 668 <code>EXTERNALLY-MANAGED</code> marker and Ubuntu 24.04 LTS (system Python 3.12) enforces it by default, so a global <code>pip install</code> that used to work now errors. Nothing is broken &mdash; the OS is protecting its system Python. Install into a virtual environment (<code>python3 -m venv .venv</code>) or use pipx instead.</p>
+                </details>
             </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://peps.python.org/pep-0668/" target="_blank" rel="noopener">PEP 668 &mdash; Marking Python base environments as &ldquo;externally managed&rdquo;</a> (python.org)</li>
+                <li><a href="https://pip.pypa.io/en/stable/" target="_blank" rel="noopener">pip documentation</a> (pypa.io)</li>
+                <li><a href="https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/" target="_blank" rel="noopener">Installing packages using pip and virtual environments</a> &mdash; Python Packaging User Guide</li>
+                <li><a href="https://pipx.pypa.io/stable/" target="_blank" rel="noopener">pipx documentation</a> (pypa.io)</li>
+            </ul>
 
             <div class="tool-cta">
                 <h3>More Python &amp; tooling errors</h3>

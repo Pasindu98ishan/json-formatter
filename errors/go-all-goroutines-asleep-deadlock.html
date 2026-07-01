@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="fatal error: all goroutines are asleep - deadlock! — why Go detects a deadlock when every goroutine is blocked, and how to fix unbuffered-channel, WaitGroup, and missing-sender deadlocks.">
-    <meta name="keywords" content="all goroutines are asleep deadlock, go deadlock, fatal error deadlock go, unbuffered channel deadlock, waitgroup deadlock, go channel blocking">
+    <meta name="description" content="fatal error: all goroutines are asleep - deadlock! — how the Go scheduler detects a deadlock when every goroutine is blocked, and how to fix unbuffered-channel, sync.Mutex, and sync.WaitGroup deadlocks.">
+    <meta name="keywords" content="all goroutines are asleep deadlock, go deadlock, fatal error deadlock go, unbuffered channel deadlock, sync.WaitGroup deadlock, sync.Mutex deadlock, go scheduler deadlock, how does go detect deadlocks, buffered channels">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jsondevtools.org/errors/go-all-goroutines-asleep-deadlock.html">
@@ -44,8 +44,8 @@
   "headline": "fatal error: all goroutines are asleep - deadlock! — Cause and Fix",
   "description": "Go's runtime detects a deadlock and aborts when every goroutine is blocked with no way to make progress. This reference covers unbuffered-channel, WaitGroup, and missing-sender deadlocks.",
   "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
-  "datePublished": "2026-06-28",
-  "dateModified": "2026-06-28",
+  "datePublished": "2026-07-01",
+  "dateModified": "2026-07-01",
   "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
 }
     </script>
@@ -83,6 +83,16 @@
       "@type": "Question",
       "name": "How do I see which goroutines are stuck?",
       "acceptedAnswer": { "@type": "Answer", "text": "The fatal error prints a stack for every goroutine and what each is blocked on (chan send, chan receive, semacquire). Read what each is waiting for and confirm nothing can satisfy it. For hangs that aren't full deadlocks, send SIGQUIT (Ctrl-\\) to dump all goroutine stacks." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a sync.Mutex deadlock, or is it only channels?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It is not only channels. sync.Mutex, sync.RWMutex, sync.Cond, and sync.WaitGroup can all deadlock. A common case is locking a Mutex twice on the same goroutine — it is not reentrant, so the second Lock() blocks forever and shows as [semacquire] in the stack. Lock once and pair every Lock with a defer Unlock." }
+    },
+    {
+      "@type": "Question",
+      "name": "How does Go detect a deadlock?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The Go scheduler counts how many goroutines are runnable. Each time a goroutine blocks on a channel, mutex, Cond, or WaitGroup, that count falls. When it hits zero — no goroutine can make progress and none can wake another — the runtime aborts with 'all goroutines are asleep - deadlock!'. Because it is a global check, it only fires when every goroutine is blocked." }
     }
   ]
 }
@@ -101,7 +111,7 @@
             </nav>
             <h1>fatal error: all goroutines are asleep - deadlock!</h1>
             <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
-            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
         </div>
     </header>
 
@@ -110,7 +120,7 @@
 
             <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
                 <p style="margin:0;font-weight:600;">Quick answer</p>
-                <p style="margin:0.5rem 0 0;">Every goroutine is <strong>blocked</strong> and none can wake another, so the Go runtime aborts instead of hanging. The usual causes are an <strong>unbuffered channel send with no receiver</strong>, a <strong>WaitGroup whose <code>Done()</code> is never called</strong>, or <strong><code>range</code> over a channel that's never <code>close</code>d</strong>. Read the per-goroutine stack &mdash; it shows what each one is waiting on.</p>
+                <p style="margin:0.5rem 0 0;">Every goroutine is <strong>blocked</strong> and none can wake another, so the Go runtime aborts instead of hanging. The usual causes are an <strong>unbuffered channel send with no receiver</strong>, a <strong><code>sync.WaitGroup</code> whose <code>Done()</code> is never called</strong>, a <strong><code>sync.Mutex</code> locked twice</strong>, or <strong><code>range</code> over a channel that's never <code>close</code>d</strong>. Read the per-goroutine stack &mdash; it shows what each one is waiting on. Note: a deadlock is <em>not</em> only a channel problem &mdash; <code>Mutex</code>, <code>RWMutex</code>, <code>Cond</code>, and <code>WaitGroup</code> can all deadlock too.</p>
             </div>
 
             <h2>The exact error string</h2>
@@ -177,8 +187,60 @@ go func() {
 }()</code></pre>
             </div>
 
+            <h2>Cause 4: a mutex locked twice (self-deadlock)</h2>
+            <p><code>sync.Mutex</code> is <strong>not reentrant</strong>: locking it again on the same goroutine before unlocking blocks forever. The stack shows <code>[semacquire]</code> rather than a channel op.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>var mu sync.Mutex
+mu.Lock()
+mu.Lock()              // ❌ deadlock: already held by this goroutine
+
+// ✅ lock once, and pair every Lock with an Unlock
+mu.Lock()
+defer mu.Unlock()
+// ... critical section ...
+
+// ❌ a common variant: a "locked" method calling another "locked" method
+func (c *Cache) Get(k string) int { c.mu.Lock(); defer c.mu.Unlock(); return c.getLocked(k) }
+func (c *Cache) getLocked(k string) int { c.mu.Lock(); ... }  // re-locks -&gt; deadlock
+// ✅ split into a public locking method and an internal non-locking helper</code></pre>
+            </div>
+
+            <h2>How Go detects deadlocks</h2>
+            <p>The Go <strong>scheduler</strong> tracks how many goroutines exist and how many are runnable. Every time a goroutine blocks (on a channel, a <code>sync.Mutex</code>/<code>RWMutex</code>, a <code>Cond</code>, or a <code>WaitGroup</code>), that count drops. When the number of runnable goroutines reaches <strong>zero</strong> &mdash; nothing can make progress and nothing can wake anything &mdash; the runtime concludes the program is stuck and aborts with <code>fatal error: all goroutines are asleep - deadlock!</code>. It's a global check, not a per-goroutine one, which is exactly why it only fires when <em>every</em> goroutine is asleep (see below).</p>
+
             <h2>When the runtime won't catch it</h2>
             <p>Go reports this only when <strong>every</strong> goroutine is blocked. If one is still alive &mdash; an HTTP server, a <code>time.Ticker</code>, a background worker &mdash; a partial deadlock among the rest just <em>hangs</em> silently instead. For those, run with the <strong>race detector</strong> (<code>go run -race</code>), use <code>go vet</code>, or send <strong>SIGQUIT</strong> (Ctrl-\) to dump all goroutine stacks and see who's stuck.</p>
+
+            <h2>A real-world example: the WaitGroup that never completes</h2>
+            <p>A classic beginner scenario ties several of these together. You fan out work to goroutines, wait on a <code>WaitGroup</code>, but the counter never reaches zero:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>func main() {
+    var wg sync.WaitGroup
+    results := make(chan int)      // unbuffered
+
+    for i := 0; i &lt; 3; i++ {
+        wg.Add(1)
+        go func(n int) {
+            defer wg.Done()
+            results &lt;- n * n        // blocks: nobody is receiving yet
+        }(i)
+    }
+
+    wg.Wait()                      // ❌ waits for workers that are all
+                                   //    blocked sending on `results`
+    for r := range results { fmt.Println(r) }
+}</code></pre>
+            </div>
+            <p>The chain is: the workers block sending on the unbuffered <code>results</code> channel &rarr; so <code>Done()</code> never runs &rarr; so <code>wg.Wait()</code> in <code>main</code> blocks forever &rarr; every goroutine is now asleep &rarr; deadlock. The fix is to <strong>drain the channel concurrently</strong> and close it after the group finishes:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>go func() { wg.Wait(); close(results) }()  // ✅ waiter runs in the background
+for r := range results {                    //    main drains as workers send
+    fmt.Println(r)
+}</code></pre>
+            </div>
 
             <h2>Common causes at a glance</h2>
             <table>
@@ -188,7 +250,8 @@ go func() {
                 <tbody>
                     <tr><td><code>[chan send]</code></td><td>no receiver for an unbuffered send</td><td>receive in a goroutine / buffer it</td></tr>
                     <tr><td><code>[chan receive]</code></td><td>no sender, or channel never closed</td><td>send/close from the producer</td></tr>
-                    <tr><td><code>[semacquire]</code></td><td>WaitGroup <code>Done()</code> missing / mutex held</td><td><code>defer wg.Done()</code>; release locks</td></tr>
+                    <tr><td><code>[semacquire]</code></td><td>WaitGroup <code>Done()</code> missing</td><td><code>defer wg.Done()</code>; match <code>Add</code></td></tr>
+                    <tr><td><code>[semacquire]</code> (Mutex)</td><td><code>sync.Mutex</code> locked twice / not unlocked</td><td>lock once; <code>defer mu.Unlock()</code></td></tr>
                     <tr><td>hangs, no fatal error</td><td>one goroutine still running</td><td><code>-race</code>, <code>go vet</code>, SIGQUIT dump</td></tr>
                     <tr><td>main exits early</td><td>goroutines never get to run</td><td><code>WaitGroup</code> / channel sync</td></tr>
                 </tbody>
@@ -199,6 +262,7 @@ go func() {
                 <li>&#10003; Read each goroutine's <code>[chan send/receive/semacquire]</code> tag &mdash; what is it waiting for?</li>
                 <li>&#10003; Unbuffered send? Ensure a receiver runs concurrently (or buffer)</li>
                 <li>&#10003; <code>WaitGroup</code>? <code>defer wg.Done()</code> and make <code>Add</code> match the goroutines</li>
+                <li>&#10003; <code>sync.Mutex</code>? Lock once (it isn't reentrant) and pair with <code>defer mu.Unlock()</code></li>
                 <li>&#10003; <code>range ch</code>? <code>close(ch)</code> from the sender when done</li>
                 <li>&#10003; Hangs but no fatal error? One goroutine is alive &mdash; use <code>-race</code> / SIGQUIT</li>
             </ul>
@@ -228,6 +292,14 @@ go func() {
                 <details>
                     <summary>How do I see which goroutines are stuck?</summary>
                     <p>The fatal error prints a stack for every goroutine and what each is blocked on (chan send, chan receive, semacquire). Read what each is waiting for and confirm nothing can satisfy it. For hangs that aren't full deadlocks, send SIGQUIT (Ctrl-\) to dump all goroutine stacks.</p>
+                </details>
+                <details>
+                    <summary>Can a sync.Mutex deadlock, or is it only channels?</summary>
+                    <p>It is not only channels. <code>sync.Mutex</code>, <code>sync.RWMutex</code>, <code>sync.Cond</code>, and <code>sync.WaitGroup</code> can all deadlock. A common case is locking a <code>Mutex</code> twice on the same goroutine &mdash; it is <strong>not reentrant</strong>, so the second <code>Lock()</code> blocks forever and shows as <code>[semacquire]</code> in the stack. Lock once and pair every <code>Lock</code> with a <code>defer Unlock</code>.</p>
+                </details>
+                <details>
+                    <summary>How does Go detect a deadlock?</summary>
+                    <p>The Go scheduler counts how many goroutines are runnable. Each time a goroutine blocks on a channel, mutex, <code>Cond</code>, or <code>WaitGroup</code>, that count falls. When it hits zero &mdash; no goroutine can make progress and none can wake another &mdash; the runtime aborts with "all goroutines are asleep - deadlock!". Because it is a global check, it only fires when every goroutine is blocked.</p>
                 </details>
             </section>
 
