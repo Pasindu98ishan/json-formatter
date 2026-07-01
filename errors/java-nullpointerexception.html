@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Exception in thread main java.lang.NullPointerException — why Java throws an NPE, how to read the Java 14+ helpful message, and how to fix and prevent null dereferences.">
+    <meta name="keywords" content="java.lang.NullPointerException, java NPE, exception in thread main nullpointerexception, helpful NullPointerException, cannot invoke because is null">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/java-nullpointerexception.html">
+    <meta property="og:title" content="java.lang.NullPointerException (Java) — Cause & Fix">
+    <meta property="og:description" content="A Java NullPointerException means you used a reference that was null. Read the Java 14+ helpful NPE message, find the null, and fix it with checks or Optional.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/java-nullpointerexception.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>java.lang.NullPointerException (Java) — Cause & Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "java.lang.NullPointerException", "item": "https://jsondevtools.org/errors/java-nullpointerexception.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Exception in thread \"main\" java.lang.NullPointerException — Cause and Fix",
+  "description": "A Java NullPointerException is thrown when you dereference a null reference. This reference covers the Java 14+ helpful message and how to find and fix the null.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What causes java.lang.NullPointerException?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You used a reference whose value was null as if it pointed to an object — calling a method on it, reading or writing a field, indexing an array, or unboxing it to a primitive. There was no object there, so the JVM throws NullPointerException." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I read the Java 14+ helpful NullPointerException message?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Since JDK 14 (on by default from JDK 15) the message names exactly what was null, e.g. 'Cannot invoke \"String.length()\" because \"<local1>\" is null' or 'because the return value of \"Map.get(Object)\" is null'. That phrase points straight at the expression to check." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is my NPE message just a stack trace with no detail?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You're on JDK 8–13, or helpful messages are disabled. Read the top stack frame's file:line, then look at that line for the reference being dereferenced. On JDK 14 enable it with -XX:+ShowCodeDetailsInExceptionMessages; from JDK 15 it's the default." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix a NullPointerException?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Find which reference is null (the helpful message or the stack line tells you), then either guarantee it's non-null before use, guard with an if (x != null) check, supply a default with Optional/Objects.requireNonNullElse, or fix the upstream code that returned null." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Map.get or a JSON field return null and NPE?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Map.get returns null for a missing key, and JSON parsers return null for absent/null fields. Chaining a method on that result (map.get(k).trim()) throws. Use getOrDefault, check for null, or model optional fields with Optional before dereferencing." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Optional eliminate NullPointerException?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Optional makes 'might be absent' explicit and gives safe operations (map, orElse), which prevents many NPEs — but only if you don't call .get() on an empty Optional. It's a tool for API design, not a blanket guarantee against null." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>java.lang.NullPointerException</span>
+            </nav>
+            <h1>Exception in thread "main" java.lang.NullPointerException</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You dereferenced a reference whose value was <code>null</code> &mdash; called a method, read a field, indexed an array, or unboxed it. On <strong>Java 14+</strong> the message names exactly what was null (<em>"Cannot invoke ... because ... is null"</em>); read that phrase, then make that reference non-null or guard it before use.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Exception in thread "main" java.lang.NullPointerException:
+    Cannot invoke "String.length()" because "name" is null
+        at com.example.App.main(App.java:7)</code></pre>
+            </div>
+            <p>(On JDK 8&ndash;13 you get just <code>java.lang.NullPointerException</code> with the stack trace &mdash; no "because ..." detail.)</p>
+
+            <h2>How to read the helpful message (Java 14+)</h2>
+            <p>The detail message has a fixed shape: <strong>"Cannot &lt;action&gt; because &lt;expression&gt; is null."</strong> The <em>action</em> tells you the operation (<code>invoke</code> a method, <code>read/assign field</code>, <code>load from array</code>, etc.), and the <em>expression</em> names the exact thing that was null &mdash; a local, a field, or even <code>the return value of "Map.get(Object)"</code>. That expression is what you check.</p>
+
+            <h2>Cause 1: method called on a null reference</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>String name = null;
+int n = name.length();   // ❌ Cannot invoke "String.length()" because "name" is null
+
+// ✅ guard, or guarantee non-null
+if (name != null) {
+    int n = name.length();
+}</code></pre>
+            </div>
+
+            <h2>Cause 2: a lookup returned null (Map / JSON field)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Map&lt;String, String&gt; cfg = new HashMap&lt;&gt;();
+String host = cfg.get("host").trim();  // ❌ get() returned null for a missing key
+
+// ✅ supply a default instead of dereferencing null
+String host = cfg.getOrDefault("host", "localhost").trim();
+
+// ✅ or model an optional JSON field
+Optional.ofNullable(cfg.get("host"))
+        .map(String::trim)
+        .ifPresent(this::connect);</code></pre>
+            </div>
+
+            <h2>Cause 3: auto-unboxing a null wrapper</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Map&lt;String, Integer&gt; counts = new HashMap&lt;&gt;();
+int c = counts.get("x");   // ❌ get() is null -> unboxing null Integer to int
+
+// ✅ check, or use a primitive default
+int c = counts.getOrDefault("x", 0);</code></pre>
+            </div>
+
+            <h2>Cause 4: uninitialized object field</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>class Cart { List&lt;Item&gt; items; }       // field defaults to null
+
+Cart cart = new Cart();
+cart.items.add(item);   // ❌ Cannot invoke "List.add" because "this.items" is null
+
+// ✅ initialize the field
+class Cart { List&lt;Item&gt; items = new ArrayList&lt;&gt;(); }</code></pre>
+            </div>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Message fragment</th><th>What was null</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Cannot invoke "...()"</td><td>the receiver reference</td><td>null-check / ensure non-null</td></tr>
+                    <tr><td>because the return value of "Map.get"</td><td>missing map key</td><td><code>getOrDefault</code> / check</td></tr>
+                    <tr><td>Cannot read field "..."</td><td>the object holding the field</td><td>initialize the object</td></tr>
+                    <tr><td>Cannot load from ... array</td><td>the array reference</td><td>allocate the array first</td></tr>
+                    <tr><td>unboxing</td><td>null wrapper (Integer/Long...)</td><td>primitive default</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; On JDK 14+? Read the "because ... is null" phrase &mdash; it names the reference</li>
+                <li>&#10003; On JDK 8&ndash;13? Open the top stack-trace line and inspect what's dereferenced</li>
+                <li>&#10003; Came from <code>Map.get</code>/JSON? Use <code>getOrDefault</code> or null-check the result</li>
+                <li>&#10003; Unboxing a wrapper? Avoid implicit <code>int x = map.get(k)</code></li>
+                <li>&#10003; Field NPE? Initialize collections/objects at declaration</li>
+                <li>&#10003; Design APIs with <code>Optional</code> / <code>Objects.requireNonNull</code> to fail early</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What causes java.lang.NullPointerException?</summary>
+                    <p>You used a reference whose value was null as if it pointed to an object &mdash; calling a method on it, reading or writing a field, indexing an array, or unboxing it to a primitive. There was no object there, so the JVM throws NullPointerException.</p>
+                </details>
+                <details>
+                    <summary>How do I read the Java 14+ helpful NullPointerException message?</summary>
+                    <p>Since JDK 14 (on by default from JDK 15) the message names exactly what was null, e.g. <code>Cannot invoke "String.length()" because "&lt;local1&gt;" is null</code> or <code>because the return value of "Map.get(Object)" is null</code>. That phrase points straight at the expression to check.</p>
+                </details>
+                <details>
+                    <summary>Why is my NPE message just a stack trace with no detail?</summary>
+                    <p>You're on JDK 8&ndash;13, or helpful messages are disabled. Read the top stack frame's file:line, then look at that line for the reference being dereferenced. On JDK 14 enable it with <code>-XX:+ShowCodeDetailsInExceptionMessages</code>; from JDK 15 it's the default.</p>
+                </details>
+                <details>
+                    <summary>How do I fix a NullPointerException?</summary>
+                    <p>Find which reference is null (the helpful message or the stack line tells you), then either guarantee it's non-null before use, guard with an <code>if (x != null)</code> check, supply a default with <code>Optional</code>/<code>Objects.requireNonNullElse</code>, or fix the upstream code that returned null.</p>
+                </details>
+                <details>
+                    <summary>Why does Map.get or a JSON field return null and NPE?</summary>
+                    <p><code>Map.get</code> returns null for a missing key, and JSON parsers return null for absent/null fields. Chaining a method on that result (<code>map.get(k).trim()</code>) throws. Use <code>getOrDefault</code>, check for null, or model optional fields with <code>Optional</code> before dereferencing.</p>
+                </details>
+                <details>
+                    <summary>Does Optional eliminate NullPointerException?</summary>
+                    <p><code>Optional</code> makes "might be absent" explicit and gives safe operations (<code>map</code>, <code>orElse</code>), which prevents many NPEs &mdash; but only if you don't call <code>.get()</code> on an empty Optional. It's a tool for API design, not a blanket guarantee against null.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More language &amp; runtime errors</h3>
+                <p>Browse the full reference for Java, Go, Node.js, Python, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="cannot-read-properties-of-null.html" class="btn btn-primary" style="background:#f0db4f;border-color:#f0db4f;color:#222;">JS: Cannot read properties of null</a>
+                    <a href="nonetype-no-attribute.html" class="btn btn-primary" style="background:#4B8BBE;border-color:#4B8BBE;">Python: NoneType has no attribute</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-read-properties-of-null.html">JS: Cannot read properties of null</a> &mdash; the JavaScript equivalent</li>
+                <li><a href="nonetype-no-attribute.html">Python: 'NoneType' object has no attribute</a></li>
+                <li><a href="go-nil-pointer-dereference.html">Go: nil pointer dereference</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

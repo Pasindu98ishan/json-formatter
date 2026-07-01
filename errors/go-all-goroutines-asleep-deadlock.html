@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="fatal error: all goroutines are asleep - deadlock! — why Go detects a deadlock when every goroutine is blocked, and how to fix unbuffered-channel, WaitGroup, and missing-sender deadlocks.">
+    <meta name="keywords" content="all goroutines are asleep deadlock, go deadlock, fatal error deadlock go, unbuffered channel deadlock, waitgroup deadlock, go channel blocking">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-all-goroutines-asleep-deadlock.html">
+    <meta property="og:title" content="fatal error: all goroutines are asleep - deadlock! (Go) — Fix">
+    <meta property="og:description" content="Go's runtime aborts with 'all goroutines are asleep - deadlock!' when every goroutine is blocked forever. Fix unbuffered-channel, WaitGroup, and missing-sender/receiver deadlocks.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-all-goroutines-asleep-deadlock.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>fatal error: all goroutines are asleep - deadlock! (Go) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "all goroutines are asleep - deadlock", "item": "https://jsondevtools.org/errors/go-all-goroutines-asleep-deadlock.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "fatal error: all goroutines are asleep - deadlock! — Cause and Fix",
+  "description": "Go's runtime detects a deadlock and aborts when every goroutine is blocked with no way to make progress. This reference covers unbuffered-channel, WaitGroup, and missing-sender deadlocks.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'all goroutines are asleep - deadlock' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The Go runtime noticed that every goroutine is blocked (on a channel, mutex, or WaitGroup) and none can ever wake another, so the program can make no progress. Rather than hang forever, the runtime aborts with this fatal error. It is detected only when ALL goroutines are stuck." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does sending on an unbuffered channel deadlock?",
+      "acceptedAnswer": { "@type": "Answer", "text": "An unbuffered channel send blocks until another goroutine receives. If you send on the main goroutine with no receiver running, main blocks forever and it's the only goroutine — deadlock. Either receive in a separate goroutine, or use a buffered channel (make(chan T, n)) when appropriate." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my WaitGroup deadlock?",
+      "acceptedAnswer": { "@type": "Answer", "text": "wg.Wait() blocks until the counter hits zero. If you Add(n) but a goroutine never calls Done() (an early return, a panic, or a wrong count), the counter never reaches zero and Wait blocks forever. Use defer wg.Done() at the top of each goroutine and make Add match the number you launch." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does ranging over a channel deadlock?",
+      "acceptedAnswer": { "@type": "Answer", "text": "for v := range ch keeps receiving until the channel is closed. If no one closes it, the range blocks forever once the senders are done. Close the channel from the sending side (close(ch)) when all values are sent — never from the receiver, and never close twice." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the runtime always detect deadlocks?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Go only reports this when EVERY goroutine is blocked. If one goroutine is still running (a background ticker, an HTTP server, a busy loop), a partial deadlock among the others won't trigger it — the program just hangs. Use go vet, the race detector, or goroutine dumps (SIGQUIT) to find those." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I see which goroutines are stuck?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The fatal error prints a stack for every goroutine and what each is blocked on (chan send, chan receive, semacquire). Read what each is waiting for and confirm nothing can satisfy it. For hangs that aren't full deadlocks, send SIGQUIT (Ctrl-\\) to dump all goroutine stacks." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>all goroutines are asleep - deadlock</span>
+            </nav>
+            <h1>fatal error: all goroutines are asleep - deadlock!</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Every goroutine is <strong>blocked</strong> and none can wake another, so the Go runtime aborts instead of hanging. The usual causes are an <strong>unbuffered channel send with no receiver</strong>, a <strong>WaitGroup whose <code>Done()</code> is never called</strong>, or <strong><code>range</code> over a channel that's never <code>close</code>d</strong>. Read the per-goroutine stack &mdash; it shows what each one is waiting on.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fatal error: all goroutines are asleep - deadlock!
+
+goroutine 1 [chan send]:
+main.main()
+        /app/main.go:7 +0x37     &lt;-- blocked sending on a channel</code></pre>
+            </div>
+
+            <h2>How to diagnose it</h2>
+            <p>The fatal dump lists <strong>every goroutine and what it's blocked on</strong> in brackets: <code>[chan send]</code>, <code>[chan receive]</code>, <code>[semacquire]</code> (a mutex/WaitGroup). Read each one and ask "who is supposed to unblock this?" &mdash; the deadlock is the line where the answer is "nobody." Because Go only fires this when <em>all</em> goroutines are asleep, the dump is complete: the cause is in there.</p>
+
+            <h2>Cause 1: unbuffered channel, no receiver</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>ch := make(chan int)
+ch &lt;- 1                 // ❌ blocks: no goroutine is receiving
+fmt.Println(&lt;-ch)
+
+// ✅ receive in another goroutine
+ch := make(chan int)
+go func() { ch &lt;- 1 }()
+fmt.Println(&lt;-ch)
+
+// ✅ or buffer it if a single value is fine
+ch := make(chan int, 1)
+ch &lt;- 1
+fmt.Println(&lt;-ch)</code></pre>
+            </div>
+
+            <h2>Cause 2: WaitGroup Done() never called</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>var wg sync.WaitGroup
+wg.Add(2)
+go func() { work(); wg.Done() }()  // only one Done() ...
+wg.Wait()              // ❌ counter never reaches 0 -&gt; deadlock
+
+// ✅ defer Done() at the top, and Add the right count
+wg.Add(2)
+for i := 0; i &lt; 2; i++ {
+    go func() { defer wg.Done(); work() }()
+}
+wg.Wait()</code></pre>
+            </div>
+
+            <h2>Cause 3: range over a channel that's never closed</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>ch := make(chan int)
+go func() {
+    for i := 0; i &lt; 3; i++ { ch &lt;- i }
+    // ❌ forgot to close(ch) — the range below blocks forever
+}()
+for v := range ch { fmt.Println(v) }
+
+// ✅ close from the sender when done
+go func() {
+    defer close(ch)
+    for i := 0; i &lt; 3; i++ { ch &lt;- i }
+}()</code></pre>
+            </div>
+
+            <h2>When the runtime won't catch it</h2>
+            <p>Go reports this only when <strong>every</strong> goroutine is blocked. If one is still alive &mdash; an HTTP server, a <code>time.Ticker</code>, a background worker &mdash; a partial deadlock among the rest just <em>hangs</em> silently instead. For those, run with the <strong>race detector</strong> (<code>go run -race</code>), use <code>go vet</code>, or send <strong>SIGQUIT</strong> (Ctrl-\) to dump all goroutine stacks and see who's stuck.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Blocked on</th><th>Cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>[chan send]</code></td><td>no receiver for an unbuffered send</td><td>receive in a goroutine / buffer it</td></tr>
+                    <tr><td><code>[chan receive]</code></td><td>no sender, or channel never closed</td><td>send/close from the producer</td></tr>
+                    <tr><td><code>[semacquire]</code></td><td>WaitGroup <code>Done()</code> missing / mutex held</td><td><code>defer wg.Done()</code>; release locks</td></tr>
+                    <tr><td>hangs, no fatal error</td><td>one goroutine still running</td><td><code>-race</code>, <code>go vet</code>, SIGQUIT dump</td></tr>
+                    <tr><td>main exits early</td><td>goroutines never get to run</td><td><code>WaitGroup</code> / channel sync</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read each goroutine's <code>[chan send/receive/semacquire]</code> tag &mdash; what is it waiting for?</li>
+                <li>&#10003; Unbuffered send? Ensure a receiver runs concurrently (or buffer)</li>
+                <li>&#10003; <code>WaitGroup</code>? <code>defer wg.Done()</code> and make <code>Add</code> match the goroutines</li>
+                <li>&#10003; <code>range ch</code>? <code>close(ch)</code> from the sender when done</li>
+                <li>&#10003; Hangs but no fatal error? One goroutine is alive &mdash; use <code>-race</code> / SIGQUIT</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'all goroutines are asleep - deadlock' mean?</summary>
+                    <p>The Go runtime noticed that every goroutine is blocked (on a channel, mutex, or WaitGroup) and none can ever wake another, so the program can make no progress. Rather than hang forever, the runtime aborts with this fatal error. It is detected only when ALL goroutines are stuck.</p>
+                </details>
+                <details>
+                    <summary>Why does sending on an unbuffered channel deadlock?</summary>
+                    <p>An unbuffered channel send blocks until another goroutine receives. If you send on the main goroutine with no receiver running, main blocks forever and it's the only goroutine &mdash; deadlock. Either receive in a separate goroutine, or use a buffered channel (<code>make(chan T, n)</code>) when appropriate.</p>
+                </details>
+                <details>
+                    <summary>Why does my WaitGroup deadlock?</summary>
+                    <p><code>wg.Wait()</code> blocks until the counter hits zero. If you <code>Add(n)</code> but a goroutine never calls <code>Done()</code> (an early return, a panic, or a wrong count), the counter never reaches zero and <code>Wait</code> blocks forever. Use <code>defer wg.Done()</code> at the top of each goroutine and make <code>Add</code> match the number you launch.</p>
+                </details>
+                <details>
+                    <summary>Why does ranging over a channel deadlock?</summary>
+                    <p><code>for v := range ch</code> keeps receiving until the channel is closed. If no one closes it, the range blocks forever once the senders are done. Close the channel from the sending side (<code>close(ch)</code>) when all values are sent &mdash; never from the receiver, and never close twice.</p>
+                </details>
+                <details>
+                    <summary>Does the runtime always detect deadlocks?</summary>
+                    <p>No. Go only reports this when EVERY goroutine is blocked. If one goroutine is still running (a background ticker, an HTTP server, a busy loop), a partial deadlock among the others won't trigger it &mdash; the program just hangs. Use <code>go vet</code>, the race detector, or goroutine dumps (SIGQUIT) to find those.</p>
+                </details>
+                <details>
+                    <summary>How do I see which goroutines are stuck?</summary>
+                    <p>The fatal error prints a stack for every goroutine and what each is blocked on (chan send, chan receive, semacquire). Read what each is waiting for and confirm nothing can satisfy it. For hangs that aren't full deadlocks, send SIGQUIT (Ctrl-\) to dump all goroutine stacks.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More backend &amp; language errors</h3>
+                <p>Browse the full reference for Go, Node.js, Python, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="go-nil-pointer-dereference.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: nil pointer dereference</a>
+                    <a href="postgres-deadlock-detected.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Postgres: deadlock detected</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-nil-pointer-dereference.html">panic: nil pointer dereference</a></li>
+                <li><a href="go-index-out-of-range.html">panic: index out of range</a></li>
+                <li><a href="postgres-deadlock-detected.html">ERROR: deadlock detected</a> &mdash; a database deadlock for comparison</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="go-json-cannot-unmarshal.html">json: cannot unmarshal into Go value</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

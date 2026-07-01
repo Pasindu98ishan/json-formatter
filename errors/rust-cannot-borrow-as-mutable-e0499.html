@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="error[E0499]: cannot borrow X as mutable more than once at a time — why Rust's borrow checker forbids two mutable borrows, and how to fix it by scoping or sequencing your borrows.">
+    <meta name="keywords" content="E0499, cannot borrow as mutable more than once, rust mutable borrow, second mutable borrow, rust borrow checker, exclusive borrow">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-cannot-borrow-as-mutable-e0499.html">
+    <meta property="og:title" content="error[E0499]: cannot borrow as mutable more than once (Rust) — Fix">
+    <meta property="og:description" content="Rust's E0499 means two &mut references to the same value are alive at once. Fix it by scoping borrows, sequencing them, or splitting the data.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-cannot-borrow-as-mutable-e0499.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>error[E0499]: cannot borrow as mutable more than once (Rust) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "E0499: cannot borrow as mutable more than once", "item": "https://jsondevtools.org/errors/rust-cannot-borrow-as-mutable-e0499.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "error[E0499]: cannot borrow X as mutable more than once at a time — Cause and Fix",
+  "description": "Rust's E0499 means two mutable references to the same value overlap in scope. This reference explains exclusive borrows and how to fix the error.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does E0499 'cannot borrow as mutable more than once' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Two &mut references to the same value are alive at the same time. Rust guarantees a mutable borrow is exclusive — at most one &mut may exist for a value at any moment — so the second one is rejected. End the first borrow before taking the second." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Rust only allow one mutable borrow?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Exclusive mutable access is how Rust prevents data races and aliasing bugs at compile time. If two &mut pointed at the same data, a write through one could invalidate the other. The rule is: many &T (shared, read-only) OR one &mut T (exclusive), never both." }
+    },
+    {
+      "@type": "Question",
+      "name": "How does non-lexical lifetimes (NLL) affect E0499?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Since NLL, a borrow ends at its last use, not at the end of the block. So storing the first &mut in a variable you keep using is what extends it. Often just reordering code so the first borrow's last use comes before the second fixes E0499 with no other change." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I mutate two parts of the same Vec or struct?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Use a splitting API: split_at_mut / split_first_mut for slices and Vecs, or destructure a struct into separate &mut fields. These hand you disjoint mutable references the compiler can prove don't overlap." }
+    },
+    {
+      "@type": "Question",
+      "name": "When should I use RefCell instead?",
+      "acceptedAnswer": { "@type": "Answer", "text": "RefCell<T> moves the single-mutable-borrow check from compile time to run time (panicking on violation). Use it only when you genuinely need interior mutability — e.g., shared graph nodes — not to silence E0499 in code that can be restructured." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between E0499 and E0502?",
+      "acceptedAnswer": { "@type": "Answer", "text": "E0499 is two mutable borrows at once. E0502 is mixing a mutable borrow with a shared (immutable) borrow at the same time. Both come from the same rule — &mut must be exclusive — just different combinations." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>E0499: cannot borrow as mutable more than once</span>
+            </nav>
+            <h1>error[E0499]: cannot borrow `x` as mutable more than once at a time</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Two <code>&amp;mut</code> references to the same value are alive at once. Rust requires a mutable borrow to be <strong>exclusive</strong>. End the first borrow before taking the second (since NLL a borrow ends at its <em>last use</em>, so reordering often fixes it), or use a splitting API like <code>split_at_mut</code> to get disjoint borrows.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>error[E0499]: cannot borrow `v` as mutable more than once at a time
+ --&gt; src/main.rs:4:14
+  |
+3 |     let a = &amp;mut v;
+  |             ------ first mutable borrow occurs here
+4 |     let b = &amp;mut v;
+  |             ^^^^^^ second mutable borrow occurs here
+5 |     a.push(1);
+  |     - first borrow later used here</code></pre>
+            </div>
+
+            <h2>How to read it</h2>
+            <p>Rust marks three lines: <strong>"first mutable borrow occurs here"</strong>, <strong>"second mutable borrow occurs here"</strong> (the rejected line), and <strong>"first borrow later used here"</strong>. That last line is the key &mdash; the first borrow is still <em>live</em> because you use it after the second. If you can move the first borrow's last use earlier, the conflict disappears.</p>
+
+            <h2>Cause 1: two overlapping &amp;mut</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let mut v = vec![1, 2, 3];
+let a = &amp;mut v;
+let b = &amp;mut v;        // ❌ second &mut while a is still used below
+a.push(4);
+b.push(5);
+
+// ✅ finish with the first borrow before taking the second
+let mut v = vec![1, 2, 3];
+{ let a = &amp;mut v; a.push(4); }   // a's scope ends here
+let b = &amp;mut v; b.push(5);</code></pre>
+            </div>
+
+            <h2>Cause 2: borrowing inside a loop you also mutate</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let mut v = vec![1, 2, 3];
+let first = &amp;mut v[0];
+for x in &amp;mut v { *x += 1; }  // ❌ v already mutably borrowed by `first`
+*first = 0;
+
+// ✅ don't hold the element borrow across the loop
+let mut v = vec![1, 2, 3];
+for x in &amp;mut v { *x += 1; }
+v[0] = 0;</code></pre>
+            </div>
+
+            <h2>Cause 3: mutating two parts of the same collection</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let mut v = vec![1, 2, 3, 4];
+let left  = &amp;mut v[0];
+let right = &amp;mut v[3];   // ❌ compiler can't prove these are disjoint
+*left += *right;
+
+// ✅ split into non-overlapping halves
+let (a, b) = v.split_at_mut(2);
+a[0] += b[1];</code></pre>
+            </div>
+
+            <h2>When interior mutability is the right tool</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>use std::cell::RefCell;
+
+let cell = RefCell::new(vec![1, 2, 3]);
+cell.borrow_mut().push(4);   // checked at RUNTIME, panics on overlap
+cell.borrow_mut().push(5);   // ok: previous borrow already dropped</code></pre>
+            </div>
+            <p>Use <code>RefCell</code> only when you truly need interior mutability (shared owners, graph nodes), not to paper over code that could be restructured &mdash; it trades a compile error for a possible runtime panic.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Why E0499</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>two <code>&amp;mut</code> in a row</td><td>first still used later</td><td>scope/sequence the borrows</td></tr>
+                    <tr><td>element borrow + loop</td><td>collection borrowed twice</td><td>drop the element borrow first</td></tr>
+                    <tr><td>two indices of a Vec</td><td>can't prove disjoint</td><td><code>split_at_mut</code></td></tr>
+                    <tr><td>two struct fields</td><td>whole struct borrowed</td><td>destructure into field <code>&amp;mut</code></td></tr>
+                    <tr><td>shared owners</td><td>need aliasing + mutation</td><td><code>RefCell</code> / <code>Rc&lt;RefCell&gt;</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Find "first borrow later used here" &mdash; can that use move earlier?</li>
+                <li>&#10003; Wrap the first borrow in a <code>{ }</code> block to end it sooner</li>
+                <li>&#10003; Two parts of one Vec/slice? Use <code>split_at_mut</code> / <code>split_first_mut</code></li>
+                <li>&#10003; Two struct fields? Destructure instead of borrowing the whole struct</li>
+                <li>&#10003; Genuinely need aliased mutation? Reach for <code>RefCell</code> deliberately</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does E0499 'cannot borrow as mutable more than once' mean?</summary>
+                    <p>Two <code>&amp;mut</code> references to the same value are alive at the same time. Rust guarantees a mutable borrow is exclusive &mdash; at most one <code>&amp;mut</code> may exist for a value at any moment &mdash; so the second one is rejected. End the first borrow before taking the second.</p>
+                </details>
+                <details>
+                    <summary>Why does Rust only allow one mutable borrow?</summary>
+                    <p>Exclusive mutable access is how Rust prevents data races and aliasing bugs at compile time. If two <code>&amp;mut</code> pointed at the same data, a write through one could invalidate the other. The rule is: many <code>&amp;T</code> (shared, read-only) OR one <code>&amp;mut T</code> (exclusive), never both.</p>
+                </details>
+                <details>
+                    <summary>How does non-lexical lifetimes (NLL) affect E0499?</summary>
+                    <p>Since NLL, a borrow ends at its last use, not at the end of the block. So storing the first <code>&amp;mut</code> in a variable you keep using is what extends it. Often just reordering code so the first borrow's last use comes before the second fixes E0499 with no other change.</p>
+                </details>
+                <details>
+                    <summary>How do I mutate two parts of the same Vec or struct?</summary>
+                    <p>Use a splitting API: <code>split_at_mut</code> / <code>split_first_mut</code> for slices and Vecs, or destructure a struct into separate <code>&amp;mut</code> fields. These hand you disjoint mutable references the compiler can prove don't overlap.</p>
+                </details>
+                <details>
+                    <summary>When should I use RefCell instead?</summary>
+                    <p><code>RefCell&lt;T&gt;</code> moves the single-mutable-borrow check from compile time to run time (panicking on violation). Use it only when you genuinely need interior mutability &mdash; e.g., shared graph nodes &mdash; not to silence E0499 in code that can be restructured.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between E0499 and E0502?</summary>
+                    <p>E0499 is two mutable borrows at once. E0502 is mixing a mutable borrow with a shared (immutable) borrow at the same time. Both come from the same rule &mdash; <code>&amp;mut</code> must be exclusive &mdash; just different combinations.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More language &amp; runtime errors</h3>
+                <p>Browse the full reference for Rust, Go, Node.js, Python, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-borrow-of-moved-value-e0382.html" class="btn btn-primary" style="background:#dea584;border-color:#dea584;color:#222;">Rust: E0382 borrow of moved value</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-borrow-of-moved-value-e0382.html">E0382: borrow of moved value</a></li>
+                <li><a href="go-all-goroutines-asleep-deadlock.html">Go: all goroutines are asleep - deadlock</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="panic: runtime error: invalid memory address or nil pointer dereference — how to read the Go panic, find the nil value, and fix it with nil checks, initialization (make/new), and checking errors before using results.">
+    <meta name="keywords" content="invalid memory address or nil pointer dereference, go nil pointer dereference, runtime error nil, SIGSEGV go, assignment to entry in nil map, go nil check">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-nil-pointer-dereference.html">
+    <meta property="og:title" content="panic: nil pointer dereference (Go) — Cause and Fix">
+    <meta property="og:description" content="Go panics with 'invalid memory address or nil pointer dereference' when you use a nil pointer, map, or interface. Read the panic, find the nil, and fix it with nil checks and proper initialization.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-nil-pointer-dereference.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>panic: nil pointer dereference (Go) — Cause &amp; Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "nil pointer dereference", "item": "https://jsondevtools.org/errors/go-nil-pointer-dereference.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "panic: runtime error: invalid memory address or nil pointer dereference — Cause and Fix",
+  "description": "Go panics with a nil pointer dereference when you dereference a nil pointer, write to a nil map, or call a method on a nil interface. This reference shows how to read the panic and fix each cause.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'invalid memory address or nil pointer dereference' mean in Go?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Your program tried to read or write through a nil pointer (or a nil map, nil interface, or the pointer inside a nil-valued interface). The accompanying [signal SIGSEGV ... addr=0x0] confirms it: addr=0x0 is the nil address. The stack trace's top frame and line number point to the exact dereference." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find which value is nil?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Read the first frame of the panic stack — it names the function and line. The expression being dereferenced there (p.Field, m[key]=..., obj.Method()) is the nil one. addr=0x0 confirms nil; print the suspect with %v / %+v just before that line to see which variable is nil." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does writing to a map panic?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A declared-but-not-initialized map is nil, and writing to a nil map panics (reading returns the zero value, which hides it). Initialize it with make(map[K]V) or a literal map[K]V{} before assigning keys. The same applies to nil slices you index into." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get a nil panic right after a function that returns an error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You used the returned value without checking the error. When err != nil, the other return value is usually the zero value (often a nil pointer), so using it dereferences nil. Always check if err != nil and return/handle before touching the result." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is a typed nil / nil interface gotcha?",
+      "acceptedAnswer": { "@type": "Answer", "text": "An interface holding a nil pointer is not equal to a nil interface: var p *T = nil; var i interface{} = p makes i != nil even though the underlying pointer is nil. Calling a method that dereferences the receiver then panics. Return a literal nil (not a typed nil pointer) when you mean 'no value'." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I recover from a nil pointer panic?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You can recover() in a deferred function to stop the panic from crashing the process (common in server request handlers), but recover is for resilience, not a fix. The real fix is the nil check or initialization; treat a nil-pointer panic as a bug to eliminate, not catch." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>nil pointer dereference</span>
+            </nav>
+            <h1>panic: runtime error: invalid memory address or nil pointer dereference</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You used a <strong>nil pointer, nil map, or nil interface</strong>. The <code>[signal SIGSEGV ... addr=0x0]</code> line confirms it &mdash; <code>0x0</code> is the nil address &mdash; and the <strong>top stack frame names the exact line</strong>. Fix it with a <strong>nil check</strong> before the dereference, proper <strong>initialization</strong> (<code>make()</code> for maps, <code>&amp;T{}</code> for pointers), and by <strong>checking <code>err</code> before using a returned value</strong>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>panic: runtime error: invalid memory address or nil pointer dereference
+[signal SIGSEGV: segmentation violation code=0x1 addr=0x0 pc=0x...]
+
+goroutine 1 [running]:
+main.(*User).Greet(...)
+        /app/main.go:14 +0x18      &lt;-- the line that dereferenced nil
+main.main()
+        /app/main.go:9 +0x25</code></pre>
+            </div>
+
+            <h2>How to read the panic (find the nil)</h2>
+            <p>Two clues pinpoint it: <code>addr=0x0</code> means the address was nil, and the <strong>first <code>main.*</code> frame</strong> in the goroutine trace is your line. Open that file:line &mdash; the value you dereferenced there (<code>p.Field</code>, <code>m[k] = v</code>, <code>x.Method()</code>) is the nil one. A quick <code>fmt.Printf("%+v\n", suspect)</code> just above that line confirms which variable.</p>
+
+            <h2>Cause 1: dereferencing a nil pointer</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type User struct{ Name string }
+var u *User                 // nil pointer
+fmt.Println(u.Name)         // ❌ panic: nil pointer dereference
+
+if u != nil {               // ✅ guard
+    fmt.Println(u.Name)
+}
+u = &amp;User{Name: "Ada"}      // ✅ or initialize it</code></pre>
+            </div>
+
+            <h2>Cause 2: writing to a nil map</h2>
+            <p>A declared map is nil until you make it; <em>reading</em> a nil map is fine (zero value), but <em>writing</em> panics:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>var m map[string]int        // nil map
+m["a"] = 1                  // ❌ panic: assignment to entry in nil map
+
+m = make(map[string]int)    // ✅ initialize before writing
+m["a"] = 1</code></pre>
+            </div>
+
+            <h2>Cause 3: using a result without checking err</h2>
+            <p>When a function returns <code>(T, error)</code> and errors, <code>T</code> is usually its zero value (often a nil pointer). Using it dereferences nil:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>resp, err := http.Get(url)
+defer resp.Body.Close()     // ❌ resp is nil when err != nil
+
+resp, err := http.Get(url)
+if err != nil {             // ✅ check first
+    return err
+}
+defer resp.Body.Close()</code></pre>
+            </div>
+
+            <h2>Cause 4: the typed-nil interface trap</h2>
+            <p>An interface that holds a nil pointer is <em>not</em> a nil interface, so a <code>!= nil</code> check passes and a later method call panics:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>func find() error {
+    var e *MyError = nil
+    return e               // ❌ returns a non-nil interface wrapping a nil *MyError
+}
+if err := find(); err != nil { // true! then err.Error() may panic
+    log.Println(err.Error())
+}
+// ✅ return a literal nil when there's no error:
+func find() error { return nil }</code></pre>
+            </div>
+
+            <h2>Common variants of this panic</h2>
+            <table>
+                <thead>
+                    <tr><th>Message / situation</th><th>Cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>nil pointer dereference</code></td><td>nil <code>*T</code> dereferenced</td><td>nil-check or initialize <code>&amp;T{}</code></td></tr>
+                    <tr><td><code>assignment to entry in nil map</code></td><td>writing to a nil map</td><td><code>make(map[K]V)</code> first</td></tr>
+                    <tr><td>panic right after a call</td><td>used result without checking <code>err</code></td><td><code>if err != nil { return }</code></td></tr>
+                    <tr><td><code>err != nil</code> but value is "nil"</td><td>typed nil in an interface</td><td>return literal <code>nil</code></td></tr>
+                    <tr><td>nil receiver method</td><td>method called on a nil pointer</td><td>guard the receiver / construct it</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>addr=0x0</code> in the signal line confirms a nil dereference</li>
+                <li>&#10003; The first <code>main.*</code> stack frame names the exact file:line</li>
+                <li>&#10003; Pointer nil? Guard with <code>if p != nil</code> or initialize <code>&amp;T{}</code></li>
+                <li>&#10003; Writing a map? <code>make(map[K]V)</code> before assigning</li>
+                <li>&#10003; After a <code>(T, error)</code> call? Check <code>err</code> before using <code>T</code></li>
+                <li>&#10003; <code>!= nil</code> passes but it still panics? Suspect a typed-nil interface</li>
+                <li>&#10003; Server handler? <code>recover()</code> for resilience, but still fix the nil</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'invalid memory address or nil pointer dereference' mean in Go?</summary>
+                    <p>Your program tried to read or write through a nil pointer (or a nil map, nil interface, or the pointer inside a nil-valued interface). The accompanying <code>[signal SIGSEGV ... addr=0x0]</code> confirms it: <code>addr=0x0</code> is the nil address. The stack trace's top frame and line number point to the exact dereference.</p>
+                </details>
+                <details>
+                    <summary>How do I find which value is nil?</summary>
+                    <p>Read the first frame of the panic stack &mdash; it names the function and line. The expression being dereferenced there (<code>p.Field</code>, <code>m[key]=...</code>, <code>obj.Method()</code>) is the nil one. <code>addr=0x0</code> confirms nil; print the suspect with <code>%v</code> / <code>%+v</code> just before that line to see which variable is nil.</p>
+                </details>
+                <details>
+                    <summary>Why does writing to a map panic?</summary>
+                    <p>A declared-but-not-initialized map is nil, and writing to a nil map panics (reading returns the zero value, which hides it). Initialize it with <code>make(map[K]V)</code> or a literal <code>map[K]V{}</code> before assigning keys. The same applies to nil slices you index into.</p>
+                </details>
+                <details>
+                    <summary>Why do I get a nil panic right after a function that returns an error?</summary>
+                    <p>You used the returned value without checking the error. When <code>err != nil</code>, the other return value is usually the zero value (often a nil pointer), so using it dereferences nil. Always check <code>if err != nil</code> and return/handle before touching the result.</p>
+                </details>
+                <details>
+                    <summary>What is a typed nil / nil interface gotcha?</summary>
+                    <p>An interface holding a nil pointer is not equal to a nil interface: <code>var p *T = nil; var i interface{} = p</code> makes <code>i != nil</code> even though the underlying pointer is nil. Calling a method that dereferences the receiver then panics. Return a literal <code>nil</code> (not a typed nil pointer) when you mean "no value".</p>
+                </details>
+                <details>
+                    <summary>Can I recover from a nil pointer panic?</summary>
+                    <p>You can <code>recover()</code> in a deferred function to stop the panic from crashing the process (common in server request handlers), but <code>recover</code> is for resilience, not a fix. The real fix is the nil check or initialization; treat a nil-pointer panic as a bug to eliminate, not catch.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More backend &amp; language errors</h3>
+                <p>Browse the full reference for Go, Node.js, Python, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="go-index-out-of-range.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: index out of range</a>
+                    <a href="go-json-cannot-unmarshal.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Go: cannot unmarshal JSON</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-index-out-of-range.html">panic: runtime error: index out of range</a> &mdash; the other common Go runtime panic</li>
+                <li><a href="go-all-goroutines-asleep-deadlock.html">fatal error: all goroutines are asleep - deadlock!</a></li>
+                <li><a href="cannot-read-properties-of-null.html">Cannot read properties of null</a> &mdash; the JavaScript equivalent</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="go-json-cannot-unmarshal.html">json: cannot unmarshal into Go value</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

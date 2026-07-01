@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="IndentationError: unexpected indent — why Python rejects a line with leading whitespace that doesn't start a block, and how to fix indentation and mixed tabs/spaces.">
+    <meta name="keywords" content="IndentationError unexpected indent, python indentation error, unexpected indent, tabs vs spaces python, taberror inconsistent use of tabs">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/indentationerror-unexpected-indent.html">
+    <meta property="og:title" content="IndentationError: unexpected indent (Python) — Fix">
+    <meta property="og:description" content="Python's 'unexpected indent' means a line has leading whitespace where none belongs. Fix stray indentation, align blocks, and resolve mixed tabs and spaces.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/indentationerror-unexpected-indent.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>IndentationError: unexpected indent (Python) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "IndentationError: unexpected indent", "item": "https://jsondevtools.org/errors/indentationerror-unexpected-indent.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "IndentationError: unexpected indent — Cause and Fix",
+  "description": "Python raises 'unexpected indent' when a line is indented but nothing opened a new block. This reference covers stray indentation and mixed tabs/spaces.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'IndentationError: unexpected indent' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A line has more leading whitespace than the line before it, but nothing opened a new block. In Python, indentation only increases right after a statement ending in a colon (def, if, for, while, class, try, with). An indent anywhere else is unexpected." }
+    },
+    {
+      "@type": "Question",
+      "name": "What's the difference between 'unexpected indent' and 'expected an indented block'?",
+      "acceptedAnswer": { "@type": "Answer", "text": "'unexpected indent' is too much whitespace where none was allowed. 'expected an indented block' is the opposite — a colon line (def/if/for) wasn't followed by an indented body. One is extra indentation, the other is missing indentation." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do mixed tabs and spaces cause this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Python compares indentation by characters, and a tab is not the same as N spaces. Lines that look aligned in your editor can differ underneath, producing 'unexpected indent' or the related TabError: inconsistent use of tabs and spaces. Use spaces only (PEP 8: 4 spaces) and never mix the two." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix unexpected indent fast?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Go to the line and column the traceback points at, delete the stray leading whitespace so the line aligns with its siblings, and make sure any real block is opened by a colon line above it. Turn on 'show whitespace' and convert tabs to spaces in your editor." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it appear after pasting code?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Pasting into a REPL or editor often injects leading spaces, auto-indents continuation lines, or mixes the source's tabs with your editor's spaces. Re-indent the pasted block consistently, or paste with bracketed-paste / a paste-friendly mode in your terminal." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the indent amount have to be exactly 4 spaces?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Python only requires that indentation be consistent within a block — every statement at the same level must use identical leading whitespace. 4 spaces is the PEP 8 convention and what most tools assume, so it's the safe default, but the language enforces consistency, not a specific count." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>IndentationError: unexpected indent</span>
+            </nav>
+            <h1>IndentationError: unexpected indent</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A line has <strong>more leading whitespace than expected</strong>, but nothing opened a new block. Python only allows indentation to increase right after a line ending in a colon (<code>def</code>, <code>if</code>, <code>for</code>, <code>while</code>, <code>class</code>, <code>try</code>, <code>with</code>). Delete the stray indent so the line aligns with its siblings &mdash; and use <strong>spaces only</strong>, never mixed with tabs.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>  File "app.py", line 3
+    print("done")
+    ^
+IndentationError: unexpected indent</code></pre>
+            </div>
+
+            <h2>How to diagnose it in 30 seconds</h2>
+            <p>The traceback gives you the exact <strong>file and line</strong>, and the <code>^</code> caret sits under the first offending column. Ask one question: <strong>did the line above end in a colon?</strong> If no, this line should not be more indented &mdash; remove the extra whitespace. If yes, the indent is fine and your real problem is elsewhere (often mixed tabs/spaces, see below).</p>
+
+            <h2>Cause 1: stray indentation with no block</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>x = 1
+    print(x)        # ❌ indented, but nothing opened a block
+
+# ✅ align it with the previous statement
+x = 1
+print(x)</code></pre>
+            </div>
+
+            <h2>Cause 2: over-indented line inside a block</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>def greet(name):
+    print("hi")
+        print(name)   # ❌ extra indent — same level as line above expected
+
+# ✅ match the block's indentation
+def greet(name):
+    print("hi")
+    print(name)</code></pre>
+            </div>
+
+            <h2>Cause 3: mixed tabs and spaces</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>def total(items):
+&rarr;   return sum(items)   # this line uses a TAB
+    print("done")          # this line uses SPACES -> inconsistent
+
+# ✅ pick spaces everywhere (PEP 8: 4 spaces) and convert tabs
+#    Editors: "Convert Indentation to Spaces", show whitespace
+def total(items):
+    return sum(items)</code></pre>
+            </div>
+            <p>If tabs and spaces collide you may instead see <code>TabError: inconsistent use of tabs and spaces in indentation</code> &mdash; same root cause, same fix. Run <code>python -tt app.py</code> to make Python treat inconsistent tabs/spaces as errors everywhere.</p>
+
+            <h2>Cause 4: leftover indent after editing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>if debug:
+    log("on")
+    cleanup()        # removed the `if`, but left the body indented
+
+# ✅ after deleting a header, dedent its former body
+log("on")
+cleanup()</code></pre>
+            </div>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Why it errors</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>indent with no <code>:</code> above</td><td>nothing opened a block</td><td>remove the leading whitespace</td></tr>
+                    <tr><td>over-indented body line</td><td>doesn't match siblings</td><td>align to the block level</td></tr>
+                    <tr><td>tab + space mix</td><td>inconsistent indentation</td><td>spaces only; convert tabs</td></tr>
+                    <tr><td>pasted code</td><td>auto-indent / injected spaces</td><td>re-indent the pasted block</td></tr>
+                    <tr><td>deleted a header line</td><td>orphaned indented body</td><td>dedent the former body</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Go to the reported line; look at the <code>^</code> column</li>
+                <li>&#10003; Did the line above end in <code>:</code>? If not, remove the indent</li>
+                <li>&#10003; Turn on "show whitespace" &mdash; look for stray tabs</li>
+                <li>&#10003; Convert the file to spaces only (4-space indent)</li>
+                <li>&#10003; Run <code>python -tt app.py</code> to flag any tab/space mixing</li>
+                <li>&#10003; Just edited? Check for an orphaned body after a deleted header</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'IndentationError: unexpected indent' mean?</summary>
+                    <p>A line has more leading whitespace than the line before it, but nothing opened a new block. In Python, indentation only increases right after a statement ending in a colon (<code>def</code>, <code>if</code>, <code>for</code>, <code>while</code>, <code>class</code>, <code>try</code>, <code>with</code>). An indent anywhere else is unexpected.</p>
+                </details>
+                <details>
+                    <summary>What's the difference between 'unexpected indent' and 'expected an indented block'?</summary>
+                    <p>"unexpected indent" is too much whitespace where none was allowed. "expected an indented block" is the opposite &mdash; a colon line (def/if/for) wasn't followed by an indented body. One is extra indentation, the other is missing indentation.</p>
+                </details>
+                <details>
+                    <summary>Why do mixed tabs and spaces cause this?</summary>
+                    <p>Python compares indentation by characters, and a tab is not the same as N spaces. Lines that look aligned in your editor can differ underneath, producing "unexpected indent" or the related <code>TabError: inconsistent use of tabs and spaces</code>. Use spaces only (PEP 8: 4 spaces) and never mix the two.</p>
+                </details>
+                <details>
+                    <summary>How do I fix unexpected indent fast?</summary>
+                    <p>Go to the line and column the traceback points at, delete the stray leading whitespace so the line aligns with its siblings, and make sure any real block is opened by a colon line above it. Turn on "show whitespace" and convert tabs to spaces in your editor.</p>
+                </details>
+                <details>
+                    <summary>Why does it appear after pasting code?</summary>
+                    <p>Pasting into a REPL or editor often injects leading spaces, auto-indents continuation lines, or mixes the source's tabs with your editor's spaces. Re-indent the pasted block consistently, or paste with bracketed-paste / a paste-friendly mode in your terminal.</p>
+                </details>
+                <details>
+                    <summary>Does the indent amount have to be exactly 4 spaces?</summary>
+                    <p>Python only requires that indentation be consistent within a block &mdash; every statement at the same level must use identical leading whitespace. 4 spaces is the PEP 8 convention and what most tools assume, so it's the safe default, but the language enforces consistency, not a specific count.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Python errors</h3>
+                <p>Browse the full reference for Python, JavaScript, Go, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="nonetype-no-attribute.html" class="btn btn-primary" style="background:#4B8BBE;border-color:#4B8BBE;">Python: NoneType has no attribute</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="nonetype-no-attribute.html">AttributeError: 'NoneType' object has no attribute</a></li>
+                <li><a href="keyerror-python.html">KeyError in Python</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

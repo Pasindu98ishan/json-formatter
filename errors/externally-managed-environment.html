@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="error: externally-managed-environment — why pip refuses to install into a system Python (PEP 668), and the right fix: a virtual environment, pipx, or --user.">
+    <meta name="keywords" content="externally-managed-environment, pip externally managed environment, PEP 668, error externally managed environment, pip install error, break-system-packages">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/externally-managed-environment.html">
+    <meta property="og:title" content="error: externally-managed-environment (pip / PEP 668) — Fix">
+    <meta property="og:description" content="pip blocks installs into a system Python under PEP 668. The correct fix is a virtual environment or pipx — not --break-system-packages. Here's why and how.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/externally-managed-environment.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>error: externally-managed-environment (pip / PEP 668) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "externally-managed-environment", "item": "https://jsondevtools.org/errors/externally-managed-environment.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "error: externally-managed-environment — Cause and Fix",
+  "description": "pip refuses to install into a distro-managed system Python under PEP 668. This reference explains why and gives the correct fixes: venv, pipx, and --user.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'error: externally-managed-environment' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Your operating system marked this Python as managed by its own package manager (apt, dnf, Homebrew). Under PEP 668, pip refuses to install into it because doing so could overwrite files the OS owns and break system tools. The intended fix is to install into a virtual environment or with pipx instead." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is PEP 668?",
+      "acceptedAnswer": { "@type": "Answer", "text": "PEP 668 is the standard that lets a distribution mark an environment as 'externally managed' by placing an EXTERNALLY-MANAGED marker file next to the Python install. pip honors that marker and declines system-wide installs, steering you toward isolated environments." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the correct way to fix it?",
+      "acceptedAnswer": { "@type": "Answer", "text": "For a project, create and activate a virtual environment: python3 -m venv .venv && source .venv/bin/activate, then pip install normally. For a standalone command-line app, use pipx install <tool>, which isolates each app in its own venv but exposes it on PATH." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I use --break-system-packages?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Avoid it. pip install --break-system-packages overrides the protection and installs into the system Python, which is exactly what PEP 668 prevents — it can corrupt OS-managed packages and break your package manager. Use it only as a last resort in a throwaway container, never on a machine you care about." }
+    },
+    {
+      "@type": "Question",
+      "name": "When is pip install --user a valid option?",
+      "acceptedAnswer": { "@type": "Answer", "text": "On some systems pip install --user installs into your home directory and sidesteps the system site-packages, which may be allowed. But many PEP 668 distros also block --user, and it still pollutes a shared user environment. A venv or pipx is cleaner and more reliable." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I install a package globally on Debian/Ubuntu the supported way?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Use the distro's own packages: sudo apt install python3-<name> pulls a version the OS manages and won't conflict with pip. For anything not packaged, use a venv or pipx. Reserve apt for system integration and venv/pipx for everything else." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>externally-managed-environment</span>
+            </nav>
+            <h1>error: externally-managed-environment</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Your OS marked this Python as managed by <strong>apt / dnf / Homebrew</strong>, and under <strong>PEP 668</strong> pip won't install into it &mdash; that could overwrite system files. The right fix is a <strong>virtual environment</strong> (<code>python3 -m venv .venv</code>) for projects, or <strong><code>pipx</code></strong> for command-line apps. Do <em>not</em> reach for <code>--break-system-packages</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>error: externally-managed-environment
+
+&times; This environment is externally managed
+&#9583;&#9472;&gt; To install Python packages system-wide, try apt install
+    python3-xyz, where xyz is the package you are trying to
+    install.
+
+    If you wish to install a non-Debian-packaged Python package,
+    create a virtual environment using python3 -m venv path/to/venv.</code></pre>
+            </div>
+
+            <h2>Why pip is refusing (PEP 668)</h2>
+            <p>The distribution dropped an <code>EXTERNALLY-MANAGED</code> marker file beside the Python install. pip honors it and declines to touch the system <code>site-packages</code>, because OS tools depend on exact versions there &mdash; a <code>pip install</code> (or worse, <code>pip install --upgrade</code>) could replace them and break your package manager. The message isn't a bug to defeat; it's pointing you to an isolated environment.</p>
+
+            <h2>Fix 1: a virtual environment (per project) &mdash; recommended</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># create once, in your project folder
+python3 -m venv .venv
+
+# activate (Linux/macOS)
+source .venv/bin/activate
+# activate (Windows PowerShell)
+# .venv\Scripts\Activate.ps1
+
+# now pip installs into the venv, not the system
+pip install requests
+python app.py</code></pre>
+            </div>
+
+            <h2>Fix 2: pipx (for standalone CLI tools)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># install pipx once via your OS, then:
+pipx install black
+pipx install httpie
+
+# each tool gets its own isolated venv but is on your PATH
+black --version</code></pre>
+            </div>
+            <p>Use <code>pipx</code> when you want a command available everywhere (linters, formatters, CLIs) without polluting any project or the system Python.</p>
+
+            <h2>Fix 3: the distro package (for system integration)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Debian / Ubuntu
+sudo apt install python3-requests
+
+# Fedora
+sudo dnf install python3-requests</code></pre>
+            </div>
+
+            <h2>What NOT to do</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ defeats PEP 668 and can corrupt OS-managed packages
+pip install requests --break-system-packages
+
+# ❌ same risk, just louder
+sudo pip install requests --break-system-packages</code></pre>
+            </div>
+            <p>This overrides the exact protection PEP 668 added. Reserve it for a throwaway container you're about to delete &mdash; never a machine whose package manager you rely on.</p>
+
+            <h2>Which fix should I use?</h2>
+            <table>
+                <thead>
+                    <tr><th>You want to...</th><th>Use</th><th>Command</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>install deps for a project</td><td>venv</td><td><code>python3 -m venv .venv</code></td></tr>
+                    <tr><td>install a CLI tool globally</td><td>pipx</td><td><code>pipx install &lt;tool&gt;</code></td></tr>
+                    <tr><td>integrate with system tools</td><td>distro pkg</td><td><code>apt install python3-&lt;name&gt;</code></td></tr>
+                    <tr><td>throwaway container only</td><td>override</td><td><code>--break-system-packages</code> (last resort)</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Working on a project? Create &amp; activate a <code>venv</code>, then <code>pip install</code></li>
+                <li>&#10003; Installing a CLI app? Use <code>pipx install</code></li>
+                <li>&#10003; Need OS integration? <code>apt</code>/<code>dnf install python3-&lt;name&gt;</code></li>
+                <li>&#10003; Prompt still shows the system Python? Confirm the venv is activated (<code>which python</code>)</li>
+                <li>&#10003; Resist <code>--break-system-packages</code> outside disposable containers</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'error: externally-managed-environment' mean?</summary>
+                    <p>Your operating system marked this Python as managed by its own package manager (apt, dnf, Homebrew). Under PEP 668, pip refuses to install into it because doing so could overwrite files the OS owns and break system tools. The intended fix is to install into a virtual environment or with pipx instead.</p>
+                </details>
+                <details>
+                    <summary>What is PEP 668?</summary>
+                    <p>PEP 668 is the standard that lets a distribution mark an environment as "externally managed" by placing an <code>EXTERNALLY-MANAGED</code> marker file next to the Python install. pip honors that marker and declines system-wide installs, steering you toward isolated environments.</p>
+                </details>
+                <details>
+                    <summary>What is the correct way to fix it?</summary>
+                    <p>For a project, create and activate a virtual environment: <code>python3 -m venv .venv &amp;&amp; source .venv/bin/activate</code>, then pip install normally. For a standalone command-line app, use <code>pipx install &lt;tool&gt;</code>, which isolates each app in its own venv but exposes it on PATH.</p>
+                </details>
+                <details>
+                    <summary>Should I use --break-system-packages?</summary>
+                    <p>Avoid it. <code>pip install --break-system-packages</code> overrides the protection and installs into the system Python, which is exactly what PEP 668 prevents &mdash; it can corrupt OS-managed packages and break your package manager. Use it only as a last resort in a throwaway container, never on a machine you care about.</p>
+                </details>
+                <details>
+                    <summary>When is pip install --user a valid option?</summary>
+                    <p>On some systems <code>pip install --user</code> installs into your home directory and sidesteps the system site-packages, which may be allowed. But many PEP 668 distros also block <code>--user</code>, and it still pollutes a shared user environment. A venv or pipx is cleaner and more reliable.</p>
+                </details>
+                <details>
+                    <summary>How do I install a package globally on Debian/Ubuntu the supported way?</summary>
+                    <p>Use the distro's own packages: <code>sudo apt install python3-&lt;name&gt;</code> pulls a version the OS manages and won't conflict with pip. For anything not packaged, use a venv or pipx. Reserve apt for system integration and venv/pipx for everything else.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Python &amp; tooling errors</h3>
+                <p>Browse the full reference for Python, Node.js, Go, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="indentationerror-unexpected-indent.html" class="btn btn-primary" style="background:#4B8BBE;border-color:#4B8BBE;">Python: unexpected indent</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="indentationerror-unexpected-indent.html">IndentationError: unexpected indent</a></li>
+                <li><a href="nonetype-no-attribute.html">AttributeError: 'NoneType' object has no attribute</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

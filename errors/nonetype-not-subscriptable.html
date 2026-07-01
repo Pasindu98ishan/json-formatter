@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: 'NoneType' object is not subscriptable — why bracket indexing failed because the value was None, and how to trace and fix the source of the None in Python.">
+    <meta name="keywords" content="NoneType object is not subscriptable, TypeError not subscriptable, python None indexing, nonetype subscript, object is not subscriptable python">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/nonetype-not-subscriptable.html">
+    <meta property="og:title" content="TypeError: 'NoneType' object is not subscriptable (Python) — Fix">
+    <meta property="og:description" content="This Python error means you used [ ] indexing on a value that was None. Find where the None came from — a missing return or a None-returning API — and fix it there.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/nonetype-not-subscriptable.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: 'NoneType' object is not subscriptable (Python) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "NoneType object is not subscriptable", "item": "https://jsondevtools.org/errors/nonetype-not-subscriptable.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: 'NoneType' object is not subscriptable — Cause and Fix",
+  "description": "A Python TypeError saying NoneType is not subscriptable means you indexed with [ ] into a value that was None. This reference shows how to find the source.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'NoneType object is not subscriptable' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You used square-bracket indexing — x[0] or x['key'] — on a value that was None. Subscripting (the [ ] operator) is only defined for sequences and mappings like list, str, dict, and tuple; None supports none of that, so Python raises TypeError." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is the value None instead of a list or dict?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Usually a function returned None (a missing or conditional return), or a None-returning API was used as if it returned a collection — json.load on the wrong thing, a dict.get with no default, list.sort() assigned to a variable, or a DB query that found no row." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'NoneType is not subscriptable'?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Trace the variable back to its assignment and confirm it can't be None. Fix the real source (add a return, pass a default), or guard the access: if x is not None: x[0], or x = func() or [] to fall back to an empty collection." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen with json.loads or a JSON field?",
+      "acceptedAnswer": { "@type": "Answer", "text": "JSON null decodes to Python None, so data['user']['name'] throws if 'user' is null. Also, assigning the result of json.dump (which returns None) by mistake and then indexing it triggers this. Inspect the JSON structure and check each level for None before indexing." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did list.sort() or .append() cause this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "In-place methods return None. If you write data = data.sort() or rows = rows.append(r), data/rows become None, and the next data[0] raises 'not subscriptable'. Call the method without reassigning its result." }
+    },
+    {
+      "@type": "Question",
+      "name": "What's the difference between 'not subscriptable' and 'has no attribute'?",
+      "acceptedAnswer": { "@type": "Answer", "text": "'not subscriptable' is bracket access on None (x[0], x['key']). 'has no attribute' is dot access on None (x.attr, x.method()). Both mean the value is None; the operation differs. The fix is the same: eliminate or guard the None." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>NoneType object is not subscriptable</span>
+            </nav>
+            <h1>TypeError: 'NoneType' object is not subscriptable</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You used bracket indexing &mdash; <code>x[0]</code> or <code>x["key"]</code> &mdash; on a value that was <code>None</code>. <code>None</code> isn't a list, dict, or string, so it can't be subscripted. Find <strong>where the variable became <code>None</code></strong> (a missing <code>return</code>, or a <code>None</code>-returning call) and fix it there, or guard the access.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "app.py", line 4, in &lt;module&gt;
+    print(config["host"])
+          ^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable</code></pre>
+            </div>
+
+            <h2>How to diagnose it in 30 seconds</h2>
+            <p>The traceback line shows the subscript expression (<code>config["host"]</code>), so the thing before the brackets &mdash; <code>config</code> &mdash; is <code>None</code>. Don't patch the crash line. Ask: <strong>where did <code>config</code> get assigned, and what returned <code>None</code> there?</strong> That assignment is the bug.</p>
+
+            <h2>Cause 1: function returned None</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>def load_config(path):
+    if os.path.exists(path):
+        return json.load(open(path))
+    # ❌ no return on the else path -> None
+
+config = load_config("missing.json")
+print(config["host"])    # TypeError: 'NoneType' object is not subscriptable
+
+# ✅ return a sensible default
+def load_config(path):
+    if os.path.exists(path):
+        return json.load(open(path))
+    return {}</code></pre>
+            </div>
+
+            <h2>Cause 2: assigning an in-place method's result</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>rows = [3, 1, 2]
+rows = rows.sort()       # ❌ sort() returns None
+first = rows[0]          # 'NoneType' object is not subscriptable
+
+# ✅ sort in place, don't reassign
+rows = [3, 1, 2]
+rows.sort()
+first = rows[0]</code></pre>
+            </div>
+
+            <h2>Cause 3: indexing a None from parsed JSON</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+data = json.loads('{"user": null}')   # JSON null -> Python None
+name = data["user"]["name"]            # ❌ data["user"] is None
+
+# ✅ check the level, or default it
+user = data.get("user") or {}
+name = user.get("name")</code></pre>
+            </div>
+            <p>Unsure which fields are <code>null</code>? Drop the payload into the <a href="../index.html">JSON Formatter</a> to see the structure before you index into it.</p>
+
+            <h2>Cause 4: a query/lookup that found nothing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>row = cursor.fetchone()   # no rows -> None
+user_id = row[0]          # ❌ 'NoneType' object is not subscriptable
+
+# ✅ guard for the empty result
+row = cursor.fetchone()
+if row is not None:
+    user_id = row[0]</code></pre>
+            </div>
+
+            <h2>Common sources of the None</h2>
+            <table>
+                <thead>
+                    <tr><th>Source</th><th>Returns None when</th><th>Safe pattern</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>function with no <code>return</code></td><td>some/all paths</td><td>return a default (<code>{}</code>/<code>[]</code>)</td></tr>
+                    <tr><td><code>list.sort()</code>/<code>.append()</code></td><td>always (in-place)</td><td>don't reassign the result</td></tr>
+                    <tr><td>JSON <code>null</code> field</td><td>field is null/absent</td><td><code>(x or {})[...]</code> / <code>.get</code></td></tr>
+                    <tr><td><code>cursor.fetchone()</code></td><td>no matching row</td><td><code>if row is not None:</code></td></tr>
+                    <tr><td><code>dict.get(k)</code></td><td>key missing</td><td><code>dict.get(k, {})</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the subscript expression &mdash; the value before <code>[ ]</code> is None</li>
+                <li>&#10003; Trace it to its assignment; confirm what can return None there</li>
+                <li>&#10003; Function source? Add a <code>return</code> (default collection) on every path</li>
+                <li>&#10003; In-place method? Stop reassigning <code>sort</code>/<code>append</code>/<code>reverse</code></li>
+                <li>&#10003; JSON/DB? Default with <code>x or {}</code>/<code>x or []</code>, or guard with <code>is not None</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'NoneType object is not subscriptable' mean?</summary>
+                    <p>You used square-bracket indexing &mdash; <code>x[0]</code> or <code>x['key']</code> &mdash; on a value that was None. Subscripting (the <code>[ ]</code> operator) is only defined for sequences and mappings like list, str, dict, and tuple; None supports none of that, so Python raises TypeError.</p>
+                </details>
+                <details>
+                    <summary>Why is the value None instead of a list or dict?</summary>
+                    <p>Usually a function returned None (a missing or conditional return), or a None-returning API was used as if it returned a collection &mdash; <code>json.load</code> on the wrong thing, a <code>dict.get</code> with no default, <code>list.sort()</code> assigned to a variable, or a DB query that found no row.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'NoneType is not subscriptable'?</summary>
+                    <p>Trace the variable back to its assignment and confirm it can't be None. Fix the real source (add a return, pass a default), or guard the access: <code>if x is not None: x[0]</code>, or <code>x = func() or []</code> to fall back to an empty collection.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen with json.loads or a JSON field?</summary>
+                    <p>JSON null decodes to Python None, so <code>data['user']['name']</code> throws if 'user' is null. Also, assigning the result of <code>json.dump</code> (which returns None) by mistake and then indexing it triggers this. Inspect the JSON structure and check each level for None before indexing.</p>
+                </details>
+                <details>
+                    <summary>Why did list.sort() or .append() cause this?</summary>
+                    <p>In-place methods return None. If you write <code>data = data.sort()</code> or <code>rows = rows.append(r)</code>, data/rows become None, and the next <code>data[0]</code> raises "not subscriptable". Call the method without reassigning its result.</p>
+                </details>
+                <details>
+                    <summary>What's the difference between 'not subscriptable' and 'has no attribute'?</summary>
+                    <p>"not subscriptable" is bracket access on None (<code>x[0]</code>, <code>x['key']</code>). "has no attribute" is dot access on None (<code>x.attr</code>, <code>x.method()</code>). Both mean the value is None; the operation differs. The fix is the same: eliminate or guard the None.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Inspect the JSON that produced the None</h3>
+                <p>If the None came from a parsed payload, format it to see which fields are <code>null</code> or missing before you index into them.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../index.html" class="btn btn-primary">Open JSON Formatter</a>
+                    <a href="nonetype-no-attribute.html" class="btn btn-primary" style="background:#4B8BBE;border-color:#4B8BBE;">'NoneType' has no attribute</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="nonetype-no-attribute.html">AttributeError: 'NoneType' object has no attribute</a></li>
+                <li><a href="string-indices-must-be-integers.html">TypeError: string indices must be integers</a></li>
+                <li><a href="keyerror-python.html">KeyError in Python</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

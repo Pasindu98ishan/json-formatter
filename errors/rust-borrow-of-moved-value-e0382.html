@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="error[E0382]: borrow of moved value — why Rust's ownership rules reject using a value after it moved, and how to fix it with borrows, clone, or Copy.">
+    <meta name="keywords" content="E0382, borrow of moved value, rust use after move, value moved here, rust ownership error, rust borrow checker">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-borrow-of-moved-value-e0382.html">
+    <meta property="og:title" content="error[E0382]: borrow of moved value (Rust) — Fix">
+    <meta property="og:description" content="Rust's E0382 fires when you use a value after it was moved. Fix it by borrowing instead of moving, deriving Copy, or cloning where ownership is really needed.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-borrow-of-moved-value-e0382.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>error[E0382]: borrow of moved value (Rust) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "E0382: borrow of moved value", "item": "https://jsondevtools.org/errors/rust-borrow-of-moved-value-e0382.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "error[E0382]: borrow of moved value — Cause and Fix",
+  "description": "Rust's E0382 means you tried to use a value after ownership moved out of it. This reference explains moves vs borrows and how to fix the error.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-06-28",
+  "dateModified": "2026-06-28",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'borrow of moved value' (E0382) mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You used a value after its ownership was moved elsewhere — by assigning it, passing it to a function by value, or returning it. Once a non-Copy value moves, the original binding is invalid, so any later use is rejected at compile time." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between move and borrow?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A move transfers ownership: the source can no longer be used. A borrow (&value or &mut value) lends temporary access without transferring ownership, so the original stays usable afterward. Most E0382 fixes are about borrowing instead of moving." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just call .clone() to fix E0382?",
+      "acceptedAnswer": { "@type": "Answer", "text": "clone() works and is sometimes the right call, but it copies the whole value at runtime. Prefer a borrow (&) when the callee only needs to read. Reach for clone only when both sides genuinely need to own a copy." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why don't integers cause E0382?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Types that implement the Copy trait (integers, floats, bool, char, and tuples/arrays of them) are bit-copied instead of moved, so the original stays valid. String, Vec, Box, and most structs are not Copy, so they move." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does moving happen inside a loop or closure?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A for loop over a Vec by value moves each element (and consumes the Vec). A closure that captures a value by move (or a move closure) takes ownership. Iterate with &vec / vec.iter(), or capture by reference, to avoid the move." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I read the E0382 message?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Rust points at three spots: where the value was moved ('value moved here'), why the type can't Copy ('move occurs because ... does not implement the Copy trait'), and where you used it afterward ('value borrowed here after move'). Fix the middle use so it borrows." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>E0382: borrow of moved value</span>
+            </nav>
+            <h1>error[E0382]: borrow of moved value</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published June 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You used a value <strong>after its ownership moved</strong> &mdash; it was assigned away, passed to a function by value, or returned. For a non-<code>Copy</code> type that invalidates the original binding. Fix it by <strong>borrowing</strong> (<code>&amp;value</code>) instead of moving, deriving <code>Copy</code> for small types, or <code>clone()</code>ing only when both sides truly need ownership.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>error[E0382]: borrow of moved value: `s`
+ --&gt; src/main.rs:4:20
+  |
+2 |     let s = String::from("hi");
+  |         - move occurs because `s` has type `String`,
+  |           which does not implement the `Copy` trait
+3 |     let t = s;        // value moved here
+  |             -
+4 |     println!("{}", s); // value borrowed here after move
+  |                    ^ value borrowed here after move</code></pre>
+            </div>
+
+            <h2>How to read it</h2>
+            <p>Rust gives you three coordinates: <strong>"move occurs because ..."</strong> (the type isn't <code>Copy</code>), <strong>"value moved here"</strong> (the line that took ownership), and <strong>"value borrowed here after move"</strong> (the now-illegal use). The fix is almost always at that third line &mdash; make it borrow rather than consume.</p>
+
+            <h2>Cause 1: moved by assignment, then used</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let s = String::from("hi");
+let t = s;              // ❌ s moved into t
+println!("{} {}", s, t);
+
+// ✅ borrow if you only need to read both
+let s = String::from("hi");
+let t = &s;            // t borrows, s still owns
+println!("{} {}", s, t);</code></pre>
+            </div>
+
+            <h2>Cause 2: moved into a function, then used</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn show(v: Vec&lt;i32&gt;) { println!("{:?}", v); }
+
+let nums = vec![1, 2, 3];
+show(nums);            // ❌ nums moved into show()
+println!("{}", nums.len());
+
+// ✅ take a reference instead of ownership
+fn show(v: &amp;[i32]) { println!("{:?}", v); }
+show(&amp;nums);
+println!("{}", nums.len());</code></pre>
+            </div>
+
+            <h2>Cause 3: moved by a for loop or closure</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let words = vec![String::from("a"), String::from("b")];
+for w in words { println!("{}", w); }  // moves & consumes words
+println!("{}", words.len());           // ❌ value borrowed after move
+
+// ✅ iterate by reference
+for w in &amp;words { println!("{}", w); }
+println!("{}", words.len());           // words still owned</code></pre>
+            </div>
+
+            <h2>When clone or Copy is the right answer</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Small, cheap, value-semantics type -> derive Copy
+#[derive(Clone, Copy)]
+struct Point { x: i32, y: i32 }
+
+// Both sides genuinely need an owned String -> clone explicitly
+let s = String::from("hi");
+let t = s.clone();     // deliberate deep copy
+println!("{} {}", s, t);</code></pre>
+            </div>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>What moved the value</th><th>Symptom</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>let t = s;</code></td><td>used <code>s</code> afterward</td><td><code>let t = &amp;s;</code></td></tr>
+                    <tr><td><code>f(s)</code> by value</td><td>used <code>s</code> after the call</td><td>take <code>&amp;s</code> / <code>&amp;mut s</code></td></tr>
+                    <tr><td><code>for x in vec</code></td><td>vec unusable after loop</td><td><code>for x in &amp;vec</code></td></tr>
+                    <tr><td><code>move</code> closure</td><td>captured value gone</td><td>capture by reference</td></tr>
+                    <tr><td>returning a field</td><td>partial move of a struct</td><td>return a clone or restructure</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Find "value moved here" &mdash; that line took ownership</li>
+                <li>&#10003; Find "value borrowed here after move" &mdash; fix this use to borrow</li>
+                <li>&#10003; Does the callee only read? Change it to take <code>&amp;T</code></li>
+                <li>&#10003; Iterating? Use <code>&amp;vec</code> / <code>.iter()</code> instead of <code>vec</code></li>
+                <li>&#10003; Small POD type? <code>#[derive(Clone, Copy)]</code>. Otherwise <code>clone()</code> deliberately</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'borrow of moved value' (E0382) mean?</summary>
+                    <p>You used a value after its ownership was moved elsewhere &mdash; by assigning it, passing it to a function by value, or returning it. Once a non-<code>Copy</code> value moves, the original binding is invalid, so any later use is rejected at compile time.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between move and borrow?</summary>
+                    <p>A move transfers ownership: the source can no longer be used. A borrow (<code>&amp;value</code> or <code>&amp;mut value</code>) lends temporary access without transferring ownership, so the original stays usable afterward. Most E0382 fixes are about borrowing instead of moving.</p>
+                </details>
+                <details>
+                    <summary>Should I just call .clone() to fix E0382?</summary>
+                    <p><code>clone()</code> works and is sometimes the right call, but it copies the whole value at runtime. Prefer a borrow (<code>&amp;</code>) when the callee only needs to read. Reach for clone only when both sides genuinely need to own a copy.</p>
+                </details>
+                <details>
+                    <summary>Why don't integers cause E0382?</summary>
+                    <p>Types that implement the <code>Copy</code> trait (integers, floats, bool, char, and tuples/arrays of them) are bit-copied instead of moved, so the original stays valid. <code>String</code>, <code>Vec</code>, <code>Box</code>, and most structs are not <code>Copy</code>, so they move.</p>
+                </details>
+                <details>
+                    <summary>Why does moving happen inside a loop or closure?</summary>
+                    <p>A <code>for</code> loop over a <code>Vec</code> by value moves each element (and consumes the <code>Vec</code>). A closure that captures a value by move (or a <code>move</code> closure) takes ownership. Iterate with <code>&amp;vec</code> / <code>vec.iter()</code>, or capture by reference, to avoid the move.</p>
+                </details>
+                <details>
+                    <summary>How do I read the E0382 message?</summary>
+                    <p>Rust points at three spots: where the value was moved ("value moved here"), why the type can't Copy ("move occurs because ... does not implement the Copy trait"), and where you used it afterward ("value borrowed here after move"). Fix the middle use so it borrows.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More language &amp; runtime errors</h3>
+                <p>Browse the full reference for Rust, Go, Node.js, Python, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-cannot-borrow-as-mutable-e0499.html" class="btn btn-primary" style="background:#dea584;border-color:#dea584;color:#222;">Rust: E0499 cannot borrow as mutable</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-cannot-borrow-as-mutable-e0499.html">E0499: cannot borrow as mutable more than once</a></li>
+                <li><a href="go-nil-pointer-dereference.html">Go: nil pointer dereference</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
