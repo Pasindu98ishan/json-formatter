@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Error: read ECONNRESET / socket hang up in Node.js — a fix-first playbook: retry transient resets, fix stale keep-alive sockets, handle proxies and TLS, and stop server crashes from client disconnects.">
+    <meta name="keywords" content="ECONNRESET, read ECONNRESET, socket hang up, node ECONNRESET, econnreset axios, express ECONNRESET, econnreset node 18, econnreset node 20, econnreset node 22, connection reset by peer node">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/econnreset-socket-hang-up.html">
+    <meta property="og:title" content="Error: read ECONNRESET / socket hang up (Node.js) — Fix">
+    <meta property="og:description" content="ECONNRESET and 'socket hang up' mean the other end closed the TCP connection. A ranked, fix-first playbook for Node.js clients and servers.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/econnreset-socket-hang-up.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Error: read ECONNRESET / socket hang up (Node.js) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ECONNRESET / socket hang up", "item": "https://jsondevtools.org/errors/econnreset-socket-hang-up.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Error: read ECONNRESET / socket hang up — Cause and Fix",
+  "description": "ECONNRESET and 'socket hang up' mean the peer closed the TCP connection. This playbook ranks the real fixes for Node.js clients and servers.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-01",
+  "dateModified": "2026-07-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does ECONNRESET mean in Node.js?",
+      "acceptedAnswer": { "@type": "Answer", "text": "ECONNRESET means the other end of the TCP connection closed it abruptly (sent a RST packet) while your side still expected data. 'read ECONNRESET' is your side failing to read from a connection the peer already dropped; 'socket hang up' is the socket closing before a full response arrived. It is a transport-level event, not an application error." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between ECONNRESET and socket hang up?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Both come from the connection dying early. ECONNRESET is the OS telling Node the peer reset the socket. 'socket hang up' is Node's own message when a socket closes before the expected response headers/body were received — for example a server that accepted the request but crashed or timed out before replying." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get ECONNRESET intermittently on outbound requests?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The most common cause is a stale keep-alive socket: your HTTP agent reuses a pooled connection the server has already closed. Enable a keep-alive agent with a sane freeSocketTimeout, or retry idempotent requests once on ECONNRESET. Load balancers and proxies that idle out connections cause the same pattern." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just retry on ECONNRESET?",
+      "acceptedAnswer": { "@type": "Answer", "text": "For idempotent requests (GET, PUT, DELETE) a single retry with backoff is the correct, standard fix, because most resets are transient. Do not blindly retry non-idempotent POSTs that may have already been processed server-side; make them idempotent with an idempotency key first, then retry." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does ECONNRESET crash my Node server?",
+      "acceptedAnswer": { "@type": "Answer", "text": "When a client disconnects mid-request, the socket emits an 'error' event. An unhandled 'error' on a stream/socket throws and can crash the process. Attach an error handler (req.on('error', ...) / socket.on('error', ...)); a client-side ECONNRESET is usually safe to log and ignore, not a bug in your code." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a proxy or VPN cause ECONNRESET?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Corporate proxies, VPNs, and TLS-inspecting firewalls frequently reset connections they don't like — wrong CA, blocked host, or an idle timeout. Test the same request with curl -v outside Node; if curl also resets, it's the network path, not your code." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ECONNRESET / socket hang up</span>
+            </nav>
+            <h1>Error: read ECONNRESET / socket hang up</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">The peer closed the connection. If you're the <strong>client</strong>, retry idempotent requests once with backoff and use a keep-alive agent that recycles dead sockets. If you're the <strong>server</strong>, it's usually a client that disconnected &mdash; handle the socket <code>error</code> so it doesn't crash you.</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// client: retry idempotent calls on a transient reset
+for (let i = 0; i &lt; 3; i++) {
+  try { return await fetch(url); }
+  catch (e) { if (e.cause?.code !== 'ECONNRESET' || i === 2) throw e; }
+}</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:217:20)
+  errno: -104, code: 'ECONNRESET', syscall: 'read'
+
+// or, when no response ever arrived:
+Error: socket hang up
+    at connResetException (node:internal/errors:720:14)
+  code: 'ECONNRESET'</code></pre>
+            </div>
+            <p style="color:var(--secondary-color);font-size:14px;">The behaviour is essentially the same across <strong>Node.js 18, 20, and 22</strong>. Modern Node powers <code>fetch()</code> with <a href="https://undici.nodejs.org/" target="_blank" rel="noopener">Undici</a>, so the examples below use the built-in <code>fetch</code> &mdash; but the causes and fixes apply equally to <code>axios</code>, <code>node:http</code>, and database drivers.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>Making <strong>outbound HTTP</strong> calls and it happens now and then? &rarr; <a href="#fix1">Fix 1 (retry)</a> + <a href="#fix2">Fix 2 (keep-alive)</a></li>
+                    <li>It's your <strong>own server</strong> logging ECONNRESET / the process crashes? &rarr; <a href="#fix4">Fix 4 (handle the socket error)</a></li>
+                    <li>Behind a <strong>corporate proxy / VPN</strong>, or only on some networks? &rarr; <a href="#fix3">Fix 3 (proxy &amp; TLS)</a></li>
+                    <li>Large uploads or slow endpoints timing out? &rarr; <a href="#fix5">Fix 5 (timeouts)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; Retry idempotent requests (most common)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> occasional resets on GET/PUT/DELETE calls to an API or database driver.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>async function getWithRetry(url, tries = 3) {
+  for (let i = 0; i &lt; tries; i++) {
+    try {
+      return await fetch(url);
+    } catch (e) {
+      const code = e.cause?.code || e.code;
+      if (code !== 'ECONNRESET' || i === tries - 1) throw e;
+      await new Promise(r =&gt; setTimeout(r, 200 * 2 ** i)); // backoff
+    }
+  }
+}</code></pre>
+            </div>
+            <p>Most resets are one-off (a recycled load-balancer socket, a brief network blip). A single retry with exponential backoff clears the majority. Only retry requests that are safe to repeat &mdash; see <a href="#fix1b">the POST note</a> below.</p>
+            <p style="margin:.6rem 0 .3rem;"><strong>Same pattern with axios</strong> &mdash; check <code>err.code</code> the same way:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import axios from 'axios';
+
+async function getWithRetry(url, tries = 3) {
+  for (let i = 0; i &lt; tries; i++) {
+    try {
+      return await axios.get(url);
+    } catch (err) {
+      if (err.code !== 'ECONNRESET' || i === tries - 1) throw err;
+      await new Promise(r =&gt; setTimeout(r, 200 * 2 ** i));
+    }
+  }
+}
+// or offload it entirely with the axios-retry plugin</code></pre>
+            </div>
+
+            <h2 id="fix2">Fix 2 &mdash; Reuse sockets safely with a keep-alive agent</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> high request volume; the first request after an idle gap resets.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { Agent } from 'undici';
+
+// recycle idle sockets before the server drops them
+const agent = new Agent({
+  keepAliveTimeout: 10_000,      // close our idle sockets at 10s
+  keepAliveMaxTimeout: 30_000,
+});
+
+await fetch(url, { dispatcher: agent });</code></pre>
+            </div>
+            <p>The classic intermittent ECONNRESET is a <strong>stale pooled socket</strong>: your agent hands you a connection the server closed seconds ago. Setting your keep-alive timeout <em>below</em> the server's idle timeout means you never reuse a dead one.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; Rule out a proxy, VPN, or TLS inspector</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> it only happens on a work network, a VPN, or against one specific host.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># reproduce outside Node — if curl also resets, it's the network path
+curl -v https://api.example.com/health
+
+# honor the corporate proxy in Node
+export HTTPS_PROXY=http://proxy.corp:8080
+node app.js</code></pre>
+            </div>
+            <p>TLS-inspecting firewalls reset handshakes they can't decrypt, and proxies reset hosts on a blocklist. If <code>curl -v</code> outside Node fails the same way, the fix is network/proxy configuration, not your code.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; Stop client disconnects from crashing the server</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> your own HTTP server logs ECONNRESET and sometimes the process dies.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>server.on('request', (req, res) =&gt; {
+  req.on('error', (err) =&gt; {
+    if (err.code === 'ECONNRESET') return;   // client went away — safe to ignore
+    console.error(err);
+  });
+});</code></pre>
+            </div>
+            <p style="margin:.6rem 0 .3rem;"><strong>In Express</strong>, catch it in an error-handling middleware (four args) so a disconnect doesn't bubble up:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// error-handling middleware — must be registered last, with 4 args
+app.use((err, req, res, next) =&gt; {
+  if (err.code === 'ECONNRESET') return;   // client disconnected — ignore
+  next(err);                               // let real errors flow on
+});</code></pre>
+            </div>
+            <p>A browser tab closed mid-request or a cancelled fetch resets the socket. That's normal traffic, not a bug &mdash; you just need a per-socket/per-request <code>error</code> handler so the unhandled event doesn't crash Node.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #d97706;border-radius:8px;padding:.85rem 1.15rem;margin:1rem 0;">
+                <p style="margin:0;"><strong>&#9888; A word on <code>process.on('uncaughtException')</code>:</strong> you'll see advice to swallow ECONNRESET there as a global net. Node's own docs warn that after an <code>uncaughtException</code> the process may be in an undefined state and you should <strong>log and restart, not resume</strong>. The <em>correct</em> fix is the per-request/per-socket <code>error</code> handler above; a global filter is a pragmatic last resort, and if you find yourself relying on it, something upstream is still unhandled.</p>
+            </div>
+
+            <h2 id="fix5">Fix 5 &mdash; Raise timeouts for slow or large transfers</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> big uploads/downloads or slow upstreams reset partway through.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// server: allow slow clients more headroom
+server.requestTimeout = 60_000;
+server.headersTimeout = 65_000;
+server.keepAliveTimeout = 61_000;   // keep &gt; upstream/LB idle timeout</code></pre>
+            </div>
+            <p id="fix1b"><strong>POST note:</strong> never blindly retry a non-idempotent POST &mdash; the server may have already processed it. Add an idempotency key so a retry is safe, then apply Fix&nbsp;1.</p>
+
+            <h2>Why this happens</h2>
+            <p>TCP has a "forcible close": one side sends an <strong>RST</strong> packet and the connection dies immediately, discarding anything in flight. When your side next tries to read, the OS returns <code>ECONNRESET</code> ("connection reset by peer"). Node surfaces the raw read failure as <code>read ECONNRESET</code>; when the socket closes before a full HTTP response is parsed, Node instead reports <code>socket hang up</code>. Either way the trigger is on the <em>other</em> end &mdash; a server crash, an idle-timeout on a proxy/load-balancer, a pool recycling a connection, or a firewall dropping the flow. That's why the durable fixes are resilience (retry, keep-alive tuning) rather than a one-line code change.</p>
+
+            <h2>Where it comes from</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Who reset it</th><th>Go to</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Intermittent on API calls</td><td>recycled LB / pooled socket</td><td>Fix 1 + Fix 2</td></tr>
+                    <tr><td>First call after idle</td><td>server closed a keep-alive socket</td><td>Fix 2</td></tr>
+                    <tr><td>Only on VPN / work network</td><td>proxy or TLS inspector</td><td>Fix 3</td></tr>
+                    <tr><td>Your server logs it</td><td>client disconnected mid-request</td><td>Fix 4</td></tr>
+                    <tr><td>Large upload/slow endpoint</td><td>request/idle timeout</td><td>Fix 5</td></tr>
+                </tbody>
+            </table>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:700;">&#10003; Confirm it's fixed</p>
+                <ul style="margin:.5rem 0 0;padding-left:1.2rem;">
+                    <li>Loop the request 100&times; (or leave it idle 60s, then fire) &mdash; no reset should surface.</li>
+                    <li>On the server, disconnect a client mid-request (close the tab / <code>curl</code> then Ctrl-C) &mdash; the process must stay up.</li>
+                    <li>Watch logs under load for a day; a healthy service shows near-zero client-side ECONNRESET.</li>
+                </ul>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does ECONNRESET mean in Node.js?</summary>
+                    <p>ECONNRESET means the other end of the TCP connection closed it abruptly (sent a RST packet) while your side still expected data. <code>read ECONNRESET</code> is your side failing to read from a connection the peer already dropped; <code>socket hang up</code> is the socket closing before a full response arrived. It is a transport-level event, not an application error.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between ECONNRESET and socket hang up?</summary>
+                    <p>Both come from the connection dying early. ECONNRESET is the OS telling Node the peer reset the socket. <code>socket hang up</code> is Node's own message when a socket closes before the expected response headers/body were received &mdash; for example a server that accepted the request but crashed or timed out before replying.</p>
+                </details>
+                <details>
+                    <summary>Why do I get ECONNRESET intermittently on outbound requests?</summary>
+                    <p>The most common cause is a stale keep-alive socket: your HTTP agent reuses a pooled connection the server has already closed. Enable a keep-alive agent with a sane idle timeout, or retry idempotent requests once on ECONNRESET. Load balancers and proxies that idle out connections cause the same pattern.</p>
+                </details>
+                <details>
+                    <summary>Should I just retry on ECONNRESET?</summary>
+                    <p>For idempotent requests (GET, PUT, DELETE) a single retry with backoff is the correct, standard fix, because most resets are transient. Don't blindly retry non-idempotent POSTs that may already have been processed server-side; make them idempotent with an idempotency key first, then retry.</p>
+                </details>
+                <details>
+                    <summary>Why does ECONNRESET crash my Node server?</summary>
+                    <p>When a client disconnects mid-request, the socket emits an <code>error</code> event. An unhandled <code>error</code> on a stream/socket throws and can crash the process. Attach an error handler (<code>req.on('error', ...)</code> / <code>socket.on('error', ...)</code>); a client-side ECONNRESET is usually safe to log and ignore, not a bug in your code.</p>
+                </details>
+                <details>
+                    <summary>Can a proxy or VPN cause ECONNRESET?</summary>
+                    <p>Yes. Corporate proxies, VPNs, and TLS-inspecting firewalls frequently reset connections they don't like &mdash; wrong CA, blocked host, or an idle timeout. Test the same request with <code>curl -v</code> outside Node; if curl also resets, it's the network path, not your code.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Node.js &amp; network errors</h3>
+                <p>Browse the full reference for Node.js, network, and build errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="err-connection-refused.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">net::ERR_CONNECTION_REFUSED</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="err-connection-refused.html">net::ERR_CONNECTION_REFUSED</a> &mdash; nothing listening on the port</li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a> &mdash; the browser-side network failure</li>
+                <li><a href="eaddrinuse-address-already-in-use.html">EADDRINUSE: address already in use</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

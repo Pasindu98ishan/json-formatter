@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="gyp ERR! build error — node-gyp fails to compile a native addon. A fix-first playbook: install the C/C++ toolchain and Python per OS, match Node versions, and prefer prebuilt binaries.">
+    <meta name="keywords" content="gyp ERR build error, node-gyp build error, node-gyp docker, gyp err alpine, node-gyp python, gyp err windows, sharp node-gyp, bcrypt node-gyp, node-gyp node 22, node-gyp not found">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/gyp-err-build-error.html">
+    <meta property="og:title" content="gyp ERR! build error (node-gyp) — Fix">
+    <meta property="og:description" content="node-gyp needs a C/C++ compiler and Python to build native addons. This playbook installs the right toolchain per OS and avoids the compile entirely with prebuilt binaries.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/gyp-err-build-error.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>gyp ERR! build error (node-gyp) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "gyp ERR! build error", "item": "https://jsondevtools.org/errors/gyp-err-build-error.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "gyp ERR! build error — Cause and Fix",
+  "description": "node-gyp fails with 'gyp ERR! build error' when the native-addon toolchain (compiler + Python) is missing or mismatched. This playbook fixes it per OS.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-01",
+  "dateModified": "2026-07-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'gyp ERR! build error' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A dependency ships C or C++ source for a native addon, and node-gyp tried to compile it during install but the build failed. gyp is the build tool Node uses; the error means the compile step could not run or produce a binary — almost always because the C/C++ toolchain or Python that node-gyp needs is missing or the wrong version." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does node-gyp need Python?",
+      "acceptedAnswer": { "@type": "Answer", "text": "node-gyp is built on GYP, which is written in Python, so it needs a working Python 3 on your PATH to generate the build files. If Python is missing or node-gyp finds an unsupported version, it fails before any compiler runs. Install Python 3 and, if needed, point node-gyp at it with npm config set python." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix gyp ERR on Windows?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Install the Visual Studio Build Tools with the 'Desktop development with C++' workload and a Python 3, or run the official installer: npm install --global windows-build-tools (older Node) or install VS Build Tools 2022 manually. Then delete node_modules and reinstall. Windows lacks a compiler by default, which is why native builds fail out of the box." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I avoid compiling native modules at all?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Many packages ship prebuilt binaries, so upgrading to a version that supports your Node/OS downloads a binary instead of compiling. Also make sure your Node version is one the package supports — a brand-new Node release often has no prebuilt binary yet, forcing a source build. Pinning to an LTS Node is the simplest way to get a prebuilt." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did it start failing after a Node upgrade?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Native addons are compiled against a specific Node ABI. Upgrading Node changes the ABI, so cached builds no longer match and the package rebuilds — and if the prebuilt binary for the new Node isn't published yet, it falls back to compiling from source and needs the toolchain. Delete node_modules and reinstall, or pin to an LTS Node with a prebuilt." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I read the real cause in a gyp error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Scroll above the 'gyp ERR! build error' summary to the first real compiler line — 'cannot find Python', 'gcc: command not found', 'C++ compiler not found', or a specific .cpp error. That line is the actual failure; the gyp lines below it are just the wrapper reporting that the build step exited non-zero." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix gyp ERR in a Docker build (Alpine)?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Slim and Alpine Node images ship without a compiler. Add the toolchain before npm install: on Alpine, RUN apk add --no-cache python3 make g++; on Debian-based images, RUN apt-get update && apt-get install -y python3 make g++. Alpine uses musl libc, so some packages have no prebuilt binary and must compile from source — a node:22-slim (Debian/glibc) base often avoids that." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>gyp ERR! build error</span>
+            </nav>
+            <h1>gyp ERR! build error</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">A package is compiling a native addon and your machine is missing the <strong>C/C++ compiler + Python 3</strong> that node-gyp needs. Install the toolchain for your OS, then reinstall clean:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># macOS
+xcode-select --install
+
+# Debian/Ubuntu
+sudo apt install -y build-essential python3
+
+# then, everywhere:
+rm -rf node_modules package-lock.json && npm install</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>gyp ERR! build error
+gyp ERR! stack Error: `make` failed with exit code: 2
+gyp ERR! stack at ChildProcess.onExit (.../node-gyp/lib/build.js:203:23)
+gyp ERR! System Linux 6.5.0
+gyp ERR! command "node" ".../node-gyp/bin/node-gyp.js" "rebuild"
+gyp ERR! node -v v22.3.0
+npm ERR! code 1</code></pre>
+            </div>
+            <p><strong>Read upward, not at the summary.</strong> The <code>gyp ERR! build error</code> line is just the wrapper. The real cause is the first compiler line <em>above</em> it &mdash; <code>gcc: command not found</code>, <code>Could not find any Python</code>, or a specific <code>.cpp</code> error.</p>
+            <p style="color:var(--secondary-color);font-size:14px;">node-gyp behaves the same on <strong>Node.js 18, 20, and 22</strong>. But a <em>brand-new</em> Node release (e.g. Node 22 shortly after launch) often has no prebuilt binaries published yet, so more packages fall back to compiling from source &mdash; pinning to an LTS Node (<a href="#fix5">Fix 5</a>) sidesteps that.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>On <strong>Windows</strong>? &rarr; <a href="#fix2">Fix 2 (VS Build Tools)</a> &mdash; there's no compiler by default</li>
+                    <li>Says <code>Could not find any Python</code>? &rarr; <a href="#fix3">Fix 3 (Python)</a></li>
+                    <li>Started after a <strong>Node upgrade</strong>? &rarr; <a href="#fix4">Fix 4 (ABI / clean rebuild)</a></li>
+                    <li>Just want to skip compiling? &rarr; <a href="#fix5">Fix 5 (prebuilt binaries)</a></li>
+                    <li>Building a <strong>Docker</strong> image (especially Alpine)? &rarr; <a href="#fix6">Fix 6 (Docker)</a></li>
+                    <li>macOS / Linux, missing compiler? &rarr; <a href="#fix1">Fix 1 (toolchain)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; Install the C/C++ toolchain (macOS &amp; Linux)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> errors mention <code>gcc</code>, <code>make</code>, <code>clang</code>, or <code>C++ compiler not found</code>.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># macOS — Command Line Tools bring clang + make
+xcode-select --install
+
+# Debian / Ubuntu
+sudo apt install -y build-essential python3
+
+# Fedora / RHEL
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y python3
+
+# Alpine (common in Docker)
+apk add --no-cache build-base python3</code></pre>
+            </div>
+            <p><code>build-essential</code> / the Xcode CLT provide <code>gcc</code>/<code>clang</code>, <code>make</code>, and the headers node-gyp shells out to. This resolves the large majority of Linux and macOS build failures.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; Install the Visual C++ toolchain (Windows)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> you're on Windows &mdash; it has no C++ compiler out of the box.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># easiest: install Visual Studio Build Tools 2022 and select
+#   "Desktop development with C++"  (includes MSVC + Windows SDK)
+# via winget:
+winget install Microsoft.VisualStudio.2022.BuildTools ^
+  --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+
+# plus Python 3 from python.org or the Store, then:
+rmdir /s /q node_modules & del package-lock.json & npm install</code></pre>
+            </div>
+            <p>node-gyp on Windows drives MSVC. Installing the "Desktop development with C++" workload (compiler + Windows SDK) plus Python 3 is what the old <code>windows-build-tools</code> package used to automate.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; Give node-gyp a Python 3 it accepts</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the log says <code>Could not find any Python installation</code> or picks the wrong one.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>python3 --version          # confirm a working Python 3
+
+# point node-gyp explicitly if it can't find it
+npm config set python "$(which python3)"
+# or per-command
+npm install --python=/usr/bin/python3</code></pre>
+            </div>
+            <p>node-gyp is built on GYP, which runs on Python, so it needs Python 3 on PATH to generate build files. If several Pythons are installed, tell it which one.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; Clean rebuild after a Node upgrade (ABI mismatch)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> it worked before you changed Node versions.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>rm -rf node_modules package-lock.json
+npm cache verify
+npm install</code></pre>
+            </div>
+            <p>Native addons are compiled against a specific Node ABI. A Node upgrade invalidates the old build, forcing a rebuild &mdash; and if there's no prebuilt binary for the new Node yet, it compiles from source. A clean install (or pinning to LTS, Fix&nbsp;5) fixes it.</p>
+
+            <h2 id="fix5">Fix 5 &mdash; Skip the compile with a prebuilt binary</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> you'd rather not install a toolchain at all.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># use an LTS Node that the package ships a prebuilt binary for
+nvm install --lts &amp;&amp; nvm use --lts
+
+# upgrade the offending package to a version with prebuilds
+npm install sharp@latest    # example: sharp/better-sqlite3 ship prebuilds</code></pre>
+            </div>
+            <p>Most popular native packages publish prebuilt binaries for supported Node/OS combinations, so the install just downloads one &mdash; no compiler needed. Bleeding-edge Node releases often lack prebuilds, which is why an LTS Node avoids the source build entirely.</p>
+
+            <h2 id="fix6">Fix 6 &mdash; Install the toolchain inside your Docker image</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> it builds locally but fails in <code>docker build</code> &mdash; especially on the slim <code>node:alpine</code> image.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Alpine — node:alpine ships no compiler
+RUN apk add --no-cache python3 make g++
+
+# Debian-based (node:22-slim, node:22-bookworm-slim)
+RUN apt-get update &amp;&amp; apt-get install -y python3 make g++ \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+
+# ...then COPY package*.json and RUN npm install</code></pre>
+            </div>
+            <p>Slim and Alpine base images strip the build toolchain to stay small, so a package that needs to compile fails with <code>gyp ERR!</code>. Add <code>python3</code>, <code>make</code>, and <code>g++</code> <em>before</em> <code>npm install</code>. One Alpine gotcha: it uses <strong>musl</strong> libc, so many packages have no prebuilt binary for it and must compile from source anyway &mdash; if you'd rather avoid the toolchain entirely, a <strong><code>node:22-slim</code> (Debian/glibc) base</strong> is usually the easier path. For a lean final image, install the toolchain in a builder stage and copy only the result in a multi-stage build.</p>
+
+            <h2>Common packages that trigger node-gyp</h2>
+            <p>Native compilation is where nearly all gyp errors start. If your install pulls in one of these, it may build an addon:</p>
+            <ul>
+                <li><strong>Image processing:</strong> <code>sharp</code>, <code>canvas</code></li>
+                <li><strong>Databases:</strong> <code>better-sqlite3</code>, <code>sqlite3</code></li>
+                <li><strong>Crypto / hashing:</strong> <code>bcrypt</code></li>
+                <li><strong>CSS (legacy):</strong> <code>node-sass</code></li>
+                <li><strong>FFI &amp; hardware:</strong> <code>ffi-napi</code>, <code>usb</code>, <code>serialport</code></li>
+            </ul>
+            <p>Most of these now publish prebuilt binaries, so an up-to-date version on an LTS Node often skips the compile. Two shortcuts worth knowing: <code>node-sass</code> is deprecated &mdash; switching to <code>sass</code> (Dart Sass, pure JavaScript) removes node-gyp from the picture entirely; and <code>bcrypt</code> can be swapped for the pure-JS <code>bcryptjs</code> if you can't get a toolchain.</p>
+
+            <h2>Why this happens</h2>
+            <p>Some npm packages aren't pure JavaScript &mdash; they include C/C++ that must become a platform-specific <code>.node</code> binary. When you install one and no matching prebuilt binary exists, npm runs <strong>node-gyp</strong> to compile it on your machine. node-gyp is only a coordinator: it needs a real <strong>C/C++ compiler</strong> (clang/gcc/MSVC), <strong>make</strong>, and <strong>Python 3</strong> (because its GYP core is Python) to do the actual work. If any of those is missing or mismatched, the compile exits non-zero and node-gyp reports <code>gyp ERR! build error</code>. So the fix is never about the package &mdash; it's about giving node-gyp the toolchain, or avoiding the compile with a prebuilt.</p>
+
+            <h2>By platform</h2>
+            <table>
+                <thead>
+                    <tr><th>OS</th><th>Install this</th><th>Then</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>macOS</td><td><code>xcode-select --install</code></td><td>clean reinstall</td></tr>
+                    <tr><td>Ubuntu/Debian</td><td><code>build-essential</code> + <code>python3</code></td><td>clean reinstall</td></tr>
+                    <tr><td>Fedora/RHEL</td><td><code>"Development Tools"</code> + <code>python3</code></td><td>clean reinstall</td></tr>
+                    <tr><td>Windows</td><td>VS Build Tools (C++) + Python 3</td><td>clean reinstall</td></tr>
+                    <tr><td>Alpine (Docker)</td><td><code>build-base python3</code></td><td>clean reinstall</td></tr>
+                </tbody>
+            </table>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:700;">&#10003; Confirm it's fixed</p>
+                <ul style="margin:.5rem 0 0;padding-left:1.2rem;">
+                    <li><code>node-gyp --version</code>, <code>python3 --version</code>, and a compiler (<code>gcc --version</code> / <code>cl</code>) all respond.</li>
+                    <li>A clean <code>npm install</code> completes with no <code>gyp ERR!</code> lines.</li>
+                    <li><code>require()</code> the native package (or run your app) &mdash; it loads without an ABI/module error.</li>
+                </ul>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'gyp ERR! build error' mean?</summary>
+                    <p>A dependency ships C or C++ source for a native addon, and node-gyp tried to compile it during install but the build failed. gyp is the build tool Node uses; the error means the compile step could not run or produce a binary &mdash; almost always because the C/C++ toolchain or Python that node-gyp needs is missing or the wrong version.</p>
+                </details>
+                <details>
+                    <summary>Why does node-gyp need Python?</summary>
+                    <p>node-gyp is built on GYP, which is written in Python, so it needs a working Python 3 on your PATH to generate the build files. If Python is missing or node-gyp finds an unsupported version, it fails before any compiler runs. Install Python 3 and, if needed, point node-gyp at it with <code>npm config set python</code>.</p>
+                </details>
+                <details>
+                    <summary>How do I fix gyp ERR on Windows?</summary>
+                    <p>Install the Visual Studio Build Tools with the "Desktop development with C++" workload and a Python 3, then delete <code>node_modules</code> and reinstall. Windows lacks a compiler by default, which is why native builds fail out of the box.</p>
+                </details>
+                <details>
+                    <summary>How do I avoid compiling native modules at all?</summary>
+                    <p>Many packages ship prebuilt binaries, so upgrading to a version that supports your Node/OS downloads a binary instead of compiling. Also make sure your Node version is one the package supports &mdash; a brand-new Node release often has no prebuilt binary yet, forcing a source build. Pinning to an LTS Node is the simplest way to get a prebuilt.</p>
+                </details>
+                <details>
+                    <summary>Why did it start failing after a Node upgrade?</summary>
+                    <p>Native addons are compiled against a specific Node ABI. Upgrading Node changes the ABI, so cached builds no longer match and the package rebuilds &mdash; and if the prebuilt binary for the new Node isn't published yet, it falls back to compiling from source and needs the toolchain. Delete <code>node_modules</code> and reinstall, or pin to an LTS Node with a prebuilt.</p>
+                </details>
+                <details>
+                    <summary>How do I read the real cause in a gyp error?</summary>
+                    <p>Scroll above the <code>gyp ERR! build error</code> summary to the first real compiler line &mdash; "cannot find Python", "gcc: command not found", "C++ compiler not found", or a specific <code>.cpp</code> error. That line is the actual failure; the gyp lines below it are just the wrapper reporting that the build step exited non-zero.</p>
+                </details>
+                <details>
+                    <summary>How do I fix gyp ERR in a Docker build (Alpine)?</summary>
+                    <p>Slim and Alpine Node images ship without a compiler. Add the toolchain before <code>npm install</code>: on Alpine, <code>RUN apk add --no-cache python3 make g++</code>; on Debian-based images, <code>RUN apt-get update &amp;&amp; apt-get install -y python3 make g++</code>. Alpine uses musl libc, so some packages have no prebuilt binary and must compile from source &mdash; a <code>node:22-slim</code> (Debian/glibc) base often avoids that.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More npm &amp; build errors</h3>
+                <p>Browse the full reference for npm, Node.js, and build errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="npm-eacces-permission-denied.html" class="btn btn-primary" style="background:#cb3837;border-color:#cb3837;">npm EACCES</a>
+                    <a href="cannot-find-module.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Cannot find module</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="npm-eacces-permission-denied.html">npm ERR! code EACCES: permission denied</a></li>
+                <li><a href="npm-eresolve-unable-to-resolve-dependency-tree.html">npm ERR! code ERESOLVE</a></li>
+                <li><a href="digital-envelope-routines-unsupported.html">error:0308010C:digital envelope routines::unsupported</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

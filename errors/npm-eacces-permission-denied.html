@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="npm ERR! code EACCES: permission denied — the fix-first playbook. The right fix is a Node version manager or fixing npm's global prefix, not sudo. Covers macOS, Linux, and EACCES on the cache.">
+    <meta name="keywords" content="npm ERR code EACCES, npm permission denied, EACCES permission denied npm, npm global install permission, npm sudo, npm eacces mac">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/npm-eacces-permission-denied.html">
+    <meta property="og:title" content="npm ERR! code EACCES: permission denied — Fix (without sudo)">
+    <meta property="og:description" content="EACCES from npm means it can't write to a directory it doesn't own. Fix it properly with a Node version manager or by moving npm's global prefix — not sudo.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/npm-eacces-permission-denied.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>npm ERR! code EACCES: permission denied — Fix (no sudo) | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "npm EACCES: permission denied", "item": "https://jsondevtools.org/errors/npm-eacces-permission-denied.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "npm ERR! code EACCES: permission denied — Cause and Fix",
+  "description": "npm's EACCES error means it lacks permission to write to a directory. The correct fix is a version manager or a user-owned global prefix, not sudo.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-01",
+  "dateModified": "2026-07-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'npm ERR! code EACCES: permission denied' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "EACCES is the operating system's 'access denied' error. npm tried to create or write a file in a directory your user account doesn't own — usually the global node_modules prefix (like /usr/local/lib) or the npm cache — and the OS refused. It is a filesystem permission problem, not a broken package." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why shouldn't I just use sudo npm install?",
+      "acceptedAnswer": { "@type": "Answer", "text": "sudo makes the install succeed by running as root, but it creates root-owned files in your cache and project, which cause new EACCES errors on the next normal install and are a security risk (install scripts run as root). The recommended fix is to install Node with a version manager or point npm's global prefix at a directory you own, so sudo is never needed." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the recommended way to fix npm EACCES?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Install Node through a version manager such as nvm, fnm, or Volta. These put Node and global packages under your home directory, which your user owns, so EACCES cannot happen and you never need sudo. It also lets you switch Node versions per project." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix EACCES without reinstalling Node?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Set npm's global prefix to a folder you own: mkdir ~/.npm-global && npm config set prefix '~/.npm-global', then add ~/.npm-global/bin to your PATH. Global installs then write to your home directory. If earlier sudo installs left root-owned files, fix ownership of ~/.npm and the prefix with chown first." }
+    },
+    {
+      "@type": "Question",
+      "name": "I already used sudo and now EACCES is worse — how do I recover?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Earlier sudo runs left root-owned files in ~/.npm and node_modules. Reclaim them: sudo chown -R $(whoami) ~/.npm and, for a project, delete node_modules and package-lock.json then reinstall without sudo. After that, switch to a version manager so it doesn't recur." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does EACCES happen only on global installs (npm install -g)?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Local installs write into your project's node_modules, which you own, so they usually succeed. Global installs (-g) write to the system prefix (e.g. /usr/local or /usr) owned by root, which triggers EACCES. Moving the global prefix to your home directory removes the distinction." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>npm EACCES: permission denied</span>
+            </nav>
+            <h1>npm ERR! code EACCES: permission denied</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">npm can't write to a directory it doesn't own. <strong>Don't reach for <code>sudo</code></strong> &mdash; it makes the next install fail. Install Node with a version manager so everything lives in your home directory:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># macOS / Linux — nvm puts Node under your $HOME (no root, no EACCES)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+nvm install --lts
+npm install -g whatever   # now writes to a folder you own</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>npm ERR! code EACCES
+npm ERR! syscall mkdir
+npm ERR! path /usr/local/lib/node_modules/pkg
+npm ERR! errno -13
+npm ERR! Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/pkg'
+npm ERR!  [Error: EACCES: permission denied] { errno: -13, code: 'EACCES' }</code></pre>
+            </div>
+            <p>The line that matters is <code>npm ERR! path</code> &mdash; it names the exact directory npm couldn't write to. That tells you which fix applies.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>Path is <code>/usr/local/lib</code> or <code>/usr/lib</code> (a global <code>-g</code> install)? &rarr; <a href="#fix1">Fix 1 (version manager)</a> or <a href="#fix2">Fix 2 (own prefix)</a></li>
+                    <li>Path is under <code>~/.npm</code> (the cache)? &rarr; <a href="#fix3">Fix 3 (fix cache ownership)</a> &mdash; a past <code>sudo</code> did this</li>
+                    <li>Path is your <strong>project</strong>'s <code>node_modules</code>? &rarr; <a href="#fix3">Fix 3</a> then reinstall clean</li>
+                    <li>Want the cleanest long-term setup? &rarr; <a href="#fix1">Fix 1</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; Install Node with a version manager (recommended)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> almost always &mdash; it removes the root-owned directories entirely.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># pick one:
+# nvm  — most common
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+# fnm  — fast, cross-platform
+curl -fsSL https://fnm.vercel.app/install | bash
+# Volta — pins versions per project
+curl https://get.volta.sh | bash
+
+nvm install --lts && nvm use --lts
+node -v   # now from ~/.nvm, owned by you</code></pre>
+            </div>
+            <p>A version manager installs Node and all global packages under <code>$HOME</code>. Because your user owns that tree, <code>npm install -g</code> can never hit EACCES and you never type <code>sudo</code> again &mdash; plus you can switch Node versions per project.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; Move npm's global prefix to a folder you own</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> you can't (or don't want to) reinstall Node but still need global installs.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
+
+# add to ~/.zshrc or ~/.bashrc, then reopen the shell
+export PATH=~/.npm-global/bin:$PATH
+
+npm install -g eslint   # writes to ~/.npm-global — no EACCES</code></pre>
+            </div>
+            <p>This keeps the system Node but redirects <em>global</em> packages into your home directory. The one gotcha: remember to add the new <code>bin</code> to <code>PATH</code>, or the installed commands won't be found.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; Reclaim files a past <code>sudo</code> left root-owned</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> EACCES on <code>~/.npm</code> or a project after you previously ran <code>sudo npm</code>.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># give the cache back to your user
+sudo chown -R $(whoami) ~/.npm
+
+# for a project poisoned by sudo, start clean
+rm -rf node_modules package-lock.json
+npm install          # no sudo this time</code></pre>
+            </div>
+            <p>Once root owns files in your cache or project, every normal install fails because npm can't overwrite them. Fixing ownership (and never using <code>sudo npm</code> again) clears it for good.</p>
+
+            <h2>The one thing not to do</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ makes it "work" once, then breaks the next normal install
+sudo npm install -g pkg
+# ❌ and this hands your whole system dir to your user — messy and unsafe
+sudo chown -R $(whoami) /usr/local/lib/node_modules</code></pre>
+            </div>
+            <p><code>sudo</code> runs install scripts as root and drops root-owned files into your cache, guaranteeing a future EACCES. Use Fix 1 or Fix 2 instead.</p>
+
+            <h2>Why this happens</h2>
+            <p>Unix permissions let a directory be written only by its owner (or root). When Node is installed system-wide &mdash; from a <code>.pkg</code>, from <code>apt</code>, or from the macOS installer &mdash; its global <code>node_modules</code> prefix lives somewhere like <code>/usr/local/lib</code> that is owned by <strong>root</strong>. A normal <code>npm install -g</code> runs as <em>you</em>, so the kernel denies the write and npm reports <code>EACCES</code> (error number 13, "permission denied"). Local installs usually work because your project folder is yours. The permanent fix is to make sure everything npm writes to is a directory your user owns &mdash; which is exactly what a version manager or a relocated prefix guarantees.</p>
+
+            <h2>By platform</h2>
+            <table>
+                <thead>
+                    <tr><th>Where Node came from</th><th>Typical EACCES path</th><th>Best fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>macOS <code>.pkg</code> installer</td><td><code>/usr/local/lib/node_modules</code></td><td>Fix 1 (nvm)</td></tr>
+                    <tr><td>Linux <code>apt</code> / <code>dnf</code></td><td><code>/usr/lib/node_modules</code></td><td>Fix 1 or Fix 2</td></tr>
+                    <tr><td>Homebrew</td><td><code>/opt/homebrew/lib</code></td><td>Fix 2 (own prefix)</td></tr>
+                    <tr><td>Previously used sudo</td><td><code>~/.npm</code> (cache)</td><td>Fix 3 (chown)</td></tr>
+                </tbody>
+            </table>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:700;">&#10003; Confirm it's fixed</p>
+                <ul style="margin:.5rem 0 0;padding-left:1.2rem;">
+                    <li><code>npm config get prefix</code> should print a path under your home directory (not <code>/usr</code>).</li>
+                    <li><code>npm install -g cowsay</code> should succeed with <strong>no <code>sudo</code></strong> and the command should run.</li>
+                    <li><code>ls -la ~/.npm</code> &mdash; every entry should be owned by your username, none by <code>root</code>.</li>
+                </ul>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'npm ERR! code EACCES: permission denied' mean?</summary>
+                    <p>EACCES is the operating system's "access denied" error. npm tried to create or write a file in a directory your user account doesn't own &mdash; usually the global <code>node_modules</code> prefix (like <code>/usr/local/lib</code>) or the npm cache &mdash; and the OS refused. It is a filesystem permission problem, not a broken package.</p>
+                </details>
+                <details>
+                    <summary>Why shouldn't I just use sudo npm install?</summary>
+                    <p><code>sudo</code> makes the install succeed by running as root, but it creates root-owned files in your cache and project, which cause new EACCES errors on the next normal install and are a security risk (install scripts run as root). The recommended fix is to install Node with a version manager or point npm's global prefix at a directory you own, so <code>sudo</code> is never needed.</p>
+                </details>
+                <details>
+                    <summary>What is the recommended way to fix npm EACCES?</summary>
+                    <p>Install Node through a version manager such as nvm, fnm, or Volta. These put Node and global packages under your home directory, which your user owns, so EACCES cannot happen and you never need <code>sudo</code>. It also lets you switch Node versions per project.</p>
+                </details>
+                <details>
+                    <summary>How do I fix EACCES without reinstalling Node?</summary>
+                    <p>Set npm's global prefix to a folder you own: <code>mkdir ~/.npm-global &amp;&amp; npm config set prefix '~/.npm-global'</code>, then add <code>~/.npm-global/bin</code> to your PATH. Global installs then write to your home directory. If earlier <code>sudo</code> installs left root-owned files, fix ownership of <code>~/.npm</code> and the prefix with <code>chown</code> first.</p>
+                </details>
+                <details>
+                    <summary>I already used sudo and now EACCES is worse — how do I recover?</summary>
+                    <p>Earlier <code>sudo</code> runs left root-owned files in <code>~/.npm</code> and <code>node_modules</code>. Reclaim them: <code>sudo chown -R $(whoami) ~/.npm</code> and, for a project, delete <code>node_modules</code> and <code>package-lock.json</code> then reinstall without <code>sudo</code>. After that, switch to a version manager so it doesn't recur.</p>
+                </details>
+                <details>
+                    <summary>Why does EACCES happen only on global installs (npm install -g)?</summary>
+                    <p>Local installs write into your project's <code>node_modules</code>, which you own, so they usually succeed. Global installs (<code>-g</code>) write to the system prefix (e.g. <code>/usr/local</code> or <code>/usr</code>) owned by root, which triggers EACCES. Moving the global prefix to your home directory removes the distinction.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More npm &amp; Node.js errors</h3>
+                <p>Browse the full reference for npm, Node.js, and build errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="npm-eresolve-unable-to-resolve-dependency-tree.html" class="btn btn-primary" style="background:#cb3837;border-color:#cb3837;">npm ERESOLVE</a>
+                    <a href="gyp-err-build-error.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">gyp ERR! build error</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="npm-eresolve-unable-to-resolve-dependency-tree.html">npm ERR! code ERESOLVE</a></li>
+                <li><a href="gyp-err-build-error.html">gyp ERR! build error</a></li>
+                <li><a href="cannot-find-module.html">Error: Cannot find module</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

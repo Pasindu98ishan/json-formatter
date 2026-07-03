@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Module not found: Can't resolve 'fs' — why a Node core module fails to bundle in Next.js, webpack, or Vite, and how to fix it by moving server-only code off the client or stubbing the module.">
+    <meta name="keywords" content="Module not found Can't resolve 'fs', can't resolve fs, fs module not found nextjs, webpack can't resolve fs, module not found fs vite, node core module browser">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/module-not-found-cant-resolve-fs.html">
+    <meta property="og:title" content="Module not found: Can't resolve 'fs' (Next.js / webpack) — Fix">
+    <meta property="og:description" content="'Can't resolve fs' means server-only Node code is being bundled for the browser. Fix it by keeping fs on the server or stubbing the module — not by installing a package.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/module-not-found-cant-resolve-fs.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Module not found: Can't resolve 'fs' (Next.js / webpack) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Module not found: Can't resolve 'fs'", "item": "https://jsondevtools.org/errors/module-not-found-cant-resolve-fs.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Module not found: Can't resolve 'fs' — Cause and Fix",
+  "description": "'Can't resolve fs' happens when server-only Node code is bundled for the browser. This playbook fixes it in Next.js, webpack, and Vite.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-01",
+  "dateModified": "2026-07-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Module not found: Can't resolve fs' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "fs is Node's file-system module and it does not exist in the browser. The error means your bundler (webpack, Next.js, Vite) is trying to include code that imports fs in a bundle destined for the browser. The bundler can't find a browser version of fs, so it fails. The real problem is that server-only code ended up in a client bundle." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'Can't resolve fs' in Next.js?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only use fs in server-only code: inside getServerSideProps / getStaticProps, a Route Handler, an API route, or a Server Component. Never import a module that uses fs into a Client Component ('use client'). If a shared file both reads files and runs in the browser, split it so the fs part stays server-side." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I add a webpack fallback for fs?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Setting resolve.fallback.fs = false (or Next's config.resolve.fallback) tells the bundler to replace fs with an empty stub in the client build. This only works if the fs code path never actually runs in the browser — it silences the build error but the code must be dead on the client. Prefer moving the code server-side; use the stub only for a dependency you can't change." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a library I installed trigger this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Some npm packages are Node-only (they read files, use path, crypto, or child_process) but got imported into client code. Either import that library only in server code, find a browser-compatible alternative, or dynamically import it so it's excluded from the client bundle. Check the package docs for a browser/ESM build." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix it in Vite?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Vite targets the browser, so importing fs in client code fails the same way. Keep fs in server code (a Vite SSR entry, an API route, or a Node script), not in anything shipped to the browser. If a dependency insists on Node built-ins, either replace it or, for SSR-only usage, mark it external so it isn't bundled for the client." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use fs in the browser at all?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No — browsers have no file system access like Node's fs. To read a user's file in the browser, use an <input type=file> with the File API / FileReader; for persistent storage use IndexedDB or the File System Access API. Anything that truly needs fs must run on the server." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Module not found: Can't resolve 'fs'</span>
+            </nav>
+            <h1>Module not found: Can't resolve 'fs'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;"><code>fs</code> is a <strong>Node server module that doesn't exist in the browser</strong>. Server-only code leaked into a client bundle. Move the <code>fs</code> code to a server-only place &mdash; in Next.js that's a Server Component, Route Handler, or <code>getServerSideProps</code>/<code>getStaticProps</code>:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ✅ Next.js — fs runs on the server only
+export async function getServerSideProps() {
+  const fs = await import('node:fs/promises');
+  const data = await fs.readFile('data.json', 'utf8');
+  return { props: { data } };
+}</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Module not found: Can't resolve 'fs'
+
+Import trace for requested module:
+./lib/read-config.js
+./components/Sidebar.jsx     &lt;-- a client component pulled in server-only code
+./app/page.jsx</code></pre>
+            </div>
+            <p><strong>Follow the "Import trace".</strong> It shows the chain from a browser file down to the module that imports <code>fs</code>. The fix goes at the point where client code first imports something server-only.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>It's <strong>your own code</strong> reading a file? &rarr; <a href="#fix1">Fix 1 (move it server-side)</a></li>
+                    <li>A <strong>shared file</strong> imported by both client and server? &rarr; <a href="#fix2">Fix 2 (split the file)</a></li>
+                    <li>A <strong>third-party package</strong> you can't change? &rarr; <a href="#fix3">Fix 3 (dynamic import)</a> or <a href="#fix4">Fix 4 (stub fs)</a></li>
+                    <li>On <strong>Vite</strong>, not Next? &rarr; <a href="#fix5">Fix 5 (Vite)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; Keep fs in server-only code</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> your own component or util reads files and also renders in the browser.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ a Client Component importing fs
+'use client';
+import fs from 'node:fs';         // bundled for the browser -> Can't resolve 'fs'
+
+// ✅ read on the server, pass data down as props/args
+// app/page.jsx (Server Component — no 'use client')
+import fs from 'node:fs/promises';
+export default async function Page() {
+  const cfg = JSON.parse(await fs.readFile('config.json', 'utf8'));
+  return &lt;Sidebar config={cfg} /&gt;;   // Sidebar is the client part, no fs
+}</code></pre>
+            </div>
+            <p>In the App Router, files are Server Components by default &mdash; <code>fs</code> is fine there. The moment a file has <code>'use client'</code>, it (and everything it imports) is bundled for the browser, where <code>fs</code> doesn't exist.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; Split a shared module</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> one util file exports both a file-reading helper and something the client needs.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// lib/config.server.js   — server only, may use fs
+import fs from 'node:fs/promises';
+export const loadConfig = () =&gt; fs.readFile('config.json', 'utf8');
+
+// lib/config.shared.js   — safe for the browser, no Node built-ins
+export const DEFAULTS = { theme: 'light' };</code></pre>
+            </div>
+            <p>Bundlers pull in the <em>whole</em> file you import from. If the client only needs <code>DEFAULTS</code>, keep it in a file that never touches <code>fs</code> so the server-only half is never dragged into the client bundle. (A <code>.server.js</code>/<code>server-only</code> convention makes the boundary obvious.)</p>
+
+            <h2 id="fix3">Fix 3 &mdash; Dynamically import a Node-only dependency</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a package uses <code>fs</code> internally and you only call it on the server.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// only loaded when this server path runs — excluded from the client bundle
+export async function POST(req) {
+  const { parseFile } = await import('some-node-only-lib');
+  return Response.json(await parseFile('/tmp/x'));
+}</code></pre>
+            </div>
+            <p>A top-level <code>import</code> is always bundled; a dynamic <code>await import()</code> inside a server-only function keeps the Node dependency out of the browser build entirely.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; Stub fs in the client build (last resort)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a dependency references <code>fs</code> but the code path never runs in the browser, and you can't change it.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// next.config.js
+module.exports = {
+  webpack: (config, { isServer }) =&gt; {
+    if (!isServer) config.resolve.fallback = { ...config.resolve.fallback, fs: false };
+    return config;
+  },
+};</code></pre>
+            </div>
+            <p><code>fs: false</code> replaces <code>fs</code> with an empty module in the client build. This only silences the error &mdash; if that code actually executes in the browser it will still break at runtime. Use it only when the <code>fs</code> path is truly dead on the client.</p>
+
+            <h2 id="fix5">Fix 5 &mdash; Vite specifics</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the same error under Vite (which only targets the browser).</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// keep fs in an SSR entry / API route / node script, never client code.
+// for an SSR-only dependency, mark it external so it isn't bundled:
+// vite.config.js
+export default {
+  ssr: { external: ['some-node-only-lib'] },
+};</code></pre>
+            </div>
+
+            <h2>Why this happens</h2>
+            <p><code>fs</code>, along with <code>path</code>, <code>crypto</code>, <code>net</code>, and <code>child_process</code>, is a <strong>Node.js built-in</strong> &mdash; it only exists in a Node runtime. A bundler building for the browser has to resolve every <code>import</code> to something it can ship, and there is no browser <code>fs</code> to resolve to, so it stops with <em>Can't resolve 'fs'</em>. The import itself isn't the bug; the bug is that a module which uses a server-only API got pulled into a <strong>client</strong> bundle. That happens when server code is imported (directly or transitively) by a Client Component, a browser entry, or a shared file. Fixing it always means re-drawing the server/client boundary so <code>fs</code> stays on the server &mdash; not installing a package.</p>
+
+            <h2>By tool</h2>
+            <table>
+                <thead>
+                    <tr><th>Tool</th><th>Keep fs in</th><th>Escape hatch</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Next.js (App Router)</td><td>Server Components, Route Handlers</td><td><code>resolve.fallback.fs = false</code></td></tr>
+                    <tr><td>Next.js (Pages)</td><td><code>getServerSideProps</code>/<code>getStaticProps</code>, API routes</td><td>same webpack fallback</td></tr>
+                    <tr><td>webpack (plain)</td><td>server entry only</td><td><code>resolve.fallback.fs = false</code></td></tr>
+                    <tr><td>Vite</td><td>SSR entry / node scripts</td><td><code>ssr.external</code></td></tr>
+                </tbody>
+            </table>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:700;">&#10003; Confirm it's fixed</p>
+                <ul style="margin:.5rem 0 0;padding-left:1.2rem;">
+                    <li>The production build (<code>next build</code> / <code>vite build</code>) completes with no "Can't resolve 'fs'".</li>
+                    <li>Search your client bundle for <code>node:fs</code>/<code>require("fs")</code> &mdash; it shouldn't be there.</li>
+                    <li>The file-reading feature still works when the page runs (data arrives via props/an API response, not client <code>fs</code>).</li>
+                </ul>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Module not found: Can't resolve fs' mean?</summary>
+                    <p><code>fs</code> is Node's file-system module and it does not exist in the browser. The error means your bundler (webpack, Next.js, Vite) is trying to include code that imports <code>fs</code> in a bundle destined for the browser. The bundler can't find a browser version of <code>fs</code>, so it fails. The real problem is that server-only code ended up in a client bundle.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'Can't resolve fs' in Next.js?</summary>
+                    <p>Only use <code>fs</code> in server-only code: inside <code>getServerSideProps</code>/<code>getStaticProps</code>, a Route Handler, an API route, or a Server Component. Never import a module that uses <code>fs</code> into a Client Component (<code>'use client'</code>). If a shared file both reads files and runs in the browser, split it so the <code>fs</code> part stays server-side.</p>
+                </details>
+                <details>
+                    <summary>Should I add a webpack fallback for fs?</summary>
+                    <p>Setting <code>resolve.fallback.fs = false</code> tells the bundler to replace <code>fs</code> with an empty stub in the client build. This only works if the <code>fs</code> code path never actually runs in the browser &mdash; it silences the build error but the code must be dead on the client. Prefer moving the code server-side; use the stub only for a dependency you can't change.</p>
+                </details>
+                <details>
+                    <summary>Why does a library I installed trigger this?</summary>
+                    <p>Some npm packages are Node-only (they read files, use <code>path</code>, <code>crypto</code>, or <code>child_process</code>) but got imported into client code. Either import that library only in server code, find a browser-compatible alternative, or dynamically import it so it's excluded from the client bundle. Check the package docs for a browser/ESM build.</p>
+                </details>
+                <details>
+                    <summary>How do I fix it in Vite?</summary>
+                    <p>Vite targets the browser, so importing <code>fs</code> in client code fails the same way. Keep <code>fs</code> in server code (a Vite SSR entry, an API route, or a Node script), not in anything shipped to the browser. If a dependency insists on Node built-ins, either replace it or, for SSR-only usage, mark it external so it isn't bundled for the client.</p>
+                </details>
+                <details>
+                    <summary>Can I use fs in the browser at all?</summary>
+                    <p>No &mdash; browsers have no file-system access like Node's <code>fs</code>. To read a user's file in the browser, use an <code>&lt;input type="file"&gt;</code> with the File API / <code>FileReader</code>; for persistent storage use IndexedDB or the File System Access API. Anything that truly needs <code>fs</code> must run on the server.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More build &amp; module errors</h3>
+                <p>Browse the full reference for Node.js, bundler, and module errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="cannot-find-module.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Cannot find module</a>
+                    <a href="cannot-use-import-statement-outside-a-module.html" class="btn btn-primary" style="background:#f0db4f;border-color:#f0db4f;color:#222;">import statement outside a module</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-find-module.html">Error: Cannot find module (MODULE_NOT_FOUND)</a></li>
+                <li><a href="process-env-undefined.html">process.env.X is undefined</a> &mdash; another server/client boundary trap</li>
+                <li><a href="vite-504-outdated-optimize-dep.html">504 (Outdated Optimize Dep) — Vite</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

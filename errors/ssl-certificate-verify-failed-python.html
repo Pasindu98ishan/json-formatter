@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ssl.SSLCertVerificationError: certificate verify failed — why Python can't verify a TLS certificate, and how to fix it the right way: install certifi/CA certs, fix the chain, or trust a corporate proxy CA. Never just disable verification.">
+    <meta name="keywords" content="certificate verify failed, ssl.SSLCertVerificationError, CERTIFICATE_VERIFY_FAILED python, python requests ssl error, unable to get local issuer certificate python, certifi">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ssl-certificate-verify-failed-python.html">
+    <meta property="og:title" content="ssl.SSLCertVerificationError: certificate verify failed (Python) — Fix">
+    <meta property="og:description" content="Python can't verify the server's TLS certificate. Fix it properly with certifi / OS CA certs or by trusting a corporate proxy CA — not by disabling verification.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ssl-certificate-verify-failed-python.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>ssl.SSLCertVerificationError: certificate verify failed (Python) — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "certificate verify failed", "item": "https://jsondevtools.org/errors/ssl-certificate-verify-failed-python.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "ssl.SSLCertVerificationError: certificate verify failed — Cause and Fix",
+  "description": "Python raises certificate verify failed when it can't validate a server's TLS certificate chain. This playbook fixes the trust store the right way.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-01",
+  "dateModified": "2026-07-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'certificate verify failed' mean in Python?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Python's SSL layer could not build a trusted chain from the server's TLS certificate up to a certificate authority (CA) it trusts, so it refused the connection. The most common detail is 'unable to get local issuer certificate', meaning Python's CA bundle is missing the issuer — either the CA roots aren't installed, or a proxy is presenting its own certificate." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix certificate verify failed on macOS?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The python.org macOS installer ships a script that installs CA roots. Run '/Applications/Python 3.x/Install Certificates.command' (or python -m pip install --upgrade certifi). Fresh macOS Python installs commonly hit this because they don't use the system keychain by default." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I use verify=False to fix it?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No, except for a throwaway local test. requests.get(url, verify=False) disables TLS verification entirely, which removes protection against man-in-the-middle attacks and only hides the real problem. Fix the trust store (certifi / OS CA certs) or add the corporate CA instead; keep verification on in anything real." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it fail only behind my company network?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Corporate proxies and antivirus often intercept TLS and present their own root certificate. Python doesn't trust that private CA, so verification fails. The fix is to point Python at the company's CA bundle: set REQUESTS_CA_BUNDLE / SSL_CERT_FILE to a PEM containing the corporate root, or pass verify='/path/to/corp-ca.pem'." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is 'unable to get local issuer certificate'?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It means the server sent a valid certificate but Python couldn't find the CA that issued it in its trust store — often because the server didn't send the intermediate certificate, or your CA bundle is outdated. Update certifi, and if the server omits intermediates, fix the server chain or supply the intermediate CA to verify=." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I point Python at a specific CA bundle?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Set the environment variables SSL_CERT_FILE and REQUESTS_CA_BUNDLE to a PEM file with the needed roots/intermediates, or pass verify='/path/to/ca.pem' to requests. In code you can also use certifi.where() to locate the default bundle and append your CA to a copy of it." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>certificate verify failed</span>
+            </nav>
+            <h1>ssl.SSLCertVerificationError: certificate verify failed</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">Python can't trace the server's certificate to a CA it trusts &mdash; usually a missing/old CA bundle. Update <code>certifi</code> (and on macOS run the certificate installer). <strong>Do not reach for <code>verify=False</code>.</strong></p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>python -m pip install --upgrade certifi
+
+# macOS (python.org build) — install the CA roots:
+open "/Applications/Python 3.12/Install Certificates.command"</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>requests.exceptions.SSLError:
+  HTTPSConnectionPool(host='api.example.com', port=443):
+  Max retries exceeded ...
+  (Caused by SSLError(SSLCertVerificationError(1,
+  '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed:
+   unable to get local issuer certificate (_ssl.c:1006)')))</code></pre>
+            </div>
+            <p><strong>Read the phrase after "certificate verify failed:".</strong> <code>unable to get local issuer certificate</code> = missing CA / intermediate. <code>self-signed certificate</code> = a proxy or a self-signed server. <code>certificate has expired</code> = the server's cert (or a root) is out of date. Each points at a different fix.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>On a fresh <strong>macOS</strong> Python? &rarr; <a href="#fix1">Fix 1 (install certs)</a></li>
+                    <li><code>unable to get local issuer certificate</code> on a public API? &rarr; <a href="#fix2">Fix 2 (update certifi)</a></li>
+                    <li>Only on a <strong>work network / VPN</strong>, or <code>self-signed certificate in chain</code>? &rarr; <a href="#fix3">Fix 3 (trust the corporate CA)</a></li>
+                    <li>Works in a browser but not Python, one specific host? &rarr; <a href="#fix4">Fix 4 (missing intermediate)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; Install CA roots on macOS</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a python.org build on macOS, failing on every HTTPS site.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># run the installer that ships with the python.org package
+open "/Applications/Python 3.12/Install Certificates.command"
+# equivalent, in any env:
+python -m pip install --upgrade certifi</code></pre>
+            </div>
+            <p>The macOS python.org installer doesn't use the system keychain; it relies on <code>certifi</code>, and its post-install "Install Certificates" step wires that up. Running it once fixes the blanket failure.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; Update the certifi CA bundle</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> <code>unable to get local issuer certificate</code> against a normal public API.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>python -m pip install --upgrade certifi
+
+# confirm which bundle requests/ssl is using
+python -c "import certifi; print(certifi.where())"</code></pre>
+            </div>
+            <p><code>requests</code> verifies against <code>certifi</code>'s bundled roots. An old <code>certifi</code> can miss a newer CA, so upgrading it restores trust for recently issued certificates.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; Trust your corporate proxy's CA</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> it only fails on the company network, VPN, or with antivirus TLS scanning.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># get the corporate root CA (from IT) as a PEM, then point Python at it
+export SSL_CERT_FILE=/etc/ssl/corp-root-ca.pem
+export REQUESTS_CA_BUNDLE=/etc/ssl/corp-root-ca.pem
+
+# or per call:
+requests.get(url, verify="/etc/ssl/corp-root-ca.pem")</code></pre>
+            </div>
+            <p>A TLS-inspecting proxy re-signs traffic with a private root Python doesn't know. Adding that root to your trust store (env var or <code>verify=</code>) makes verification pass <em>while keeping it on</em> &mdash; the safe way, unlike disabling it.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; Supply a missing intermediate certificate</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a browser accepts the site but Python doesn't, for one host.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># diagnose the chain — "verify error: unable to get local issuer" means
+# the server didn't send its intermediate cert
+openssl s_client -connect api.example.com:443 -showcerts
+
+# fix the server chain, or bundle the intermediate yourself:
+requests.get(url, verify="/path/to/fullchain-including-intermediate.pem")</code></pre>
+            </div>
+            <p>Browsers cache intermediates and fill gaps; Python doesn't. If the server omits its intermediate certificate, the real fix is on the server (send the full chain) &mdash; or provide the intermediate to <code>verify=</code> as a workaround.</p>
+
+            <h2>The one thing not to do</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ turns off all TLS verification — MITM-vulnerable, hides the real issue
+requests.get(url, verify=False)
+# ❌ same problem, globally
+import ssl; ssl._create_default_https_context = ssl._create_unverified_context</code></pre>
+            </div>
+            <p>Disabling verification makes the error vanish but exposes you to man-in-the-middle attacks and leaves the trust store broken for everything else. Reserve <code>verify=False</code> for a quick local experiment you'll throw away.</p>
+
+            <h2>Why this happens</h2>
+            <p>TLS verification works by building a <strong>chain of trust</strong>: the server's certificate is signed by an intermediate CA, which is signed by a root CA that your system already trusts. Python (via OpenSSL) walks that chain and, if it can't reach a trusted root, raises <code>SSLCertVerificationError: certificate verify failed</code>. Unlike browsers, Python doesn't use the OS keychain by default &mdash; <code>requests</code> and the <code>ssl</code> module trust the <strong>certifi</strong> bundle. So the chain breaks when certifi is missing/outdated (fresh install, old root), when a <strong>corporate proxy</strong> injects a private root Python never learned, or when the <strong>server omits an intermediate</strong> that a browser would have cached. Every real fix is about repairing that trust store &mdash; which is why turning verification off is a non-answer.</p>
+
+            <h2>By symptom</h2>
+            <table>
+                <thead>
+                    <tr><th>Detail in the error</th><th>Cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>every HTTPS site, new macOS Python</td><td>CA roots not installed</td><td>Fix 1</td></tr>
+                    <tr><td><code>unable to get local issuer</code>, public API</td><td>outdated certifi</td><td>Fix 2</td></tr>
+                    <tr><td><code>self-signed certificate in chain</code></td><td>proxy / AV TLS inspection</td><td>Fix 3</td></tr>
+                    <tr><td>browser OK, Python fails, one host</td><td>server omits intermediate</td><td>Fix 4</td></tr>
+                    <tr><td><code>certificate has expired</code></td><td>expired server cert or old root</td><td>update cert / certifi</td></tr>
+                </tbody>
+            </table>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:700;">&#10003; Confirm it's fixed</p>
+                <ul style="margin:.5rem 0 0;padding-left:1.2rem;">
+                    <li><code>python -c "import requests; requests.get('https://example.com').raise_for_status()"</code> runs clean &mdash; with verification <strong>on</strong>.</li>
+                    <li>You did <em>not</em> leave <code>verify=False</code> or an unverified default context anywhere.</li>
+                    <li>On a corporate network, other HTTPS hosts also work with the same CA bundle set.</li>
+                </ul>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'certificate verify failed' mean in Python?</summary>
+                    <p>Python's SSL layer could not build a trusted chain from the server's TLS certificate up to a certificate authority (CA) it trusts, so it refused the connection. The most common detail is "unable to get local issuer certificate", meaning Python's CA bundle is missing the issuer &mdash; either the CA roots aren't installed, or a proxy is presenting its own certificate.</p>
+                </details>
+                <details>
+                    <summary>How do I fix certificate verify failed on macOS?</summary>
+                    <p>The python.org macOS installer ships a script that installs CA roots. Run <code>/Applications/Python 3.x/Install Certificates.command</code> (or <code>python -m pip install --upgrade certifi</code>). Fresh macOS Python installs commonly hit this because they don't use the system keychain by default.</p>
+                </details>
+                <details>
+                    <summary>Should I use verify=False to fix it?</summary>
+                    <p>No, except for a throwaway local test. <code>requests.get(url, verify=False)</code> disables TLS verification entirely, which removes protection against man-in-the-middle attacks and only hides the real problem. Fix the trust store (certifi / OS CA certs) or add the corporate CA instead; keep verification on in anything real.</p>
+                </details>
+                <details>
+                    <summary>Why does it fail only behind my company network?</summary>
+                    <p>Corporate proxies and antivirus often intercept TLS and present their own root certificate. Python doesn't trust that private CA, so verification fails. The fix is to point Python at the company's CA bundle: set <code>REQUESTS_CA_BUNDLE</code> / <code>SSL_CERT_FILE</code> to a PEM containing the corporate root, or pass <code>verify='/path/to/corp-ca.pem'</code>.</p>
+                </details>
+                <details>
+                    <summary>What is 'unable to get local issuer certificate'?</summary>
+                    <p>It means the server sent a valid certificate but Python couldn't find the CA that issued it in its trust store &mdash; often because the server didn't send the intermediate certificate, or your CA bundle is outdated. Update certifi, and if the server omits intermediates, fix the server chain or supply the intermediate CA to <code>verify=</code>.</p>
+                </details>
+                <details>
+                    <summary>How do I point Python at a specific CA bundle?</summary>
+                    <p>Set the environment variables <code>SSL_CERT_FILE</code> and <code>REQUESTS_CA_BUNDLE</code> to a PEM file with the needed roots/intermediates, or pass <code>verify='/path/to/ca.pem'</code> to requests. In code you can also use <code>certifi.where()</code> to locate the default bundle and append your CA to a copy of it.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Python &amp; network errors</h3>
+                <p>Browse the full reference for Python, network, and API errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="econnreset-socket-hang-up.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">ECONNRESET (Node)</a>
+                    <a href="externally-managed-environment.html" class="btn btn-primary" style="background:#4B8BBE;border-color:#4B8BBE;">pip: externally-managed-environment</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="externally-managed-environment.html">error: externally-managed-environment (pip)</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a> &mdash; the browser-side network failure</li>
+                <li><a href="econnreset-socket-hang-up.html">ECONNRESET / socket hang up (Node.js)</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

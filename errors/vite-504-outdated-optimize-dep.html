@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="504 (Outdated Optimize Dep) in Vite — why the dev server returns 504 for a dependency, and how to fix it by restarting with a clean optimize cache, fixing includes, and stabilizing deps.">
+    <meta name="keywords" content="504 Outdated Optimize Dep, vite 504, outdated optimize dep, vite optimizeDeps, vite dependency 504, vite reload 504">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/vite-504-outdated-optimize-dep.html">
+    <meta property="og:title" content="504 (Outdated Optimize Dep) in Vite — Fix">
+    <meta property="og:description" content="Vite's 504 (Outdated Optimize Dep) means the dependency pre-bundle went stale mid-session. Clear the optimize cache, fix optimizeDeps, and stop the re-optimize loop.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/vite-504-outdated-optimize-dep.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>504 (Outdated Optimize Dep) in Vite — Fix | JSON Dev Tools</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "504 (Outdated Optimize Dep)", "item": "https://jsondevtools.org/errors/vite-504-outdated-optimize-dep.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "504 (Outdated Optimize Dep) in Vite — Cause and Fix",
+  "description": "Vite returns 504 (Outdated Optimize Dep) when its pre-bundled dependency cache goes stale during a dev session. This playbook clears and stabilizes it.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-01",
+  "dateModified": "2026-07-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does '504 (Outdated Optimize Dep)' mean in Vite?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Vite pre-bundles your dependencies into node_modules/.vite for speed. The 504 means the browser requested a pre-bundled dependency chunk that Vite has since invalidated — the optimize cache became outdated mid-session, so the old URL no longer resolves. It is a dev-server caching mismatch, not a real gateway timeout." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix Vite 504 Outdated Optimize Dep?",
+      "acceptedAnswer": { "@type": "Answer", "text": "First just reload the page — Vite usually re-optimizes and recovers. If it persists, stop the dev server, delete node_modules/.vite (the optimize cache), and restart. Running vite with --force also rebuilds the dependency cache from scratch, which clears a corrupted or stale pre-bundle." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it keep happening on every reload?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A repeating 504 usually means Vite keeps discovering new dependencies to pre-bundle at runtime (so it re-optimizes and invalidates chunks), or a dependency is being added dynamically. List the heavy or dynamically imported packages in optimizeDeps.include so Vite bundles them up front and stops re-optimizing mid-session." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is optimizeDeps in Vite?",
+      "acceptedAnswer": { "@type": "Answer", "text": "optimizeDeps controls Vite's dependency pre-bundling. optimizeDeps.include forces packages to be pre-bundled up front (fixes repeated re-optimization); optimizeDeps.exclude skips packages that shouldn't be pre-bundled (e.g. ones using import.meta or workers). Tuning these stabilizes the cache so 504s stop." }
+    },
+    {
+      "@type": "Question",
+      "name": "Did it start after adding or updating a package?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, that is a common trigger. Installing, updating, or linking a dependency changes the lockfile, so Vite re-runs optimization and old pre-bundle URLs go stale. Restart the dev server after any dependency change; a plain restart re-derives the cache and clears the 504." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the 504 affect my production build?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Dependency pre-bundling with esbuild is a dev-server-only optimization. vite build uses Rollup and does not use the .vite optimize cache, so 'Outdated Optimize Dep' cannot occur in production — it is strictly a local dev issue." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>504 (Outdated Optimize Dep)</span>
+            </nav>
+            <h1>504 (Outdated Optimize Dep)</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">Vite's pre-bundled dependency cache went stale mid-session. It's a dev-server cache mismatch, not a real timeout. <strong>Reload the page first</strong>; if it sticks, wipe the optimize cache and restart:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># stop the dev server, then:
+rm -rf node_modules/.vite
+npm run dev -- --force        # rebuild the dependency pre-bundle from scratch</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># in the browser console / network tab
+GET http://localhost:5173/node_modules/.vite/deps/lodash-es.js?v=8f2a1c3d
+    504 (Outdated Optimize Dep)
+
+# in the Vite terminal
+[vite] ✨ new dependencies optimized: chart.js
+[vite] ✨ optimized dependencies changed. reloading</code></pre>
+            </div>
+            <p>The <code>?v=</code> hash in the URL is the tell: the browser asked for one pre-bundle version and Vite has already moved to a new one. That "reloading" line in the terminal is Vite re-optimizing underneath you.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>Saw it <strong>once</strong>, after starting the server? &rarr; <a href="#fix1">Fix 1 (just reload)</a></li>
+                    <li>It <strong>persists</strong> across reloads? &rarr; <a href="#fix2">Fix 2 (clear cache + --force)</a></li>
+                    <li>Happens <strong>every few reloads</strong>? &rarr; <a href="#fix3">Fix 3 (pre-declare deps)</a></li>
+                    <li>Started <strong>after installing a package</strong>? &rarr; <a href="#fix4">Fix 4 (restart after dep changes)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; Reload the page</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a one-off 504 the first time a new dependency is hit.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># nothing to install — just refresh
+# Vite finishes optimizing and serves the new pre-bundle
+# (Cmd/Ctrl + R)</code></pre>
+            </div>
+            <p>The first time Vite encounters a dependency it hasn't pre-bundled, it optimizes it and reloads. A single 504 during that hand-off is expected; one refresh clears it.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; Wipe the optimize cache and force a rebuild</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the 504 won't go away, or the cache looks corrupted after a crash.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># stop the dev server first
+rm -rf node_modules/.vite       # delete the pre-bundle cache
+npm run dev -- --force          # or: vite --force
+
+# nuke a stale browser copy too if needed: hard reload / disable cache</code></pre>
+            </div>
+            <p><code>node_modules/.vite</code> holds the esbuild pre-bundles. Deleting it plus <code>--force</code> makes Vite re-derive everything cleanly, which fixes a stale or half-written cache.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; Pre-declare deps so Vite stops re-optimizing</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> recurring 504s because Vite keeps discovering deps at runtime.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// vite.config.js
+export default {
+  optimizeDeps: {
+    include: ['lodash-es', 'chart.js', 'date-fns'], // bundle up front
+    // exclude: ['some-pkg-using-workers'],          // skip when needed
+  },
+};</code></pre>
+            </div>
+            <p>If deps are only discovered when a route lazy-loads them, Vite re-optimizes mid-session and invalidates chunks &mdash; the classic repeating 504. Listing heavy or dynamically imported packages in <code>optimizeDeps.include</code> makes Vite pre-bundle them at startup, so the cache stays stable.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; Restart after any dependency change</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> it began right after <code>npm install</code>, an update, or <code>npm link</code>.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># after changing dependencies, restart the dev server
+# (Ctrl-C, then)
+npm run dev</code></pre>
+            </div>
+            <p>Installing or updating a package changes the lockfile, so Vite re-runs optimization and old pre-bundle URLs go stale. A restart re-derives the cache; you rarely need <code>--force</code> for this case.</p>
+
+            <h2>Why this happens</h2>
+            <p>For fast dev startup, Vite <strong>pre-bundles</strong> your <code>node_modules</code> dependencies with esbuild into <code>node_modules/.vite/deps</code> and serves them with a version query (<code>?v=hash</code>). If Vite later decides the pre-bundle is out of date &mdash; it discovered a new dependency to include, the lockfile changed, or the config changed &mdash; it re-optimizes and assigns a <em>new</em> hash. Any browser request still pointing at the <em>old</em> hash can no longer be served, so Vite responds <code>504 (Outdated Optimize Dep)</code> to tell the client "this pre-bundle is stale, reload." It reuses the HTTP 504 code but has nothing to do with a gateway timeout. Because it's purely the dev-server dependency cache, the fixes are all about clearing or stabilizing that cache &mdash; and it never affects <code>vite build</code>.</p>
+
+            <h2>Quick reference</h2>
+            <table>
+                <thead>
+                    <tr><th>Pattern</th><th>Cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>One-off at startup</td><td>first-time dep optimization</td><td>reload (Fix 1)</td></tr>
+                    <tr><td>Persistent</td><td>stale/corrupted cache</td><td>clear <code>.vite</code> + <code>--force</code> (Fix 2)</td></tr>
+                    <tr><td>Recurring on navigation</td><td>runtime-discovered deps</td><td><code>optimizeDeps.include</code> (Fix 3)</td></tr>
+                    <tr><td>After a dep change</td><td>lockfile changed</td><td>restart dev server (Fix 4)</td></tr>
+                    <tr><td>In production</td><td>N/A</td><td>can't happen — Rollup build</td></tr>
+                </tbody>
+            </table>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:700;">&#10003; Confirm it's fixed</p>
+                <ul style="margin:.5rem 0 0;padding-left:1.2rem;">
+                    <li>Reload several times and navigate between routes &mdash; no 504 in the network tab.</li>
+                    <li>The Vite terminal stops printing "optimized dependencies changed. reloading" on every visit.</li>
+                    <li><code>vite build &amp;&amp; vite preview</code> works (confirms it was only a dev-cache issue).</li>
+                </ul>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does '504 (Outdated Optimize Dep)' mean in Vite?</summary>
+                    <p>Vite pre-bundles your dependencies into <code>node_modules/.vite</code> for speed. The 504 means the browser requested a pre-bundled dependency chunk that Vite has since invalidated &mdash; the optimize cache became outdated mid-session, so the old URL no longer resolves. It is a dev-server caching mismatch, not a real gateway timeout.</p>
+                </details>
+                <details>
+                    <summary>How do I fix Vite 504 Outdated Optimize Dep?</summary>
+                    <p>First just reload the page &mdash; Vite usually re-optimizes and recovers. If it persists, stop the dev server, delete <code>node_modules/.vite</code> (the optimize cache), and restart. Running <code>vite --force</code> also rebuilds the dependency cache from scratch, which clears a corrupted or stale pre-bundle.</p>
+                </details>
+                <details>
+                    <summary>Why does it keep happening on every reload?</summary>
+                    <p>A repeating 504 usually means Vite keeps discovering new dependencies to pre-bundle at runtime (so it re-optimizes and invalidates chunks), or a dependency is being added dynamically. List the heavy or dynamically imported packages in <code>optimizeDeps.include</code> so Vite bundles them up front and stops re-optimizing mid-session.</p>
+                </details>
+                <details>
+                    <summary>What is optimizeDeps in Vite?</summary>
+                    <p><code>optimizeDeps</code> controls Vite's dependency pre-bundling. <code>optimizeDeps.include</code> forces packages to be pre-bundled up front (fixes repeated re-optimization); <code>optimizeDeps.exclude</code> skips packages that shouldn't be pre-bundled (e.g. ones using <code>import.meta</code> or workers). Tuning these stabilizes the cache so 504s stop.</p>
+                </details>
+                <details>
+                    <summary>Did it start after adding or updating a package?</summary>
+                    <p>Yes, that is a common trigger. Installing, updating, or linking a dependency changes the lockfile, so Vite re-runs optimization and old pre-bundle URLs go stale. Restart the dev server after any dependency change; a plain restart re-derives the cache and clears the 504.</p>
+                </details>
+                <details>
+                    <summary>Does the 504 affect my production build?</summary>
+                    <p>No. Dependency pre-bundling with esbuild is a dev-server-only optimization. <code>vite build</code> uses Rollup and does not use the <code>.vite</code> optimize cache, so "Outdated Optimize Dep" cannot occur in production &mdash; it is strictly a local dev issue.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More build &amp; tooling errors</h3>
+                <p>Browse the full reference for Vite, Node.js, and bundler errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="module-not-found-cant-resolve-fs.html" class="btn btn-primary" style="background:#646cff;border-color:#646cff;">Can't resolve 'fs'</a>
+                    <a href="process-env-undefined.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">process.env is undefined</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="module-not-found-cant-resolve-fs.html">Module not found: Can't resolve 'fs'</a></li>
+                <li><a href="process-env-undefined.html">process.env.X is undefined</a></li>
+                <li><a href="cannot-use-import-statement-outside-a-module.html">Cannot use import statement outside a module</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
