@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online Base64 Encoder and Decoder. Encode text to Base64 or decode Base64 strings instantly in your browser. No signup required.">
-    <meta name="keywords" content="base64 encoder, base64 decoder, base64 encoding, online tool, encode text, decode base64">
+    <meta name="description" content="Free online Base64 Encoder and Decoder. Encode text, images, or any file to Base64 or a data URI, decode Base64 back to an image or file, with URL-safe (Base64URL) mode — all in your browser. No signup.">
+    <meta name="keywords" content="base64 encoder, base64 decoder, image to base64, file to base64, base64 to image, base64url, url-safe base64, data uri, encode text, decode base64">
     <link rel="canonical" href="https://jsondevtools.org/base64.html">
-    <meta property="og:title" content="Base64 Encoder & Decoder – Encode/Decode Online Free">
-    <meta property="og:description" content="Encode text to Base64 or decode Base64 strings instantly in your browser. Free, private, no signup required.">
+    <meta property="og:title" content="Base64 Encoder & Decoder – Text, Image & File, URL-safe">
+    <meta property="og:description" content="Encode text, images, or files to Base64 / data URI and decode Base64 back to an image or file. URL-safe mode included. Free, private, in-browser.">
     <meta property="og:url" content="https://jsondevtools.org/base64.html">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
@@ -16,9 +16,34 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
-    <title>Base64 Encoder & Decoder – Encode/Decode Online Free</title>
+    <title>Base64 Encoder & Decoder – Text, Image & File, URL-safe | Free</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/dark-mode.css">
+    <style>
+        .b64-options { display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem 1.4rem; margin:0 0 1rem; padding:0.85rem 1.1rem; background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; font-size:14px; }
+        .b64-options fieldset { border:0; margin:0; padding:0; display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem 0.9rem; }
+        .b64-options legend { float:none; width:auto; padding:0; margin:0 0.25rem 0 0; font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:.03em; color:var(--secondary-color); }
+        .b64-options label { display:inline-flex; align-items:center; gap:0.35rem; cursor:pointer; }
+        .b64-options input[type="radio"], .b64-options input[type="checkbox"] { margin:0; }
+        .b64-divider { width:1px; align-self:stretch; min-height:1.6em; background:var(--border-color); }
+        .b64-file { display:inline-flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
+        .b64-file input[type="file"] { font-size:13px; max-width:220px; }
+        @media (max-width:640px) { .b64-divider { display:none; } .b64-options { gap:0.7rem 1rem; } }
+        .b64-stats { display:none; margin:0.25rem 0 0.75rem; padding:0.6rem 0.9rem; background:var(--light-bg); border:1px solid var(--border-color); border-left:4px solid var(--primary-color); border-radius:6px; font-size:13.5px; color:var(--text-color); }
+        .b64-stats .b64-dot { margin:0 0.6rem; color:var(--secondary-color); }
+        .b64-preview { display:none; margin:0.5rem 0 1rem; padding:1rem; background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; text-align:center; }
+        .b64-preview img { max-width:100%; max-height:340px; border:1px solid var(--border-color); border-radius:6px; background:#fff; }
+        .b64-preview img:not([src]) { display:none; }
+        .b64-preview .b64-preview-actions { margin-top:0.85rem; }
+        /* Dark mode: dark-mode.css overrides element backgrounds but not these
+           neutral CSS variables, so remap them here for var()-based surfaces
+           (options bar, stats, preview, and the inline "Quick answer"/table boxes). */
+        body.dark-mode { --light-bg:#2d2d2d; --border-color:#444; --text-color:#e0e0e0; --secondary-color:#9aa0a6; }
+        body.dark-mode .b64-options,
+        body.dark-mode .b64-stats,
+        body.dark-mode .b64-preview { background:#2d2d2d; border-color:#444; color:#e0e0e0; }
+        body.dark-mode .b64-divider { background:#444; }
+    </style>
     <script src="/js/analytics.js"></script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
     <script type="application/ld+json">
@@ -94,6 +119,21 @@
           "@type": "Question",
           "name": "Is my data sent to a server?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. Encoding and decoding happen entirely in your browser with JavaScript. Your data is never uploaded or transmitted, which makes this safe for encoding tokens, credentials, and other sensitive values." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I convert an image or file to Base64?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use the 'Encode a file / image' picker, choose your file (PNG, JPG, SVG, PDF, etc.), and the tool outputs its Base64. Keep 'Output as data: URI' ticked to get a full data:image/png;base64,... value you can paste into an img src, CSS background, or JSON field; untick it for the raw Base64. The file is processed in your browser and never uploaded." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I decode Base64 back to an image or file?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Paste the Base64 string or a full data: URI and click Decode. If the bytes are an image you get a live preview plus a 'Download decoded file' button; other file types decode straight to a download with the correct extension. The decoder tolerates whitespace, missing padding, and URL-safe characters." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is a data URI?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A data URI embeds a file's bytes directly in a URL using the form data:<mime-type>;base64,<data> — for example data:image/png;base64,iVBORw0KGgo... It lets you inline a small image or asset in HTML or CSS without a separate network request. This tool can produce a data URI when encoding a file and decode one back to the original file." }
         }
       ]
     }
@@ -106,12 +146,26 @@
     <header class="header header-compact">
         <div class="container">
             <h1>Base64 Encoder & Decoder</h1>
-            <p>Encode text to Base64 or decode Base64 strings instantly online.</p>
+            <p>Encode text, images, or files to Base64 &amp; data URIs, decode them back, with URL-safe mode — instantly and privately in your browser.</p>
         </div>
     </header>
 
     <main class="container">
         <section class="formatter-section">
+            <div class="b64-options">
+                <fieldset>
+                    <legend>Alphabet</legend>
+                    <label><input type="radio" name="b64alphabet" value="standard" checked> Standard <code>+ /</code></label>
+                    <label><input type="radio" name="b64alphabet" value="urlsafe"> URL-safe <code>- _</code> (no padding)</label>
+                </fieldset>
+                <span class="b64-divider" aria-hidden="true"></span>
+                <span class="b64-file">
+                    <label for="fileInput"><strong>Encode a file / image:</strong></label>
+                    <input type="file" id="fileInput" aria-label="Choose a file to encode to Base64">
+                </span>
+                <label class="b64-datauri"><input type="checkbox" id="asDataUri" checked> Output as <code>data:</code> URI</label>
+            </div>
+
             <div class="editor-container">
                 <div class="editor-input">
                     <label>Input Text / Base64:</label>
@@ -129,10 +183,15 @@
                 <button id="downloadBtn" class="btn btn-secondary" aria-label="Download output as file">Download</button>
                 <button id="clearBtn" class="btn btn-secondary" aria-label="Clear both fields">Clear</button>
             </div>
-            <div id="errorContainer" class="error-container" style="display:none;"></div>
 
-            <div class="info-section">
-                <p style="margin:0;"><strong>Base64</strong> is a binary-to-text encoding that represents binary data using 64 ASCII characters (A&ndash;Z, a&ndash;z, 0&ndash;9, <code>+</code>, <code>/</code>). It lets binary data &mdash; images, files, credentials &mdash; travel safely through text-only channels like JSON, HTML, and HTTP headers. It is encoding, <strong>not encryption</strong>, and provides no security.</p>
+            <div id="errorContainer" class="error-container" style="display:none;"></div>
+            <div id="statsBar" class="b64-stats" aria-live="polite"></div>
+
+            <div id="previewContainer" class="b64-preview">
+                <img id="previewImg" alt="Decoded image preview">
+                <div class="b64-preview-actions">
+                    <button id="downloadDecodedBtn" class="btn btn-primary" aria-label="Download the decoded file">Download decoded file</button>
+                </div>
             </div>
         </section>
 
@@ -146,8 +205,9 @@
             <ul>
                 <li><strong>Base64 is reversible</strong> and offers no confidentiality — never use it to "hide" secrets.</li>
                 <li><strong>It adds ~33% size</strong> — 3 bytes become 4 characters.</li>
-                <li><strong>Use URL-safe Base64</strong> (<code>-</code> and <code>_</code>) when embedding in URLs.</li>
-                <li><strong>100% private</strong> — encoding/decoding runs client-side; nothing you paste is uploaded.</li>
+                <li><strong>Use URL-safe Base64</strong> (<code>-</code> and <code>_</code>) when embedding in URLs — toggle it above.</li>
+                <li><strong>Encode images &amp; files</strong> to Base64 or a <code>data:</code> URI, and decode back to a downloadable file.</li>
+                <li><strong>100% private</strong> — encoding/decoding runs client-side; nothing you paste or upload leaves your browser.</li>
             </ul>
 
             <h2>How does Base64 encoding work?</h2>
@@ -177,6 +237,10 @@
                     </tbody>
                 </table>
             </div>
+
+            <h2>Encode an image or file to Base64 (data URI)</h2>
+            <p>Use <strong>Encode a file / image</strong> above to turn any file &mdash; a PNG, JPG, SVG, PDF, and more &mdash; into a Base64 string. Leave <strong>Output as <code>data:</code> URI</strong> ticked to get a ready-to-paste <code>data:image/png;base64,&hellip;</code> value you can drop straight into an <code>&lt;img src&gt;</code>, a CSS <code>background</code>, or a JSON field. Untick it for the raw Base64 only. Everything runs in your browser &mdash; <strong>the file is never uploaded</strong>.</p>
+            <p>To go the other way, paste a Base64 string or a full <code>data:</code> URI and click <strong>Decode</strong>. If the bytes are an image, you'll see a <strong>preview</strong> and a <strong>Download decoded file</strong> button; other file types decode straight to a download. The decoder is forgiving: it accepts URL-safe characters (<code>-</code> and <code>_</code>), ignores whitespace and line breaks, and repairs missing <code>=</code> padding, so pasted values that would normally throw an <code>atob</code> error still decode.</p>
 
             <h2>Base64 vs encryption</h2>
             <p>Base64 is <strong>not</strong> a security measure. Anyone can decode a Base64 string back to the original in one step, with no key &mdash; this very page does it. Never use Base64 to "hide" passwords, API keys, or personal data. When you need confidentiality, use real encryption such as AES; Base64 only makes already-encrypted bytes safe to transmit as text.</p>
@@ -220,9 +284,21 @@
                 <summary>Is my data sent to a server?</summary>
                 <p>No. Encoding and decoding happen entirely in your browser with JavaScript. Your data is never uploaded or transmitted, which makes this safe for encoding tokens, credentials, and other sensitive values.</p>
             </details>
+            <details>
+                <summary>How do I convert an image or file to Base64?</summary>
+                <p>Use the <strong>Encode a file / image</strong> picker, choose your file (PNG, JPG, SVG, PDF, etc.), and the tool outputs its Base64. Keep <strong>Output as <code>data:</code> URI</strong> ticked to get a full <code>data:image/png;base64,...</code> value you can paste into an <code>&lt;img src&gt;</code>, CSS <code>background</code>, or JSON field; untick it for the raw Base64. The file is processed in your browser and never uploaded.</p>
+            </details>
+            <details>
+                <summary>How do I decode Base64 back to an image or file?</summary>
+                <p>Paste the Base64 string or a full <code>data:</code> URI and click <strong>Decode</strong>. If the bytes are an image you get a live preview plus a <strong>Download decoded file</strong> button; other file types decode straight to a download with the correct extension. The decoder tolerates whitespace, missing padding, and URL-safe characters.</p>
+            </details>
+            <details>
+                <summary>What is a data URI?</summary>
+                <p>A data URI embeds a file's bytes directly in a URL using the form <code>data:&lt;mime-type&gt;;base64,&lt;data&gt;</code> &mdash; for example <code>data:image/png;base64,iVBORw0KGgo...</code>. It lets you inline a small image or asset in HTML or CSS without a separate network request. This tool can produce a data URI when encoding a file and decode one back to the original file.</p>
+            </details>
         </section>
 
-        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: May 2026</p>
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: July 2026</p>
         <section class="related-tools">
             <h2>Related Tools</h2>
             <ul>
