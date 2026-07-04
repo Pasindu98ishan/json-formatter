@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online UUID generator. Generate UUID v4 values instantly in your browser — single or bulk. No signup, no data sent to any server.">
-    <meta name="keywords" content="uuid generator, uuid v4 generator, generate uuid online, random uuid, guid generator, unique id generator">
+    <meta name="description" content="Free online UUID generator. Generate UUID v1, v4, v5, or v7 — single or bulk, with format options and CSV/JSON export. No signup, no data sent to any server.">
+    <meta name="keywords" content="uuid generator, uuid v4 generator, uuid v7 generator, uuid v1 generator, uuid v5 generator, generate uuid online, random uuid, guid generator, unique id generator">
     <link rel="canonical" href="https://jsondevtools.org/uuid.html">
     <meta property="og:title" content="UUID Generator – Generate UUID v4 Online Free">
     <meta property="og:description" content="Generate UUID v4 values instantly in your browser. Single or bulk. Free, private, no signup required.">
@@ -78,7 +78,17 @@
         {
           "@type": "Question",
           "name": "Is my data sent to a server?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. UUID generation happens entirely in your browser using the built-in crypto.randomUUID() API. Nothing is sent to any server." }
+          "acceptedAnswer": { "@type": "Answer", "text": "No. UUID generation happens entirely in your browser using the built-in crypto.randomUUID() API (v4) or the Web Crypto SubtleCrypto API (v1, v5, v7). Nothing is sent to any server." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is UUID v5 deterministic?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. UUID v5 is generated from a namespace UUID plus a name string, hashed with SHA-1. The same namespace and name always produce the exact same UUID — useful for generating a stable, repeatable ID for a given input (e.g. a URL or domain name) without needing to store a lookup table. UUID v4 and v7 are random and not repeatable." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does UUID v1 use my real MAC address?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. RFC 4122 allows a real network-card MAC address in the node field, but browsers have no access to it. This tool generates a random 48-bit node ID instead, with its multicast bit set (per RFC 4122 section 4.5) to mark it as randomly generated rather than hardware-derived — so UUID v1 values from this tool are not traceable to a real device." }
         }
       ]
     }
@@ -261,6 +271,72 @@
             font-size: 0.8rem;
             color: var(--secondary-color);
         }
+
+        /* ── Version select / namespace fields / format options ── */
+        .uuid-version-select-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px 20px;
+            margin-bottom: 16px;
+            background: var(--light-bg);
+        }
+        body.dark-mode .uuid-version-select-row { background: #1a1a1a; border-color: #3a3a3a; }
+        .uuid-version-select-row .uuid-row-label { font-size: 0.9rem; color: var(--text-light); }
+        body.dark-mode .uuid-version-select-row .uuid-row-label { color: #e0e0e0; }
+        .uuid-version-select-row select,
+        .uuid-namespace-fields select,
+        .uuid-namespace-fields input[type="text"] {
+            width: 230px;
+            height: 38px;
+            margin-bottom: 0;
+            padding: 0 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: #fff;
+            color: var(--text-light);
+        }
+        body.dark-mode .uuid-version-select-row select,
+        body.dark-mode .uuid-namespace-fields select,
+        body.dark-mode .uuid-namespace-fields input[type="text"] {
+            background: #222;
+            border-color: #444;
+            color: #e0e0e0;
+        }
+        .uuid-namespace-fields {
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+        }
+        body.dark-mode .uuid-namespace-fields { border-color: #3a3a3a; background: #1a1a1a; }
+        .uuid-namespace-fields .uuid-bulk-row { flex-wrap: wrap; }
+        .uuid-hint {
+            font-size: 12px;
+            color: var(--secondary-color);
+            font-style: italic;
+            margin: 10px 0 0;
+        }
+        body.dark-mode .uuid-hint { color: #9aa0a6; }
+        .uuid-format-options {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            align-items: center;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 20px;
+            margin: 0 0 20px;
+            font-size: 0.88rem;
+            background: var(--light-bg);
+        }
+        body.dark-mode .uuid-format-options { background: #1a1a1a; border-color: #3a3a3a; }
+        .uuid-format-options label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -270,16 +346,51 @@
     <header class="header header-compact">
         <div class="container">
             <h1>UUID Generator</h1>
-            <p>Generate UUID v4 values instantly. Single or bulk. All generation happens in your browser — nothing is sent to a server.</p>
+            <p>Generate UUID v1, v4, v5, or v7 &mdash; single or bulk, with format options and export. All generation happens in your browser — nothing is sent to a server.</p>
         </div>
     </header>
 
     <main class="container">
         <section class="formatter-section">
 
+            <div class="uuid-version-select-row">
+                <span class="uuid-row-label">Version</span>
+                <select id="versionSelect" aria-label="UUID version">
+                    <option value="v4" selected>v4 &mdash; Random</option>
+                    <option value="v7">v7 &mdash; Timestamp-sortable</option>
+                    <option value="v1">v1 &mdash; Timestamp + node</option>
+                    <option value="v5">v5 &mdash; Namespace (SHA-1)</option>
+                </select>
+            </div>
+
+            <div id="namespaceFields" class="uuid-namespace-fields" style="display:none;">
+                <div class="uuid-bulk-row">
+                    <span class="uuid-row-label">Namespace</span>
+                    <select id="namespaceSelect" aria-label="UUID namespace">
+                        <option value="dns" selected>DNS</option>
+                        <option value="url">URL</option>
+                        <option value="oid">OID</option>
+                        <option value="x500">X.500</option>
+                        <option value="custom">Custom UUID&hellip;</option>
+                    </select>
+                    <input type="text" id="customNamespaceInput" style="display:none;" placeholder="custom-namespace-uuid">
+                </div>
+                <div class="uuid-bulk-row" style="margin-top:10px;">
+                    <span class="uuid-row-label">Name</span>
+                    <input type="text" id="nameInput" placeholder="e.g. example.com" aria-label="Name to hash">
+                </div>
+                <p class="uuid-hint">Deterministic &mdash; the same namespace + name always produces the same UUID.</p>
+            </div>
+
+            <div class="uuid-format-options">
+                <label><input type="checkbox" id="fmtUppercase"> Uppercase</label>
+                <label><input type="checkbox" id="fmtNoHyphens"> Remove hyphens</label>
+                <label><input type="checkbox" id="fmtBraces"> Wrap in {braces}</label>
+            </div>
+
             <!-- Single UUID panel -->
             <div class="uuid-single-panel">
-                <div class="uuid-version-badge">UUID v4</div>
+                <div id="versionBadge" class="uuid-version-badge">UUID v4</div>
                 <div id="singleOutput" class="uuid-single-value" aria-live="polite" aria-label="Generated UUID"></div>
                 <div class="uuid-single-actions">
                     <button id="generateBtn" class="btn btn-primary">Generate New</button>
@@ -301,6 +412,10 @@
                 <div id="output" class="uuid-list" aria-label="Generated UUIDs"></div>
                 <div class="uuid-bulk-footer">
                     <span id="uuidCountBadge" class="uuid-count-badge"></span>
+                    <span>
+                        <button id="exportCsvBtn" class="btn btn-secondary btn-sm">Export .csv</button>
+                        <button id="exportJsonBtn" class="btn btn-secondary btn-sm">Export .json</button>
+                    </span>
                 </div>
             </div>
 
@@ -318,10 +433,11 @@
                 <h3>UUID v4 vs other versions</h3>
                 <ul>
                     <li><strong>v1</strong> — Based on timestamp + MAC address. Predictable, not recommended for security-sensitive IDs.</li>
-                    <li><strong>v3 / v5</strong> — Deterministic, namespace-based (MD5 or SHA-1). Used when you need the same ID for the same input.</li>
+                    <li><strong>v3 / v5</strong> — Deterministic, namespace-based (MD5 or SHA-1). Used when you need the same ID for the same input. <em>This tool supports v5.</em></li>
                     <li><strong>v4</strong> — Randomly generated. The default choice for database keys and unique tokens.</li>
                     <li><strong>v7</strong> — Timestamp-sortable random UUID. Increasingly used in databases for index efficiency.</li>
                 </ul>
+                <p>This generator supports <strong>v1, v4, v5, and v7</strong> above &mdash; pick a version from the selector, and for v5 provide a namespace and name.</p>
 
                 <h3>Use cases</h3>
                 <ul>
@@ -358,11 +474,19 @@
             </details>
             <details>
                 <summary>Is my data sent to a server?</summary>
-                <p>No. UUID generation happens entirely in your browser using the native <code>crypto.randomUUID()</code> API. Nothing is transmitted to any server.</p>
+                <p>No. UUID generation happens entirely in your browser using the native <code>crypto.randomUUID()</code> API (v4) or the Web Crypto <code>SubtleCrypto</code> API (v1, v5, v7). Nothing is transmitted to any server.</p>
+            </details>
+            <details>
+                <summary>Is UUID v5 deterministic?</summary>
+                <p>Yes. UUID v5 is generated from a namespace UUID plus a name string, hashed with SHA-1. The same namespace and name always produce the exact same UUID &mdash; useful for generating a stable, repeatable ID for a given input (e.g. a URL or domain name) without needing to store a lookup table. UUID v4 and v7 are random and not repeatable.</p>
+            </details>
+            <details>
+                <summary>Does UUID v1 use my real MAC address?</summary>
+                <p>No. RFC 4122 allows a real network-card MAC address in the node field, but browsers have no access to it. This tool generates a random 48-bit node ID instead, with its multicast bit set (per RFC 4122 section 4.5) to mark it as randomly generated rather than hardware-derived &mdash; so UUID v1 values from this tool are not traceable to a real device.</p>
             </details>
         </section>
 
-        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: May 2026</p>
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: July 2026</p>
 
         <section class="related-tools">
             <h2>Related Tools</h2>

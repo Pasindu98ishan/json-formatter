@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online Unix Timestamp Converter. Convert Unix timestamps to dates or dates to Unix timestamps instantly in your browser.">
-    <meta name="keywords" content="timestamp converter, unix timestamp, epoch converter, posix time, online tool">
+    <meta name="description" content="Free online Unix Timestamp Converter. Convert timestamps to dates (or back) in any timezone, in bulk, with ISO/RFC 2822/relative formats — instantly in your browser.">
+    <meta name="keywords" content="timestamp converter, unix timestamp, epoch converter, posix time, timestamp timezone converter, bulk timestamp converter, online tool">
     <link rel="canonical" href="https://jsondevtools.org/timestamp.html">
     <meta property="og:title" content="Unix Timestamp Converter – Convert Epoch Time Online Free">
     <meta property="og:description" content="Convert Unix timestamps to human-readable dates or dates to Unix timestamps instantly. Free, private, no signup required.">
@@ -79,6 +79,16 @@
           "@type": "Question",
           "name": "Are Unix timestamps affected by daylight saving time?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. Unix timestamps are always in UTC and have no concept of timezones or daylight saving time. They count seconds from the epoch in UTC. Timezone conversion only happens when you display a timestamp as a human-readable date." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I convert a Unix timestamp to a specific timezone?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Use the Timezone selector to pick any IANA zone (e.g. America/New_York, Asia/Tokyo) — both the Timestamp to Date and Date to Timestamp conversions use that zone, correctly accounting for daylight saving time changes on the exact date involved." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I convert a list of timestamps or dates at once?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Paste one value per line into the Bulk Convert box — the tool auto-detects whether each line is a Unix timestamp or a date string, converts it using your selected timezone and output format, and lets you download all results as a CSV file." }
         }
       ]
     }
@@ -91,29 +101,51 @@
     <header class="header header-compact">
         <div class="container">
             <h1>Unix Timestamp Converter</h1>
-            <p>Convert Unix timestamps to dates or dates to Unix timestamps instantly.</p>
+            <p>Convert timestamps to dates (or back) in any timezone, in bulk, with ISO/RFC 2822/relative formats.</p>
         </div>
     </header>
 
     <main class="container">
         <section class="formatter-section">
+
+            <div id="errorContainer" class="error-container" style="display:none;"></div>
+
+            <div class="timestamp-card ts-tz-row">
+                <label class="ts-label" for="tzSelect" style="margin-bottom:0.35rem;">Timezone (used by both conversions below)</label>
+                <input type="text" id="tzSelect" class="ts-input" list="tzOptions" autocomplete="off"
+                    placeholder="Search timezone (e.g. Tokyo, New_York, UTC)..."
+                    aria-label="Timezone for conversions" style="max-width:320px;">
+                <datalist id="tzOptions"></datalist>
+            </div>
+
             <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1.5rem; margin-bottom:1.5rem;">
 
                 <div class="timestamp-card">
                     <div class="timestamp-card-title">Timestamp → Date</div>
-                    <label class="ts-label" for="timestamp">Unix Timestamp (seconds)</label>
+                    <label class="ts-label" for="timestamp">Unix Timestamp</label>
                     <input type="text" id="timestamp" placeholder="e.g., 1704067200" aria-label="Unix timestamp input" class="ts-input">
+                    <div style="margin:-0.5rem 0 0.75rem; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                        <span id="unitDetected" class="ts-unit-hint"></span>
+                        <label style="font-size:12px; display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" id="unitOverride"> Treat as milliseconds</label>
+                    </div>
+                    <label class="ts-label" for="outputFormatSelect">Output Format</label>
+                    <select id="outputFormatSelect" aria-label="Output format" class="ts-input">
+                        <option value="iso" selected>ISO 8601</option>
+                        <option value="rfc2822">RFC 2822 / RFC 1123</option>
+                        <option value="locale">Locale string</option>
+                        <option value="relative">Relative (e.g. "3 hours ago")</option>
+                    </select>
                     <div class="button-group" style="margin-top:0.75rem; margin-bottom:1.25rem;">
                         <button id="toDateBtn" class="btn btn-primary" aria-label="Convert timestamp to date">Timestamp → Date</button>
                         <button id="nowBtn" class="btn btn-secondary" aria-label="Insert current timestamp">Now</button>
                     </div>
-                    <label class="ts-label" for="dateOutput">Date / Time (UTC)</label>
+                    <label class="ts-label" for="dateOutput">Date / Time</label>
                     <input type="text" id="dateOutput" placeholder="Result will appear here..." readonly aria-label="Date result output" class="ts-input ts-output">
                 </div>
 
                 <div class="timestamp-card">
                     <div class="timestamp-card-title">Date → Timestamp</div>
-                    <label class="ts-label" for="dateInput">Date / Time</label>
+                    <label class="ts-label" for="dateInput">Date / Time (in the timezone above)</label>
                     <input type="datetime-local" id="dateInput" aria-label="Date and time input" class="ts-input">
                     <div class="button-group" style="margin-top:0.75rem; margin-bottom:1.25rem;">
                         <button id="toTimestampBtn" class="btn btn-primary" aria-label="Convert date to timestamp">Date → Timestamp</button>
@@ -123,6 +155,18 @@
                     <button id="copyBtn" class="btn btn-secondary" aria-label="Copy timestamp to clipboard">Copy</button>
                 </div>
 
+            </div>
+
+            <div class="timestamp-card ts-bulk-panel">
+                <div class="timestamp-card-title">Bulk Convert (one value per line)</div>
+                <label class="ts-label" for="bulkInput">Timestamps or Dates</label>
+                <textarea id="bulkInput" rows="6" class="ts-input" placeholder="Paste timestamps or dates, one per line..." style="font-family:monospace;"></textarea>
+                <div class="button-group" style="margin:0.75rem 0;">
+                    <button id="bulkConvertBtn" class="btn btn-primary">Convert All</button>
+                    <button id="bulkDownloadBtn" class="btn btn-secondary">Download Results (.csv)</button>
+                </div>
+                <label class="ts-label" for="bulkOutput">Results</label>
+                <textarea id="bulkOutput" rows="6" readonly class="ts-input ts-output" placeholder="Results will appear here..." style="font-family:monospace;"></textarea>
             </div>
 
         </section>
@@ -182,9 +226,17 @@
                 <summary>Are Unix timestamps affected by daylight saving time?</summary>
                 <p>No. Unix timestamps are always in UTC and have no concept of timezones or daylight saving. They count seconds from the epoch in UTC. Timezone conversion only happens when you display a timestamp as a human-readable date.</p>
             </details>
+            <details>
+                <summary>Can I convert a Unix timestamp to a specific timezone?</summary>
+                <p>Yes. Use the Timezone selector to pick any IANA zone (e.g. America/New_York, Asia/Tokyo) &mdash; both the Timestamp&nbsp;&rarr;&nbsp;Date and Date&nbsp;&rarr;&nbsp;Timestamp conversions use that zone, correctly accounting for daylight saving time changes on the exact date involved.</p>
+            </details>
+            <details>
+                <summary>Can I convert a list of timestamps or dates at once?</summary>
+                <p>Yes. Paste one value per line into the Bulk Convert box &mdash; the tool auto-detects whether each line is a Unix timestamp or a date string, converts it using your selected timezone and output format, and lets you download all results as a CSV file.</p>
+            </details>
         </section>
 
-        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: May 2026</p>
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: July 2026</p>
 
         <section class="related-tools">
             <h2>Related Tools</h2>
@@ -233,9 +285,28 @@
         .ts-output {
             background: var(--bg-primary, #fff);
         }
+        .ts-tz-row { margin-bottom: 1.25rem; }
+        .ts-bulk-panel { margin-top: 0.5rem; }
+        .ts-unit-hint {
+            font-size: 12px;
+            color: var(--text-secondary, #555);
+        }
+        /* Pre-existing dark-mode gap: this page's --bg-secondary/--text-primary/
+           --text-secondary/--bg-primary vars were never remapped for dark mode
+           (css/dark-mode.css doesn't touch :root custom properties), so every
+           .timestamp-card silently fell back to its light-mode default even in
+           dark mode. Fixed here alongside the new surfaces that use the same vars. */
+        body.dark-mode {
+            --bg-secondary: #2d2d2d;
+            --border-color: #444;
+            --text-primary: #e0e0e0;
+            --text-secondary: #aaa;
+            --bg-primary: #1e1e1e;
+        }
     </style>
     <script src="js/navbar-component.js"></script>
     <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
     <script src="js/timestamp-tool.js"></script>
     <script src="js/dark-mode.js"></script>
 </body>

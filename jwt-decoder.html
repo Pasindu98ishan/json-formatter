@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online JWT Decoder. Decode JWT header, payload, and expiry instantly in your browser. No signup, no data sent to servers. Decode-only — does not verify signatures.">
-    <meta name="keywords" content="jwt decoder, decode jwt, jwt token decoder, json web token decoder, jwt payload, jwt header, jwt expiry, online jwt tool">
+    <meta name="description" content="Free online JWT Decoder. Decode JWT header, payload, and expiry, and optionally verify the signature (HMAC, RSA, ECDSA) — entirely in your browser. No signup, no data sent to servers.">
+    <meta name="keywords" content="jwt decoder, decode jwt, jwt signature verification, verify jwt online, jwt token decoder, json web token decoder, jwt payload, jwt header, jwt expiry, online jwt tool">
     <meta name="author" content="Pasindu Ishan">
     <link rel="canonical" href="https://jsondevtools.org/jwt-decoder.html">
     <meta property="og:title" content="JWT Decoder Online – Decode JSON Web Tokens Free">
@@ -54,7 +54,7 @@
         {
           "@type": "Question",
           "name": "Does this tool verify JWT signatures?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. This tool decodes the header and payload only — it does not verify the signature. Signature verification requires the secret or public key, which must stay server-side. Never trust decoded claims without server-side verification." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, optionally. After decoding, you can paste the HMAC secret (for HS256/384/512) or the issuer's public key as a JWK (for RS256/384/512 or ES256/384/512), and the tool verifies the signature locally using the browser's Web Crypto API — nothing is transmitted. This is for inspecting tokens you already control or a key you already trust; it does not replace your server's own authentication checks, and a 'valid' result only proves the signature matches the key you supplied, not that the key itself is trustworthy." }
         },
         {
           "@type": "Question",
@@ -80,6 +80,11 @@
           "@type": "Question",
           "name": "Is it safe to paste a JWT into an online decoder?",
           "acceptedAnswer": { "@type": "Answer", "text": "With this tool, yes — decoding is entirely client-side and nothing is transmitted. However, many online JWT tools do send your token to a server for processing. If you use a tool that sends data to a server, avoid pasting production tokens with sensitive claims; rotate any token you paste into an untrusted tool." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which JWT algorithms can this tool verify?",
+          "acceptedAnswer": { "@type": "Answer", "text": "HS256/HS384/HS512 (HMAC with a shared secret), RS256/RS384/RS512 (RSA with a public key), and ES256/ES384/ES512 (ECDSA with a public key). Provide the secret for HS* algorithms, or the public key as a JWK for RS*/ES*. PS256/384/512, EdDSA, and alg:none are not currently supported." }
         }
       ]
     }
@@ -152,6 +157,45 @@
         .ts-key { font-weight: 600; }
         .ts-human { color: var(--secondary-color); font-style: italic; }
         body.dark-mode .ts-human { color: #aaa; }
+        .alg-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 13px;
+            margin-left: 8px;
+            margin-bottom: 16px;
+            background: #e2d4f0;
+            color: #5a2a82;
+        }
+        body.dark-mode .alg-badge { background: #2e1f44; color: #c8a6e8; }
+        .expiry-warning {
+            display: inline-block;
+            margin-left: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #856404;
+        }
+        body.dark-mode .expiry-warning { color: #ffd966; }
+        .jwt-verify-block {
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        body.dark-mode .jwt-verify-block { background: #2d2d2d; border-color: #555; }
+        .verify-note {
+            font-size: 13px;
+            color: #856404;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin: 0 0 10px;
+        }
+        body.dark-mode .verify-note { background: #332d00; border-color: #997a00; color: #ffd966; }
     </style>
 </head>
 <body>
@@ -169,7 +213,7 @@
         <section class="formatter-section">
 
             <div class="disclaimer-banner">
-                 <strong>Decode only — signatures are NOT verified.</strong> This tool reads the header and payload from a JWT. It does not validate whether the token is trustworthy. Never act on decoded data without verifying the signature server-side.
+                 <strong>Decoding always happens locally.</strong> Signature verification below is optional and only checks the token against a secret/key <em>you</em> provide — it does not replace your server's own authentication and authorization checks.
             </div>
 
             <div class="editor-input" style="margin-bottom: 12px;">
@@ -183,12 +227,15 @@
             <div class="button-group">
                 <button id="decodeBtn" class="btn btn-primary">Decode JWT</button>
                 <button id="clearBtn" class="btn btn-secondary">Clear</button>
+                <button id="copyFullTokenBtn" class="btn btn-secondary">Copy Full Token</button>
             </div>
 
             <div id="errorContainer" class="error-container" style="display:none;"></div>
 
             <div id="outputSection">
                 <span id="validityBadge" class="validity-badge"></span>
+                <span id="algBadge" class="alg-badge"></span>
+                <span id="expiryWarning" class="expiry-warning" style="display:none;">&#9888; expiring soon</span>
 
                 <div id="timestampSection">
                     <h4 style="margin-bottom: 8px; font-size: 14px;">Timestamps</h4>
@@ -206,8 +253,19 @@
                 </div>
 
                 <div class="jwt-output-block">
-                    <label>Signature <span style="font-size:12px; font-weight:400; color:var(--secondary-color);">(raw — cannot be verified client-side)</span></label>
+                    <label>Signature <span style="font-size:12px; font-weight:400; color:var(--secondary-color);">(raw — verify below with a secret/public key)</span></label>
                     <pre id="signatureOutput" style="word-break:break-all;"></pre>
+                </div>
+
+                <div class="jwt-verify-block">
+                    <h4 style="margin:0 0 8px; font-size:14px;">Verify Signature (optional)</h4>
+                    <p id="verifyUnsupportedNote" class="verify-note" style="display:none;"></p>
+                    <label for="verifyKeyInput" id="verifyKeyLabel" style="font-weight:600; display:block; margin-bottom:6px; font-size:13px;">Secret / Public Key:</label>
+                    <textarea id="verifyKeyInput" rows="2" placeholder="" aria-label="Secret or public key for signature verification" style="width:100%; font-family:monospace; font-size:13px; box-sizing:border-box;"></textarea>
+                    <div class="button-group" style="margin-top:10px;">
+                        <button id="verifyBtn" class="btn btn-primary">Verify Signature</button>
+                    </div>
+                    <span id="verifyResult" class="validity-badge" style="display:none; margin-top:10px;"></span>
                 </div>
             </div>
 
@@ -218,15 +276,16 @@
             <div class="info-section" style="margin-top: 1.5rem;">
                 <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
                     <p style="margin:0;font-weight:600;">Quick answer</p>
-                    <p style="margin:0.5rem 0 0;">A JWT decoder reads the header and payload of a JSON Web Token by reversing its Base64URL encoding — no key required. <strong>JSON Dev Tools decodes the token entirely in your browser, so your token is never uploaded to a server.</strong> It is decode-only: it deliberately does not verify the signature, which must be done server-side.</p>
+                    <p style="margin:0.5rem 0 0;">A JWT decoder reads the header and payload of a JSON Web Token by reversing its Base64URL encoding — no key required. <strong>JSON Dev Tools decodes the token entirely in your browser, so your token is never uploaded to a server.</strong> It can also optionally <strong>verify the signature</strong> locally (HMAC, RSA, or ECDSA) if you provide the secret or public key — that verification never leaves your browser either.</p>
                 </div>
 
                 <h3 style="margin-top:0;">Key takeaways</h3>
                 <ul>
-                    <li><strong>Decoding &ne; verifying</strong> — reading claims proves nothing about authenticity.</li>
+                    <li><strong>Decoding &ne; verifying</strong> — reading claims alone proves nothing about authenticity; use the optional Verify Signature step for that.</li>
                     <li><strong>A JWT is not encrypted</strong> — anyone holding it can read the payload.</li>
                     <li><strong>A JWT is a credential</strong> — never paste a production token into a tool that transmits it.</li>
-                    <li><strong>100% private</strong> — this decoder runs client-side; your token never leaves your device.</li>
+                    <li><strong>Local signature verification</strong> — paste a known secret or public key to cryptographically verify the signature, entirely client-side via the Web Crypto API.</li>
+                    <li><strong>100% private</strong> — this decoder (and verifier) runs client-side; your token never leaves your device.</li>
                 </ul>
 
                 <h2>JWT structure explained</h2>
@@ -234,7 +293,7 @@
                 <ul>
                     <li><strong>Header</strong> — algorithm (<code>alg</code>) and token type (<code>typ</code>), e.g. <code>{"alg":"HS256","typ":"JWT"}</code></li>
                     <li><strong>Payload</strong> — claims: user data, roles, and standard fields like <code>exp</code>, <code>iat</code>, <code>sub</code></li>
-                    <li><strong>Signature</strong> — cryptographic proof; requires the secret or public key to verify — cannot be done client-side</li>
+                    <li><strong>Signature</strong> — cryptographic proof; requires the secret or public key to verify. This tool can perform that verification locally if you provide the key.</li>
                 </ul>
 
                 <h2>Standard JWT claims</h2>
@@ -261,7 +320,7 @@
             <h2>Frequently Asked Questions</h2>
             <details>
                 <summary>Does this tool verify JWT signatures?</summary>
-                <p>No. This tool decodes the header and payload only — it does not verify the signature. Signature verification requires the secret or public key, which must stay server-side. Never trust decoded claims without server-side verification.</p>
+                <p>Yes, optionally. After decoding, you can paste the HMAC secret (for HS256/384/512) or the issuer's public key as a JWK (for RS256/384/512 or ES256/384/512), and the tool verifies the signature locally using the browser's Web Crypto API — nothing is transmitted. This is for inspecting tokens you already control or a key you already trust; it does not replace your server's own authentication checks, and a "valid" result only proves the signature matches the key you supplied, not that the key itself is trustworthy.</p>
             </details>
             <details>
                 <summary>Is my JWT sent to a server?</summary>
@@ -283,9 +342,13 @@
                 <summary>Is it safe to paste a JWT into an online decoder?</summary>
                 <p>With this tool, yes — decoding is entirely client-side and nothing is transmitted. However, many online JWT tools send your token to a server. If you use a tool that transmits data, avoid pasting production tokens; rotate any token you paste into an untrusted tool.</p>
             </details>
+            <details>
+                <summary>Which JWT algorithms can this tool verify?</summary>
+                <p>HS256/HS384/HS512 (HMAC with a shared secret), RS256/RS384/RS512 (RSA with a public key), and ES256/ES384/ES512 (ECDSA with a public key). Provide the secret for HS* algorithms, or the public key as a JWK for RS*/ES*. PS256/384/512, EdDSA, and <code>alg:none</code> are not currently supported.</p>
+            </details>
         </section>
 
-        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: May 2026</p>
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: July 2026</p>
 
         <section class="related-tools">
             <h2>Related Tools</h2>
