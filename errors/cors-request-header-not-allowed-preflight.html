@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Request header field is not allowed by Access-Control-Allow-Headers — why a specific header you're sending fails CORS preflight validation, and exactly how to allow-list it server-side.">
+    <meta name="keywords" content="Request header field is not allowed by Access-Control-Allow-Headers, CORS header not allowed, X-Requested-With CORS error, Authorization header CORS preflight">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/cors-request-header-not-allowed-preflight.html">
+    <meta property="og:title" content="CORS: Request header field is not allowed by Access-Control-Allow-Headers — Fix">
+    <meta property="og:description" content="A specific request header you're sending isn't on the server's preflight allow-list. Cause-by-cause breakdown of custom headers, case sensitivity, and wildcard limitations.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/cors-request-header-not-allowed-preflight.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>CORS: Request header field is not allowed by Access-Control-Allow-Headers — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "CORS request header not allowed", "item": "https://jsondevtools.org/errors/cors-request-header-not-allowed-preflight.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Request header field is not allowed by Access-Control-Allow-Headers — Cause and Fix",
+  "description": "A specific header your request sends isn't on the server's preflight response allow-list, so the browser blocks the request before it's sent.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does \"request header field is not allowed by Access-Control-Allow-Headers\" mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Your JavaScript is sending a custom or non-simple header (e.g. Authorization, X-API-Key, X-Requested-With) on a cross-origin request, and the server's preflight OPTIONS response didn't list that specific header name in its Access-Control-Allow-Headers response header. The browser checks the requested header against this allow-list and blocks the entire request if even one header isn't explicitly permitted." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does adding a header in my fetch() call trigger a whole new class of error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Any header outside a small 'CORS-safelisted' set (Accept, Accept-Language, Content-Language, and Content-Type restricted to three specific values) automatically upgrades a request from 'simple' to one that requires a preflight OPTIONS check first. Adding an Authorization header, a custom X-* header, or a JSON Content-Type is exactly what pushes a request into this category — it's not a bug, it's the browser correctly enforcing the CORS spec's default-deny stance on anything non-standard." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Access-Control-Allow-Headers case-sensitive?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Per the Fetch/CORS specification, header name matching for this purpose is meant to be case-insensitive, and modern browsers implement it that way — but relying on that isn't good practice. If you're debugging an inconsistency across browsers or a proxy that might be case-sensitive itself, normalize to the conventional casing (e.g. Authorization, X-Requested-With) on both the client-sent header and the server's allow-list to eliminate the variable entirely." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I just set Access-Control-Allow-Headers: * to avoid listing every header?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You can, and it works for non-credentialed requests, but the same restriction that applies to Access-Control-Allow-Origin applies here: the wildcard is not honored for Authorization specifically (it must always be explicitly named even under a wildcard policy) nor for any header on a credentialed request. For anything involving cookies or bearer tokens, list the actual header names explicitly rather than relying on the wildcard." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this fail only for some users and not others on the same app?",
+      "acceptedAnswer": { "@type": "Answer", "text": "This is usually caused by a code path that conditionally adds a header — for example, only attaching an Authorization header once a user is logged in, or only setting a custom X-Client-Version header after a recent client update. Requests that don't hit that code path stay 'simple' and never preflight, while requests that do hit it require an allow-list entry the server doesn't have yet." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the server actually need to read the header, or just allow-list it?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The CORS allow-list check happens purely at the preflight/browser-enforcement layer and is entirely independent of whether your server-side code ever reads or uses that header's value. You must list a header in Access-Control-Allow-Headers if the client sends it, even if the server-side handler ignores it completely — the browser doesn't know or care what your handler does with it." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>CORS request header not allowed</span>
+            </nav>
+            <h1>Request header field &lt;header&gt; is not allowed by Access-Control-Allow-Headers</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#1a5fb4;">Quick answer</p>
+                <p style="margin:0.4rem 0 0;">A specific header your request sends (commonly <code>Authorization</code>, <code>X-API-Key</code>, or a custom <code>X-*</code> header) isn't on the server's preflight <strong>allow-list</strong>. Add that exact header name to <code>Access-Control-Allow-Headers</code> in the server's <code>OPTIONS</code> response for that route.</p>
+            </div>
+
+            <h2>The exact error</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Access to fetch at 'https://api.example.com/data' from origin
+'https://app.example.com' has been blocked by CORS policy:
+Request header field x-api-key is not allowed by
+Access-Control-Allow-Headers in preflight response.</code></pre>
+            </div>
+            <p>Unlike the broader preflight-failure error covered on <a href="cors-preflight-does-not-pass-access-control-check.html">its own reference page</a>, this specific message names the exact offending header — in this example, <code>x-api-key</code> — which means the preflight OPTIONS request did succeed and did return CORS headers, but its <code>Access-Control-Allow-Headers</code> list simply didn't include this particular one.</p>
+
+            <h2>How to read this error in 30 seconds</h2>
+            <ol>
+                <li>The header name is <strong>right there in the message</strong> — note it exactly, including case.</li>
+                <li>Open DevTools &rarr; <strong>Network</strong> tab, find the <code>OPTIONS</code> preflight request, check its <code>Access-Control-Allow-Headers</code> response header value.</li>
+                <li>Confirm whether the named header is missing entirely, or present with a typo/different casing than what your client actually sends.</li>
+                <li>Check whether the header is added <strong>conditionally</strong> in your client code (e.g. only when logged in) — this explains intermittent failures.</li>
+            </ol>
+
+            <h2>What the browser is actually comparing</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 246" role="img" aria-label="Diagram comparing the headers the request wants to send (authorization and x-api-key) against the server's Access-Control-Allow-Headers list, which only contains authorization. Because x-api-key is missing from the allowed list, the entire request is blocked.">
+                    <defs>
+                        <marker id="ch-ok" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-ok)"/></marker>
+                        <marker id="ch-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <text class="dg-s" x="150" y="20" text-anchor="middle">Headers the request sends</text>
+                    <text class="dg-s" x="450" y="20" text-anchor="middle">Access-Control-Allow-Headers</text>
+                    <rect class="dg-box" x="30" y="30" width="240" height="130" rx="8"/>
+                    <rect class="dg-box" x="330" y="30" width="240" height="130" rx="8"/>
+                    <rect class="dg-box-muted" x="50" y="54" width="200" height="32" rx="6"/>
+                    <text class="dg-m" x="150" y="75" text-anchor="middle">authorization</text>
+                    <rect class="dg-box-muted" x="50" y="104" width="200" height="32" rx="6"/>
+                    <text class="dg-m" x="150" y="125" text-anchor="middle">x-api-key</text>
+                    <rect class="dg-box-ok" x="350" y="54" width="200" height="32" rx="6"/>
+                    <text class="dg-m" x="450" y="75" text-anchor="middle">authorization</text>
+                    <rect class="dg-box-bad" x="350" y="104" width="200" height="32" rx="6" style="stroke-dasharray:5 4"/>
+                    <text class="dg-s" x="450" y="125" text-anchor="middle">(not listed)</text>
+                    <line class="dg-ln-ok" x1="252" y1="70" x2="348" y2="70" marker-end="url(#ch-ok)"/>
+                    <text class="dg-s dg-ok" x="300" y="63" text-anchor="middle">match</text>
+                    <line class="dg-ln-bad" x1="252" y1="120" x2="348" y2="120" marker-end="url(#ch-bad)"/>
+                    <text class="dg-s dg-bad" x="300" y="113" text-anchor="middle">missing</text>
+                    <rect class="dg-box-bad" x="110" y="188" width="380" height="46" rx="8"/>
+                    <text class="dg-s" x="300" y="207" text-anchor="middle">One missing header blocks the entire request</text>
+                    <text class="dg-s" x="300" y="223" text-anchor="middle">&mdash; there is no partial success.</text>
+                </svg>
+                <p class="dg-cap">A pure list-membership check: every header name in the request must appear in the server's allow-list. If even one is missing, the whole request is blocked.</p>
+            </div>
+            <p>This is a pure list-membership check, nothing more: for every header name the browser sees in your actual request, it looks for that exact name somewhere in the preflight's <code>Access-Control-Allow-Headers</code> value. One missing name fails the whole request — there's no partial success, and no way for the browser to know the server "would have been fine with it" if it isn't explicitly listed.</p>
+
+            <h2>Cause 1 &mdash; the header simply isn't in the allow-list yet</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// client sends a custom header:
+fetch("https://api.example.com/data", {
+  headers: { "X-API-Key": "abc123" },
+});
+
+// ❌ server's preflight response only allows the default/standard set:
+res.set("Access-Control-Allow-Headers", "Content-Type");
+
+// ✅ explicitly add every custom header your client actually sends:
+res.set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization");</code></pre>
+            </div>
+            <p>This is the straightforward, most common case: a new header was added to a client-side request (often during feature work — adding an API key, a client-version header, a trace/correlation ID) without a corresponding update to the server's CORS configuration. Because <code>Access-Control-Allow-Headers</code> is an explicit allow-list, not a deny-list, any header not named there is rejected by default — there's no way to "allow everything except a small blocked set," so every custom header addition on the client requires a matching addition on the server.</p>
+
+            <h2>Cause 2 &mdash; CORS middleware configured once, then a new header added later without updating it</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Express cors() middleware, configured months ago:
+app.use(cors({
+  origin: "https://app.example.com",
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+// a new feature later adds this client-side, without anyone
+// remembering to touch the CORS config above:
+fetch(url, { headers: { "X-Client-Version": "2.4.0" } });
+// → X-Client-Version is not allowed by Access-Control-Allow-Headers</code></pre>
+            </div>
+            <p>Explicit <code>allowedHeaders</code> configuration is a common source of drift over time: the list is usually set up once, early in a project, matching whatever headers existed at that point — and every subsequent feature that introduces a new header (a feature flag header, an experiment/AB-test header, a client-version or trace-ID header) silently breaks cross-origin requests unless whoever adds the client-side header remembers to also update this separate, easy-to-forget server-side list. Some teams standardize on a wildcard (<code>allowedHeaders: '*'</code> or reflecting the requested headers back from <code>Access-Control-Request-Headers</code>) specifically to eliminate this maintenance burden for non-credentialed APIs.</p>
+
+            <h2>Cause 3 &mdash; wildcard used, but the request is credentialed</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// client sends credentials alongside a custom header:
+fetch(url, {
+  credentials: "include",
+  headers: { "Authorization": "Bearer " + token },
+});
+
+// ❌ wildcard doesn't apply to credentialed requests, same rule as
+//    Access-Control-Allow-Origin:
+res.set("Access-Control-Allow-Headers", "*");
+
+// ✅ name the header explicitly instead:
+res.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+res.set("Access-Control-Allow-Credentials", "true");</code></pre>
+            </div>
+            <p>The same credential-related restriction that governs <code>Access-Control-Allow-Origin</code> applies to headers too: a wildcard <code>Access-Control-Allow-Headers: *</code> is not honored once the request carries credentials, and <code>Authorization</code> specifically is never covered by a wildcard under any circumstances — it must always be listed by its literal name. This is a deliberate, security-motivated exception in the specification: the header most likely to carry sensitive authentication material is the one the spec refuses to let a blanket wildcard silently cover, forcing an explicit, auditable allow-list entry instead.</p>
+
+            <h2>Cause 4 &mdash; the header is added conditionally, breaking only some requests</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// this request stays "simple" — no preflight, always works:
+fetch("/api/public-data");
+
+// this one only preflights (and only needs an allow-list entry)
+// once a user is actually logged in:
+function apiCall(url) {
+  const headers = {};
+  if (currentUser) headers["Authorization"] = `Bearer ${currentUser.token}`;
+  return fetch(url, { headers });
+}</code></pre>
+            </div>
+            <p>Because "simple requests" (no custom headers, standard methods, restricted content types) skip preflight entirely, a codebase that conditionally attaches a header based on application state can pass all of its manual/anonymous testing while failing in production for logged-in users — the developer's test session simply never exercised the code path that adds the header requiring an allow-list entry. This is a common gap between local testing and production behavior specifically because the two code paths (authenticated vs. anonymous) trigger genuinely different CORS enforcement rules, not just different application logic.</p>
+
+            <h2>Common variants</h2>
+            <table>
+                <thead>
+                    <tr><th>Header named in the error</th><th>Typical source</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>authorization</code></td><td>bearer token/JWT auth added after initial CORS setup</td></tr>
+                    <tr><td><code>x-requested-with</code></td><td>added automatically by some HTTP client libraries (older jQuery/Axios defaults)</td></tr>
+                    <tr><td><code>content-type</code> (with a JSON value)</td><td><code>application/json</code> is not in the CORS-safelisted Content-Type set</td></tr>
+                    <tr><td>a custom <code>x-*</code> header</td><td>app-specific: API keys, trace IDs, feature flags, client version</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Note the exact header name from the error message</li>
+                <li>&#10003; Check the OPTIONS preflight response's <code>Access-Control-Allow-Headers</code> value in DevTools Network tab</li>
+                <li>&#10003; Confirm the header isn't only added conditionally (logged-in state, feature flag) that your testing missed</li>
+                <li>&#10003; If credentials are involved, confirm the header is listed by name, not relying on a wildcard</li>
+                <li>&#10003; Keep the server's allow-list and the client's actual sent headers in sync as features are added</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "request header field is not allowed by Access-Control-Allow-Headers" mean?</summary>
+                    <p>Your JavaScript is sending a custom or non-simple header (e.g. <code>Authorization</code>, <code>X-API-Key</code>, <code>X-Requested-With</code>) on a cross-origin request, and the server's preflight OPTIONS response didn't list that specific header name in its <code>Access-Control-Allow-Headers</code> response header. The browser checks the requested header against this allow-list and blocks the entire request if even one header isn't explicitly permitted.</p>
+                </details>
+                <details>
+                    <summary>Why does adding a header in my fetch() call trigger a whole new class of error?</summary>
+                    <p>Any header outside a small "CORS-safelisted" set (<code>Accept</code>, <code>Accept-Language</code>, <code>Content-Language</code>, and <code>Content-Type</code> restricted to three specific values) automatically upgrades a request from "simple" to one that requires a preflight OPTIONS check first. Adding an <code>Authorization</code> header, a custom <code>X-*</code> header, or a JSON Content-Type is exactly what pushes a request into this category &mdash; it's not a bug, it's the browser correctly enforcing the CORS spec's default-deny stance on anything non-standard.</p>
+                </details>
+                <details>
+                    <summary>Is Access-Control-Allow-Headers case-sensitive?</summary>
+                    <p>Per the Fetch/CORS specification, header name matching for this purpose is meant to be case-insensitive, and modern browsers implement it that way &mdash; but relying on that isn't good practice. If you're debugging an inconsistency across browsers or a proxy that might be case-sensitive itself, normalize to the conventional casing (e.g. <code>Authorization</code>, <code>X-Requested-With</code>) on both the client-sent header and the server's allow-list to eliminate the variable entirely.</p>
+                </details>
+                <details>
+                    <summary>Can I just set Access-Control-Allow-Headers: * to avoid listing every header?</summary>
+                    <p>You can, and it works for non-credentialed requests, but the same restriction that applies to <code>Access-Control-Allow-Origin</code> applies here: the wildcard is not honored for <code>Authorization</code> specifically (it must always be explicitly named even under a wildcard policy) nor for any header on a credentialed request. For anything involving cookies or bearer tokens, list the actual header names explicitly rather than relying on the wildcard.</p>
+                </details>
+                <details>
+                    <summary>Why does this fail only for some users and not others on the same app?</summary>
+                    <p>This is usually caused by a code path that conditionally adds a header &mdash; for example, only attaching an <code>Authorization</code> header once a user is logged in, or only setting a custom <code>X-Client-Version</code> header after a recent client update. Requests that don't hit that code path stay "simple" and never preflight, while requests that do hit it require an allow-list entry the server doesn't have yet.</p>
+                </details>
+                <details>
+                    <summary>Does the server actually need to read the header, or just allow-list it?</summary>
+                    <p>The CORS allow-list check happens purely at the preflight/browser-enforcement layer and is entirely independent of whether your server-side code ever reads or uses that header's value. You must list a header in <code>Access-Control-Allow-Headers</code> if the client sends it, even if the server-side handler ignores it completely &mdash; the browser doesn't know or care what your handler does with it.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More CORS &amp; network errors</h3>
+                <p>Browse the full reference for CORS, network, and browser security errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="cors-preflight-does-not-pass-access-control-check.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">CORS: Preflight access control check</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cors-preflight-does-not-pass-access-control-check.html">CORS: Response to preflight request doesn't pass access control check</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="net-err-blocked-by-client.html">net::ERR_BLOCKED_BY_CLIENT</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

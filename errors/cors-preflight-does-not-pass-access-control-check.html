@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Response to preflight request doesn't pass access control check — how the CORS preflight (OPTIONS request) mechanism actually works, why it fails, and how to fix your server's response to it.">
+    <meta name="keywords" content="response to preflight request doesn't pass access control check, CORS preflight error, OPTIONS request CORS fix, access-control-allow-origin preflight">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/cors-preflight-does-not-pass-access-control-check.html">
+    <meta property="og:title" content="CORS: Response to preflight request doesn't pass access control check — Fix">
+    <meta property="og:description" content="The browser's automatic OPTIONS preflight request failed CORS validation before your actual request was ever sent. A deep dive into why preflight exists and how to fix the server response.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/cors-preflight-does-not-pass-access-control-check.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>CORS: Response to preflight request doesn't pass access control check — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "CORS preflight access control check", "item": "https://jsondevtools.org/errors/cors-preflight-does-not-pass-access-control-check.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Response to preflight request doesn't pass access control check — Cause and Fix",
+  "description": "The browser's automatic OPTIONS preflight request failed CORS validation before your actual request was ever sent to the server application code.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does \"response to preflight request doesn't pass access control check\" mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Before sending certain cross-origin requests (typically anything other than a simple GET/HEAD/POST with plain form-encoded bodies), the browser automatically sends a separate OPTIONS request first, called a preflight, asking the server for permission. This error means the server's response to that OPTIONS request didn't satisfy the browser's CORS rules — so the browser never sent your actual request (the GET/POST/PUT/DELETE you intended) at all." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my server's actual route handler never even run?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because the OPTIONS preflight request is a completely separate HTTP request the browser sends automatically, before your real request. If the server doesn't have a route/handler that responds correctly to OPTIONS for that path with valid CORS headers, the preflight fails and the browser aborts the entire operation right there — your actual GET/POST handler is never invoked, so adding CORS headers only to your normal route handler does nothing, since it's never reached." }
+    },
+    {
+      "@type": "Question",
+      "name": "Which requests actually trigger a preflight, and which don't?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A request counts as a 'simple request' (no preflight) only if it uses GET, HEAD, or POST, sets no custom headers beyond a small allowed set, and its Content-Type is one of application/x-www-form-urlencoded, multipart/form-data, or text/plain. Anything else — a PUT/DELETE/PATCH method, a custom header like Authorization or X-API-Key, or a JSON body with Content-Type: application/json — triggers a preflight OPTIONS request first." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does adding Access-Control-Allow-Origin to my regular route fix a preflight failure?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No, not on its own — the preflight OPTIONS request needs its own valid response with the appropriate Access-Control-Allow-Origin, Access-Control-Allow-Methods, and (if applicable) Access-Control-Allow-Headers, independent of whatever headers your actual GET/POST/PUT handler returns. Many frameworks' CORS middleware handles both automatically, but a hand-rolled or misconfigured setup can easily cover the real endpoint while leaving OPTIONS unhandled or returning a non-2xx status." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can Access-Control-Allow-Origin: * ever fail a preflight check?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, in one specific and easy-to-miss case: the wildcard * is not permitted as the Access-Control-Allow-Origin value on a preflight response for a request that also sends credentials (cookies or an Authorization header alongside credentials: 'include'). Credentialed requests require the server to echo back the exact requesting origin as a literal string, not the wildcard, or the preflight is rejected even though the header is present." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I see exactly which part of the preflight response failed?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Open DevTools Network tab, find the OPTIONS request to the same URL (it appears as a separate entry right before your actual request), and check its response headers and status code — the Console tab's CORS error message also usually names the specific missing or mismatched header (Allow-Origin, Allow-Methods, or Allow-Headers) that caused the rejection." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>CORS preflight access control check</span>
+            </nav>
+            <h1>Access to fetch has been blocked by CORS policy: Response to preflight request doesn't pass access control check</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#1a5fb4;">Quick answer</p>
+                <p style="margin:0.4rem 0 0;">Your actual request <strong>never left the browser</strong>. A separate, automatic <code>OPTIONS</code> request (the "preflight") was sent first to ask permission, and the server's response to <em>that</em> request &mdash; not your real one &mdash; failed CORS validation. The fix is almost always: make your server respond correctly to <code>OPTIONS</code> for that route, with the right <code>Access-Control-Allow-*</code> headers.</p>
+            </div>
+
+            <h2>The exact error</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Access to fetch at 'https://api.example.com/users' from origin
+'https://app.example.com' has been blocked by CORS policy:
+Response to preflight request doesn't pass access control check:
+It does not have HTTP ok status.</code></pre>
+            </div>
+            <p>The message can also end with variants like <em>"No 'Access-Control-Allow-Origin' header is present on the requested resource"</em> or <em>"The value of the 'Access-Control-Allow-Origin' header in the response must not be the wildcard '*' when the request's credentials mode is 'include'"</em> &mdash; all describing the same underlying mechanism failing for different specific reasons, covered as separate causes below.</p>
+
+            <h2>How to read this error in 30 seconds</h2>
+            <ol>
+                <li>Open DevTools &rarr; <strong>Network</strong> tab, reload, find the <strong>OPTIONS</strong> request to the same URL (it sits directly before your real GET/POST/PUT request).</li>
+                <li>Check its <strong>status code</strong> &mdash; anything other than a 2xx response fails the preflight outright, regardless of what headers it returns.</li>
+                <li>Check its <strong>response headers</strong> for <code>Access-Control-Allow-Origin</code>, <code>Access-Control-Allow-Methods</code>, and <code>Access-Control-Allow-Headers</code> &mdash; the Console's error text usually names exactly which one is missing or wrong.</li>
+                <li>Confirm whether your request sends <strong>credentials</strong> (cookies, <code>Authorization</code> header with <code>credentials: 'include'</code>) &mdash; this changes what's a valid <code>Allow-Origin</code> value, covered in Cause 3 below.</li>
+            </ol>
+
+            <h2>The preflight flow, visually</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 336" role="img" aria-label="Sequence diagram: the browser first sends an OPTIONS preflight request, the server replies with 204 plus Access-Control-Allow headers, the browser checks that response, and only if it passes does the browser send the real PUT request. If the check fails, the real request is never sent and that failure is the CORS error.">
+                    <defs>
+                        <marker id="pf-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="pf-ok" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-ok)"/></marker>
+                    </defs>
+                    <line class="dg-ln-dash" x1="140" y1="50" x2="140" y2="314"/>
+                    <line class="dg-ln-dash" x1="460" y1="50" x2="460" y2="314"/>
+                    <rect class="dg-box" x="70" y="12" width="140" height="36" rx="8"/>
+                    <text class="dg-m" x="140" y="35" text-anchor="middle">Browser</text>
+                    <rect class="dg-box" x="390" y="12" width="140" height="36" rx="8"/>
+                    <text class="dg-m" x="460" y="35" text-anchor="middle">Server</text>
+                    <text class="dg-s" x="300" y="76" text-anchor="middle">1. OPTIONS &mdash; the preflight</text>
+                    <line class="dg-ln" x1="140" y1="84" x2="458" y2="84" marker-end="url(#pf-a)"/>
+                    <text class="dg-s" x="300" y="100" text-anchor="middle">Access-Control-Request-Method: PUT</text>
+                    <text class="dg-s" x="300" y="126" text-anchor="middle">2. 204 + Access-Control-Allow-* headers</text>
+                    <line class="dg-ln" x1="460" y1="134" x2="142" y2="134" marker-end="url(#pf-a)"/>
+                    <rect class="dg-box" x="44" y="152" width="192" height="52" rx="8"/>
+                    <text class="dg-m" x="140" y="174" text-anchor="middle">3. Preflight response OK?</text>
+                    <text class="dg-s" x="140" y="191" text-anchor="middle">origin / method / headers allowed?</text>
+                    <line class="dg-ln-ok" x1="140" y1="204" x2="140" y2="246" marker-end="url(#pf-ok)"/>
+                    <text class="dg-s dg-ok" x="150" y="228" text-anchor="start">passes</text>
+                    <text class="dg-s" x="300" y="244" text-anchor="middle">4. PUT &mdash; the real request</text>
+                    <line class="dg-ln-ok" x1="140" y1="252" x2="458" y2="252" marker-end="url(#pf-ok)"/>
+                    <text class="dg-s dg-ok" x="300" y="268" text-anchor="middle">only sent if step 3 passed</text>
+                    <rect class="dg-box-bad" x="120" y="286" width="360" height="42" rx="8"/>
+                    <text class="dg-s" x="300" y="304" text-anchor="middle">If step 3 fails, PUT is never sent &mdash;</text>
+                    <text class="dg-s" x="300" y="320" text-anchor="middle">that failure is the CORS error you see.</text>
+                </svg>
+                <p class="dg-cap">Steps 1&ndash;3 are a separate round trip that happens automatically before your request. Your <code>fetch()</code> and your route handler both live at step 4 &mdash; if step 3 fails, neither runs.</p>
+            </div>
+            <p>The key thing this diagram makes visible: steps 1&ndash;3 are a completely separate round trip that happens automatically, entirely inside the browser and network stack, before your application code's request is ever attempted. Your <code>fetch()</code> call and your server's real route handler both live at step 4 &mdash; if step 3 fails, execution never reaches either one, which is why debugging your actual endpoint's logic is a waste of time until the preflight itself passes.</p>
+
+            <h2>Cause 1 &mdash; there's no route/handler for OPTIONS at all</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ only a GET handler exists — an OPTIONS request to this same
+//    path has nothing to match, and most frameworks 404 it by default:
+app.get("/users", (req, res) => res.json(getUsers()));
+
+// ✅ Express's built-in cors() middleware auto-handles OPTIONS for
+//    every route it's applied to — this is the standard, low-effort fix:
+const cors = require("cors");
+app.use(cors({ origin: "https://app.example.com" }));
+app.get("/users", (req, res) => res.json(getUsers()));</code></pre>
+            </div>
+            <p>Many web frameworks route incoming requests strictly by method + path, meaning a route registered only for <code>GET</code> genuinely has no matching handler for an <code>OPTIONS</code> request to the identical path &mdash; the framework falls through to a default 404 or 405 response, which fails the preflight's "must return a 2xx status" requirement before any CORS headers are even considered. Reaching for a maintained CORS middleware (<code>cors</code> for Express, <code>django-cors-headers</code> for Django, <code>flask-cors</code> for Flask) rather than hand-rolling OPTIONS handling is the standard fix, since these libraries register the necessary catch-all OPTIONS behavior for you across every route automatically.</p>
+
+            <h2>Cause 2 &mdash; a hand-rolled OPTIONS handler is missing a required header</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ handles OPTIONS but forgets Allow-Methods and Allow-Headers —
+//    the preflight then fails for any non-GET method or custom header:
+app.options("/users", (req, res) => {
+  res.set("Access-Control-Allow-Origin", "https://app.example.com");
+  res.sendStatus(204);
+});
+
+// ✅ a preflight response needs all three, matching what the actual
+//    request will use:
+app.options("/users", (req, res) => {
+  res.set("Access-Control-Allow-Origin", "https://app.example.com");
+  res.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(204);
+});</code></pre>
+            </div>
+            <p>A hand-written OPTIONS handler is a common source of partial CORS support: it's easy to add <code>Access-Control-Allow-Origin</code> (the header most people know about) while forgetting that <code>Access-Control-Allow-Methods</code> and <code>Access-Control-Allow-Headers</code> are independently checked against what the actual request intends to send. If your real request will use <code>PUT</code> or send an <code>Authorization</code> header, the preflight response must explicitly list both — the browser cross-references the preflight's allow-list against the upcoming real request and fails validation if anything the real request needs isn't pre-authorized here.</p>
+
+            <h2>Cause 3 &mdash; wildcard origin used with credentialed requests</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// client sends credentials:
+fetch("https://api.example.com/users", { credentials: "include" });
+
+// ❌ wildcard is explicitly disallowed once credentials are involved —
+//    the spec forbids this combination for security reasons:
+res.set("Access-Control-Allow-Origin", "*");
+
+// ✅ echo back the exact requesting origin instead, plus explicitly
+//    allow credentials:
+res.set("Access-Control-Allow-Origin", req.headers.origin);
+res.set("Access-Control-Allow-Credentials", "true");</code></pre>
+            </div>
+            <p>The CORS specification deliberately forbids <code>Access-Control-Allow-Origin: *</code> whenever the request carries credentials (cookies, HTTP auth, or a client-set <code>Authorization</code> header combined with <code>credentials: 'include'</code>/<code>withCredentials: true</code>) &mdash; a wildcard combined with credentials would let literally any origin on the internet make authenticated requests on a logged-in user's behalf, which is precisely the cross-site request forgery scenario CORS exists to prevent. The correct pattern is to reflect the specific requesting origin (read from the incoming <code>Origin</code> request header, validated against an allow-list server-side) rather than a wildcard, alongside an explicit <code>Access-Control-Allow-Credentials: true</code>.</p>
+
+            <h2>Cause 4 &mdash; a reverse proxy or CDN strips CORS headers before they reach the browser</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># confirm what actually reaches the browser vs. what your app sent —
+# curl the same OPTIONS request directly against the proxy/CDN edge:
+curl -X OPTIONS -i https://api.example.com/users \
+  -H "Origin: https://app.example.com" \
+  -H "Access-Control-Request-Method: PUT"
+# compare against curling the origin server directly, bypassing the
+# proxy, if you have a way to do so (internal IP, different port)</code></pre>
+            </div>
+            <p>Your application code can return perfectly correct CORS headers and still fail this check if an nginx configuration, a load balancer, or a CDN edge rule in front of it strips or rewrites headers on the response path — a common outcome of an overly aggressive <code>proxy_hide_header</code> directive, a caching layer that caches an earlier response missing the headers, or a WAF rule that isn't aware CORS headers need to pass through untouched. Comparing what your application actually sent against what the browser actually received (via a direct curl to the origin vs. through the full proxy chain) isolates whether the bug is in your CORS logic or in infrastructure sitting in front of it.</p>
+
+            <h2>Common variants</h2>
+            <table>
+                <thead>
+                    <tr><th>Message ending</th><th>Meaning</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>"...It does not have HTTP ok status"</td><td>the OPTIONS request itself returned a non-2xx status (404/405/500)</td></tr>
+                    <tr><td>"No 'Access-Control-Allow-Origin' header is present"</td><td>the OPTIONS response is missing the header entirely</td></tr>
+                    <tr><td>"...must not be the wildcard '*' when the request's credentials mode is 'include'"</td><td>wildcard used alongside a credentialed request (Cause 3)</td></tr>
+                    <tr><td>"Method X is not allowed by Access-Control-Allow-Methods"</td><td>the preflight response's method allow-list doesn't include the real request's method</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Find the <code>OPTIONS</code> request in DevTools Network tab and check its status code first</li>
+                <li>&#10003; Confirm <code>Allow-Origin</code>, <code>Allow-Methods</code>, and <code>Allow-Headers</code> are all present and match what your real request needs</li>
+                <li>&#10003; If using credentials, confirm the origin is echoed literally, not wildcarded</li>
+                <li>&#10003; curl the OPTIONS request directly to rule out a proxy/CDN stripping headers</li>
+                <li>&#10003; Prefer a maintained CORS middleware over hand-rolled OPTIONS handling</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "response to preflight request doesn't pass access control check" mean?</summary>
+                    <p>Before sending certain cross-origin requests (typically anything other than a simple GET/HEAD/POST with plain form-encoded bodies), the browser automatically sends a separate OPTIONS request first, called a preflight, asking the server for permission. This error means the server's response to that OPTIONS request didn't satisfy the browser's CORS rules &mdash; so the browser never sent your actual request (the GET/POST/PUT/DELETE you intended) at all.</p>
+                </details>
+                <details>
+                    <summary>Why does my server's actual route handler never even run?</summary>
+                    <p>Because the OPTIONS preflight request is a completely separate HTTP request the browser sends automatically, before your real request. If the server doesn't have a route/handler that responds correctly to OPTIONS for that path with valid CORS headers, the preflight fails and the browser aborts the entire operation right there &mdash; your actual GET/POST handler is never invoked, so adding CORS headers only to your normal route handler does nothing, since it's never reached.</p>
+                </details>
+                <details>
+                    <summary>Which requests actually trigger a preflight, and which don't?</summary>
+                    <p>A request counts as a "simple request" (no preflight) only if it uses GET, HEAD, or POST, sets no custom headers beyond a small allowed set, and its Content-Type is one of <code>application/x-www-form-urlencoded</code>, <code>multipart/form-data</code>, or <code>text/plain</code>. Anything else &mdash; a PUT/DELETE/PATCH method, a custom header like <code>Authorization</code> or <code>X-API-Key</code>, or a JSON body with <code>Content-Type: application/json</code> &mdash; triggers a preflight OPTIONS request first.</p>
+                </details>
+                <details>
+                    <summary>Does adding Access-Control-Allow-Origin to my regular route fix a preflight failure?</summary>
+                    <p>No, not on its own &mdash; the preflight OPTIONS request needs its own valid response with the appropriate <code>Access-Control-Allow-Origin</code>, <code>Access-Control-Allow-Methods</code>, and (if applicable) <code>Access-Control-Allow-Headers</code>, independent of whatever headers your actual GET/POST/PUT handler returns. Many frameworks' CORS middleware handles both automatically, but a hand-rolled or misconfigured setup can easily cover the real endpoint while leaving OPTIONS unhandled or returning a non-2xx status.</p>
+                </details>
+                <details>
+                    <summary>Can Access-Control-Allow-Origin: * ever fail a preflight check?</summary>
+                    <p>Yes, in one specific and easy-to-miss case: the wildcard <code>*</code> is not permitted as the <code>Access-Control-Allow-Origin</code> value on a preflight response for a request that also sends credentials (cookies or an <code>Authorization</code> header alongside <code>credentials: 'include'</code>). Credentialed requests require the server to echo back the exact requesting origin as a literal string, not the wildcard, or the preflight is rejected even though the header is present.</p>
+                </details>
+                <details>
+                    <summary>How do I see exactly which part of the preflight response failed?</summary>
+                    <p>Open DevTools Network tab, find the OPTIONS request to the same URL (it appears as a separate entry right before your actual request), and check its response headers and status code &mdash; the Console tab's CORS error message also usually names the specific missing or mismatched header (Allow-Origin, Allow-Methods, or Allow-Headers) that caused the rejection.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More CORS &amp; network errors</h3>
+                <p>Browse the full reference for CORS, network, and browser security errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="cors-request-header-not-allowed-preflight.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">CORS: Request header not allowed</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cors-request-header-not-allowed-preflight.html">CORS: Request header field is not allowed by Access-Control-Allow-Headers</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="net-err-blocked-by-client.html">net::ERR_BLOCKED_BY_CLIENT</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

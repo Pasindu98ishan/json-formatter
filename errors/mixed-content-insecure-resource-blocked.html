@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Mixed Content: The page was loaded over HTTPS, but requested an insecure resource — why browsers block plain-HTTP subresources on HTTPS pages, and how to fix hardcoded HTTP URLs, old CMS content, and third-party embeds.">
+    <meta name="keywords" content="Mixed Content blocked, was loaded over HTTPS but requested an insecure resource, upgrade-insecure-requests, mixed content error fix">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/mixed-content-insecure-resource-blocked.html">
+    <meta property="og:title" content="Mixed Content: insecure resource blocked — Fix">
+    <meta property="og:description" content="An HTTPS page tried to load a plain-HTTP resource and the browser blocked it. Cause-by-cause breakdown of hardcoded URLs, database-stored content, and third-party embeds, plus the CSP-based fix.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/mixed-content-insecure-resource-blocked.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Mixed Content: insecure resource blocked — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Mixed Content blocked", "item": "https://jsondevtools.org/errors/mixed-content-insecure-resource-blocked.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Mixed Content: insecure resource blocked — Cause and Fix",
+  "description": "An HTTPS page attempted to load a plain-HTTP subresource (script, stylesheet, image, or fetch target) and the browser blocked or auto-upgraded it. Covers hardcoded URLs, CMS-stored content, and third-party embeds.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does \"was loaded over HTTPS, but requested an insecure resource\" mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The page itself was served securely over HTTPS, but something on that page — a script, stylesheet, image, font, or a fetch()/XHR call — points at a plain http:// URL. Browsers restrict or fully block this 'mixed content' because a plain-HTTP subresource can be intercepted or tampered with by a network attacker even though the surrounding page was delivered securely, undermining the whole point of using HTTPS." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do images sometimes still load (with a warning) while scripts are blocked outright?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Modern browsers distinguish between 'passive' mixed content (images, video, audio — displaying tampered media is a real but comparatively limited security risk) and 'active' mixed content (scripts, stylesheets, iframes — content that can execute code or fully rewrite the page, which is a much more severe risk). Passive content historically loaded with a warning; active mixed content is blocked outright in current browsers, and increasingly even passive/image mixed content is now auto-upgraded to HTTPS or blocked as browsers tighten the policy over time." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this show up after a database/CMS content migration to HTTPS?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Content stored in a database — blog post bodies, CMS page content, user-uploaded HTML — often has absolute http:// URLs baked into it from before the site moved to HTTPS. Switching the site's own protocol doesn't retroactively rewrite URLs sitting inside stored content, so every old post/page that embedded an absolute HTTP image or iframe URL continues serving mixed content indefinitely until that stored content itself is updated." }
+    },
+    {
+      "@type": "Question",
+      "name": "What does the Content-Security-Policy upgrade-insecure-requests directive actually do?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It instructs the browser to automatically rewrite any http:// subresource URL on the page to https:// before making the request, rather than blocking it outright. This is a highly effective blanket fix for cases where you can't practically find and edit every hardcoded HTTP reference (e.g. old database content, third-party widget snippets you don't control) — provided the resource is actually available over HTTPS at the same host; if it isn't, the upgraded request simply fails instead of falling back to HTTP." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a third-party widget or ad script cause mixed content even though my own site is fully HTTPS?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — an embed snippet from a third-party service (an old widget, analytics tag, or ad network) can itself be hardcoded to load additional resources over plain HTTP, entirely outside your control over your own markup. The fix is either switching to that provider's HTTPS-compatible embed snippet (most have one) or removing the integration if none exists, since you can't edit code served from someone else's domain." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find every instance of mixed content on a large, existing site?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Browser DevTools' Console tab lists every blocked/warned mixed-content resource for the current page load, but for a full-site audit, a crawler-based online mixed-content checker or a simple site-wide grep for literal 'http://' strings in your templates, CSS, and database content is more practical than manually visiting every page." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Mixed Content blocked</span>
+            </nav>
+            <h1>Mixed Content: The page was loaded over HTTPS, but requested an insecure resource</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#1a5fb4;">Quick answer</p>
+                <p style="margin:0.4rem 0 0;">A secure <code>https://</code> page is trying to load something over plain <code>http://</code>. Find every hardcoded <code>http://</code> reference in your HTML/CSS/JS and change it to <code>https://</code> (or protocol-relative <code>//</code>) — or add a blanket <code>Content-Security-Policy: upgrade-insecure-requests</code> header to auto-fix every instance at once.</p>
+            </div>
+
+            <h2>The exact error</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Mixed Content: The page at 'https://example.com/' was loaded over
+HTTPS, but requested an insecure script
+'http://cdn.example.com/widget.js'. This request has been blocked;
+the content must be served over HTTPS.
+
+// or, for images/media (a warning rather than a hard block, in
+// most current browsers):
+Mixed Content: The page at 'https://example.com/' was loaded over
+HTTPS, but requested an insecure image 'http://example.com/logo.png'.
+This content should also be served over HTTPS.</code></pre>
+            </div>
+            <p>The wording difference between "has been blocked" and "should also be served over HTTPS" is meaningful, not incidental — it reflects a deliberate distinction browsers draw between resource types, covered in detail below.</p>
+
+            <h2>How to read this error in 30 seconds</h2>
+            <ol>
+                <li>Open DevTools <strong>Console</strong> — every mixed-content resource on the page is listed individually, with its exact URL.</li>
+                <li>Check whether it says <strong>"has been blocked"</strong> (active content: script/stylesheet/iframe — nothing loaded at all) or <strong>"should also be served over HTTPS"</strong> (passive content: image/media — it loaded, but insecurely, with a browser warning).</li>
+                <li>Search your templates/source for the exact hostname/path named in the message.</li>
+                <li>If it's not in your own markup, check whether it's coming from <strong>stored database content</strong> or a <strong>third-party embed snippet</strong>.</li>
+            </ol>
+
+            <h2>Cause 1 &mdash; a hardcoded http:// URL in your own markup or CSS</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>&lt;!-- ❌ absolute HTTP URL, left over from before the site moved to HTTPS: --&gt;
+&lt;script src="http://cdn.example.com/widget.js"&gt;&lt;/script&gt;
+
+&lt;!-- ✅ explicit HTTPS: --&gt;
+&lt;script src="https://cdn.example.com/widget.js"&gt;&lt;/script&gt;
+
+&lt;!-- ✅ or protocol-relative — inherits whatever protocol the page itself used: --&gt;
+&lt;script src="//cdn.example.com/widget.js"&gt;&lt;/script&gt;</code></pre>
+            </div>
+            <p>This is the simplest and most common cause: a URL written as an absolute <code>http://</code> reference somewhere in your HTML, inline <code>&lt;style&gt;</code> block, or an external CSS file's <code>url(...)</code> reference, most often left over from a period before the site adopted HTTPS everywhere, or copy-pasted from documentation/an example that predates the provider's own move to HTTPS. The fix is a direct search-and-replace to <code>https://</code>, or switching to a protocol-relative URL (<code>//host/path</code>, with no scheme at all) which automatically matches whatever protocol served the current page — a pattern that was especially popular during the industry-wide HTTP-to-HTTPS transition years ago specifically to avoid this exact class of bug.</p>
+
+            <h2>Cause 2 &mdash; stored database/CMS content still has old absolute HTTP URLs</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- find every stored post/page body still referencing plain HTTP:
+SELECT id, title FROM posts WHERE content LIKE '%http://%';
+
+-- a one-time cleanup pass — swap the scheme in already-stored HTML
+-- (adjust the domain/pattern to match your own migration):
+UPDATE posts
+SET content = REPLACE(content, 'http://example.com/', 'https://example.com/')
+WHERE content LIKE '%http://example.com/%';</code></pre>
+            </div>
+            <p>Content that lives inside a database — blog post bodies, page builder content, user-submitted HTML — is fundamentally different from your template code: migrating the site's own delivery to HTTPS changes nothing about strings already sitting in stored rows. Every historical post or page that embedded an absolute <code>http://</code> image, iframe, or script URL keeps referencing that scheme indefinitely, since nothing about a protocol migration retroactively rewrites already-persisted content. This is why mixed-content errors often surface specifically on older content and not on anything published after the HTTPS migration — new content is written with the correct scheme from the start, while old content silently carries the bug forward until it's explicitly cleaned up.</p>
+
+            <h2>Cause 3 &mdash; a third-party embed/widget snippet you don't control</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>&lt;!-- an old copy-pasted widget snippet, hardcoded to HTTP by
+     whoever wrote it, possibly years ago: --&gt;
+&lt;script src="http://widgets.thirdparty.com/embed.js"&gt;&lt;/script&gt;
+
+&lt;!-- check the provider's current docs for an HTTPS-compatible
+     snippet before assuming none exists — most services updated
+     theirs years ago and just never told existing integrators --&gt;</code></pre>
+            </div>
+            <p>Unlike Causes 1 and 2, this one isn't fixable by editing your own code at all — the mixed content originates from markup served by a third party's domain, entirely outside your control. The practical fix is checking whether the provider now offers (almost all mainstream ones do, at this point) an HTTPS version of the same embed snippet and swapping to it, or, if the integration is genuinely abandoned/unmaintained by its provider, removing it and finding an alternative rather than leaving a permanently broken, insecure dependency on the page.</p>
+
+            <h2>Cause 4 &mdash; the resource genuinely isn't available over HTTPS at all</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># confirm whether HTTPS is actually available at that host before
+# assuming a simple scheme swap will work:
+curl -I https://cdn.example.com/widget.js
+# a connection failure or certificate error here means the resource
+# truly has no HTTPS endpoint — the fix is finding a different host
+# for that resource, not just changing http:// to https:// in place</code></pre>
+            </div>
+            <p>Occasionally the underlying resource is hosted somewhere that has never had TLS configured at all — an old internal tool, an abandoned CDN bucket, a legacy asset server nobody migrated. In this case, simply rewriting the URL's scheme to <code>https://</code> produces a new, different failure (a connection error or certificate mismatch) rather than fixing anything, because there's genuinely nothing listening for HTTPS at that host. The actual fix here is either self-hosting the resource on infrastructure that does support HTTPS, or finding an alternative HTTPS-capable source for the same asset.</p>
+
+            <h2>The blanket fix: Content-Security-Policy upgrade-insecure-requests</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>&lt;!-- add to your page's &lt;head&gt;, or set as a response header instead: --&gt;
+&lt;meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests"&gt;
+
+# or as an actual HTTP response header (nginx example):
+add_header Content-Security-Policy "upgrade-insecure-requests";</code></pre>
+            </div>
+            <p>This directive tells the browser to automatically rewrite every <code>http://</code> subresource URL on the page to <code>https://</code> before it's ever requested, rather than blocking or warning about it. It's a genuinely useful, low-effort mitigation specifically for Causes 2 and 3 above — cases where finding and manually fixing every individual instance (scattered across years of stored content or embedded in third-party markup) is impractical — but it only works when the same resource is actually reachable over HTTPS at the same hostname; if it isn't (Cause 4), the upgraded request simply fails outright rather than silently falling back to the insecure version, which is the correct, secure behavior even though it doesn't magically fix an HTTPS-incapable host.</p>
+
+            <h2>Common variants</h2>
+            <table>
+                <thead>
+                    <tr><th>Resource type</th><th>Browser behavior</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>script, stylesheet, iframe (active content)</td><td>blocked outright — nothing loads</td></tr>
+                    <tr><td>image, video, audio (passive content)</td><td>historically loaded with a warning; modern browsers increasingly auto-upgrade or block these too</td></tr>
+                    <tr><td><code>fetch()</code>/XHR to an HTTP endpoint</td><td>blocked outright, same as active content</td></tr>
+                    <tr><td>a form <code>action</code> pointing at HTTP</td><td>flagged with a distinct, more visible browser warning at submission time</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read every mixed-content line in the DevTools Console — each names the exact blocked URL</li>
+                <li>&#10003; Search your templates/CSS for the exact hostname/path named</li>
+                <li>&#10003; If not found in your markup, check stored database/CMS content for old absolute HTTP URLs</li>
+                <li>&#10003; If it's a third-party embed, check for an HTTPS-compatible version of that snippet</li>
+                <li>&#10003; Confirm the target host actually supports HTTPS (<code>curl -I https://...</code>) before assuming a scheme swap alone will work</li>
+                <li>&#10003; Consider <code>Content-Security-Policy: upgrade-insecure-requests</code> as a blanket mitigation for hard-to-reach instances</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "was loaded over HTTPS, but requested an insecure resource" mean?</summary>
+                    <p>The page itself was served securely over HTTPS, but something on that page &mdash; a script, stylesheet, image, font, or a <code>fetch()</code>/XHR call &mdash; points at a plain <code>http://</code> URL. Browsers restrict or fully block this "mixed content" because a plain-HTTP subresource can be intercepted or tampered with by a network attacker even though the surrounding page was delivered securely, undermining the whole point of using HTTPS.</p>
+                </details>
+                <details>
+                    <summary>Why do images sometimes still load (with a warning) while scripts are blocked outright?</summary>
+                    <p>Modern browsers distinguish between "passive" mixed content (images, video, audio &mdash; displaying tampered media is a real but comparatively limited security risk) and "active" mixed content (scripts, stylesheets, iframes &mdash; content that can execute code or fully rewrite the page, which is a much more severe risk). Passive content historically loaded with a warning; active mixed content is blocked outright in current browsers, and increasingly even passive/image mixed content is now auto-upgraded to HTTPS or blocked as browsers tighten the policy over time.</p>
+                </details>
+                <details>
+                    <summary>Why does this show up after a database/CMS content migration to HTTPS?</summary>
+                    <p>Content stored in a database &mdash; blog post bodies, CMS page content, user-uploaded HTML &mdash; often has absolute <code>http://</code> URLs baked into it from before the site moved to HTTPS. Switching the site's own protocol doesn't retroactively rewrite URLs sitting inside stored content, so every old post/page that embedded an absolute HTTP image or iframe URL continues serving mixed content indefinitely until that stored content itself is updated.</p>
+                </details>
+                <details>
+                    <summary>What does the Content-Security-Policy upgrade-insecure-requests directive actually do?</summary>
+                    <p>It instructs the browser to automatically rewrite any <code>http://</code> subresource URL on the page to <code>https://</code> before making the request, rather than blocking it outright. This is a highly effective blanket fix for cases where you can't practically find and edit every hardcoded HTTP reference (e.g. old database content, third-party widget snippets you don't control) &mdash; provided the resource is actually available over HTTPS at the same host; if it isn't, the upgraded request simply fails instead of falling back to HTTP.</p>
+                </details>
+                <details>
+                    <summary>Can a third-party widget or ad script cause mixed content even though my own site is fully HTTPS?</summary>
+                    <p>Yes &mdash; an embed snippet from a third-party service (an old widget, analytics tag, or ad network) can itself be hardcoded to load additional resources over plain HTTP, entirely outside your control over your own markup. The fix is either switching to that provider's HTTPS-compatible embed snippet (most have one) or removing the integration if none exists, since you can't edit code served from someone else's domain.</p>
+                </details>
+                <details>
+                    <summary>How do I find every instance of mixed content on a large, existing site?</summary>
+                    <p>Browser DevTools' Console tab lists every blocked/warned mixed-content resource for the current page load, but for a full-site audit, a crawler-based online mixed-content checker or a simple site-wide grep for literal "http://" strings in your templates, CSS, and database content is more practical than manually visiting every page.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More network &amp; security errors</h3>
+                <p>Browse the full reference for network, TLS, and browser security errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="net-err-cert-authority-invalid.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">net::ERR_CERT_AUTHORITY_INVALID</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="net-err-cert-authority-invalid.html">net::ERR_CERT_AUTHORITY_INVALID</a></li>
+                <li><a href="net-err-ssl-protocol-error.html">net::ERR_SSL_PROTOCOL_ERROR</a></li>
+                <li><a href="cors-preflight-does-not-pass-access-control-check.html">CORS: Preflight access control check</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ReferenceError: process is not defined — a fix-first playbook for Vite, webpack, and plain-browser code that assumes Node's process global exists. Covers import.meta.env, define, and polyfills.">
+    <meta name="keywords" content="process is not defined, ReferenceError process is not defined, process.env vite, process is not defined vite react, process is not defined webpack, import.meta.env">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/referenceerror-process-is-not-defined.html">
+    <meta property="og:title" content="ReferenceError: process is not defined — Fix">
+    <meta property="og:description" content="process is a Node.js global that doesn't exist in the browser. A fix-first playbook for Vite, webpack, CRA, and plain script tags — including why process.env.NODE_ENV magically works in some setups but not others.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/referenceerror-process-is-not-defined.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>ReferenceError: process is not defined — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "process is not defined", "item": "https://jsondevtools.org/errors/referenceerror-process-is-not-defined.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "ReferenceError: process is not defined — Cause and Fix",
+  "description": "process is a Node.js global with no browser equivalent. This playbook covers why it sometimes appears to work, and the correct per-bundler fix for Vite, webpack, and plain scripts.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'process is not defined' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "process is a global object that exists only in Node.js — it exposes environment variables, command-line arguments, and OS-level process information to server-side code. Browsers have no equivalent global, so any client-side code that references process.env, process.argv, or process.platform throws this ReferenceError unless a build tool has specifically shimmed it in." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does process.env.NODE_ENV sometimes work in the browser without error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Older tooling (webpack via DefinePlugin, Create React App, Babel's env preset) specifically detects the literal expression process.env.NODE_ENV at build time and replaces it with a string constant before the code ever reaches the browser — so no real process object needs to exist at runtime. This only works for that exact expression pattern the tool recognizes; process.env.ANYTHING_ELSE or a dynamically-computed key falls straight through to a real reference error." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix this in Vite?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Vite does not shim process at all by default. Use import.meta.env.VITE_MY_VAR instead of process.env.MY_VAR, and prefix any variable you want exposed to client code with VITE_ in your .env file — Vite deliberately does not expose unprefixed variables to the client, as a security measure against accidentally leaking server secrets into the bundle." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix this in webpack without a framework?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Use webpack's DefinePlugin to replace specific process.env.X references at build time with string literals, or EnvironmentPlugin for a shorthand over a known list of variable names. Both work by textually substituting the expression during the build — they do not create a real process object, so accessing an untransformed process property still throws." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did this only appear after I upgraded my build tooling?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Older webpack versions (4 and earlier) automatically polyfilled Node core modules and globals, including a fake process object, for browser compatibility. Webpack 5 removed this automatic polyfilling entirely as a deliberate breaking change to reduce bundle bloat, so code that silently relied on the old shim now throws in the browser after an upgrade with no other code changes." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is polyfilling process in the browser ever the right fix?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Rarely, and only as a last resort for a third-party library you can't modify that assumes process exists purely for feature-detection (checking process.browser or process.version) rather than reading real secrets. A minimal shim like window.process = { env: {} } can unblock such a library, but reach for the bundler's proper environment-variable mechanism first — a shim doesn't give you real, per-build variable values." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this ever indicate a real security problem, not just a build error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It can. If you see this error while debugging code you expected to already be sending process.env.SOME_SECRET_KEY to the browser, the failure is actually good news — it means that secret never made it into the client bundle. Investigate whether the intended behavior was to expose a public, non-secret config value (in which case use the bundler's client-safe env mechanism) rather than assuming the fix is to make process exist." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>process is not defined</span>
+            </nav>
+            <h1>ReferenceError: process is not defined</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;"><code>process</code> is a <strong>Node.js-only global</strong> &mdash; there is no browser equivalent, and your bundler has to deliberately substitute environment values at build time to make <code>process.env.X</code> readable client-side. If you're on <strong>Vite</strong>, the fix is almost always to switch to its own mechanism:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ process.env.API_URL          (undefined bundler shim, throws)
+// ✅ import.meta.env.VITE_API_URL  (Vite's client-exposed env mechanism)
+// .env: VITE_API_URL=https://api.example.com   (must be VITE_-prefixed)</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>console.log(process.env.API_URL);
+// Uncaught ReferenceError: process is not defined
+//   at main.js:14
+
+// or, thrown from deep inside a third-party bundle you didn't write:
+// Uncaught ReferenceError: process is not defined
+//   at Object.&lt;anonymous&gt; (vendor.chunk.js:1:88213)</code></pre>
+            </div>
+            <p>The stack trace's top frame tells you whether the offending reference is in <em>your</em> code or a dependency's bundled output. That distinction changes which fix applies &mdash; you can edit your own code freely, but a broken third-party bundle needs either an upgrade, a build-time substitution, or (rarely) a shim.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>Building with <strong>Vite</strong>? &rarr; <a href="#fix1">Fix 1 (import.meta.env)</a></li>
+                    <li>Building with <strong>plain webpack</strong> (no framework)? &rarr; <a href="#fix2">Fix 2 (DefinePlugin)</a></li>
+                    <li>Using <strong>Create React App</strong> or an older toolchain? &rarr; <a href="#fix3">Fix 3 (REACT_APP_ prefix)</a></li>
+                    <li>The throw is deep inside a <strong>third-party dependency's bundle</strong>? &rarr; <a href="#fix4">Fix 4 (upgrade or shim)</a></li>
+                    <li>It <strong>worked before a tooling upgrade</strong> and now doesn't? &rarr; <a href="#why">Why this happens</a> &mdash; webpack 5's polyfill removal</li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; Vite: use import.meta.env, not process.env</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> your project uses Vite (directly, or via SvelteKit/Astro/vanilla-Vite/most modern React or Vue starters).</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// .env (repo root)
+VITE_API_URL=https://api.example.com
+VITE_FEATURE_FLAG=true
+
+// anywhere in client code:
+const apiUrl = import.meta.env.VITE_API_URL;   // ✅
+console.log(import.meta.env.MODE);              // "development" | "production", built in
+console.log(import.meta.env.DEV);               // boolean, built in</code></pre>
+            </div>
+            <p>Vite deliberately does <strong>not</strong> expose unprefixed environment variables to client code &mdash; only variables prefixed with <code>VITE_</code> are inlined into the bundle. This is a security boundary, not an oversight: a server-side <code>.env</code> often holds real secrets (database URLs, API keys with write access), and Vite refuses to accidentally ship those to every visitor's browser just because a variable happens to share a name with something client code reads. If you need a value in the client, it must be explicitly opted in via the prefix.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; Plain webpack: DefinePlugin or EnvironmentPlugin</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a hand-rolled webpack config with no framework layer on top.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// webpack.config.js
+const webpack = require("webpack");
+
+module.exports = {
+  plugins: [
+    new webpack.DefinePlugin({
+      "process.env.API_URL": JSON.stringify(process.env.API_URL),
+    }),
+    // or, shorthand for a known list of names:
+    new webpack.EnvironmentPlugin(["API_URL", "NODE_ENV"]),
+  ],
+};</code></pre>
+            </div>
+            <p><code>DefinePlugin</code> performs a <strong>textual find-and-replace</strong> at build time &mdash; it rewrites the literal source text <code>process.env.API_URL</code> into the string you supplied, <em>before</em> the bundle is ever executed in a browser. No real <code>process</code> object is created; only the exact expressions you've told it about get substituted. Reference an untransformed property (a typo, or a name you forgot to list) and you're back to a genuine <code>ReferenceError</code>, because nothing replaced it.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; Create React App and similar: the REACT_APP_ prefix convention</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> an older or CRA-based toolchain, where <code>process.env.REACT_APP_X</code> is the documented pattern.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// .env
+REACT_APP_API_URL=https://api.example.com
+
+// client code — this specific pattern IS pre-processed by CRA's build:
+console.log(process.env.REACT_APP_API_URL);   // ✅ substituted at build time
+console.log(process.env.DATABASE_URL);          // ❌ not prefixed — still throws</code></pre>
+            </div>
+            <p>This is the same mechanism as Fix 2 under the hood &mdash; CRA's webpack config wires up a <code>DefinePlugin</code>-equivalent step that specifically recognizes the <code>REACT_APP_</code> prefix and inlines those values. It is <em>not</em> a real <code>process</code> object; reading any other <code>process</code> property in CRA-built code throws exactly the same as it would in an unconfigured webpack project.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; the error is inside a third-party dependency's bundle</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the stack trace's throwing frame is inside <code>node_modules</code> output or a vendor chunk, not your own source.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Option A — check for a newer release; many libraries fixed this
+// exact issue when migrating off Node-oriented assumptions:
+npm view &lt;package-name&gt; versions --json
+
+// Option B — last-resort shim, ONLY for libraries that merely
+// feature-detect process (e.g. `if (typeof process !== 'undefined')`)
+// rather than reading real values from it:
+if (typeof window !== "undefined" && typeof window.process === "undefined") {
+  window.process = { env: {}, browser: true, version: "" };
+}</code></pre>
+            </div>
+            <p>Reach for the shim only after confirming the library doesn't actually depend on a <em>real</em> value inside <code>process.env</code> &mdash; a shim that returns an empty <code>env</code> object will silence the crash but silently break any logic that expected a real environment variable to be present. Check the library's own documentation or issue tracker first; a stale dependency that assumes a Node-only runtime is frequently already fixed in a newer major version, and upgrading is the more durable fix.</p>
+
+            <h2 id="why">Why this happens: process was never a web-platform global</h2>
+            <p><code>process</code> is part of Node.js's runtime API, not part of the ECMAScript specification or any browser's Web API surface &mdash; it exists because Node needs to expose OS-level process information (environment variables, argv, stdio streams, the event loop's <code>nextTick</code>) to server-side JavaScript, and browsers have no equivalent concept to expose, nor any reason to: a webpage isn't an operating system process the way a Node script is. When code written for (or copy-pasted from) a Node context runs unmodified in a browser, the reference is simply undefined, exactly like referencing any other undeclared identifier.</p>
+            <p>The reason this <em>used</em> to "just work" for many projects is historical, not architectural: webpack up through version 4 shipped **automatic Node-core polyfilling** by default &mdash; it would silently inject browser-compatible stand-ins for Node modules like <code>path</code>, <code>fs</code>, <code>crypto</code>, and yes, a fake <code>process</code> object, so that libraries written with Node in mind wouldn't immediately break when bundled for the browser. Webpack 5 (2020) **removed this automatic polyfilling as a deliberate breaking change** &mdash; the maintainers judged that most projects didn't need it, that it was bloating every bundle with unused shims, and that leaving it in silently encouraged code that made false assumptions about its runtime. Any project that silently relied on the old behavior, and then upgraded webpack (directly, or transitively via a framework upgrade), can start seeing this exact error with no other code changes at all &mdash; which is why it's worth checking your build tool's changelog around major-version bumps, not just your own diff.</p>
+
+            <h2>Bundler behavior at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Bundler / tool</th><th>What actually happens</th><th>Correct client-code pattern</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Vite</td><td>No shim at all; opt-in prefix required</td><td><code>import.meta.env.VITE_X</code></td></tr>
+                    <tr><td>webpack 5 (bare)</td><td>No automatic shim; explicit plugin required</td><td><code>DefinePlugin</code> / <code>EnvironmentPlugin</code></td></tr>
+                    <tr><td>webpack 4 and earlier</td><td>Auto-polyfilled a fake <code>process</code></td><td>worked "by accident"; removed in v5</td></tr>
+                    <tr><td>Create React App</td><td>Build-time substitution for the <code>REACT_APP_</code> prefix only</td><td><code>process.env.REACT_APP_X</code></td></tr>
+                    <tr><td>Next.js</td><td>Substitutes <code>process.env.NEXT_PUBLIC_X</code> for client code</td><td><code>process.env.NEXT_PUBLIC_X</code></td></tr>
+                    <tr><td>Plain <code>&lt;script&gt;</code> tag, no bundler</td><td>Nothing shims anything, ever</td><td>Inline a config object yourself, or fetch config from an endpoint</td></tr>
+                </tbody>
+            </table>
+
+            <h2>A note on the security angle</h2>
+            <p>If you're debugging this error while trying to figure out why a secret <em>isn't</em> reaching your client code, resist the urge to treat the missing value as purely a bug to route around. Every bundler discussed here draws an intentional line between what's safe to ship to every visitor's browser (a public API base URL, a feature flag) and what must stay server-side only (database credentials, private API keys, signing secrets). The moment you find yourself reaching for a shim or a broad <code>DefinePlugin</code> rule that forwards <em>all</em> of <code>process.env</code> into the client bundle, stop and ask whether that value should be public at all &mdash; and if it genuinely needs to be, use the bundler's explicit, prefixed mechanism for it rather than a blanket pass-through, so the next engineer who adds a real secret to the same <code>.env</code> file doesn't get it shipped to the browser by accident.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Identify the bundler (Vite / webpack / CRA / Next.js / none) &mdash; the fix is bundler-specific</li>
+                <li>&#10003; Vite: switch to <code>import.meta.env.VITE_X</code> and prefix the variable in <code>.env</code></li>
+                <li>&#10003; Bare webpack: add a <code>DefinePlugin</code>/<code>EnvironmentPlugin</code> rule for each variable you actually read</li>
+                <li>&#10003; Stack trace points into <code>node_modules</code>/a vendor chunk? Check for a newer release before shimming</li>
+                <li>&#10003; If shimming as a last resort, confirm the library only feature-detects <code>process</code> rather than needing real values from it</li>
+                <li>&#10003; Recently upgraded webpack/a framework? Check whether automatic Node-core polyfilling was removed</li>
+                <li>&#10003; Never forward the whole <code>process.env</code> object into a client bundle &mdash; opt in per-variable</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'process is not defined' mean?</summary>
+                    <p><code>process</code> is a global object that exists only in Node.js &mdash; it exposes environment variables, command-line arguments, and OS-level process information to server-side code. Browsers have no equivalent global, so any client-side code that references <code>process.env</code>, <code>process.argv</code>, or <code>process.platform</code> throws this ReferenceError unless a build tool has specifically shimmed it in.</p>
+                </details>
+                <details>
+                    <summary>Why does process.env.NODE_ENV sometimes work in the browser without error?</summary>
+                    <p>Older tooling (webpack via <code>DefinePlugin</code>, Create React App, Babel's env preset) specifically detects the literal expression <code>process.env.NODE_ENV</code> at build time and replaces it with a string constant before the code ever reaches the browser &mdash; so no real <code>process</code> object needs to exist at runtime. This only works for that exact expression pattern the tool recognizes; <code>process.env.ANYTHING_ELSE</code> or a dynamically-computed key falls straight through to a real reference error.</p>
+                </details>
+                <details>
+                    <summary>How do I fix this in Vite?</summary>
+                    <p>Vite does not shim <code>process</code> at all by default. Use <code>import.meta.env.VITE_MY_VAR</code> instead of <code>process.env.MY_VAR</code>, and prefix any variable you want exposed to client code with <code>VITE_</code> in your <code>.env</code> file &mdash; Vite deliberately does not expose unprefixed variables to the client, as a security measure against accidentally leaking server secrets into the bundle.</p>
+                </details>
+                <details>
+                    <summary>How do I fix this in webpack without a framework?</summary>
+                    <p>Use webpack's <code>DefinePlugin</code> to replace specific <code>process.env.X</code> references at build time with string literals, or <code>EnvironmentPlugin</code> for a shorthand over a known list of variable names. Both work by textually substituting the expression during the build &mdash; they do not create a real <code>process</code> object, so accessing an untransformed <code>process</code> property still throws.</p>
+                </details>
+                <details>
+                    <summary>Why did this only appear after I upgraded my build tooling?</summary>
+                    <p>Older webpack versions (4 and earlier) automatically polyfilled Node core modules and globals, including a fake <code>process</code> object, for browser compatibility. Webpack 5 removed this automatic polyfilling entirely as a deliberate breaking change to reduce bundle bloat, so code that silently relied on the old shim now throws in the browser after an upgrade with no other code changes.</p>
+                </details>
+                <details>
+                    <summary>Is polyfilling process in the browser ever the right fix?</summary>
+                    <p>Rarely, and only as a last resort for a third-party library you can't modify that assumes <code>process</code> exists purely for feature-detection (checking <code>process.browser</code> or <code>process.version</code>) rather than reading real secrets. A minimal shim like <code>window.process = { env: {} }</code> can unblock such a library, but reach for the bundler's proper environment-variable mechanism first &mdash; a shim doesn't give you real, per-build variable values.</p>
+                </details>
+                <details>
+                    <summary>Does this ever indicate a real security problem, not just a build error?</summary>
+                    <p>It can. If you see this error while debugging code you expected to already be sending <code>process.env.SOME_SECRET_KEY</code> to the browser, the failure is actually good news &mdash; it means that secret never made it into the client bundle. Investigate whether the intended behavior was to expose a public, non-secret config value (in which case use the bundler's client-safe env mechanism) rather than assuming the fix is to make <code>process</code> exist.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More JavaScript &amp; build errors</h3>
+                <p>Browse the full reference for JavaScript, Node.js, and build-tool errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="process-env-undefined.html" class="btn btn-primary" style="background:#f0db4f;border-color:#f0db4f;color:#222;">process.env.X is undefined</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="process-env-undefined.html">process.env.X is undefined</a> &mdash; a related but distinct problem</li>
+                <li><a href="uncaught-referenceerror-x-is-not-defined.html">Uncaught ReferenceError: X is not defined</a> &mdash; the general form</li>
+                <li><a href="vite-504-outdated-optimize-dep.html">504 (Outdated Optimize Dep) — Vite</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

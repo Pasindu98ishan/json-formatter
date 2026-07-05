@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="net::ERR_CERT_AUTHORITY_INVALID — a fix-first playbook for self-signed certificates, corporate TLS-inspecting proxies, and expired intermediate CAs, and why you should never just click through the warning.">
+    <meta name="keywords" content="ERR_CERT_AUTHORITY_INVALID, net::ERR_CERT_AUTHORITY_INVALID, CERT_COMMON_NAME_INVALID, your connection is not private, certificate authority invalid chrome, self signed certificate error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/net-err-cert-authority-invalid.html">
+    <meta property="og:title" content="net::ERR_CERT_AUTHORITY_INVALID — Fix">
+    <meta property="og:description" content="The browser can't build a trust chain to a known certificate authority. A fix-first playbook covering self-signed certs, corporate proxies, expired intermediates, and the local dev workaround that's actually safe.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/net-err-cert-authority-invalid.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>net::ERR_CERT_AUTHORITY_INVALID — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ERR_CERT_AUTHORITY_INVALID", "item": "https://jsondevtools.org/errors/net-err-cert-authority-invalid.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "net::ERR_CERT_AUTHORITY_INVALID — Cause and Fix",
+  "description": "The browser could not build a trust chain from the server's certificate to a root CA it trusts. This playbook covers self-signed certs, corporate MITM proxies, and expired intermediates.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does net::ERR_CERT_AUTHORITY_INVALID mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The browser tried to build a chain of trust from the server's TLS certificate up to a root certificate authority it already trusts, and failed. Either the certificate is self-signed (issued by nobody the browser recognizes), the issuing CA's own root is missing from your device's trust store, or something is intercepting the connection and presenting its own certificate in place of the real one." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I see this on my own local development server?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A local dev server almost always uses a self-signed certificate, because getting a certificate from a real public CA for localhost or a private hostname isn't possible — public CAs only issue certificates for domains you can prove you control via public DNS. Self-signed certificates are cryptographically valid but chain to nothing the browser trusts, which is exactly what this error reports." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just click 'Proceed anyway' to get past this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only if you are certain you are the one who generated the certificate, and only on a connection you fully control, such as your own localhost. Clicking through on any other site — a coffee-shop Wi-Fi login, a work VPN, a link from an email — defeats the entire purpose of TLS and can expose you to a genuine machine-in-the-middle attack reading or altering your traffic." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix this properly for local development instead of clicking through?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Use mkcert to generate a locally-trusted certificate: it creates its own local certificate authority, installs that CA's root into your OS and browser trust stores, and then issues certificates signed by that CA for localhost or any hostname you choose. Your browser trusts the chain because it trusts the root mkcert installed — no warning, no clicking through, no security compromise." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen on a corporate network but not at home?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Many corporate networks route HTTPS traffic through a TLS-inspecting proxy or antivirus product that decrypts, scans, and re-encrypts traffic using its own certificate, signed by a private corporate root CA. If that root CA isn't installed in your OS or browser trust store — common on a personal or newly-provisioned device — every HTTPS site behind that proxy fails this exact check, even though the sites themselves are perfectly fine." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can an expired intermediate certificate cause this even on a legitimate public site?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. A server's own certificate can be perfectly valid while the intermediate certificate that links it to a trusted root has expired or was revoked — the chain breaks in the middle, not at the leaf. This is a server misconfiguration, not something the visitor can fix; the site operator needs to update their certificate bundle to include a current intermediate." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this affect API requests the same way it affects loading a page?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, and often more confusingly — a fetch() or XMLHttpRequest to a host with this certificate problem fails at the network layer with no response at all (surfacing as a generic network error in your JavaScript, not a helpful certificate message), because there is no interactive browser warning page for an API call the way there is for top-level navigation." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ERR_CERT_AUTHORITY_INVALID</span>
+            </nav>
+            <h1>net::ERR_CERT_AUTHORITY_INVALID</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">The browser can't chain the server's certificate up to a <strong>root CA it trusts</strong>. On your own local dev server, the correct fix is a <strong>locally-trusted certificate</strong>, not clicking through the warning:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># mkcert installs its own root CA into your OS/browser trust store,
+# then issues certs your browser genuinely trusts — no warnings.
+mkcert -install
+mkcert localhost 127.0.0.1 ::1</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Your connection is not private
+Attackers might be trying to steal your information from localhost
+(for example, passwords, messages, or credit cards).
+NET::ERR_CERT_AUTHORITY_INVALID
+
+// a common close cousin, same root cause, different specific check:
+NET::ERR_CERT_COMMON_NAME_INVALID
+  — the certificate's hostname doesn't match the address bar's hostname</code></pre>
+            </div>
+            <p>Click "Advanced" to see which specific check failed &mdash; Chrome and Firefox both name the exact problem underneath the generic warning: an untrusted issuer (this page), a hostname mismatch (the related <code>CERT_COMMON_NAME_INVALID</code>), or an expired certificate. They look similar to a user but have different root causes and different fixes.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>Your own <strong>local dev server</strong> (localhost, a custom local domain)? &rarr; <a href="#fix1">Fix 1 (mkcert)</a></li>
+                    <li>Only happens on a <strong>work network or VPN</strong>, every site fails identically? &rarr; <a href="#fix2">Fix 2 (corporate root CA)</a></li>
+                    <li>A <strong>public site you don't control</strong> is affected, for everyone? &rarr; <a href="#fix3">Fix 3 (server-side chain issue)</a></li>
+                    <li>Failing inside a <strong>fetch()/API call</strong>, not a page load? &rarr; <a href="#fix4">Fix 4 (diagnose from the command line)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; local development: use mkcert, don't click through</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> you're testing on <code>localhost</code>, <code>127.0.0.1</code>, or a custom local hostname you control.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># macOS
+brew install mkcert
+mkcert -install                  # creates + trusts a local root CA, once per machine
+mkcert localhost 127.0.0.1 ::1   # issues a cert for those names, signed by that root
+
+# resulting files: localhost+2.pem / localhost+2-key.pem
+# point your dev server's HTTPS config at these two files</code></pre>
+            </div>
+            <p>A public certificate authority (Let's Encrypt, DigiCert, and the rest) can only issue a certificate for a domain you can prove you control via public DNS &mdash; there is no way to get a "real" publicly-trusted certificate for <code>localhost</code>, because <code>localhost</code> isn't a name anyone owns in public DNS. A self-signed certificate is cryptographically sound but chains to nothing the browser already trusts, which is exactly the gap this error reports. <code>mkcert</code> resolves this correctly: it creates its own private root CA, installs <em>that root's public certificate</em> into your OS and browser trust stores (a one-time, machine-local operation), and then issues leaf certificates signed by that root. Your browser now has a genuine, unbroken trust chain &mdash; it isn't bypassing the check, it's satisfying it for real.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; corporate network: install the organization's root CA</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the error appears identically on <em>every</em> HTTPS site while connected to a specific network or VPN, and disappears off that network.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># confirm the issuer named in the certificate — click the padlock,
+# view certificate, and look at the "Issued by" field. If it names
+# your employer or a corporate security product instead of a known
+# public CA, that confirms TLS inspection is the cause.
+
+# fix: get the corporate root CA's .crt/.pem from IT and install it
+# into your OS trust store (varies by OS):
+#   macOS:   Keychain Access -> System -> import, set to "Always Trust"
+#   Windows: certmgr.msc -> Trusted Root Certification Authorities -> Import
+#   Linux:   copy to /usr/local/share/ca-certificates/, then update-ca-certificates</code></pre>
+            </div>
+            <p>Many corporate networks and endpoint-security products run a <strong>TLS-inspecting (man-in-the-middle) proxy</strong> deliberately: it decrypts your HTTPS traffic, scans it for malware or data-loss-prevention policy violations, then re-encrypts it using a certificate signed by the organization's own private root CA before forwarding it to you. This is a legitimate, intentional architecture on managed corporate devices &mdash; the browser doesn't know the difference between "malicious interception" and "sanctioned corporate interception" except by whether it trusts the signing root, so a fresh laptop or a personal device that was never issued that trust simply fails the exact same way a real attack would look. Installing the correct corporate root (obtained from your IT department, never from a random download) is the correct, intended fix; it should already be pushed automatically on a properly managed company device via MDM, so seeing this manually is often a sign of an unenrolled or misconfigured machine.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; a public site is broken for everyone (server-side issue)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the affected site is one you don't operate, and the problem is reproducible from a different network/device, ruling out a local proxy.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># inspect the full chain from the command line — this reveals a
+# missing or expired INTERMEDIATE certificate, the classic cause
+# of "the leaf cert looks fine but the chain still fails":
+openssl s_client -connect example.com:443 -showcerts &lt;/dev/null
+
+# look for: "Verify return code: 20 (unable to get local issuer certificate)"
+# or an expiry date on one of the intermediate certs in the printed chain</code></pre>
+            </div>
+            <p>This is the case where the site operator, not the visitor, needs to act: a server can present a perfectly valid leaf certificate for its own domain while omitting or misconfiguring the <strong>intermediate certificate</strong> that links that leaf up to a root the browser trusts. Browsers cache intermediates they've seen before (which is why the same broken server sometimes "works" in one browser profile and not a fresh one), but a server is required to send its full intermediate chain on every connection &mdash; relying on client-side caching is not a substitute for correct server configuration. If you operate the affected server, the fix is to serve the complete certificate bundle (leaf + intermediates) exactly as your CA provided it, not just the leaf certificate alone.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; the failure is inside a fetch()/API call, not a page load</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> JavaScript code making a request to an HTTPS endpoint fails with a generic network error and no visible certificate warning page.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fetch("https://internal-api.example.com/data")
+  .catch(err =&gt; console.error(err));
+// TypeError: Failed to fetch
+//   — no certificate detail is surfaced to JavaScript at all
+
+// diagnose from a terminal instead, where the real reason is visible:
+curl -v https://internal-api.example.com/data
+# curl: (60) SSL certificate problem: unable to get local issuer certificate</code></pre>
+            </div>
+            <p>There is no interactive "click to proceed" warning page for a background API request the way there is for top-level navigation &mdash; the browser simply refuses the connection and your JavaScript only ever sees a generic <a href="failed-to-fetch.html">TypeError: Failed to fetch</a>, with the actual certificate reason hidden from the page. Reproducing the same request with <code>curl -v</code> (or opening the API URL directly in a browser tab) surfaces the specific underlying reason, because those tools do print or render the certificate failure detail that a background <code>fetch()</code> call cannot.</p>
+
+            <h2>Why this happens: how certificate trust actually works</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 388" role="img" aria-label="Diagram: the browser walks up the certificate chain from the leaf certificate through intermediate certificates to a root CA, and only trusts the connection if that root is in its trust store.">
+                    <defs>
+                        <marker id="cav-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="cav-ok" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-ok)"/></marker>
+                        <marker id="cav-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="160" y="14" width="280" height="44" rx="8"/>
+                    <text class="dg-m" x="300" y="41" text-anchor="middle">Leaf cert (api.example.com)</text>
+                    <line class="dg-ln" x1="300" y1="58" x2="300" y2="82" marker-end="url(#cav-a)"/>
+                    <text class="dg-s" x="312" y="74" text-anchor="start">signed by</text>
+                    <rect class="dg-box" x="160" y="84" width="280" height="44" rx="8"/>
+                    <text class="dg-m" x="300" y="111" text-anchor="middle">Intermediate CA</text>
+                    <line class="dg-ln" x1="300" y1="128" x2="300" y2="152" marker-end="url(#cav-a)"/>
+                    <text class="dg-s" x="312" y="144" text-anchor="start">signed by</text>
+                    <rect class="dg-box" x="160" y="154" width="280" height="44" rx="8"/>
+                    <text class="dg-m" x="300" y="181" text-anchor="middle">Root CA</text>
+                    <line class="dg-ln" x1="300" y1="198" x2="300" y2="222" marker-end="url(#cav-a)"/>
+                    <rect class="dg-box" x="130" y="224" width="340" height="44" rx="8"/>
+                    <text class="dg-t" x="300" y="251" text-anchor="middle">Is this Root in the trust store?</text>
+                    <path class="dg-ln-ok" d="M300,268 L300,292 L150,292 L150,320" marker-end="url(#cav-ok)"/>
+                    <path class="dg-ln-bad" d="M300,268 L300,292 L450,292 L450,320" marker-end="url(#cav-bad)"/>
+                    <text class="dg-s dg-ok" x="222" y="287" text-anchor="middle">yes</text>
+                    <text class="dg-s dg-bad" x="378" y="287" text-anchor="middle">no</text>
+                    <rect class="dg-box-ok" x="40" y="322" width="220" height="52" rx="8"/>
+                    <text class="dg-m dg-ok" x="150" y="345" text-anchor="middle">Connection proceeds</text>
+                    <text class="dg-s" x="150" y="362" text-anchor="middle">certificate is trusted</text>
+                    <rect class="dg-box-bad" x="340" y="322" width="220" height="52" rx="8"/>
+                    <text class="dg-m dg-bad" x="450" y="345" text-anchor="middle">ERR_CERT_AUTHORITY_INVALID</text>
+                    <text class="dg-s" x="450" y="362" text-anchor="middle">chain never reached a trusted root</text>
+                </svg>
+                <p class="dg-cap">The browser walks up the chain to a trusted root. A self-signed leaf, a missing intermediate, or an unknown root (a proxy) all break that walk.</p>
+            </div>
+            <p>TLS trust is a <strong>chain</strong>, not a single check: your browser ships with a curated list of root certificate authorities it trusts by default (Let's Encrypt, DigiCert, and a few dozen others, maintained by the OS or browser vendor). When a server presents its certificate, the browser has to walk from that certificate up through zero or more <strong>intermediate</strong> certificates until it reaches one of those trusted roots. <code>ERR_CERT_AUTHORITY_INVALID</code> means that walk failed to reach a trusted root anywhere along the way &mdash; whether because the leaf certificate is self-signed (there's no chain to walk at all), an intermediate is missing or expired (the chain breaks partway), or something is deliberately substituting a different, untrusted root into the chain (a proxy or an active attacker). The browser cannot distinguish "well-intentioned corporate proxy" from "malicious interception" by any means other than whether the presented root is one it already trusts &mdash; which is precisely why the fix is always about the trust store, never about "convincing" the browser the connection is fine some other way.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>your own <code>localhost</code> dev server</td><td>self-signed certificate</td><td>mkcert, install its local root CA</td></tr>
+                    <tr><td>every site fails, only on one network</td><td>corporate TLS-inspecting proxy</td><td>install the org's root CA</td></tr>
+                    <tr><td>a public site is broken for everyone</td><td>missing/expired intermediate cert</td><td>server operator fixes the served chain</td></tr>
+                    <tr><td>fails in <code>fetch()</code>, generic error</td><td>same root causes, no detail surfaced to JS</td><td>reproduce with <code>curl -v</code> for the real reason</td></tr>
+                    <tr><td>works in an old browser profile, not a new one</td><td>the old profile cached a missing intermediate</td><td>server should send the full chain regardless</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Click "Advanced" to read the specific sub-error, not just the generic warning</li>
+                <li>&#10003; View the certificate's "Issued by" field &mdash; does it name a known public CA, or something else?</li>
+                <li>&#10003; Your own local server? Use <code>mkcert</code>, don't click through</li>
+                <li>&#10003; Fails on one network only? Suspect and install the corporate/proxy root CA</li>
+                <li>&#10003; A public site, broken for everyone? Run <code>openssl s_client -showcerts</code> and check for a missing intermediate</li>
+                <li>&#10003; Failing in a <code>fetch()</code> call with no detail? Reproduce with <code>curl -v</code> to see the real reason</li>
+                <li>&#10003; Never click "Proceed anyway" on a connection you don't fully control</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does net::ERR_CERT_AUTHORITY_INVALID mean?</summary>
+                    <p>The browser tried to build a chain of trust from the server's TLS certificate up to a root certificate authority it already trusts, and failed. Either the certificate is self-signed (issued by nobody the browser recognizes), the issuing CA's own root is missing from your device's trust store, or something is intercepting the connection and presenting its own certificate in place of the real one.</p>
+                </details>
+                <details>
+                    <summary>Why do I see this on my own local development server?</summary>
+                    <p>A local dev server almost always uses a self-signed certificate, because getting a certificate from a real public CA for <code>localhost</code> or a private hostname isn't possible &mdash; public CAs only issue certificates for domains you can prove you control via public DNS. Self-signed certificates are cryptographically valid but chain to nothing the browser trusts, which is exactly what this error reports.</p>
+                </details>
+                <details>
+                    <summary>Should I just click 'Proceed anyway' to get past this?</summary>
+                    <p>Only if you are certain you are the one who generated the certificate, and only on a connection you fully control, such as your own localhost. Clicking through on any other site &mdash; a coffee-shop Wi-Fi login, a work VPN, a link from an email &mdash; defeats the entire purpose of TLS and can expose you to a genuine machine-in-the-middle attack reading or altering your traffic.</p>
+                </details>
+                <details>
+                    <summary>How do I fix this properly for local development instead of clicking through?</summary>
+                    <p>Use <code>mkcert</code> to generate a locally-trusted certificate: it creates its own local certificate authority, installs that CA's root into your OS and browser trust stores, and then issues certificates signed by that CA for <code>localhost</code> or any hostname you choose. Your browser trusts the chain because it trusts the root <code>mkcert</code> installed &mdash; no warning, no clicking through, no security compromise.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen on a corporate network but not at home?</summary>
+                    <p>Many corporate networks route HTTPS traffic through a TLS-inspecting proxy or antivirus product that decrypts, scans, and re-encrypts traffic using its own certificate, signed by a private corporate root CA. If that root CA isn't installed in your OS or browser trust store &mdash; common on a personal or newly-provisioned device &mdash; every HTTPS site behind that proxy fails this exact check, even though the sites themselves are perfectly fine.</p>
+                </details>
+                <details>
+                    <summary>Can an expired intermediate certificate cause this even on a legitimate public site?</summary>
+                    <p>Yes. A server's own certificate can be perfectly valid while the intermediate certificate that links it to a trusted root has expired or was revoked &mdash; the chain breaks in the middle, not at the leaf. This is a server misconfiguration, not something the visitor can fix; the site operator needs to update their certificate bundle to include a current intermediate.</p>
+                </details>
+                <details>
+                    <summary>Does this affect API requests the same way it affects loading a page?</summary>
+                    <p>Yes, and often more confusingly &mdash; a <code>fetch()</code> or <code>XMLHttpRequest</code> to a host with this certificate problem fails at the network layer with no response at all (surfacing as a generic network error in your JavaScript, not a helpful certificate message), because there is no interactive browser warning page for an API call the way there is for top-level navigation.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More network &amp; security errors</h3>
+                <p>Browse the full reference for network, CORS, and browser security errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="net-err-ssl-protocol-error.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">net::ERR_SSL_PROTOCOL_ERROR</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="net-err-ssl-protocol-error.html">net::ERR_SSL_PROTOCOL_ERROR</a></li>
+                <li><a href="ssl-certificate-verify-failed-python.html">Python: ssl.SSLCertVerificationError</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

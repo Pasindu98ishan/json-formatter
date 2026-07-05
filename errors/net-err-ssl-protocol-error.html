@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="net::ERR_SSL_PROTOCOL_ERROR — a fix-first playbook for HTTP-vs-HTTPS port mismatches, TLS version incompatibility, and misconfigured local dev servers, with the exact commands to diagnose which one you have.">
+    <meta name="keywords" content="ERR_SSL_PROTOCOL_ERROR, net::ERR_SSL_PROTOCOL_ERROR, ssl protocol error chrome, this site can't provide a secure connection, TLS version mismatch">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/net-err-ssl-protocol-error.html">
+    <meta property="og:title" content="net::ERR_SSL_PROTOCOL_ERROR — Fix">
+    <meta property="og:description" content="The TLS handshake itself failed before any certificate was even checked. A fix-first playbook covering HTTPS-vs-plain-HTTP port confusion, TLS version mismatches, and broken local dev TLS setups.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/net-err-ssl-protocol-error.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>net::ERR_SSL_PROTOCOL_ERROR — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ERR_SSL_PROTOCOL_ERROR", "item": "https://jsondevtools.org/errors/net-err-ssl-protocol-error.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "net::ERR_SSL_PROTOCOL_ERROR — Cause and Fix",
+  "description": "The TLS handshake itself failed before any certificate was validated. This playbook covers HTTP/HTTPS port confusion, TLS version mismatches, and broken local TLS setups.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does net::ERR_SSL_PROTOCOL_ERROR mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The TLS handshake — the negotiation that happens before any HTTP request or certificate check — failed at the protocol level. This is a lower-level failure than a certificate trust problem: the two sides couldn't even agree on how to establish an encrypted connection, so the browser never got far enough to evaluate whether the certificate is trustworthy." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen when I visit an HTTP URL over HTTPS by mistake?",
+      "acceptedAnswer": { "@type": "Answer", "text": "This is the single most common cause: a server listening for plain HTTP on a port (commonly a dev server on 3000, 5000, or 8080) receives a TLS handshake attempt because the browser or a bookmark used https:// for that address. The server responds with plain HTTP bytes that make no sense as a TLS handshake, and the browser reports the failure as ERR_SSL_PROTOCOL_ERROR rather than a more specific message, because from its side it just looks like garbled, non-TLS data." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I tell whether the mismatch is HTTP-vs-HTTPS or a real TLS incompatibility?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Try loading the exact same address with http:// instead of https://. If the plain-HTTP version loads your content immediately, the server was never running TLS on that port at all, and the fix is simply using the correct protocol or scheme in the URL, not touching any certificate configuration." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can an outdated TLS version cause this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Modern browsers have removed support for TLS 1.0 and 1.1 entirely as of the past several years, for security reasons — if a server only offers those legacy protocol versions and refuses to negotiate TLS 1.2 or 1.3, the handshake fails immediately with this error. This shows up most often against old embedded devices, legacy enterprise appliances, or servers with an intentionally frozen, unpatched TLS configuration." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my local Node/Express HTTPS server throw this even though I configured a certificate?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A frequent local-dev mistake is calling http.createServer() instead of https.createServer() while still pointing the browser at an https:// URL — the certificate options object gets silently ignored because it was passed to the wrong constructor. Confirm which server-creation function actually received your key/cert options, not just that the options object exists somewhere in your code." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a corporate proxy or antivirus ever cause this instead of a certificate error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Occasionally. Most TLS-inspecting proxies present a substitute certificate and cause a trust-chain error instead, but a poorly implemented one — or one with an outdated TLS stack of its own — can fail the handshake itself, producing this protocol-level error rather than the more common ERR_CERT_AUTHORITY_INVALID. If every HTTPS site fails this way on one specific network only, the proxy itself is the suspect, the same as with certificate trust issues." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ERR_SSL_PROTOCOL_ERROR</span>
+            </nav>
+            <h1>net::ERR_SSL_PROTOCOL_ERROR</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">The <strong>TLS handshake itself failed</strong> &mdash; before any certificate was even evaluated. The <strong>#1 cause</strong> is visiting an <code>https://</code> URL for a server that's only listening on plain HTTP. Try the same address with <code>http://</code> first:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>https://localhost:3000/   ❌ ERR_SSL_PROTOCOL_ERROR
+http://localhost:3000/    ✅ loads fine — the server was never running TLS at all</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>This site can't provide a secure connection
+localhost sent an invalid response.
+ERR_SSL_PROTOCOL_ERROR
+
+// in a background request, the browser console instead shows:
+Failed to load resource: net::ERR_SSL_PROTOCOL_ERROR</code></pre>
+            </div>
+            <p>Unlike a certificate-trust error, there is usually no "Advanced &rarr; Proceed anyway" option here at all &mdash; because the failure happens before a certificate was ever presented for the browser to evaluate. That absence of a click-through option is itself a diagnostic clue: it tells you the problem is at the handshake/protocol layer, not the certificate-trust layer covered by <a href="net-err-cert-authority-invalid.html">ERR_CERT_AUTHORITY_INVALID</a>.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>A <strong>local dev server</strong> or a specific non-standard port? &rarr; <a href="#fix1">Fix 1 (HTTP vs HTTPS mismatch)</a></li>
+                    <li>Your <strong>own Node/Express HTTPS server</strong>, even with a certificate configured? &rarr; <a href="#fix2">Fix 2 (wrong server constructor)</a></li>
+                    <li>An <strong>old embedded device or legacy appliance</strong>? &rarr; <a href="#fix3">Fix 3 (TLS version mismatch)</a></li>
+                    <li>Only on <strong>one network</strong>, affecting many sites? &rarr; <a href="#fix4">Fix 4 (proxy/antivirus TLS interception)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; HTTP vs HTTPS confusion (the overwhelming majority of cases)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a local dev server, an internal tool, or any address you're not 100% sure is actually running TLS.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># confirm which protocol the server is actually speaking on that port:
+curl -v http://localhost:3000/    # if this succeeds, there's no TLS here at all
+curl -v https://localhost:3000/   # this is the one that should fail identically to the browser
+
+# a typical Express dev server only ever does this — plain HTTP:
+const app = require("express")();
+app.listen(3000);   // http.createServer under the hood — no TLS involved</code></pre>
+            </div>
+            <p>Most local development servers (Express, Django's runserver, Vite's default dev server, and dozens of others) bind plain, unencrypted HTTP by default &mdash; TLS is opt-in, extra configuration most tutorials skip entirely for local work. A bookmark, browser autocomplete, or muscle memory that adds <code>https://</code> out of habit will send a TLS handshake to a socket that only ever speaks plain HTTP. The server has no idea what to do with the encrypted handshake bytes it receives and responds with something that isn't a valid TLS response at all, which the browser reports as this generic protocol error rather than anything more specific, because from the browser's perspective the "server" simply isn't speaking TLS.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; your own Node/Express server: check which constructor actually got the cert</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> you wrote the server yourself, configured a certificate, and it still fails.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const fs = require("fs");
+const https = require("https");
+const http = require("http");   // ⚠️ easy to import both and mix them up
+const app = require("express")();
+
+const options = {
+  key: fs.readFileSync("key.pem"),
+  cert: fs.readFileSync("cert.pem"),
+};
+
+// ❌ the certificate options are created but never actually used —
+//    this line creates a plain, unencrypted HTTP server regardless:
+http.createServer(app).listen(3000);
+
+// ✅ pass the options to the HTTPS constructor specifically:
+https.createServer(options, app).listen(3000);</code></pre>
+            </div>
+            <p>This is a surprisingly common and easy-to-miss local-dev bug: having both <code>http</code> and <code>https</code> imported, building a valid-looking <code>options</code> object with your key and certificate, and then passing your Express <code>app</code> to <code>http.createServer(app)</code> instead of <code>https.createServer(options, app)</code> out of habit or a copy-paste from an older, HTTP-only version of the file. The certificate files are read from disk successfully and no error is thrown at startup &mdash; the mistake only surfaces when a browser tries to speak TLS to a socket that's quietly serving plain HTTP underneath, producing exactly this handshake failure.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; the server only supports an obsolete TLS version</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the target is an older embedded device, an industrial/IoT appliance, or a legacy internal system with a frozen software stack.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># check which protocol versions the server actually offers:
+openssl s_client -connect device.local:443 -tls1
+openssl s_client -connect device.local:443 -tls1_1
+openssl s_client -connect device.local:443 -tls1_2
+# if only the -tls1 / -tls1_1 attempts succeed, the device is stuck on
+# a protocol version every modern browser has deliberately removed</code></pre>
+            </div>
+            <p>All major browsers formally deprecated and removed TLS 1.0 and TLS 1.1 support starting around 2020, following an industry-wide push (led by the same browser vendors, the IETF, and PCI compliance standards) to retire protocol versions with known cryptographic weaknesses. A server that has never been updated &mdash; common on network hardware, printers, older enterprise software, and industrial control systems with multi-year (or multi-decade) refresh cycles &mdash; may only be capable of the versions browsers now refuse outright, producing this handshake failure with no possible client-side workaround; the device's own TLS configuration has to be upgraded, or you fall back to a tool that still permits legacy TLS (accepting the real security trade-off that implies) for that connection specifically.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; a corporate proxy or antivirus with a broken TLS implementation</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the failure is reproducible against many otherwise-healthy public sites, but only from one specific network or VPN.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># reproduce off that network (mobile hotspot, home connection) to
+# rule out the site itself:
+curl -v https://example.com/   # succeeds elsewhere, fails only on the suspect network
+
+# on Windows, a common culprit is HTTPS-scanning antivirus —
+# temporarily disabling it (if policy allows) isolates the cause quickly</code></pre>
+            </div>
+            <p>This is rarer than the certificate-trust variant of network interception (most modern inspection proxies handle the handshake correctly and only substitute their own certificate afterward, which produces <a href="net-err-cert-authority-invalid.html">ERR_CERT_AUTHORITY_INVALID</a> instead), but a poorly implemented or outdated TLS-inspection layer can fail the handshake itself. If disabling the suspect software or switching networks entirely resolves it, the fix belongs to whoever administers that network or security product, not to the site you were trying to reach.</p>
+
+            <h2>Why this happens: handshake failures vs certificate failures</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 258" role="img" aria-label="Diagram: a TLS connection runs the handshake first, then the certificate check. ERR_SSL_PROTOCOL_ERROR is a handshake-phase failure, before any certificate is presented; ERR_CERT_AUTHORITY_INVALID is a later certificate-phase failure.">
+                    <defs>
+                        <marker id="ssl-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="ssl-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                        <marker id="ssl-ok" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-ok)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="50" y="14" width="310" height="56" rx="8"/>
+                    <text class="dg-m" x="205" y="38" text-anchor="middle">Phase 1: TLS handshake</text>
+                    <text class="dg-s" x="205" y="57" text-anchor="middle">agree on version + cipher, exchange keys</text>
+                    <line class="dg-ln-bad" x1="360" y1="42" x2="416" y2="42" marker-end="url(#ssl-bad)"/>
+                    <rect class="dg-box-bad" x="420" y="20" width="170" height="44" rx="8"/>
+                    <text class="dg-m dg-bad" x="505" y="46" text-anchor="middle">ERR_SSL_PROTOCOL_ERROR</text>
+                    <line class="dg-ln" x1="205" y1="70" x2="205" y2="104" marker-end="url(#ssl-a)"/>
+                    <text class="dg-s" x="217" y="91" text-anchor="start">if the handshake succeeds</text>
+                    <rect class="dg-box" x="50" y="106" width="310" height="56" rx="8"/>
+                    <text class="dg-m" x="205" y="130" text-anchor="middle">Phase 2: Certificate check</text>
+                    <text class="dg-s" x="205" y="149" text-anchor="middle">validate the certificate's trust chain</text>
+                    <line class="dg-ln-bad" x1="360" y1="134" x2="416" y2="134" marker-end="url(#ssl-bad)"/>
+                    <rect class="dg-box-bad" x="420" y="112" width="170" height="44" rx="8"/>
+                    <text class="dg-m dg-bad" x="505" y="138" text-anchor="middle">ERR_CERT_AUTHORITY_INVALID</text>
+                    <line class="dg-ln-ok" x1="205" y1="162" x2="205" y2="196" marker-end="url(#ssl-ok)"/>
+                    <text class="dg-s" x="217" y="183" text-anchor="start">if the certificate is valid</text>
+                    <rect class="dg-box-ok" x="50" y="198" width="310" height="44" rx="8"/>
+                    <text class="dg-m dg-ok" x="205" y="224" text-anchor="middle">Secure connection established</text>
+                </svg>
+                <p class="dg-cap">This error is a phase-1 failure &mdash; no certificate is ever presented, so reinstalling a root CA or editing trust settings can't help.</p>
+            </div>
+            <p>It's worth being precise about where in the TLS connection process this error occurs, because it changes what's worth investigating. A TLS connection has (roughly) two phases: first, the <strong>handshake</strong> &mdash; the client and server negotiate a shared protocol version and cipher suite, and exchange the cryptographic material needed to establish an encrypted channel; only after that succeeds does the server present its <strong>certificate</strong> for the client to validate against its trust store. <code>ERR_SSL_PROTOCOL_ERROR</code> is specifically a phase-one failure: the two sides couldn't even agree on how to talk, so there was never a certificate for the browser to evaluate in the first place. That's structurally different from <code>ERR_CERT_AUTHORITY_INVALID</code>, which is a phase-two failure &mdash; the handshake completed fine, a certificate was presented, and the trust chain on that certificate is what failed. Recognizing which phase you're in immediately rules out an entire category of fixes: if you're getting this protocol-level error, reinstalling a root CA or adjusting certificate trust settings will do nothing, because the browser never got far enough to look at a certificate at all.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>local dev server, wrong scheme</td><td>server only speaks plain HTTP</td><td>use <code>http://</code>, or actually enable TLS</td></tr>
+                    <tr><td>your own Node/Express HTTPS server</td><td>certificate options passed to the wrong constructor</td><td>use <code>https.createServer(options, app)</code></td></tr>
+                    <tr><td>old device/appliance</td><td>only supports TLS 1.0/1.1, browser removed those</td><td>upgrade the device's TLS stack</td></tr>
+                    <tr><td>only on one network, many sites fail</td><td>broken proxy/antivirus TLS inspection</td><td>fix or bypass that network's inspection layer</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Try the exact same address with <code>http://</code> instead of <code>https://</code> first</li>
+                <li>&#10003; Your own server? Confirm the TLS options actually reached <code>https.createServer</code>, not <code>http.createServer</code></li>
+                <li>&#10003; Old device? Test with <code>openssl s_client -tls1_2</code> to see which versions it actually offers</li>
+                <li>&#10003; Reproduce off the suspect network (mobile hotspot) to rule in/out a local proxy or antivirus</li>
+                <li>&#10003; Remember: no certificate was even evaluated here &mdash; don't waste time on trust-store fixes</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does net::ERR_SSL_PROTOCOL_ERROR mean?</summary>
+                    <p>The TLS handshake &mdash; the negotiation that happens before any HTTP request or certificate check &mdash; failed at the protocol level. This is a lower-level failure than a certificate trust problem: the two sides couldn't even agree on how to establish an encrypted connection, so the browser never got far enough to evaluate whether the certificate is trustworthy.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen when I visit an HTTP URL over HTTPS by mistake?</summary>
+                    <p>This is the single most common cause: a server listening for plain HTTP on a port (commonly a dev server on 3000, 5000, or 8080) receives a TLS handshake attempt because the browser or a bookmark used <code>https://</code> for that address. The server responds with plain HTTP bytes that make no sense as a TLS handshake, and the browser reports the failure as <code>ERR_SSL_PROTOCOL_ERROR</code> rather than a more specific message, because from its side it just looks like garbled, non-TLS data.</p>
+                </details>
+                <details>
+                    <summary>How do I tell whether the mismatch is HTTP-vs-HTTPS or a real TLS incompatibility?</summary>
+                    <p>Try loading the exact same address with <code>http://</code> instead of <code>https://</code>. If the plain-HTTP version loads your content immediately, the server was never running TLS on that port at all, and the fix is simply using the correct protocol or scheme in the URL, not touching any certificate configuration.</p>
+                </details>
+                <details>
+                    <summary>Can an outdated TLS version cause this?</summary>
+                    <p>Yes. Modern browsers have removed support for TLS 1.0 and 1.1 entirely as of the past several years, for security reasons &mdash; if a server only offers those legacy protocol versions and refuses to negotiate TLS 1.2 or 1.3, the handshake fails immediately with this error. This shows up most often against old embedded devices, legacy enterprise appliances, or servers with an intentionally frozen, unpatched TLS configuration.</p>
+                </details>
+                <details>
+                    <summary>Why does my local Node/Express HTTPS server throw this even though I configured a certificate?</summary>
+                    <p>A frequent local-dev mistake is calling <code>http.createServer()</code> instead of <code>https.createServer()</code> while still pointing the browser at an <code>https://</code> URL &mdash; the certificate options object gets silently ignored because it was passed to the wrong constructor. Confirm which server-creation function actually received your key/cert options, not just that the options object exists somewhere in your code.</p>
+                </details>
+                <details>
+                    <summary>Does a corporate proxy or antivirus ever cause this instead of a certificate error?</summary>
+                    <p>Occasionally. Most TLS-inspecting proxies present a substitute certificate and cause a trust-chain error instead, but a poorly implemented one &mdash; or one with an outdated TLS stack of its own &mdash; can fail the handshake itself, producing this protocol-level error rather than the more common <code>ERR_CERT_AUTHORITY_INVALID</code>. If every HTTPS site fails this way on one specific network only, the proxy itself is the suspect, the same as with certificate trust issues.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More network &amp; security errors</h3>
+                <p>Browse the full reference for network, TLS, and browser security errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="net-err-cert-authority-invalid.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">net::ERR_CERT_AUTHORITY_INVALID</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="net-err-cert-authority-invalid.html">net::ERR_CERT_AUTHORITY_INVALID</a></li>
+                <li><a href="eaddrinuse-address-already-in-use.html">Error: listen EADDRINUSE</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

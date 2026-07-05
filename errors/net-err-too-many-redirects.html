@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="net::ERR_TOO_MANY_REDIRECTS — a fix-first playbook for the classic HTTPS/reverse-proxy redirect loop, mismatched cookie state, and buggy auth-middleware redirect chains, with the exact commands to trace the loop.">
+    <meta name="keywords" content="ERR_TOO_MANY_REDIRECTS, net::ERR_TOO_MANY_REDIRECTS, redirected you too many times, redirect loop fix, this page isn't working redirect">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/net-err-too-many-redirects.html">
+    <meta property="og:title" content="net::ERR_TOO_MANY_REDIRECTS — Fix">
+    <meta property="og:description" content="A fix-first playbook for redirect loops: SSL/proxy scheme mismatches, stale or oversized cookies, and buggy authentication middleware that redirects forever.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/net-err-too-many-redirects.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>net::ERR_TOO_MANY_REDIRECTS — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ERR_TOO_MANY_REDIRECTS", "item": "https://jsondevtools.org/errors/net-err-too-many-redirects.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "net::ERR_TOO_MANY_REDIRECTS — Cause and Fix",
+  "description": "The browser followed a chain of HTTP redirects that never terminated. This playbook covers SSL/proxy scheme loops, cookie-state loops, and buggy auth middleware.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does net::ERR_TOO_MANY_REDIRECTS mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The browser followed a chain of HTTP redirect responses (301, 302, 303, 307, 308) that kept pointing back to a URL it had already visited, without ever reaching a page that returns 200. Browsers cap the number of redirects they'll follow (Chrome stops at around 20) specifically to detect and abort these loops rather than hanging forever." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen right after enabling HTTPS or putting a site behind Cloudflare?",
+      "acceptedAnswer": { "@type": "Answer", "text": "This is the single most common cause: the origin server redirects HTTP to HTTPS, but the reverse proxy or CDN in front of it (frequently Cloudflare in 'Flexible' SSL mode) talks to the origin over plain HTTP. The origin sees an HTTP request, issues its HTTPS redirect, the proxy serves that redirect back over HTTPS to the browser, the browser requests again, the proxy forwards it to the origin over HTTP again — and the loop repeats indefinitely because neither side is aware of what protocol the other end is actually using." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can browser cookies cause a redirect loop?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. A stale, corrupted, or oversized cookie tied to a login/session system can cause the server to treat every single request as unauthenticated — issuing a login redirect, receiving the request again with the same broken cookie attached, and redirecting to login again forever. This is diagnosable by testing the same URL in a fresh incognito/private window with no cookies at all." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I see the actual chain of redirects, not just the final error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Open DevTools Network tab, check 'Disable cache', reload, and look at the sequence of requests to the same-looking URL — each row shows its status code (301/302/etc.) and its Location response header, letting you see exactly where each hop is being sent before the browser gives up." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why would my own Express/Next.js auth middleware cause an infinite redirect?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A common bug is an authentication check that redirects unauthenticated users to a login page, but the login page itself is inside the same route group the middleware protects — so the redirect target also fails the auth check and gets redirected again, forever. The fix is always to explicitly exclude the login/auth routes themselves from the protected-route matcher." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does clearing cookies for just one site actually fix it, or do I need to clear everything?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Site-scoped clearing is sufficient and preferable — in Chrome, click the padlock/info icon in the address bar → Cookies and site data → Delete, or use chrome://settings/content/all?searchSubtext=<domain> to remove storage for exactly that origin without wiping cookies for every other site you're logged into." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ERR_TOO_MANY_REDIRECTS</span>
+            </nav>
+            <h1>net::ERR_TOO_MANY_REDIRECTS</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">Just enabled HTTPS or moved behind a CDN/proxy? The <strong>#1 cause</strong> is an SSL mode mismatch between the proxy and the origin. If it's Cloudflare specifically, switch SSL/TLS mode from <strong>Flexible</strong> to <strong>Full</strong> (or <strong>Full (strict)</strong>) — that alone resolves the majority of cases within a minute of propagation.</p>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>This page isn't working
+example.com redirected you too many times.
+Try clearing your cookies.
+ERR_TOO_MANY_REDIRECTS</code></pre>
+            </div>
+            <p>Chrome's own suggestion in the error page — "try clearing your cookies" — is a decent generic hint but is far from the only cause, and often not even the most common one. The browser stops following redirects after roughly 20 hops specifically to abort loops like this rather than hanging indefinitely; the exact cap is an implementation detail (Firefox and Safari use similar but not identical limits), but the underlying meaning is the same across browsers: it visited the same effective destination over and over with no terminating <code>200 OK</code> in sight.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>Site is behind <strong>Cloudflare/a CDN/reverse proxy</strong> and just moved to HTTPS? &rarr; <a href="#fix1">Fix 1 (SSL mode mismatch)</a></li>
+                    <li>Only fails <strong>while logged in</strong>, works in incognito? &rarr; <a href="#fix2">Fix 2 (cookie/session loop)</a></li>
+                    <li>Your <strong>own app's login/auth flow</strong> loops? &rarr; <a href="#fix3">Fix 3 (auth middleware bug)</a></li>
+                    <li>A <strong>WordPress or CMS</strong> site, especially after a domain/URL change? &rarr; <a href="#fix4">Fix 4 (siteurl mismatch)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; SSL/proxy mode mismatch (the most common cause by far)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the site is fronted by Cloudflare, another CDN, or an nginx/Apache reverse proxy, and this started right after enabling or changing HTTPS.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># trace exactly what each hop is doing:
+curl -IL https://example.com/
+# look for a repeating pattern like:
+#   HTTP/2 301 → location: https://example.com/
+#   HTTP/2 301 → location: https://example.com/   (same URL again — this is the loop)
+
+# on the origin server (nginx example) — a forced-HTTPS redirect that
+# fires even when the connection already arrived as HTTPS from the proxy:
+server {
+    listen 80;
+    return 301 https://$host$request_uri;   # fine on its own —
+}                                            # but if Cloudflare's "Flexible"
+                                             # mode talks to this origin over
+                                             # port 80 regardless, this fires
+                                             # every single time and loops</code></pre>
+            </div>
+            <p>Cloudflare's "Flexible" SSL mode terminates HTTPS at Cloudflare's edge and then connects to your origin server over <em>plain HTTP</em>, regardless of what the visitor's browser used. If your origin also has a rule that redirects any HTTP request to HTTPS (a very standard, otherwise-correct security practice), the two configurations fight each other: origin says "this came in as HTTP, redirect to HTTPS," Cloudflare serves that redirect back to the browser over HTTPS, the browser requests again, Cloudflare — still in Flexible mode — forwards to the origin over HTTP again, and the origin redirects again. Neither side is lying or misconfigured in isolation; the loop is an emergent property of two independently reasonable rules that assume the opposite thing about what protocol the other side is using. Switching Cloudflare to "Full" or "Full (strict)" tells it to also speak HTTPS to the origin, which breaks the cycle immediately.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; corrupted or oversized session cookie</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the site loads fine in a fresh incognito window but loops only in your regular profile, or only once logged in.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># quick isolation test — does an incognito window (no cookies) work?
+# Chrome: Ctrl+Shift+N (Cmd+Shift+N on macOS), then load the same URL
+
+# if incognito works, clear just this site's storage:
+# click the padlock in the address bar → Cookies and site data → Delete</code></pre>
+            </div>
+            <p>Some auth systems store a session token or a serialized user-state blob in a cookie, and treat any cookie value that fails to parse or verify as "not logged in" rather than "malformed" — issuing a login redirect. If the login flow then re-sets the very same broken cookie (or a middleware re-attaches it from a stale value before the response is sent), every subsequent request repeats the same failed check, producing a loop that looks identical to a server misconfiguration but is entirely client-side state. This is also common after a cookie grows past a server's header-size limit (nginx defaults to 4-8KB for request headers) — the server rejects the oversized request outright, the client/proxy's error handling turns that into another redirect, and the cycle continues.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; your own auth middleware redirects into itself</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> you wrote the authentication logic (Express middleware, Next.js middleware, a framework's route guard) and the loop is reproducible for every unauthenticated visitor.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ the matcher includes /login itself, so the login page
+//    also gets redirected to /login, forever:
+export const config = { matcher: ["/((?!_next|favicon.ico).*)"] };
+
+export function middleware(req) {
+  const isAuthed = Boolean(req.cookies.get("session"));
+  if (!isAuthed) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+}
+
+// ✅ explicitly exclude the login route (and any public routes)
+//    from the protected matcher:
+export const config = {
+  matcher: ["/((?!_next|favicon.ico|login|api/auth).*)"],
+};</code></pre>
+            </div>
+            <p>This is a textbook off-by-one in route protection: the middleware's matcher pattern is written broadly (often deliberately, to catch every route by default) and the developer forgets that the redirect *target* also needs to be carved out of that same pattern. Without the exclusion, an unauthenticated visit to any protected route redirects to <code>/login</code>, which itself matches the "protected route" pattern, fails the same auth check, and redirects to <code>/login</code> again — a self-inflicted loop that has nothing to do with the browser, cookies, or any upstream proxy at all. The fix is always to make the set of publicly-accessible routes (login, signup, password reset, static assets) an explicit exception to whatever pattern drives the redirect.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; WordPress/CMS siteurl mismatch after a domain or protocol change</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a WordPress (or similar CMS) site started looping right after migrating domains, moving to HTTPS, or restoring a database backup.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- check what WordPress itself believes its own URL is:
+SELECT option_name, option_value FROM wp_options
+WHERE option_name IN ('siteurl', 'home');
+
+-- if either still points at the old http:// or old domain, update both:
+UPDATE wp_options SET option_value = 'https://example.com' WHERE option_name = 'siteurl';
+UPDATE wp_options SET option_value = 'https://example.com' WHERE option_name = 'home';</code></pre>
+            </div>
+            <p>WordPress stores its own canonical base URL in the database (not just in server config), and uses it to build the redirects behind its own "force HTTPS" or canonical-domain features. If a database backup gets restored onto a new domain, or HTTPS is enabled at the server level without updating these two rows, WordPress redirects every request toward the URL it still thinks is canonical — which, if that URL now itself triggers a further redirect (e.g. the server also force-redirects http→https and the stored value is still http), produces exactly this loop. This is a distinct failure mode from the proxy-mismatch case in Fix 1: here the loop originates entirely from application-layer configuration stored in the database, not from any proxy/origin protocol disagreement.</p>
+
+            <h2>Why this happens: redirects have no memory of their own history</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 288" role="img" aria-label="Diagram of the Cloudflare Flexible-SSL redirect loop: the browser reaches Cloudflare over HTTPS, Cloudflare reaches the origin over plain HTTP, the origin keeps redirecting HTTP to HTTPS, and the cycle repeats until the browser aborts with ERR_TOO_MANY_REDIRECTS.">
+                    <defs>
+                        <marker id="rd-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="rd-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <path class="dg-ln-dash" d="M100,86 C100,34 500,34 500,86" marker-end="url(#rd-a)"/>
+                    <text class="dg-s" x="300" y="28" text-anchor="middle">the loop repeats until the browser gives up</text>
+                    <rect class="dg-box" x="30" y="88" width="140" height="56" rx="8"/>
+                    <text class="dg-m" x="100" y="112" text-anchor="middle">Browser</text>
+                    <text class="dg-s" x="100" y="130" text-anchor="middle">(you)</text>
+                    <rect class="dg-box" x="230" y="88" width="140" height="56" rx="8"/>
+                    <text class="dg-m" x="300" y="112" text-anchor="middle">Cloudflare</text>
+                    <text class="dg-s" x="300" y="130" text-anchor="middle">edge &middot; Flexible SSL</text>
+                    <rect class="dg-box" x="430" y="88" width="140" height="56" rx="8"/>
+                    <text class="dg-m" x="500" y="112" text-anchor="middle">Origin</text>
+                    <text class="dg-s" x="500" y="130" text-anchor="middle">server</text>
+                    <line class="dg-ln" x1="170" y1="108" x2="228" y2="108" marker-end="url(#rd-a)"/>
+                    <text class="dg-s" x="199" y="101" text-anchor="middle">HTTPS</text>
+                    <line class="dg-ln" x1="370" y1="108" x2="428" y2="108" marker-end="url(#rd-a)"/>
+                    <text class="dg-s" x="399" y="101" text-anchor="middle">HTTP</text>
+                    <line class="dg-ln" x1="428" y1="128" x2="372" y2="128" marker-end="url(#rd-a)"/>
+                    <text class="dg-s" x="399" y="142" text-anchor="middle">301 &rarr; https</text>
+                    <line class="dg-ln" x1="228" y1="128" x2="172" y2="128" marker-end="url(#rd-a)"/>
+                    <text class="dg-s" x="199" y="142" text-anchor="middle">301 &rarr; https</text>
+                    <line class="dg-ln-bad" x1="300" y1="144" x2="300" y2="204" marker-end="url(#rd-bad)"/>
+                    <text class="dg-s" x="312" y="176" text-anchor="start">~20 hops, then aborts</text>
+                    <rect class="dg-box-bad" x="190" y="206" width="220" height="52" rx="8"/>
+                    <text class="dg-m dg-bad" x="300" y="229" text-anchor="middle">ERR_TOO_MANY_REDIRECTS</text>
+                    <text class="dg-s" x="300" y="246" text-anchor="middle">no terminating 200 response</text>
+                </svg>
+                <p class="dg-cap">Neither side is wrong alone &mdash; they disagree about which protocol the origin is actually reached on. Switching Cloudflare to Full / Full (strict) breaks the cycle.</p>
+            </div>
+            <p>HTTP redirects are stateless by design — each 3xx response is just an instruction ("go fetch this other URL instead"), and the server issuing it has no built-in mechanism to know that the browser has already been sent in a circle. The browser is the only party positioned to detect a loop, and it does so heuristically: by tracking the sequence of URLs (or, more precisely, request signatures) it has followed in the current navigation and aborting once that sequence exceeds a hard cap, rather than by understanding *why* the loop is happening. This is why the fix is never on the browser side — the browser is correctly reporting a real, infinite server-side (or proxy-side) redirect chain, and the actual defect always lives in whichever layer is issuing a redirect based on incomplete or contradictory information: a proxy that doesn't know what protocol its origin actually wants, a cookie that fails validation in a way that re-triggers the same redirect, or a route matcher that fails to exclude its own destination.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Symptom</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>started right after enabling HTTPS/CDN</td><td>proxy talks HTTP to origin, origin forces HTTPS</td><td>set proxy to Full/Full(strict) SSL mode</td></tr>
+                    <tr><td>works in incognito, loops in normal profile</td><td>corrupted/oversized session cookie</td><td>clear site-scoped cookies</td></tr>
+                    <tr><td>every unauthenticated visit loops</td><td>auth middleware redirects into its own protected pattern</td><td>exclude login/public routes from the matcher</td></tr>
+                    <tr><td>WordPress site after migration/backup restore</td><td>stale <code>siteurl</code>/<code>home</code> option values</td><td>update both rows in <code>wp_options</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; DevTools Network tab, "Disable cache" checked, reload — read the actual chain of status codes and <code>Location</code> headers</li>
+                <li>&#10003; Test the same URL in a fresh incognito window to isolate cookie-state causes</li>
+                <li>&#10003; Behind Cloudflare/a proxy? Check the SSL/TLS mode against what the origin actually expects</li>
+                <li>&#10003; Your own middleware? Confirm the login/public routes are excluded from the protected-route matcher</li>
+                <li>&#10003; WordPress/CMS? Check <code>siteurl</code>/<code>home</code> (or the framework's equivalent) against the actual current domain and protocol</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does net::ERR_TOO_MANY_REDIRECTS mean?</summary>
+                    <p>The browser followed a chain of HTTP redirect responses (301, 302, 303, 307, 308) that kept pointing back to a URL it had already visited, without ever reaching a page that returns 200. Browsers cap the number of redirects they'll follow (Chrome stops at around 20) specifically to detect and abort these loops rather than hanging forever.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen right after enabling HTTPS or putting a site behind Cloudflare?</summary>
+                    <p>This is the single most common cause: the origin server redirects HTTP to HTTPS, but the reverse proxy or CDN in front of it (frequently Cloudflare in "Flexible" SSL mode) talks to the origin over plain HTTP. The origin sees an HTTP request, issues its HTTPS redirect, the proxy serves that redirect back over HTTPS to the browser, the browser requests again, the proxy forwards it to the origin over HTTP again &mdash; and the loop repeats indefinitely because neither side is aware of what protocol the other end is actually using.</p>
+                </details>
+                <details>
+                    <summary>Can browser cookies cause a redirect loop?</summary>
+                    <p>Yes. A stale, corrupted, or oversized cookie tied to a login/session system can cause the server to treat every single request as unauthenticated &mdash; issuing a login redirect, receiving the request again with the same broken cookie attached, and redirecting to login again forever. This is diagnosable by testing the same URL in a fresh incognito/private window with no cookies at all.</p>
+                </details>
+                <details>
+                    <summary>How do I see the actual chain of redirects, not just the final error?</summary>
+                    <p>Open DevTools Network tab, check "Disable cache", reload, and look at the sequence of requests to the same-looking URL &mdash; each row shows its status code (301/302/etc.) and its <code>Location</code> response header, letting you see exactly where each hop is being sent before the browser gives up.</p>
+                </details>
+                <details>
+                    <summary>Why would my own Express/Next.js auth middleware cause an infinite redirect?</summary>
+                    <p>A common bug is an authentication check that redirects unauthenticated users to a login page, but the login page itself is inside the same route group the middleware protects &mdash; so the redirect target also fails the auth check and gets redirected again, forever. The fix is always to explicitly exclude the login/auth routes themselves from the protected-route matcher.</p>
+                </details>
+                <details>
+                    <summary>Does clearing cookies for just one site actually fix it, or do I need to clear everything?</summary>
+                    <p>Site-scoped clearing is sufficient and preferable &mdash; in Chrome, click the padlock/info icon in the address bar &rarr; Cookies and site data &rarr; Delete, or use <code>chrome://settings/content/all?searchSubtext=&lt;domain&gt;</code> to remove storage for exactly that origin without wiping cookies for every other site you're logged into.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More network &amp; server errors</h3>
+                <p>Browse the full reference for network, redirect, and server-configuration errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="net-err-cert-authority-invalid.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">net::ERR_CERT_AUTHORITY_INVALID</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="net-err-ssl-protocol-error.html">net::ERR_SSL_PROTOCOL_ERROR</a></li>
+                <li><a href="net-err-cert-authority-invalid.html">net::ERR_CERT_AUTHORITY_INVALID</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="net::ERR_INTERNET_DISCONNECTED — a fix-first playbook for when Chrome's own network-state detector is wrong: captive portals, VPN adapter conflicts, IPv6-only routes, and flaky Wi-Fi drivers.">
+    <meta name="keywords" content="ERR_INTERNET_DISCONNECTED, net::ERR_INTERNET_DISCONNECTED, no internet chrome error, internet disconnected but wifi works, captive portal error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/net-err-internet-disconnected.html">
+    <meta property="og:title" content="net::ERR_INTERNET_DISCONNECTED — Fix">
+    <meta property="og:description" content="Chrome thinks you have no network connection even though other apps work fine. A fix-first playbook for captive portals, VPN adapter conflicts, IPv6-only routing gaps, and OS network-state detection bugs.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/net-err-internet-disconnected.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>net::ERR_INTERNET_DISCONNECTED — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ERR_INTERNET_DISCONNECTED", "item": "https://jsondevtools.org/errors/net-err-internet-disconnected.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "net::ERR_INTERNET_DISCONNECTED — Cause and Fix",
+  "description": "Chrome's OS-level network-state check disagrees with what other applications on the same machine can see. This playbook covers captive portals, VPN adapter conflicts, IPv6-only routing, and driver-level flakiness.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does net::ERR_INTERNET_DISCONNECTED mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Chrome (and Chromium-based browsers) query the operating system for its current network connectivity state before even attempting a request, and this error fires when that OS-level check reports no active connection. Crucially, this is a query about the OS's own belief about connectivity, not a live probe of the specific site you're trying to reach — which is why it can fire even while other applications on the same machine are transferring data successfully." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen even though Wi-Fi shows as connected and other apps work fine?",
+      "acceptedAnswer": { "@type": "Answer", "text": "This is the most confusing and most common variant. It usually means the OS's network-state API and the actual working connection have desynchronized — often caused by a VPN client that partially reconfigures network adapters without fully registering the change, a Wi-Fi driver that reports a stale link-state to the OS, or (on Windows specifically) the Network Location Awareness service caching an outdated connectivity profile. Toggling airplane mode off/on, or disabling/re-enabling the network adapter, forces the OS to re-evaluate and usually resyncs the two." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a captive portal (hotel/airport Wi-Fi) cause this specific error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. A captive portal intercepts all traffic and redirects it to a login/terms page until you authenticate, but some captive portal implementations respond in ways that don't match what Chrome's connectivity probe expects, causing Chrome to conclude there's no real internet access at all rather than showing the portal. Opening a plain, unencrypted HTTP page (not HTTPS) directly is the standard workaround, since portals typically can't intercept and redirect HTTPS traffic without triggering a certificate warning instead." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why would a VPN client cause this error specifically?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Many VPN clients work by creating a virtual network adapter and rewriting the system's routing table to send some or all traffic through it. If the VPN client crashes, disconnects uncleanly, or fails to fully tear down its routing changes, the OS can be left in a state where its default route points at a now-nonexistent adapter — the OS correctly reports 'no route to reach anything,' and Chrome surfaces that as a disconnected-internet error even though the physical Wi-Fi/Ethernet connection itself is completely fine." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does IPv6 misconfiguration ever cause this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, in a specific and often-overlooked way: if the OS reports IPv6 connectivity as available (an IPv6 address was assigned via router advertisement) but the actual upstream network doesn't route IPv6 traffic anywhere, connectivity checks that specifically probe over IPv6 can fail while IPv4 works perfectly — and depending on which check Chrome/the OS relies on at that moment, this can surface as a disconnected state rather than a same-site connection problem." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is this ever a Chrome-specific bug rather than an actual OS/network issue?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Occasionally, yes — Chrome caches its own belief about connectivity state internally and doesn't always re-check the OS as promptly as it should after a network change. If disabling/re-enabling the adapter and confirming other applications work doesn't resolve it, fully quitting and relaunching Chrome (not just closing the window) forces it to re-query connectivity state from scratch." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ERR_INTERNET_DISCONNECTED</span>
+            </nav>
+            <h1>net::ERR_INTERNET_DISCONNECTED</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">If <strong>other apps are online</strong> but Chrome insists you're not, this is almost always a stale OS-level connectivity flag, not a real outage. Toggle the network adapter off and back on (or airplane mode on/off) to force the OS to re-evaluate:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Windows — quick adapter reset from an elevated PowerShell prompt:
+Disable-NetAdapter -Name "Wi-Fi" -Confirm:$false
+Enable-NetAdapter -Name "Wi-Fi" -Confirm:$false</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>No internet
+There is something wrong with the proxy server, or the address is incorrect.
+ERR_INTERNET_DISCONNECTED</code></pre>
+            </div>
+            <p>This error is unusual among Chrome's network errors because it's not actually about the specific site you tried to reach at all. Before Chrome even attempts to resolve DNS or open a socket to a destination, it asks the operating system a much more basic question: "do you currently believe you have any network connectivity?" This error means the OS answered "no" — which is why it appears identically for every single site you try, and why the fix is almost never anything to do with the site itself.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>Other apps (Slack, a native app, another browser) <strong>work fine</strong>? &rarr; <a href="#fix1">Fix 1 (stale OS connectivity flag)</a></li>
+                    <li>On <strong>hotel/airport/cafe Wi-Fi</strong>, just connected? &rarr; <a href="#fix2">Fix 2 (captive portal)</a></li>
+                    <li>Running a <strong>VPN client</strong>, especially one that crashed or disconnected oddly? &rarr; <a href="#fix3">Fix 3 (VPN adapter/routing table)</a></li>
+                    <li>Started after a <strong>router/ISP change</strong>, IPv6 involved? &rarr; <a href="#fix4">Fix 4 (broken IPv6 route)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; stale OS-level connectivity state (the most common cause)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> other applications on the same machine are clearly online, but every site in Chrome fails identically.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Windows — reset the adapter (elevated PowerShell):
+Disable-NetAdapter -Name "Wi-Fi" -Confirm:$false; Start-Sleep 2
+Enable-NetAdapter -Name "Wi-Fi" -Confirm:$false
+
+# macOS — toggle via networksetup:
+networksetup -setairportpower en0 off && sleep 2 && networksetup -setairportpower en0 on
+
+# Linux (NetworkManager):
+nmcli radio wifi off && sleep 2 && nmcli radio wifi on
+
+# last resort: fully quit Chrome (not just close the window) and relaunch,
+# forcing it to re-query connectivity state from scratch</code></pre>
+            </div>
+            <p>Operating systems maintain their own internal, cached belief about network connectivity — on Windows this is the Network Location Awareness (NLA) service; macOS and Linux have their own equivalents — and applications like Chrome query that cached state rather than performing a live check on every single request, for performance reasons. That cache can desync from reality: a Wi-Fi driver reporting a stale link-up/link-down event, a VPN client partially reconfiguring adapters without the OS's connectivity monitor noticing, or simply a race condition during a network transition (waking from sleep, switching Wi-Fi networks). Forcing the adapter through a full disable/enable cycle (or toggling airplane mode) makes the OS re-evaluate its connectivity state from scratch, which resolves the desync in the overwhelming majority of cases without touching any actual network configuration.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; a captive portal Chrome doesn't recognize correctly</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> you just joined public Wi-Fi (hotel, airport, cafe, conference) and haven't seen a login/terms page yet.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># try a plain, unencrypted HTTP address directly — portals typically
+# can't intercept HTTPS without triggering a cert warning, but they
+# rewrite HTTP freely:
+http://neverssl.com/
+http://example.com/</code></pre>
+            </div>
+            <p>Captive portals work by intercepting all outgoing traffic at the network gateway and substituting their own login/terms page until you authenticate — a deliberate man-in-the-middle-style redirect that's normally invisible to the user because most operating systems run their own captive-portal detection probe and pop the login page up automatically. When that detection probe's specific request format or expected response doesn't match what the portal is prepared to intercept correctly, the OS can conclude there's no usable network at all rather than surfacing the portal, and Chrome inherits that incorrect conclusion. Navigating directly to a plain HTTP address (never HTTPS, which most portals can't rewrite without breaking certificate validation and causing a much more visible warning) reliably surfaces the actual login page.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; a VPN client left the routing table broken</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a VPN client is running, was recently disconnected, or crashed unexpectedly.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Windows — inspect the current default route:
+route print -4
+# look for a default route (0.0.0.0) still pointing at a VPN's virtual
+# adapter that no longer has a live connection behind it
+
+# fully quit the VPN client (not just "disconnect" in its UI, which
+# sometimes leaves routes behind) and check again:
+route print -4</code></pre>
+            </div>
+            <p>VPN clients commonly work by installing a virtual network adapter (a TAP/TUN-style device) and modifying the system's routing table so that some or all outbound traffic is directed through that adapter instead of the physical one. This is normal and expected while connected — the problem arises when the client terminates uncleanly (a crash, a forced process kill, an unexpected network change it didn't handle gracefully) and leaves the routing table pointing at a virtual adapter that no longer has any live tunnel behind it. The OS, quite correctly, reports that it has no working route to reach the internet, because as far as its routing table is concerned, that's true — the physical Wi-Fi or Ethernet connection is irrelevant if the default route doesn't point at it anymore.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; IPv6 assigned but not actually routed</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> this started after a router firmware update, an ISP change, or joining a network you don't administer yourself.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># check whether you actually have working IPv6, not just an assigned address:
+curl -6 -v https://ipv6.google.com/   # should succeed if IPv6 truly works
+ping -6 2001:4860:4860::8888          # Google's public IPv6 DNS, as a raw reachability test
+
+# if these hang/fail while IPv4 works fine, disable IPv6 on the adapter
+# as a pragmatic workaround (Windows, elevated PowerShell):
+Disable-NetAdapterBinding -Name "Wi-Fi" -ComponentID ms_tcpip6</code></pre>
+            </div>
+            <p>A router can hand out a valid, globally-routable-looking IPv6 address via router advertisement (SLAAC) even when the upstream ISP link doesn't actually forward IPv6 traffic anywhere — a common half-finished IPv6 rollout scenario. The OS sees a valid IPv6 address and default route and considers itself "connected" over IPv6, but every packet sent that way disappears into a dead end. Depending on which network path a given connectivity check happens to use at that moment, this half-broken state can surface inconsistently — sometimes as a same-site connection failure, sometimes (particularly if the OS-level connectivity probe itself uses IPv6) as this broader disconnected-internet report. Disabling IPv6 on the affected adapter is a blunt but reliable workaround until the network's IPv6 configuration is actually fixed upstream.</p>
+
+            <h2>Why this happens: a connectivity check is a proxy, not a guarantee</h2>
+            <p>The deeper reason this error is so often misleading is that "internet connectivity" isn't a single boolean fact the OS can query directly — it's inferred from a handful of heuristics (interface link state, presence of a default route, and often a lightweight HTTP probe to a known-good endpoint) that are each individually fallible. Chrome trusts the OS's answer rather than re-deriving connectivity itself on every request, which is the right performance trade-off almost all the time, but means that whenever one of those underlying heuristics is wrong — a stale link-state flag, a dangling route left by a crashed VPN, a captive portal's probe response not matching expectations, a half-configured IPv6 rollout — the error surfaces as a blanket "no internet" rather than anything specific enough to point at the real cause. That's exactly why the useful diagnostic step is always the same: check whether *anything else* on the machine can actually reach the network, since that single comparison instantly tells you whether to trust Chrome's report or treat it as a stale/incorrect signal.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>other apps work, only Chrome fails</td><td>stale OS network-state cache</td><td>toggle adapter/airplane mode, relaunch Chrome</td></tr>
+                    <tr><td>public Wi-Fi, just connected</td><td>captive portal not detected correctly</td><td>navigate to a plain HTTP address directly</td></tr>
+                    <tr><td>VPN client crashed/disconnected oddly</td><td>default route still points at a dead virtual adapter</td><td>fully quit VPN client, verify routing table</td></tr>
+                    <tr><td>router/ISP change, IPv6 involved</td><td>IPv6 address assigned but not actually routed upstream</td><td>disable IPv6 on the adapter as a workaround</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Confirm whether another application on the same machine can actually reach the network</li>
+                <li>&#10003; Toggle the network adapter (or airplane mode) off/on to force an OS-level re-check</li>
+                <li>&#10003; On public Wi-Fi, try a plain <code>http://</code> address to surface a hidden captive portal</li>
+                <li>&#10003; Check <code>route print</code>/<code>ip route</code> for a default route pointing at a dead VPN adapter</li>
+                <li>&#10003; Test IPv6 specifically (<code>curl -6</code>) if this coincided with a router/ISP change</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does net::ERR_INTERNET_DISCONNECTED mean?</summary>
+                    <p>Chrome (and Chromium-based browsers) query the operating system for its current network connectivity state before even attempting a request, and this error fires when that OS-level check reports no active connection. Crucially, this is a query about the OS's own belief about connectivity, not a live probe of the specific site you're trying to reach &mdash; which is why it can fire even while other applications on the same machine are transferring data successfully.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen even though Wi-Fi shows as connected and other apps work fine?</summary>
+                    <p>This is the most confusing and most common variant. It usually means the OS's network-state API and the actual working connection have desynchronized &mdash; often caused by a VPN client that partially reconfigures network adapters without fully registering the change, a Wi-Fi driver that reports a stale link-state to the OS, or (on Windows specifically) the Network Location Awareness service caching an outdated connectivity profile. Toggling airplane mode off/on, or disabling/re-enabling the network adapter, forces the OS to re-evaluate and usually resyncs the two.</p>
+                </details>
+                <details>
+                    <summary>Can a captive portal (hotel/airport Wi-Fi) cause this specific error?</summary>
+                    <p>Yes. A captive portal intercepts all traffic and redirects it to a login/terms page until you authenticate, but some captive portal implementations respond in ways that don't match what Chrome's connectivity probe expects, causing Chrome to conclude there's no real internet access at all rather than showing the portal. Opening a plain, unencrypted HTTP page (not HTTPS) directly is the standard workaround, since portals typically can't intercept and redirect HTTPS traffic without triggering a certificate warning instead.</p>
+                </details>
+                <details>
+                    <summary>Why would a VPN client cause this error specifically?</summary>
+                    <p>Many VPN clients work by creating a virtual network adapter and rewriting the system's routing table to send some or all traffic through it. If the VPN client crashes, disconnects uncleanly, or fails to fully tear down its routing changes, the OS can be left in a state where its default route points at a now-nonexistent adapter &mdash; the OS correctly reports "no route to reach anything," and Chrome surfaces that as a disconnected-internet error even though the physical Wi-Fi/Ethernet connection itself is completely fine.</p>
+                </details>
+                <details>
+                    <summary>Does IPv6 misconfiguration ever cause this?</summary>
+                    <p>Yes, in a specific and often-overlooked way: if the OS reports IPv6 connectivity as available (an IPv6 address was assigned via router advertisement) but the actual upstream network doesn't route IPv6 traffic anywhere, connectivity checks that specifically probe over IPv6 can fail while IPv4 works perfectly &mdash; and depending on which check Chrome/the OS relies on at that moment, this can surface as a disconnected state rather than a same-site connection problem.</p>
+                </details>
+                <details>
+                    <summary>Is this ever a Chrome-specific bug rather than an actual OS/network issue?</summary>
+                    <p>Occasionally, yes &mdash; Chrome caches its own belief about connectivity state internally and doesn't always re-check the OS as promptly as it should after a network change. If disabling/re-enabling the adapter and confirming other applications work doesn't resolve it, fully quitting and relaunching Chrome (not just closing the window) forces it to re-query connectivity state from scratch.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More network errors</h3>
+                <p>Browse the full reference for network, connectivity, and browser errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="net-err-connection-timed-out.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">net::ERR_CONNECTION_TIMED_OUT</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="net-err-connection-timed-out.html">net::ERR_CONNECTION_TIMED_OUT</a></li>
+                <li><a href="net-err-blocked-by-client.html">net::ERR_BLOCKED_BY_CLIENT</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

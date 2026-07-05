@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="net::ERR_BLOCKED_BY_CLIENT — a fix-first playbook for ad-blocker false positives on analytics/ad-shaped request URLs, browser extension interference, and corporate content-filter blocking, with the exact way to prove it's a blocker.">
+    <meta name="keywords" content="ERR_BLOCKED_BY_CLIENT, net::ERR_BLOCKED_BY_CLIENT, ad blocker blocking my own site, adblock false positive fix, request blocked by client">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/net-err-blocked-by-client.html">
+    <meta property="og:title" content="net::ERR_BLOCKED_BY_CLIENT — Fix">
+    <meta property="og:description" content="A request never left the browser at all — it was blocked locally. A fix-first playbook for ad-blocker filter-list false positives, interfering extensions, and corporate content filters.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/net-err-blocked-by-client.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>net::ERR_BLOCKED_BY_CLIENT — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ERR_BLOCKED_BY_CLIENT", "item": "https://jsondevtools.org/errors/net-err-blocked-by-client.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "net::ERR_BLOCKED_BY_CLIENT — Cause and Fix",
+  "description": "The request never reached the network at all — something running in the browser itself blocked it before it was sent. This playbook covers ad-blocker filter-list false positives, interfering extensions, and corporate content filters.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does net::ERR_BLOCKED_BY_CLIENT mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The request was intercepted and cancelled inside the browser itself — by an extension, an ad blocker, or a browser policy — before it was ever sent over the network. This is fundamentally different from every other net:: error, which describe something that went wrong after a request left the machine; this one means the request never left at all." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why would an ad blocker block a request from my own website that has nothing to do with ads?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Ad blockers use community-maintained filter lists (EasyList, EasyPrivacy, and dozens of others) that match request URLs against text patterns, not against actual intent — a path or filename containing substrings like /ads/, /analytics/, /tracking/, pixel.gif, or even variable names like ad_id anywhere in the query string can trigger a filter rule even on a completely unrelated, first-party request. This is one of the most common causes of this error on legitimate sites and is effectively unavoidable without renaming the offending path." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I prove it's a browser extension and not my server?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Reload the exact same page in a fresh Incognito/Private window with extensions disabled (the default for Incognito unless the user has explicitly allowed an extension to run there), or temporarily disable ad blockers/extensions one at a time in a normal window. If the request succeeds with extensions off, the block is definitively client-side, and no amount of server-side debugging will find anything wrong, because there is nothing wrong on the server." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a corporate firewall or content filter cause this same error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — some corporate network security products (DNS-based content filters, browser-management policies, endpoint security agents) inject themselves at the browser or OS level and cancel matching requests the same way an extension would, producing an identical ERR_BLOCKED_BY_CLIENT rather than a network-level rejection. This is diagnosable by testing on a personal device/network outside the corporate environment." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I rename my analytics/tracking endpoint to work around ad blockers?",
+      "acceptedAnswer": { "@type": "Answer", "text": "For first-party analytics you control, yes — this is a standard, widely used mitigation: serving the endpoint from a path and filename that doesn't match common filter-list patterns (avoiding /analytics/, /track/, /pixel, /ads/ in the URL) meaningfully reduces false-positive blocking, though it's a mitigation, not a guarantee, since filter lists are updated continuously and may add new patterns." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this error mean the user's ad blocker is broken?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No — from the ad blocker's perspective it's working exactly as designed: it matched a URL against its filter list and blocked it. The 'false positive' framing only applies from the site owner's perspective, when the blocked request was actually a legitimate, non-advertising resource the visitor would have wanted to load." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ERR_BLOCKED_BY_CLIENT</span>
+            </nav>
+            <h1>net::ERR_BLOCKED_BY_CLIENT</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">The request <strong>never reached the network</strong> — something in the browser blocked it locally. Reload in a fresh Incognito window (extensions off by default) to confirm instantly:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Chrome: Ctrl+Shift+N (Cmd+Shift+N on macOS)
+// reload the same page — if the request now succeeds, an
+// extension/ad-blocker was the cause, not your server</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Failed to load resource: net::ERR_BLOCKED_BY_CLIENT
+
+// often accompanied by a fetch() rejection in your own code:
+Uncaught (in promise) TypeError: Failed to fetch</code></pre>
+            </div>
+            <p>This is the one <code>net::</code> error in the entire family that doesn't describe a network condition at all. Every other error covered in this reference &mdash; timeouts, refused connections, certificate failures, redirect loops &mdash; describes something that happened to a request <em>after</em> it left the browser. <code>ERR_BLOCKED_BY_CLIENT</code> means the opposite: the request was intercepted and cancelled inside the browser process itself, before a single packet was sent. Nothing about your server, your DNS, or your network is relevant to this error at all &mdash; the cause is entirely local to the visitor's browser.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>URL path contains <strong>ads/analytics/tracking-shaped words</strong>? &rarr; <a href="#fix1">Fix 1 (filter-list false positive)</a></li>
+                    <li>Fails for <strong>you specifically</strong>, not other visitors? &rarr; <a href="#fix2">Fix 2 (your own extensions)</a></li>
+                    <li>Only on a <strong>work/school network or managed device</strong>? &rarr; <a href="#fix3">Fix 3 (corporate content filter)</a></li>
+                    <li>It's <strong>your own analytics/tracking pixel</strong> being blocked? &rarr; <a href="#fix4">Fix 4 (rename the endpoint)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; ad-blocker filter-list false positive (the most common cause)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the blocked URL's path, filename, or query string contains words that merely look ad/tracking-related.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// these are all real filter-list trigger patterns from EasyList/
+// EasyPrivacy — none of them require actual advertising intent:
+/analytics/collect
+/track?event=click
+/pixel.gif
+/ads/config.json          // even config/metadata paths get caught
+?ad_campaign=summer        // query params alone can trigger a rule
+
+// check exactly which filter rule matched — Chrome DevTools:
+// Network tab → click the failed request → "Blocked by" column,
+// or uBlock Origin's own logger (uBO icon → "Show all" → the entry
+// shows the specific filter list + rule text that matched)</code></pre>
+            </div>
+            <p>Ad blockers don't understand the semantic purpose of a request — they match its URL (and sometimes response headers) against enormous, community-maintained text-pattern filter lists like EasyList and EasyPrivacy, which are optimized for broad coverage of known ad/tracking networks rather than precision on arbitrary first-party sites. A path segment, filename, or even a query-string key that merely resembles an advertising or analytics convention (<code>ads</code>, <code>track</code>, <code>pixel</code>, <code>analytics</code>, <code>banner</code>) can match a rule regardless of what the endpoint actually does. This is why a completely legitimate, first-party API endpoint or asset can get blocked purely because of what it happens to be named — the filter list has no way to know your <code>/api/track-order-status</code> endpoint has nothing to do with advertising.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; isolate which extension is responsible</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the problem only happens in your own browser profile, not for other people testing the same site.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Chrome: chrome://extensions → toggle each ad-blocker/privacy
+// extension off one at a time, reloading the page after each toggle,
+// until the request succeeds — that's the responsible extension
+
+// or disable all extensions at once as a faster first check:
+chrome://extensions → toggle the top-level "Developer mode" aside,
+// or simply flip each extension's switch off</code></pre>
+            </div>
+            <p>Beyond dedicated ad blockers, a surprising range of extension categories intercept and cancel requests as part of their normal function: privacy/tracker blockers, "focus mode" productivity extensions, some password managers' form-protection features, and corporate endpoint-security browser extensions can all trigger this identical error. Because Incognito mode disables extensions by default (unless the user has explicitly opted an extension in for Incognito use), testing there is the fastest single elimination step; going further to identify exactly *which* extension requires the one-at-a-time toggle approach, since multiple installed extensions can each independently match and block the same request.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; a managed/corporate device's content filter</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the failure only reproduces on a work or school network, or a company-managed laptop, and not on a personal device/network.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># confirm it's environment-specific — test the same URL from a
+# personal device on a different network entirely (mobile hotspot):
+curl -v https://example.com/analytics/collect
+# if this succeeds from outside the corporate network/device, the
+# block is enforced by that organization's policy, not your server</code></pre>
+            </div>
+            <p>Enterprise environments frequently deploy browser-management policies, endpoint security agents, or DNS-based content filters (Cisco Umbrella, corporate proxy extensions, mobile device management profiles) that inject blocking behavior at the same layer a browser extension would, and Chrome reports the result identically as <code>ERR_BLOCKED_BY_CLIENT</code> regardless of whether an ad blocker, a corporate policy, or an MDM-pushed extension caused it. There is no fix available from the website's side in this case — the resolution, if one is needed, belongs to whoever administers that network or device's security policy, and the most useful thing a site owner can do is confirm (via a personal device/network) that the site itself is not the problem.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; rename your own analytics/tracking endpoint</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> you control the endpoint being blocked and it's genuinely first-party analytics, not third-party advertising.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ triggers common filter-list patterns even for first-party use:
+fetch("/api/analytics/track", { method: "POST", body: payload });
+
+// ✅ a name that doesn't pattern-match common ad/tracking filter rules:
+fetch("/api/metrics/ingest", { method: "POST", body: payload });
+// same server-side logic, different path — meaningfully reduces
+// false-positive blocking without changing what the endpoint does</code></pre>
+            </div>
+            <p>Since filter lists match on URL text, not intent, a first-party endpoint that happens to be named with common tracking-adjacent words can be renamed to a functionally identical path that simply doesn't match known filter patterns. This is a standard, widely used mitigation (not a deception — the endpoint still does exactly what it did before) for legitimate product analytics, error reporting, or feature-usage telemetry that keeps getting caught in ad-blocker crossfire meant for third-party advertising networks. It's worth being explicit that this is harm reduction, not a permanent guarantee: filter lists are community-maintained and updated continuously, so a newly common word could eventually get caught again.</p>
+
+            <h2>Why this happens: the browser is enforcing someone else's policy, not reporting a fault</h2>
+            <p>It's worth framing this error correctly, because it's easy to instinctively debug it like every other network error — checking server logs, DNS, TLS configuration — none of which will show anything wrong, because nothing on those layers is actually broken. <code>ERR_BLOCKED_BY_CLIENT</code> exists specifically to represent a deliberate policy decision made *inside* the browser, on behalf of the user (an installed ad blocker), an organization (a managed device's security policy), or occasionally the browser vendor itself (a built-in tracking-protection feature). The request was correctly formed, the server would have handled it correctly, and the network path was fine — the browser simply chose, per its configured policy, not to send it. Recognizing this framing early saves significant debugging time: the fix is never in your server code or infrastructure, only in understanding and, where possible, working around the client-side policy that intercepted the request.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>URL path resembles ads/analytics/tracking</td><td>ad-blocker filter-list pattern match</td><td>confirm via Incognito; rename the endpoint if first-party</td></tr>
+                    <tr><td>fails for you, not other visitors</td><td>your own installed extension</td><td>disable extensions one at a time to isolate</td></tr>
+                    <tr><td>only on a work/school network or device</td><td>corporate content filter/MDM policy</td><td>no site-side fix; confirm via personal device/network</td></tr>
+                    <tr><td>it's your own analytics pixel</td><td>legitimate endpoint named like a tracker</td><td>rename to a non-pattern-matching path</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Reload in a fresh Incognito window to instantly confirm/rule out a client-side block</li>
+                <li>&#10003; Check DevTools Network tab's "Blocked by" column, or an ad blocker's own request logger, for the specific matched rule</li>
+                <li>&#10003; Disable extensions one at a time if it only fails in your own profile</li>
+                <li>&#10003; Test from a personal device/network if it only fails on a managed/corporate one</li>
+                <li>&#10003; If it's your own endpoint, consider whether its path/filename resembles common ad/tracking patterns</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does net::ERR_BLOCKED_BY_CLIENT mean?</summary>
+                    <p>The request was intercepted and cancelled inside the browser itself &mdash; by an extension, an ad blocker, or a browser policy &mdash; before it was ever sent over the network. This is fundamentally different from every other <code>net::</code> error, which describe something that went wrong after a request left the machine; this one means the request never left at all.</p>
+                </details>
+                <details>
+                    <summary>Why would an ad blocker block a request from my own website that has nothing to do with ads?</summary>
+                    <p>Ad blockers use community-maintained filter lists (EasyList, EasyPrivacy, and dozens of others) that match request URLs against text patterns, not against actual intent &mdash; a path or filename containing substrings like <code>/ads/</code>, <code>/analytics/</code>, <code>/tracking/</code>, <code>pixel.gif</code>, or even variable names like <code>ad_id</code> anywhere in the query string can trigger a filter rule even on a completely unrelated, first-party request. This is one of the most common causes of this error on legitimate sites and is effectively unavoidable without renaming the offending path.</p>
+                </details>
+                <details>
+                    <summary>How do I prove it's a browser extension and not my server?</summary>
+                    <p>Reload the exact same page in a fresh Incognito/Private window with extensions disabled (the default for Incognito unless the user has explicitly allowed an extension to run there), or temporarily disable ad blockers/extensions one at a time in a normal window. If the request succeeds with extensions off, the block is definitively client-side, and no amount of server-side debugging will find anything wrong, because there is nothing wrong on the server.</p>
+                </details>
+                <details>
+                    <summary>Can a corporate firewall or content filter cause this same error?</summary>
+                    <p>Yes &mdash; some corporate network security products (DNS-based content filters, browser-management policies, endpoint security agents) inject themselves at the browser or OS level and cancel matching requests the same way an extension would, producing an identical <code>ERR_BLOCKED_BY_CLIENT</code> rather than a network-level rejection. This is diagnosable by testing on a personal device/network outside the corporate environment.</p>
+                </details>
+                <details>
+                    <summary>Should I rename my analytics/tracking endpoint to work around ad blockers?</summary>
+                    <p>For first-party analytics you control, yes &mdash; this is a standard, widely used mitigation: serving the endpoint from a path and filename that doesn't match common filter-list patterns (avoiding <code>/analytics/</code>, <code>/track/</code>, <code>/pixel</code>, <code>/ads/</code> in the URL) meaningfully reduces false-positive blocking, though it's a mitigation, not a guarantee, since filter lists are updated continuously and may add new patterns.</p>
+                </details>
+                <details>
+                    <summary>Does this error mean the user's ad blocker is broken?</summary>
+                    <p>No &mdash; from the ad blocker's perspective it's working exactly as designed: it matched a URL against its filter list and blocked it. The "false positive" framing only applies from the site owner's perspective, when the blocked request was actually a legitimate, non-advertising resource the visitor would have wanted to load.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More network errors</h3>
+                <p>Browse the full reference for network, browser, and client-side blocking errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="failed-to-fetch.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">TypeError: Failed to fetch</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="net-err-internet-disconnected.html">net::ERR_INTERNET_DISCONNECTED</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="cors-preflight-does-not-pass-access-control-check.html">CORS: Preflight does not pass access control check</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

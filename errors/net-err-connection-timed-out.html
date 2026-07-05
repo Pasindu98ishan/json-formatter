@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="net::ERR_CONNECTION_TIMED_OUT — a fix-first playbook for firewall/security-group drops, DNS resolving to the wrong IP, an overloaded server, and dead keep-alive connections, with the exact commands to tell them apart.">
+    <meta name="keywords" content="ERR_CONNECTION_TIMED_OUT, net::ERR_CONNECTION_TIMED_OUT, connection timed out chrome, server took too long to respond, socket timeout fix">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/net-err-connection-timed-out.html">
+    <meta property="og:title" content="net::ERR_CONNECTION_TIMED_OUT — Fix">
+    <meta property="og:description" content="A fix-first playbook for connection timeouts: firewall/security-group silent drops, stale DNS, an overloaded backend, and dead long-lived connections.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/net-err-connection-timed-out.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>net::ERR_CONNECTION_TIMED_OUT — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ERR_CONNECTION_TIMED_OUT", "item": "https://jsondevtools.org/errors/net-err-connection-timed-out.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "net::ERR_CONNECTION_TIMED_OUT — Cause and Fix",
+  "description": "The browser gave up waiting for a TCP handshake or response after sending SYN packets into silence. This playbook covers firewall drops, DNS pointing at the wrong host, server overload, and dead keep-alive connections.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does net::ERR_CONNECTION_TIMED_OUT mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The browser attempted to open a TCP connection to the server's IP address and port and received no response at all within its timeout window — not a rejection, not a reset, just silence. This is meaningfully different from a 'connection refused' error, which means a response did arrive, just a negative one; a timeout means the packets went nowhere or the replies never came back." }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from net::ERR_CONNECTION_REFUSED?",
+      "acceptedAnswer": { "@type": "Answer", "text": "ERR_CONNECTION_REFUSED means the target host actively responded with a TCP RST packet — nothing is listening on that port, and the operating system's kernel rejected the connection immediately. ERR_CONNECTION_TIMED_OUT means no response came back at all, which almost always points to a firewall or security group silently dropping the packets rather than a service being absent, since an absent service usually produces an immediate refusal, not silence." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why would a cloud security group cause a silent timeout instead of an immediate rejection?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Most cloud firewalls (AWS security groups, GCP firewall rules, Azure NSGs) are configured in 'default deny' mode: traffic that doesn't match an explicit allow rule is dropped at the network layer with no reply packet sent back at all, as opposed to being actively rejected. From the client's perspective a dropped SYN packet and a completely dead server are indistinguishable — both look like silence — which is exactly why this error is so often mistaken for a server-down issue when it's actually a missing inbound rule." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can DNS cause a connection timeout even though the domain resolves?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — a domain resolving successfully only proves DNS returned *an* IP address, not that it's the *current, correct* one. A stale DNS cache entry (yours, your resolver's, or a CDN edge node's) can serve an old IP for a server that was decommissioned, migrated, or had its security group tightened, producing a timeout against an address that used to work perfectly." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I check if a port is actually reachable before touching any code?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Use a raw TCP-level tool rather than a browser or even curl, since curl retries and reports its own layer of errors: `nc -vz host port` (netcat) or `Test-NetConnection host -Port port` on Windows PowerShell attempts the bare TCP handshake and reports success/failure directly, isolating whether the problem is network reachability at all versus something at the HTTP layer." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can an overloaded server cause a timeout instead of just responding slowly?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — once a server's accept queue (the OS-level backlog of pending connections waiting for the application to call accept()) fills up completely, new SYN packets are dropped rather than queued, which looks identical to a firewall block from the client's side. This is common during a traffic spike or a slow-loris-style resource exhaustion, and is diagnosable by checking whether the timeout is intermittent and correlates with load rather than being constant." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ERR_CONNECTION_TIMED_OUT</span>
+            </nav>
+            <h1>net::ERR_CONNECTION_TIMED_OUT</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">Silence, not rejection: no response ever came back. If this is <strong>your own server on a cloud provider</strong>, the <strong>#1 cause</strong> is a missing inbound firewall/security-group rule for that port:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># raw TCP reachability check — bypasses HTTP entirely:
+nc -vz your-server-ip 443
+# Windows PowerShell equivalent:
+Test-NetConnection your-server-ip -Port 443</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>This site can't be reached
+example.com took too long to respond.
+ERR_CONNECTION_TIMED_OUT
+
+// or, for a background API call:
+Failed to load resource: net::ERR_CONNECTION_TIMED_OUT</code></pre>
+            </div>
+            <p>The word "timed out" is the important detail here, and it's worth distinguishing precisely from a rejection. When a server actively refuses a connection — nothing listening on the port — the operating system responds immediately with a TCP RST packet, and the browser reports <a href="net-err-blocked-by-client.html">a different, near-instant error</a>. A timeout means the client sent its SYN packet(s) and simply never got a reply of any kind within its wait window (commonly somewhere in the 60-180 second range depending on the OS/browser network stack) — the request went into silence, not rejection, and that distinction is the single most useful diagnostic signal you have.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>Your own <strong>cloud server</strong> (AWS/GCP/Azure/DigitalOcean)? &rarr; <a href="#fix1">Fix 1 (security group/firewall rule)</a></li>
+                    <li>Domain <strong>recently moved hosts</strong> or changed IP? &rarr; <a href="#fix2">Fix 2 (stale DNS)</a></li>
+                    <li>Intermittent, <strong>correlates with traffic spikes</strong>? &rarr; <a href="#fix3">Fix 3 (server overload)</a></li>
+                    <li>Fails only after the connection has been <strong>idle for a while</strong>? &rarr; <a href="#fix4">Fix 4 (dead keep-alive connection)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; missing inbound firewall/security-group rule</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> it's your own server, freshly provisioned, or you just changed which port the application listens on.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># confirm the app is actually listening locally, on the server itself:
+ss -tlnp | grep :443          # or: netstat -tlnp | grep :443
+
+# then confirm it's reachable from outside — run this from your own machine:
+nc -vz your-server-ip 443
+# "Connection timed out" here + "listening" above = a firewall is the gap
+
+# AWS CLI — check the security group actually allows this port inbound:
+aws ec2 describe-security-groups --group-ids sg-xxxxxxxx \
+  --query "SecurityGroups[0].IpPermissions"</code></pre>
+            </div>
+            <p>Cloud security groups and firewalls (AWS security groups, GCP firewall rules, Azure NSGs, or a plain <code>iptables</code>/<code>ufw</code> ruleset on the box itself) default to denying everything not explicitly allowed. Critically, this default-deny behavior is usually implemented as a silent packet drop rather than an active rejection — the incoming SYN packet is discarded at the network layer before it ever reaches the application, and no RST is sent back. From the client's point of view this is indistinguishable from the server being completely powered off; the only way to tell the difference is to check the firewall configuration directly, since the network-level symptom looks identical either way.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; stale DNS pointing at a dead or migrated IP</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the domain was recently moved to a new host/provider, or a server was decommissioned and replaced.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># see what your resolver currently returns:
+dig example.com +short
+nslookup example.com
+
+# compare against an authoritative, uncached source (Google's DNS-over-HTTPS):
+curl -s "https://dns.google/resolve?name=example.com&type=A"
+
+# if the two disagree, your local/ISP resolver is serving a cached,
+# outdated answer — flush it:
+ipconfig /flushdns          # Windows
+sudo systemd-resolve --flush-caches   # most modern Linux distros</code></pre>
+            </div>
+            <p>DNS resolution succeeding only proves that *an* IP address came back — it says nothing about whether that address is still correct. TTL-based caching means a resolver (yours, your ISP's, or even a CDN edge PoP) can continue serving an old answer for minutes to days after the authoritative record changed, especially if the previous record had a long TTL configured before the migration. The connection attempt then times out not because anything at the *new* server is broken, but because the client is faithfully trying to reach an address that no longer has anything listening — or worse, now belongs to an unrelated host with its own firewall silently dropping the unexpected traffic.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; the server's accept queue is full (overload)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the timeout is intermittent, worse under load, and the server is otherwise reachable at quieter times.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># check the current backlog/queue depth on Linux:
+ss -lnt
+# the "Recv-Q" column for a listening socket shows pending, un-accepted
+# connections — a value consistently near the configured backlog limit
+# means the application isn't accepting connections fast enough
+
+# raise the backlog as a stopgap (Node.js example) while fixing the
+# underlying slowness:
+server.listen(port, "0.0.0.0", 1024);   // default backlog is often 511</code></pre>
+            </div>
+            <p>Every listening TCP socket has a finite backlog — a queue of connections the kernel has completed the handshake for but the application hasn't yet called <code>accept()</code> on. When an application is too slow (blocked event loop, thread-pool exhaustion, a downstream dependency like a database holding every request open) to drain that queue as fast as new connections arrive, the backlog fills, and the kernel starts silently dropping new SYN packets rather than queuing them further. This produces the exact same "silence" signature as a firewall block, but the actual fix is scaling or unblocking the application, not touching any network ACL — which is why correlating the timeout with load (rather than it being constant regardless of traffic) is the key diagnostic that points here instead of at Fix 1.</p>
+
+            <h2 id="fix4">Fix 4 &mdash; a long-idle connection was silently dropped mid-route</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a long-lived connection (websocket, SSE, a kept-alive HTTP/2 connection) works fine initially and only times out after sitting idle.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// enable TCP keep-alive probes so idle connections are actively
+// verified rather than silently going stale (Node.js http/https agent):
+const agent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,   // send a probe every 30s of idleness
+});</code></pre>
+            </div>
+            <p>Many intermediate network devices — load balancers, NAT gateways, corporate proxies — maintain their own connection-tracking tables with finite size and their own idle-timeout values, often shorter than either endpoint expects. When one of these middle-boxes silently evicts a connection's tracking entry after a period of inactivity, neither endpoint is notified; the connection appears to still exist locally, and the next data sent down it simply vanishes into a path that no longer routes correctly, producing a timeout on what should have been an already-established connection. Enabling TCP keep-alive probes at an interval shorter than the shortest suspected middle-box timeout keeps the connection's tracking entries alive on every hop, preventing the silent eviction in the first place.</p>
+
+            <h2>Why this happens: silence is the absence of information, not evidence</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 274" role="img" aria-label="Diagram contrasting a refused connection (the server replies instantly with a RST packet) against a timed-out connection (the SYN packets are silently dropped by a firewall or dead host and nothing ever comes back).">
+                    <defs>
+                        <marker id="to-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="to-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <text class="dg-m dg-ok" x="300" y="18" text-anchor="middle">Fast: a reply came back (a refusal)</text>
+                    <rect class="dg-box" x="40" y="30" width="120" height="44" rx="8"/>
+                    <text class="dg-m" x="100" y="56" text-anchor="middle">Client</text>
+                    <rect class="dg-box" x="440" y="30" width="120" height="44" rx="8"/>
+                    <text class="dg-m" x="500" y="56" text-anchor="middle">Server</text>
+                    <line class="dg-ln" x1="160" y1="44" x2="438" y2="44" marker-end="url(#to-a)"/>
+                    <text class="dg-s" x="300" y="38" text-anchor="middle">SYN</text>
+                    <line class="dg-ln-bad" x1="440" y1="62" x2="162" y2="62" marker-end="url(#to-bad)"/>
+                    <text class="dg-s" x="300" y="76" text-anchor="middle">RST &mdash; nothing is listening</text>
+                    <rect class="dg-box-muted" x="170" y="88" width="260" height="30" rx="6"/>
+                    <text class="dg-m" x="300" y="108" text-anchor="middle">ERR_CONNECTION_REFUSED</text>
+
+                    <text class="dg-m dg-bad" x="300" y="150" text-anchor="middle">Slow: nothing ever comes back</text>
+                    <rect class="dg-box" x="40" y="162" width="120" height="44" rx="8"/>
+                    <text class="dg-m" x="100" y="188" text-anchor="middle">Client</text>
+                    <rect class="dg-box-muted" x="440" y="162" width="120" height="44" rx="8"/>
+                    <text class="dg-s" x="500" y="182" text-anchor="middle">firewall / dead</text>
+                    <text class="dg-s" x="500" y="197" text-anchor="middle">host</text>
+                    <line class="dg-ln" x1="160" y1="172" x2="300" y2="172" marker-end="url(#to-a)"/>
+                    <text class="dg-s" x="230" y="167" text-anchor="middle">SYN</text>
+                    <line class="dg-ln" x1="160" y1="185" x2="300" y2="185" marker-end="url(#to-a)"/>
+                    <text class="dg-s" x="235" y="180" text-anchor="middle">SYN retry</text>
+                    <line class="dg-ln" x1="160" y1="198" x2="300" y2="198" marker-end="url(#to-a)"/>
+                    <text class="dg-s" x="235" y="207" text-anchor="middle">SYN retry</text>
+                    <line class="dg-ln-dash" x1="300" y1="185" x2="438" y2="185"/>
+                    <line class="dg-ln-bad" x1="360" y1="178" x2="376" y2="192"/>
+                    <line class="dg-ln-bad" x1="376" y1="178" x2="360" y2="192"/>
+                    <text class="dg-s dg-bad" x="392" y="172" text-anchor="middle">dropped</text>
+                    <rect class="dg-box-bad" x="170" y="228" width="260" height="30" rx="6"/>
+                    <text class="dg-m dg-bad" x="300" y="248" text-anchor="middle">ERR_CONNECTION_TIMED_OUT</text>
+                </svg>
+                <p class="dg-cap">A dropped SYN and a dead host look identical from your side &mdash; which is why <code>nc</code> / <code>Test-NetConnection</code> probe the raw TCP layer to tell "unreachable" apart from an HTTP-level problem.</p>
+            </div>
+            <p>The reason ERR_CONNECTION_TIMED_OUT is one of the hardest network errors to diagnose from the client alone is structural: a timeout carries zero information about *why* nothing came back. A rejection (RST) tells you something is actively listening at the network layer and declining you. A DNS failure tells you the name didn't resolve. A TLS handshake failure tells you the two sides disagreed on protocol. A timeout tells you only that whatever you sent disappeared somewhere between your machine and a reply reaching you — the packet could have been dropped by your own network, an ISP's router, a cloud provider's firewall, a middle-box's connection table eviction, or a server too overloaded to answer, and from the outside these all look exactly the same. This is precisely why the fixes above are structured as elimination: TCP-level reachability tools like <code>nc</code>/<code>Test-NetConnection</code> bypass HTTP entirely to isolate whether the problem is network-layer at all, and comparing behavior under different conditions (load vs. quiet, fresh connection vs. idle-then-reused, current DNS vs. authoritative DNS) is how you narrow an inherently uninformative symptom down to an actionable cause.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>your own freshly-provisioned cloud server</td><td>missing inbound security-group/firewall rule</td><td>add an explicit allow rule for the port</td></tr>
+                    <tr><td>domain recently migrated hosts</td><td>stale cached DNS pointing at the old IP</td><td>flush local resolver cache, verify against authoritative DNS</td></tr>
+                    <tr><td>intermittent, worse under load</td><td>server's TCP accept queue is full</td><td>fix the slow application, raise backlog as a stopgap</td></tr>
+                    <tr><td>long-idle connection reused, then fails</td><td>a middle-box silently evicted the connection tracking entry</td><td>enable TCP keep-alive probes on the client/server</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Run a raw TCP check (<code>nc -vz host port</code> / <code>Test-NetConnection</code>) to confirm this is network-layer, not HTTP-layer</li>
+                <li>&#10003; Your own server? Confirm the app is listening locally (<code>ss -tlnp</code>) before checking the firewall</li>
+                <li>&#10003; Compare your resolver's DNS answer against an authoritative source (e.g. <code>dns.google/resolve</code>)</li>
+                <li>&#10003; Note whether the timeout is constant or correlates with traffic load</li>
+                <li>&#10003; For long-lived connections, confirm TCP keep-alive is enabled on both ends</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does net::ERR_CONNECTION_TIMED_OUT mean?</summary>
+                    <p>The browser attempted to open a TCP connection to the server's IP address and port and received no response at all within its timeout window &mdash; not a rejection, not a reset, just silence. This is meaningfully different from a "connection refused" error, which means a response did arrive, just a negative one; a timeout means the packets went nowhere or the replies never came back.</p>
+                </details>
+                <details>
+                    <summary>How is this different from net::ERR_CONNECTION_REFUSED?</summary>
+                    <p>ERR_CONNECTION_REFUSED means the target host actively responded with a TCP RST packet &mdash; nothing is listening on that port, and the operating system's kernel rejected the connection immediately. ERR_CONNECTION_TIMED_OUT means no response came back at all, which almost always points to a firewall or security group silently dropping the packets rather than a service being absent, since an absent service usually produces an immediate refusal, not silence.</p>
+                </details>
+                <details>
+                    <summary>Why would a cloud security group cause a silent timeout instead of an immediate rejection?</summary>
+                    <p>Most cloud firewalls (AWS security groups, GCP firewall rules, Azure NSGs) are configured in "default deny" mode: traffic that doesn't match an explicit allow rule is dropped at the network layer with no reply packet sent back at all, as opposed to being actively rejected. From the client's perspective a dropped SYN packet and a completely dead server are indistinguishable &mdash; both look like silence &mdash; which is exactly why this error is so often mistaken for a server-down issue when it's actually a missing inbound rule.</p>
+                </details>
+                <details>
+                    <summary>Can DNS cause a connection timeout even though the domain resolves?</summary>
+                    <p>Yes &mdash; a domain resolving successfully only proves DNS returned <em>an</em> IP address, not that it's the <em>current, correct</em> one. A stale DNS cache entry (yours, your resolver's, or a CDN edge node's) can serve an old IP for a server that was decommissioned, migrated, or had its security group tightened, producing a timeout against an address that used to work perfectly.</p>
+                </details>
+                <details>
+                    <summary>How do I check if a port is actually reachable before touching any code?</summary>
+                    <p>Use a raw TCP-level tool rather than a browser or even curl, since curl retries and reports its own layer of errors: <code>nc -vz host port</code> (netcat) or <code>Test-NetConnection host -Port port</code> on Windows PowerShell attempts the bare TCP handshake and reports success/failure directly, isolating whether the problem is network reachability at all versus something at the HTTP layer.</p>
+                </details>
+                <details>
+                    <summary>Can an overloaded server cause a timeout instead of just responding slowly?</summary>
+                    <p>Yes &mdash; once a server's accept queue (the OS-level backlog of pending connections waiting for the application to call <code>accept()</code>) fills up completely, new SYN packets are dropped rather than queued, which looks identical to a firewall block from the client's side. This is common during a traffic spike or a slow-loris-style resource exhaustion, and is diagnosable by checking whether the timeout is intermittent and correlates with load rather than being constant.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More network errors</h3>
+                <p>Browse the full reference for network, connectivity, and server errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="net-err-blocked-by-client.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">net::ERR_BLOCKED_BY_CLIENT</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="net-err-internet-disconnected.html">net::ERR_INTERNET_DISCONNECTED</a></li>
+                <li><a href="net-err-blocked-by-client.html">net::ERR_BLOCKED_BY_CLIENT</a></li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
