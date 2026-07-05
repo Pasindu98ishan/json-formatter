@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: Failed to construct 'URL': Invalid URL — why the URL constructor rejects a string, the two-argument base-URL form, and how to validate a URL before building it.">
+    <meta name="keywords" content="Failed to construct URL Invalid URL, TypeError Invalid URL, new URL invalid url, URL constructor javascript, relative URL without base">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/failed-to-construct-url-invalid-url.html">
+    <meta property="og:title" content="TypeError: Failed to construct 'URL': Invalid URL — Fix">
+    <meta property="og:description" content="The URL constructor throws this when given a relative path with no base, a missing protocol, or malformed input. Here's how to read the message and fix each cause.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/failed-to-construct-url-invalid-url.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: Failed to construct 'URL': Invalid URL — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Failed to construct 'URL': Invalid URL", "item": "https://jsondevtools.org/errors/failed-to-construct-url-invalid-url.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: Failed to construct 'URL': Invalid URL — Cause and Fix",
+  "description": "The URL constructor throws this when its input isn't a valid absolute URL and no base was given. This reference covers every common cause and the two-argument fix.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Failed to construct URL: Invalid URL' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The string you passed to new URL(...) is not a valid absolute URL, and no second base-URL argument was given to resolve it against. Unlike most string operations, the URL constructor validates its input immediately and throws synchronously if it can't parse a complete URL from what it was given." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a relative path throw this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "new URL('/api/users') fails because a relative path has no scheme or host — the constructor needs a full, absolute URL unless you also provide a base as the second argument: new URL('/api/users', 'https://example.com'). The two-argument form is exactly how the browser resolves relative links against a page's own URL." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a missing protocol cause this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "new URL('example.com') throws because without http:// or https://, the string looks like a relative path (or an opaque scheme-less value), not an absolute URL. Prepend the protocol explicitly, or detect and add it before constructing: value.startsWith('http') ? value : 'https://' + value." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does user input break this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A text field where users type a URL will inevitably get malformed input — spaces, missing protocol, extra characters, or a value that isn't a URL at all. Never call new URL(userInput) unguarded; wrap it in try/catch or validate the string first, since a bad value is expected user behavior, not an exceptional case." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a template literal produce an invalid URL?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A common bug is an unresolved template variable or a missing separator: new URL(`${base}${path}`) can produce something like 'https://api.example.compath' if base doesn't end in a slash, or embed 'undefined' if a variable wasn't set. Log the built string before passing it to new URL to catch this." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I validate a URL without throwing?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Wrap the construction in try/catch and treat a thrown error as 'not a valid URL' rather than letting it crash the page: function isValidUrl(s) { try { new URL(s); return true; } catch { return false; } }. This is the standard, spec-correct way to validate a URL string in JavaScript." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Failed to construct 'URL': Invalid URL</span>
+            </nav>
+            <h1>TypeError: Failed to construct 'URL': Invalid URL</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The string passed to <code>new URL(...)</code> isn't a complete, valid <strong>absolute</strong> URL &mdash; usually a <strong>relative path with no base</strong>, a <strong>missing protocol</strong>, or genuinely <strong>malformed input</strong>. Fix it with the <strong>two-argument form</strong> <code>new URL(path, base)</code> for relative paths, or wrap construction in <code>try/catch</code> when the string comes from user input.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>new URL("/api/users");
+// Uncaught TypeError: Failed to construct 'URL': Invalid URL
+
+new URL("example.com");
+// Uncaught TypeError: Failed to construct 'URL': Invalid URL
+//   -&gt; no protocol, so this isn't a recognizable absolute URL</code></pre>
+            </div>
+
+            <h2>Why this throws instead of returning something empty</h2>
+            <p>Unlike most JavaScript string handling, the <code>URL</code> constructor validates its input against the URL spec <strong>immediately and synchronously</strong> &mdash; there's no "empty URL" fallback the way <code>Number("abc")</code> gives you <code>NaN</code>. If the input isn't a parseable absolute URL (and no base was given to resolve a relative one against), it throws right there, which is exactly why this needs a <code>try/catch</code> around any URL coming from outside your control.</p>
+
+            <h2>Cause 1: a relative path with no base</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>new URL("/api/users");
+// ❌ relative path — no scheme, no host
+
+new URL("/api/users", "https://example.com");   // ✅ two-argument form
+// -&gt; https://example.com/api/users
+
+new URL("/api/users", window.location.origin);   // ✅ resolve against the current page
+</code></pre>
+            </div>
+
+            <h2>Cause 2: a missing protocol</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>new URL("example.com");
+// ❌ looks like a bare hostname, not a full URL
+
+new URL("https://example.com");   // ✅ explicit protocol
+
+// or detect and normalize user-typed input:
+function toAbsoluteUrl(input) {
+  return /^https?:\/\//i.test(input) ? input : "https://" + input;
+}
+new URL(toAbsoluteUrl("example.com"));   // ✅</code></pre>
+            </div>
+
+            <h2>Cause 3: unvalidated user input</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function isValidUrl(value) {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;   // ✅ bad input is expected, not exceptional — handle it, don't crash
+  }
+}
+
+if (isValidUrl(userInput)) {
+  const url = new URL(userInput);
+  // ... use it
+} else {
+  showError("Please enter a valid URL, including https://");
+}</code></pre>
+            </div>
+
+            <h2>Cause 4: a broken template literal</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const base = "https://api.example.com";   // no trailing slash
+const path = "users";
+new URL(`${base}/${path}`);   // ✅ https://api.example.com/users
+
+const endpoint = undefined;
+new URL(`${base}/${endpoint}`);
+// ❌ builds "https://api.example.com/undefined" — technically parses,
+//    but is not the URL you meant; log the built string to catch this</code></pre>
+            </div>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Input</th><th>Why it fails</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>/path</code></td><td>relative, no base</td><td><code>new URL(path, base)</code></td></tr>
+                    <tr><td><code>example.com</code></td><td>no protocol</td><td>prepend <code>https://</code></td></tr>
+                    <tr><td>arbitrary user text</td><td>not a URL at all</td><td><code>try/catch</code> or validate first</td></tr>
+                    <tr><td><code>${base}${path}</code></td><td>missing separator / undefined variable</td><td>log the built string before constructing</td></tr>
+                    <tr><td>empty string</td><td>nothing to parse</td><td>check for empty before constructing</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Log the exact string right before <code>new URL(...)</code> runs</li>
+                <li>&#10003; Relative path? Add the base as the second argument</li>
+                <li>&#10003; No <code>http(s)://</code>? Add it before constructing</li>
+                <li>&#10003; Value comes from a user or external source? Wrap in <code>try/catch</code></li>
+                <li>&#10003; Built with a template literal? Confirm no piece is <code>undefined</code> and separators are correct</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Failed to construct URL: Invalid URL' mean?</summary>
+                    <p>The string you passed to <code>new URL(...)</code> is not a valid absolute URL, and no second base-URL argument was given to resolve it against. Unlike most string operations, the <code>URL</code> constructor validates its input immediately and throws synchronously if it can't parse a complete URL from what it was given.</p>
+                </details>
+                <details>
+                    <summary>Why does a relative path throw this?</summary>
+                    <p><code>new URL('/api/users')</code> fails because a relative path has no scheme or host &mdash; the constructor needs a full, absolute URL unless you also provide a base as the second argument: <code>new URL('/api/users', 'https://example.com')</code>. The two-argument form is exactly how the browser resolves relative links against a page's own URL.</p>
+                </details>
+                <details>
+                    <summary>Why does a missing protocol cause this?</summary>
+                    <p><code>new URL('example.com')</code> throws because without <code>http://</code> or <code>https://</code>, the string looks like a relative path (or an opaque scheme-less value), not an absolute URL. Prepend the protocol explicitly, or detect and add it before constructing: <code>value.startsWith('http') ? value : 'https://' + value</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does user input break this?</summary>
+                    <p>A text field where users type a URL will inevitably get malformed input &mdash; spaces, missing protocol, extra characters, or a value that isn't a URL at all. Never call <code>new URL(userInput)</code> unguarded; wrap it in <code>try/catch</code> or validate the string first, since a bad value is expected user behavior, not an exceptional case.</p>
+                </details>
+                <details>
+                    <summary>Why does a template literal produce an invalid URL?</summary>
+                    <p>A common bug is an unresolved template variable or a missing separator: <code>new URL(`${base}${path}`)</code> can produce something like 'https://api.example.compath' if <code>base</code> doesn't end in a slash, or embed "undefined" if a variable wasn't set. Log the built string before passing it to <code>new URL</code> to catch this.</p>
+                </details>
+                <details>
+                    <summary>How do I validate a URL without throwing?</summary>
+                    <p>Wrap the construction in <code>try/catch</code> and treat a thrown error as "not a valid URL" rather than letting it crash the page: <code>function isValidUrl(s) { try { new URL(s); return true; } catch { return false; } }</code>. This is the standard, spec-correct way to validate a URL string in JavaScript.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Building or decoding URLs?</h3>
+                <p>Encode/decode query strings and URL components entirely in your browser &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../url-encoder.html" class="btn btn-primary">URL Encoder &amp; Decoder</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="urierror-uri-malformed.html">URIError: URI malformed</a> &mdash; the <code>decodeURIComponent</code> equivalent</li>
+                <li><a href="failed-to-fetch.html">TypeError: Failed to fetch</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../url-encoder.html">URL Encoder &amp; Decoder</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Uncaught ReferenceError: X is not defined — why JavaScript can't find a variable, the common script-order and scope causes, and how to fix each in 30 seconds.">
+    <meta name="keywords" content="X is not defined, ReferenceError is not defined, jquery is not defined, require is not defined, process is not defined, variable is not defined javascript">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/uncaught-referenceerror-x-is-not-defined.html">
+    <meta property="og:title" content="Uncaught ReferenceError: X is not defined — Cause & Fix">
+    <meta property="og:description" content="JavaScript throws 'X is not defined' when no variable by that name exists in scope. Usually a typo, a missing script/import, or a script-load-order problem. Here's how to find which in 30 seconds.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/uncaught-referenceerror-x-is-not-defined.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Uncaught ReferenceError: X is not defined — Cause & Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "X is not defined", "item": "https://jsondevtools.org/errors/uncaught-referenceerror-x-is-not-defined.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Uncaught ReferenceError: X is not defined — Cause and Fix",
+  "description": "JavaScript throws 'X is not defined' when no variable by that name exists anywhere in scope. This reference covers the common typo, script-order, and scope causes.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'X is not defined' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "JavaScript looked up the identifier X through every enclosing scope, all the way to the global scope, and found no variable, function, or class by that name declared anywhere reachable. This is different from a value being null or undefined — here the name itself was never declared in any scope the engine could see." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a library like jQuery say it's not defined?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The <script> tag that loads the library either wasn't included, is loaded after your code runs, or failed to load (404, blocked, wrong path). Check the Network tab for the script's request, and make sure library <script> tags appear before the code that uses the global they define." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does 'require is not defined' happen in the browser?",
+      "acceptedAnswer": { "@type": "Answer", "text": "require is a Node.js/CommonJS global — browsers don't have it natively. This happens when server-side (CommonJS) code is shipped straight to the browser without bundling, or an ES module file accidentally uses require instead of import. Use a bundler (webpack/Vite/esbuild) or switch to import syntax." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does 'process is not defined' happen outside Node?",
+      "acceptedAnswer": { "@type": "Answer", "text": "process is a Node.js global; it doesn't exist in the browser. This is common when frontend code reads process.env.X the way server code does — in bundlers like Vite, use their client-exposed env mechanism (e.g. import.meta.env) instead of assuming process is available." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is a variable from another <script> tag not defined?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Each ES module has its own scope — a top-level variable in one <script type=\"module\"> is not automatically visible in another. Classic (non-module) scripts do share the global scope, so mixing module and non-module scripts is a common source of this. Export/import explicitly, or attach the value to window if you need a true global." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'X is not defined' fast?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Check spelling and case first (JavaScript is case-sensitive). Then confirm the declaring script/import actually runs before this line, and that it isn't scoped somewhere this code can't see (a different module, a block scope with let/const, or a script that failed to load)." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>X is not defined</span>
+            </nav>
+            <h1>Uncaught ReferenceError: X is not defined</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">JavaScript searched every scope up to global and found <strong>no variable named <code>X</code> anywhere</strong>. Unlike "cannot read properties," this isn't about a value being empty &mdash; <code>X</code> was never declared where this code can see it. The usual causes: a <strong>typo/case mismatch</strong>, a <strong>script that hasn't loaded yet</strong> (or at all), or code assuming a <strong>Node global</strong> (<code>require</code>, <code>process</code>) that doesn't exist in the browser.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>console.log(totalPrice);
+// Uncaught ReferenceError: totalPrice is not defined
+
+$(".menu").toggle();
+// Uncaught ReferenceError: $ is not defined
+//   -&gt; jQuery's <code>&lt;script&gt;</code> tag never loaded, or loads after this line</code></pre>
+            </div>
+
+            <h2>How to diagnose it in 30 seconds</h2>
+            <p>First check <strong>spelling and case</strong> &mdash; JavaScript is case-sensitive, so <code>userName</code> and <code>username</code> are different identifiers. If the name looks right, the identifier is either never declared, or declared somewhere this code can't reach: a script that loads later, a different module's top-level scope, or a block scope (<code>{ }</code>) that ended before this line runs.</p>
+
+            <h2>Cause 1: script load order</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>&lt;!-- ❌ your code runs before jQuery has loaded --&gt;
+&lt;script src="app.js"&gt;&lt;/script&gt;
+&lt;script src="https://code.jquery.com/jquery.min.js"&gt;&lt;/script&gt;
+
+&lt;!-- ✅ dependency first --&gt;
+&lt;script src="https://code.jquery.com/jquery.min.js"&gt;&lt;/script&gt;
+&lt;script src="app.js"&gt;&lt;/script&gt;</code></pre>
+            </div>
+
+            <h2>Cause 2: the script failed to load at all</h2>
+            <p>Open the Network tab: a 404, a blocked request (ad blocker, CSP), or a typo'd <code>src</code> path all mean the file that would have declared <code>X</code> never ran. The reference error shows up wherever <code>X</code> is later used, not at the broken <code>&lt;script&gt;</code> tag itself.</p>
+
+            <h2>Cause 3: Node globals in browser code</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const fs = require("fs");
+// ❌ Uncaught ReferenceError: require is not defined (require is Node-only)
+
+console.log(process.env.API_URL);
+// ❌ Uncaught ReferenceError: process is not defined (process is Node-only)
+
+// ✅ in a bundled app, use ESM import syntax and the bundler's env mechanism:
+import { readFile } from "some-browser-safe-lib";
+console.log(import.meta.env.VITE_API_URL);   // Vite's client-exposed env</code></pre>
+            </div>
+
+            <h2>Cause 4: module scope isn't shared</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>&lt;!-- config.js --&gt;
+&lt;script type="module"&gt;
+  const apiUrl = "https://api.example.com";
+&lt;/script&gt;
+
+&lt;!-- app.js --&gt;
+&lt;script type="module"&gt;
+  console.log(apiUrl);
+  // ❌ apiUrl is not defined — each module has its own top-level scope
+&lt;/script&gt;
+
+&lt;!-- ✅ export it explicitly and import where needed --&gt;
+&lt;!-- config.js --&gt;  export const apiUrl = "https://api.example.com";
+&lt;!-- app.js   --&gt;  import { apiUrl } from "./config.js";</code></pre>
+            </div>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>Cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>$ is not defined</code></td><td>jQuery script not loaded / loaded late</td><td>reorder or fix the script tag</td></tr>
+                    <tr><td><code>require is not defined</code></td><td>CommonJS code shipped to the browser</td><td>bundle it, or use <code>import</code></td></tr>
+                    <tr><td><code>process is not defined</code></td><td>Node global used in client code</td><td>use the bundler's client env API</td></tr>
+                    <tr><td>a var from another script</td><td>module scope isn't shared</td><td><code>export</code>/<code>import</code> explicitly</td></tr>
+                    <tr><td>works locally, not in prod</td><td>a script failed to load (404/CSP)</td><td>check the Network tab for that request</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Check spelling/case &mdash; JavaScript identifiers are case-sensitive</li>
+                <li>&#10003; Confirm the declaring script/import runs, and runs <em>before</em>, this line</li>
+                <li>&#10003; Check the Network tab &mdash; did that script actually load (200, not 404)?</li>
+                <li>&#10003; Using <code>require</code>/<code>process</code> in browser code? Those are Node-only</li>
+                <li>&#10003; Split across <code>&lt;script type="module"&gt;</code> tags? Export/import explicitly</li>
+                <li>&#10003; TypeScript flags most of this at compile time before you ever run the code</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'X is not defined' mean?</summary>
+                    <p>JavaScript looked up the identifier <code>X</code> through every enclosing scope, all the way to the global scope, and found no variable, function, or class by that name declared anywhere reachable. This is different from a value being <code>null</code> or <code>undefined</code> &mdash; here the name itself was never declared in any scope the engine could see.</p>
+                </details>
+                <details>
+                    <summary>Why does a library like jQuery say it's not defined?</summary>
+                    <p>The <code>&lt;script&gt;</code> tag that loads the library either wasn't included, is loaded after your code runs, or failed to load (404, blocked, wrong path). Check the Network tab for the script's request, and make sure library <code>&lt;script&gt;</code> tags appear before the code that uses the global they define.</p>
+                </details>
+                <details>
+                    <summary>Why does 'require is not defined' happen in the browser?</summary>
+                    <p><code>require</code> is a Node.js/CommonJS global &mdash; browsers don't have it natively. This happens when server-side (CommonJS) code is shipped straight to the browser without bundling, or an ES module file accidentally uses <code>require</code> instead of <code>import</code>. Use a bundler (webpack/Vite/esbuild) or switch to <code>import</code> syntax.</p>
+                </details>
+                <details>
+                    <summary>Why does 'process is not defined' happen outside Node?</summary>
+                    <p><code>process</code> is a Node.js global; it doesn't exist in the browser. This is common when frontend code reads <code>process.env.X</code> the way server code does &mdash; in bundlers like Vite, use their client-exposed env mechanism (e.g. <code>import.meta.env</code>) instead of assuming <code>process</code> is available.</p>
+                </details>
+                <details>
+                    <summary>Why is a variable from another &lt;script&gt; tag not defined?</summary>
+                    <p>Each ES module has its own scope &mdash; a top-level variable in one <code>&lt;script type="module"&gt;</code> is not automatically visible in another. Classic (non-module) scripts do share the global scope, so mixing module and non-module scripts is a common source of this. Export/import explicitly, or attach the value to <code>window</code> if you need a true global.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'X is not defined' fast?</summary>
+                    <p>Check spelling and case first (JavaScript is case-sensitive). Then confirm the declaring script/import actually runs before this line, and that it isn't scoped somewhere this code can't see (a different module, a block scope with <code>let</code>/<code>const</code>, or a script that failed to load).</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More JavaScript &amp; runtime errors</h3>
+                <p>Browse the full reference for JavaScript, Node.js, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="cannot-access-before-initialization-tdz.html" class="btn btn-primary" style="background:#f0db4f;border-color:#f0db4f;color:#222;">Cannot access 'X' before initialization</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-access-before-initialization-tdz.html">ReferenceError: Cannot access 'X' before initialization</a></li>
+                <li><a href="uncaught-typeerror-x-is-not-a-function.html">TypeError: X is not a function</a></li>
+                <li><a href="cannot-use-import-statement-outside-a-module.html">SyntaxError: Cannot use import statement outside a module</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

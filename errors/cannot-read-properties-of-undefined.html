@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: Cannot read properties of undefined (reading 'X') — why a value is undefined instead of null, how destructuring and missing function returns cause it, and how to fix it with defaults and optional chaining.">
+    <meta name="keywords" content="Cannot read properties of undefined, reading map, reading length, reading id, cannot read property of undefined, destructuring undefined, optional chaining javascript">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/cannot-read-properties-of-undefined.html">
+    <meta property="og:title" content="TypeError: Cannot read properties of undefined (reading 'X') — Fix">
+    <meta property="og:description" content="JavaScript throws this when you read a property of a value that is undefined. Find which value is undefined, then fix it with defaults, guards, and optional chaining.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/cannot-read-properties-of-undefined.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: Cannot read properties of undefined (reading 'X') — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Cannot read properties of undefined", "item": "https://jsondevtools.org/errors/cannot-read-properties-of-undefined.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: Cannot read properties of undefined (reading 'X') — Cause and Fix",
+  "description": "JavaScript throws this when a value is undefined instead of the object you expected. This reference explains the common ways a value becomes undefined and how to fix each.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is 'Cannot read properties of undefined' different from the null version?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Same underlying rule (you can't read a property of a non-object), different value. undefined almost always means 'this was never assigned' — a missing object key, a function that returned nothing, a destructured field that doesn't exist. null usually means 'explicitly set to nothing' — getElementById, a database NULL, useState(null). The distinction tells you where to look." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is my destructured variable undefined?",
+      "acceptedAnswer": { "@type": "Answer", "text": "const { a } = obj destructures whatever key 'a' holds on obj — if obj has no property named a, you get undefined, not an error, and the error only appears later when you use a.b. Log obj (or check its keys) to confirm the field actually exists and is spelled/cased the same as in your destructure." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a function call return undefined?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A function with no return statement, a return with nothing after it, or a return that only executes on some code paths (an if without an else) all implicitly return undefined. If you then chain a property off the call result — fn().value — and the function fell through without returning, you get this error." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does an array element read as undefined?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Indexing past the end of an array (arr[10] on a 3-item array), a 'hole' from a sparse array, or find()/.at() finding no match all return undefined for that slot — arrays don't throw on out-of-range access, they just hand back undefined, and the error only surfaces when you read a property off that missing element." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix Cannot read properties of undefined quickly?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Optional chaining is the fastest fix: value?.prop instead of value.prop, combined with a ?? fallback for a default. For the real fix, trace back to why the value is undefined — a missing API field, an off-by-one array index, or a function path that forgot to return — and address that source." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I prevent this at compile time?",
+      "acceptedAnswer": { "@type": "Answer", "text": "TypeScript's strictNullChecks flags a possibly-undefined access as TS2532 before your code ever runs, and TS2532: Object is possibly 'undefined' explains how to satisfy the compiler. Validating external data (API responses, JSON.parse results) at the boundary catches missing fields before they propagate." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Cannot read properties of undefined</span>
+            </nav>
+            <h1>TypeError: Cannot read properties of undefined (reading 'X')</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You read a property of a value that was never assigned &mdash; a missing object key, a function that fell through without a <code>return</code>, or an array index past the end. The <code>(reading 'X')</code> part names the property; <strong>the value before <code>.X</code> is <code>undefined</code></strong>. Use <strong>optional chaining</strong> <code>value?.X</code> (+ <code>?? fallback</code>), then trace back to why the value is missing.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const user = {};
+console.log(user.profile.name);
+// Uncaught TypeError: Cannot read properties of undefined (reading 'name')
+//   -&gt; user.profile is undefined (no such key on user)
+
+function getUser() { /* no return */ }
+console.log(getUser().name);
+// Uncaught TypeError: Cannot read properties of undefined (reading 'name')
+//   -&gt; getUser() returned undefined</code></pre>
+            </div>
+
+            <h2>How this differs from the "null" version</h2>
+            <p>This is the same rule as <a href="cannot-read-properties-of-null.html">Cannot read properties of null</a> &mdash; you can't read a property off a non-object &mdash; but the empty value tells you something different. <strong><code>undefined</code></strong> almost always means <em>"this was never assigned"</em>: a missing object key, an unreturned function, an out-of-range array index. <strong><code>null</code></strong> usually means <em>"explicitly set to nothing"</em>: <code>getElementById</code> finding no match, a database <code>NULL</code>, a React <code>useState(null)</code>. Knowing which one you have narrows down where to look first.</p>
+
+            <h2>Cause 1: a missing object key</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const user = { id: 1, name: "Ada" };
+console.log(user.profile.avatarUrl);
+// ❌ user.profile doesn't exist -&gt; undefined.avatarUrl
+
+console.log(user.profile?.avatarUrl ?? "/default-avatar.png");   // ✅</code></pre>
+            </div>
+
+            <h2>Cause 2: destructuring a field that isn't there</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const { address } = order;   // order has no 'address' key -&gt; undefined
+console.log(address.city);
+// ❌ Cannot read properties of undefined (reading 'city')
+
+const { address } = order;
+console.log(address?.city ?? "Unknown");   // ✅</code></pre>
+            </div>
+
+            <h2>Cause 3: a function that didn't return anything</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function findUser(id) {
+  if (id &gt; 0) {
+    return { id, name: "Ada" };
+  }
+  // ❌ no else -&gt; falls through, implicitly returns undefined
+}
+console.log(findUser(-1).name);   // Cannot read properties of undefined (reading 'name')
+
+function findUser(id) {
+  if (id &gt; 0) return { id, name: "Ada" };
+  return null;   // ✅ explicit "not found" value
+}</code></pre>
+            </div>
+
+            <h2>Cause 4: reading past the end of an array</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const items = ["a", "b", "c"];
+console.log(items[5].length);
+// ❌ items[5] is undefined (index out of range) -&gt; .length throws
+
+const found = items.find(i =&gt; i === "z");
+console.log(found.length);
+// ❌ find() returned undefined (no match)
+
+console.log(items[5]?.length ?? 0);        // ✅
+console.log(found?.length ?? 0);           // ✅</code></pre>
+            </div>
+
+            <h2>Worked example: an API field that's optional</h2>
+            <p>The most common real-world trigger is trusting an API shape that isn't guaranteed:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = await fetch("/api/orders/42");
+const order = await res.json();
+console.log(order.shipping.trackingNumber);
+// ❌ "shipping" is only present once the order ships — undefined until then
+
+// Inspect the real shape first, then read defensively:
+const tracking = order.shipping?.trackingNumber ?? "Not shipped yet";</code></pre>
+            </div>
+            <p>Paste the raw response into the <a href="../formatter.html">JSON Formatter</a> to see exactly which fields exist on a given response before you write the access chain.</p>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>What was undefined</th><th>Usual cause</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>... (reading 'X')</code> on an object</td><td>a missing key</td><td>optional/absent API field</td></tr>
+                    <tr><td><code>... (reading 'name')</code> after destructure</td><td>a non-existent field</td><td>typo or wrong nesting level</td></tr>
+                    <tr><td><code>... (reading 'X')</code> on a function call</td><td>the return value</td><td>missing <code>return</code> on some path</td></tr>
+                    <tr><td><code>... (reading 'length'/'map')</code> on an index</td><td>an array slot</td><td>out-of-range index or no match</td></tr>
+                    <tr><td><code>... (reading 'X')</code> on a param</td><td>an omitted argument</td><td>optional parameter never passed</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>(reading 'X')</code> &mdash; the value <em>before</em> <code>.X</code> is <code>undefined</code></li>
+                <li>&#10003; From an object? Confirm the key exists and is spelled/cased correctly</li>
+                <li>&#10003; From a function call? Check every code path has an explicit <code>return</code></li>
+                <li>&#10003; From an array? Check the index is in range / the search actually matched</li>
+                <li>&#10003; Quick fix: optional chaining <code>?.</code> + <code>??</code> fallback</li>
+                <li>&#10003; From an API? Inspect the real payload in the <a href="../formatter.html">JSON Formatter</a></li>
+                <li>&#10003; Prevent codebase-wide with TypeScript <code>strictNullChecks</code> (<a href="ts2532-object-possibly-undefined.html">TS2532</a>)</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Is 'Cannot read properties of undefined' different from the null version?</summary>
+                    <p>Same underlying rule (you can't read a property of a non-object), different value. <code>undefined</code> almost always means "this was never assigned" &mdash; a missing object key, a function that returned nothing, a destructured field that doesn't exist. <code>null</code> usually means "explicitly set to nothing" &mdash; <code>getElementById</code>, a database <code>NULL</code>, <code>useState(null)</code>. The distinction tells you where to look.</p>
+                </details>
+                <details>
+                    <summary>Why is my destructured variable undefined?</summary>
+                    <p><code>const { a } = obj</code> destructures whatever key <code>a</code> holds on <code>obj</code> &mdash; if <code>obj</code> has no property named <code>a</code>, you get <code>undefined</code>, not an error, and the error only appears later when you use <code>a.b</code>. Log <code>obj</code> (or check its keys) to confirm the field actually exists and is spelled/cased the same as in your destructure.</p>
+                </details>
+                <details>
+                    <summary>Why does a function call return undefined?</summary>
+                    <p>A function with no return statement, a <code>return</code> with nothing after it, or a return that only executes on some code paths (an <code>if</code> without an <code>else</code>) all implicitly return <code>undefined</code>. If you then chain a property off the call result &mdash; <code>fn().value</code> &mdash; and the function fell through without returning, you get this error.</p>
+                </details>
+                <details>
+                    <summary>Why does an array element read as undefined?</summary>
+                    <p>Indexing past the end of an array (<code>arr[10]</code> on a 3-item array), a "hole" from a sparse array, or <code>find()</code>/<code>.at()</code> finding no match all return <code>undefined</code> for that slot &mdash; arrays don't throw on out-of-range access, they just hand back <code>undefined</code>, and the error only surfaces when you read a property off that missing element.</p>
+                </details>
+                <details>
+                    <summary>How do I fix Cannot read properties of undefined quickly?</summary>
+                    <p>Optional chaining is the fastest fix: <code>value?.prop</code> instead of <code>value.prop</code>, combined with a <code>?? fallback</code> for a default. For the real fix, trace back to why the value is <code>undefined</code> &mdash; a missing API field, an off-by-one array index, or a function path that forgot to return &mdash; and address that source.</p>
+                </details>
+                <details>
+                    <summary>How do I prevent this at compile time?</summary>
+                    <p>TypeScript's <code>strictNullChecks</code> flags a possibly-undefined access as <a href="ts2532-object-possibly-undefined.html">TS2532</a> before your code ever runs. Validating external data (API responses, <code>JSON.parse</code> results) at the boundary catches missing fields before they propagate.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Is the data shaped how you think?</h3>
+                <p>Paste the API response into the formatter to see exactly which fields exist and how they're nested &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-read-properties-of-null.html">TypeError: Cannot read properties of null (reading 'X')</a> &mdash; the null sibling of this error</li>
+                <li><a href="cannot-set-properties-of-undefined.html">TypeError: Cannot set properties of undefined</a> &mdash; the write-side version</li>
+                <li><a href="ts2532-object-possibly-undefined.html">TS2532: Object is possibly 'undefined'</a> &mdash; catch this at compile time</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

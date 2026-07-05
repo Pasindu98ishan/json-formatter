@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Uncaught TypeError: X is not a function — why JavaScript says a value isn't callable, the common import/export and typo causes, and how to fix each in 30 seconds.">
+    <meta name="keywords" content="is not a function, TypeError is not a function, x.map is not a function, module.exports is not a function, javascript function not defined, uncaught typeerror">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/uncaught-typeerror-x-is-not-a-function.html">
+    <meta property="og:title" content="Uncaught TypeError: X is not a function — Cause & Fix">
+    <meta property="og:description" content="JavaScript throws 'is not a function' when the value you're calling isn't callable — usually a wrong import, a typo, or a variable that shadows the real function. Here's how to find which in 30 seconds.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/uncaught-typeerror-x-is-not-a-function.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Uncaught TypeError: X is not a function — Cause & Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "X is not a function", "item": "https://jsondevtools.org/errors/uncaught-typeerror-x-is-not-a-function.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Uncaught TypeError: X is not a function — Cause and Fix",
+  "description": "JavaScript throws 'is not a function' when you call a value that isn't callable. This reference covers the common import, typo, and shadowing causes and how to fix each.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'X is not a function' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You wrote X(...) but the value bound to X at that point is not callable — it's undefined, an object, a string, or anything else that isn't a function. JavaScript only discovers this at the moment of the call, so the error always points at the exact line where you tried to invoke it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does importing a library trigger this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The most common cause is a default vs named export mismatch: import foo from 'lib' when the library only exports named bindings (import { foo } from 'lib'), or the reverse. You end up with the whole module object (or undefined) bound to foo, and calling foo() fails because foo isn't a function." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a method that should exist say it's not a function?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Usually the value isn't the type you think it is — an array method called on an object, a string method called on a number, or the value came from JSON.parse and turned out to be null or a plain object instead of the class instance with that method. Log typeof value and the value itself right before the call." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my own function say it's not a function?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A local variable or parameter with the same name is shadowing your function — declaring let map = [] in the same scope as a map() you meant to call, for example. Check for a same-named variable, parameter, or loop index declared between the function definition and the call site." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen after minifying or bundling?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A build step can tree-shake an export it thinks is unused, target the wrong module format (CommonJS vs ESM interop), or bundle a stale cached chunk. Confirm the function still exists in the built output, and that your import/export syntax matches the bundler's expected module format." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'X is not a function' fast?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Log typeof X right before the call to see what it actually is. If it's undefined, check the import/export shape and spelling. If it's an object, you likely have the wrong value (module object instead of function, or a shadowing variable). Fix the source of the binding, not the call site." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>X is not a function</span>
+            </nav>
+            <h1>Uncaught TypeError: X is not a function</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You called <code>X(...)</code> but <code>X</code> isn't a function at that point &mdash; it's <code>undefined</code>, an object, or something else non-callable. The three usual causes are a <strong>default/named import mismatch</strong>, a <strong>typo or wrong method for the value's real type</strong>, or a <strong>local variable shadowing</strong> the function you meant to call. Log <code>typeof X</code> right before the call to see what you actually have.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const result = data.calculate(5);
+// Uncaught TypeError: data.calculate is not a function
+
+import foo from "some-lib";
+foo();
+// Uncaught TypeError: foo is not a function</code></pre>
+            </div>
+
+            <h2>How to diagnose it in 30 seconds</h2>
+            <p>Right before the failing call, log <code>console.log(typeof X, X)</code>. The type tells you which cause applies: <strong><code>"undefined"</code></strong> &mdash; the import/export is mismatched or the property doesn't exist; <strong><code>"object"</code></strong> &mdash; you have the whole module or a data object instead of the function itself; <strong>a function, but the wrong one</strong> &mdash; a shadowing variable further down in scope.</p>
+
+            <h2>Cause 1: default vs named export mismatch</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// lib.js
+export function formatDate(d) { /* ... */ }   // named export, no default
+
+// ❌ app.js
+import formatDate from "./lib.js";
+formatDate();   // TypeError: formatDate is not a function (imported the whole module)
+
+// ✅ app.js
+import { formatDate } from "./lib.js";
+formatDate();</code></pre>
+            </div>
+
+            <h2>Cause 2: wrong method for the value's real type</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const data = await res.json();   // API returned { items: [...] }, not an array
+data.map(x =&gt; x.id);
+// ❌ data.map is not a function — data is an object, not an array
+
+data.items.map(x =&gt; x.id);   // ✅ call the method on the actual array</code></pre>
+            </div>
+
+            <h2>Cause 3: a variable shadowing the function</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { map } from "lodash";
+
+function process(map) {       // ❌ parameter named "map" shadows the import
+  return map(items, fn);      // TypeError: map is not a function (it's the array you passed)
+}
+
+function process(list) {      // ✅ don't reuse the imported name
+  return map(list, fn);
+}</code></pre>
+            </div>
+
+            <h2>Cause 4: calling before it's assigned (hoisting)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>doWork();
+const doWork = function () { /* ... */ };
+// ❌ ReferenceError first (TDZ) if truly before; but with `var` you'd get
+//    "doWork is not a function" because var hoists the binding as undefined
+
+var doWork = function () { console.log("done"); };
+doWork();   // ✅ call after the assignment has run</code></pre>
+            </div>
+
+            <h2>Worked example: a broken build</h2>
+            <p>This often shows up only after bundling, not in local dev:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// works in dev (unminified), fails in production:
+import { helper } from "./utils";
+helper();
+// Uncaught TypeError: helper is not a function
+
+// Check: does the built/minified bundle still export "helper"?
+// Common causes: tree-shaking dropped an export it thought was unused,
+// or a CommonJS/ESM interop mismatch changed the shape of the import.</code></pre>
+            </div>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>Likely cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>X is not a function</code> (import)</td><td>default/named export mismatch</td><td>match the import style to the export</td></tr>
+                    <tr><td><code>X.map is not a function</code></td><td>X isn't actually an array</td><td>check the real shape, index into the array field</td></tr>
+                    <tr><td>your own function, still fails</td><td>a shadowing variable/param</td><td>rename the local binding</td></tr>
+                    <tr><td>works in dev, fails in build</td><td>bundler dropped/renamed the export</td><td>inspect the built output</td></tr>
+                    <tr><td><code>module.exports.X is not a function</code></td><td>CommonJS/ESM interop mismatch</td><td>align require/import style</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Log <code>typeof X</code> right before the call</li>
+                <li>&#10003; Importing a library? Check default vs named export in its docs/source</li>
+                <li>&#10003; Calling a method on data? Confirm the value's real shape/type first</li>
+                <li>&#10003; Same name used nearby? Check for a shadowing parameter or variable</li>
+                <li>&#10003; Only fails after build? Inspect the bundled output for the export</li>
+                <li>&#10003; TypeScript catches most of this at compile time &mdash; consider adopting it for a library boundary</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'X is not a function' mean?</summary>
+                    <p>You wrote <code>X(...)</code> but the value bound to <code>X</code> at that point is not callable &mdash; it's <code>undefined</code>, an object, a string, or anything else that isn't a function. JavaScript only discovers this at the moment of the call, so the error always points at the exact line where you tried to invoke it.</p>
+                </details>
+                <details>
+                    <summary>Why does importing a library trigger this?</summary>
+                    <p>The most common cause is a default vs named export mismatch: <code>import foo from 'lib'</code> when the library only exports named bindings (<code>import { foo } from 'lib'</code>), or the reverse. You end up with the whole module object (or <code>undefined</code>) bound to <code>foo</code>, and calling <code>foo()</code> fails because <code>foo</code> isn't a function.</p>
+                </details>
+                <details>
+                    <summary>Why does a method that should exist say it's not a function?</summary>
+                    <p>Usually the value isn't the type you think it is &mdash; an array method called on an object, a string method called on a number, or the value came from <code>JSON.parse</code> and turned out to be <code>null</code> or a plain object instead of the class instance with that method. Log <code>typeof value</code> and the value itself right before the call.</p>
+                </details>
+                <details>
+                    <summary>Why does my own function say it's not a function?</summary>
+                    <p>A local variable or parameter with the same name is shadowing your function &mdash; declaring <code>let map = []</code> in the same scope as a <code>map()</code> you meant to call, for example. Check for a same-named variable, parameter, or loop index declared between the function definition and the call site.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen after minifying or bundling?</summary>
+                    <p>A build step can tree-shake an export it thinks is unused, target the wrong module format (CommonJS vs ESM interop), or bundle a stale cached chunk. Confirm the function still exists in the built output, and that your import/export syntax matches the bundler's expected module format.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'X is not a function' fast?</summary>
+                    <p>Log <code>typeof X</code> right before the call to see what it actually is. If it's <code>undefined</code>, check the import/export shape and spelling. If it's an object, you likely have the wrong value (module object instead of function, or a shadowing variable). Fix the source of the binding, not the call site.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More JavaScript &amp; runtime errors</h3>
+                <p>Browse the full reference for JavaScript, Node.js, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="x-map-is-not-a-function.html" class="btn btn-primary" style="background:#f0db4f;border-color:#f0db4f;color:#222;">X.map is not a function</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="x-map-is-not-a-function.html">TypeError: X.map is not a function</a> &mdash; the array-specific variant</li>
+                <li><a href="uncaught-referenceerror-x-is-not-defined.html">ReferenceError: X is not defined</a></li>
+                <li><a href="cannot-read-properties-of-undefined.html">Cannot read properties of undefined</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

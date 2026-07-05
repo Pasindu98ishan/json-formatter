@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: X.map is not a function — a fix-first playbook for when an API response isn't the array you expected, covering paginated responses, single-item responses, and Array.isArray guards.">
+    <meta name="keywords" content="X.map is not a function, data.map is not a function, response.map is not a function, TypeError map is not a function, array isarray javascript">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/x-map-is-not-a-function.html">
+    <meta property="og:title" content="TypeError: X.map is not a function — Fix">
+    <meta property="og:description" content="'.map is not a function' means the value isn't actually an array. A fix-first playbook for paginated APIs, single-object responses, and safe array guards.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/x-map-is-not-a-function.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: X.map is not a function — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "X.map is not a function", "item": "https://jsondevtools.org/errors/x-map-is-not-a-function.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: X.map is not a function — Cause and Fix",
+  "description": "'.map is not a function' means the value you called it on isn't actually an array — almost always a mismatch between the API response shape and what your code assumed.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'X.map is not a function' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "map() is an Array.prototype method — it only exists on real arrays. If X is an object, a string, null, undefined, or a single item instead of a list, it has no map method and calling X.map(...) throws this TypeError. The fix is always about the shape of X, not about map() itself." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my API response fail this way?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Many APIs wrap the array in an envelope object — { data: [...], page: 1, total: 50 } — so the array is response.data, not response itself. Calling response.map(...) tries to call map on the envelope object, which has no such method. Log the raw response shape before assuming it's a bare array." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it only fail sometimes?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A common pattern: an endpoint returns an array for a list of results but a single object when there's exactly one match, or null/empty string when there are none — some backends do this to 'simplify' the response, but it makes the shape inconsistent. Normalize the result to always be an array before mapping over it." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I guard against this safely?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Array.isArray(value) is the reliable check — it works even if value is null, a string, or a plain object, none of which would be caught by a truthy check alone. Use it to branch or to normalize: const list = Array.isArray(value) ? value : [];" }
+    },
+    {
+      "@type": "Question",
+      "name": "Is checking value.length enough instead of Array.isArray?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No — strings also have a .length property, so a string would pass a naive length check but still throw on .map(). Array.isArray is the only check that's specific to actual arrays; use it instead of duck-typing on length or a truthy check." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'X.map is not a function' fast?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Log the value and its type right before the .map() call to see what you actually received. If it's wrapped in an envelope, unwrap the correct field. If it's sometimes a single object, normalize it to an array. Then guard permanently with Array.isArray so a future shape change fails safely instead of crashing." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>X.map is not a function</span>
+            </nav>
+            <h1>TypeError: X.map is not a function</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;"><code>map()</code> only exists on real arrays. The value you called it on is an object, <code>null</code>, or a single item &mdash; <strong>almost always because an API response envelope wraps the array</strong> (<code>{ data: [...] }</code>). Log the value, unwrap the real array, and guard with <code>Array.isArray</code>:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const list = Array.isArray(response.data) ? response.data : [];
+list.map(item =&gt; item.id);   // ✅ never throws, even if the shape changes</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const response = await fetch("/api/users").then(r =&gt; r.json());
+response.map(u =&gt; u.name);
+// Uncaught TypeError: response.map is not a function
+//   -&gt; response is { data: [...], page: 1, total: 50 }, not a bare array</code></pre>
+            </div>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>The response is an <strong>object with a list field inside it</strong>? &rarr; <a href="#fix1">Fix 1 (unwrap the envelope)</a></li>
+                    <li>Sometimes an array, <strong>sometimes a single object</strong>? &rarr; <a href="#fix2">Fix 2 (normalize)</a></li>
+                    <li>Value could be <code>null</code>/empty when there are <strong>no results</strong>? &rarr; <a href="#fix3">Fix 3 (Array.isArray guard)</a></li>
+                    <li>Not sure what shape you actually have? &rarr; <a href="#fix0">Log it first</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix0">Step 0 &mdash; log the real shape</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>console.log(response, Array.isArray(response), typeof response);</code></pre>
+            </div>
+            <p>Or paste a captured response into the <a href="../formatter.html">JSON Formatter</a> to see its structure at a glance before writing the fix.</p>
+
+            <h2 id="fix1">Fix 1 &mdash; unwrap a paginated/envelope response (most common)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the API wraps the list in an object with metadata (page, total, etc.).</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const response = await fetch("/api/users").then(r =&gt; r.json());
+// response = { data: [...], page: 1, total: 50 }
+
+response.map(u =&gt; u.name);        // ❌ response itself has no .map
+response.data.map(u =&gt; u.name);   // ✅ the array is nested under "data"</code></pre>
+            </div>
+
+            <h2 id="fix2">Fix 2 &mdash; normalize an inconsistent single-vs-list response</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the endpoint returns a bare object for one match, an array for many.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const raw = await fetchUsers(query);
+// raw is a single {id, name} object when there's exactly one match,
+// an array of them otherwise — an inconsistent API design, but a real one.
+
+const users = Array.isArray(raw) ? raw : [raw];   // ✅ always an array from here on
+users.map(u =&gt; u.name);</code></pre>
+            </div>
+
+            <h2 id="fix3">Fix 3 &mdash; guard with Array.isArray, not a truthy or length check</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the value can be <code>null</code>, an empty string, or missing entirely when there's nothing to show.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function safeMap(value, fn) {
+  return Array.isArray(value) ? value.map(fn) : [];
+}
+
+safeMap(response.data, u =&gt; u.name);   // ✅ [] instead of throwing, whatever the shape
+
+// why not just check value.length?
+"hello".length;   // 5 — a string LOOKS array-like by length, but has no .map
+Array.isArray("hello");   // false — the correct, specific check</code></pre>
+            </div>
+
+            <h2>Why this happens</h2>
+            <p><code>map()</code> is defined on <code>Array.prototype</code>, so it only exists on actual arrays (or array-likes that explicitly borrow it). When code assumes a value is an array based on habit or documentation rather than checking, any deviation &mdash; a wrapping envelope object, a single-result shortcut, a <code>null</code> for "no results" &mdash; throws the moment <code>.map</code> is looked up and found missing. This is a shape mismatch, not a bug in <code>map()</code> itself; the fix is always to make the value actually be an array before calling it, or to explicitly not call <code>.map()</code> when it isn't.</p>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Shape you actually got</th><th>Why <code>.map</code> is missing</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>{ data: [...], page, total }</code></td><td>array is nested, not the top level</td><td>index into the real field (Fix 1)</td></tr>
+                    <tr><td>single object, not an array</td><td>API "simplifies" a one-result case</td><td>normalize with <code>Array.isArray</code> (Fix 2)</td></tr>
+                    <tr><td><code>null</code> / empty string</td><td>API represents "no results" this way</td><td>default to <code>[]</code> (Fix 3)</td></tr>
+                    <tr><td>a Set or Map object</td><td>not an Array — use <code>[...set].map()</code></td><td>spread into an array first</td></tr>
+                </tbody>
+            </table>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:700;">&#10003; Confirm it's fixed</p>
+                <ul style="margin:.5rem 0 0;padding-left:1.2rem;">
+                    <li>Call the same code path with an empty result, a single result, and a multi-item result &mdash; none should throw.</li>
+                    <li><code>Array.isArray(value)</code> guards every <code>.map()</code>/<code>.filter()</code>/<code>.forEach()</code> call on API-derived data.</li>
+                    <li>TypeScript, if you use it, should type the field as the real array type so this is a compile-time error next time, not a runtime one.</li>
+                </ul>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'X.map is not a function' mean?</summary>
+                    <p><code>map()</code> is an <code>Array.prototype</code> method &mdash; it only exists on real arrays. If <code>X</code> is an object, a string, <code>null</code>, <code>undefined</code>, or a single item instead of a list, it has no <code>map</code> method and calling <code>X.map(...)</code> throws this TypeError. The fix is always about the shape of <code>X</code>, not about <code>map()</code> itself.</p>
+                </details>
+                <details>
+                    <summary>Why does my API response fail this way?</summary>
+                    <p>Many APIs wrap the array in an envelope object &mdash; <code>{ data: [...], page: 1, total: 50 }</code> &mdash; so the array is <code>response.data</code>, not <code>response</code> itself. Calling <code>response.map(...)</code> tries to call <code>map</code> on the envelope object, which has no such method. Log the raw response shape before assuming it's a bare array.</p>
+                </details>
+                <details>
+                    <summary>Why does it only fail sometimes?</summary>
+                    <p>A common pattern: an endpoint returns an array for a list of results but a single object when there's exactly one match, or <code>null</code>/empty string when there are none &mdash; some backends do this to "simplify" the response, but it makes the shape inconsistent. Normalize the result to always be an array before mapping over it.</p>
+                </details>
+                <details>
+                    <summary>How do I guard against this safely?</summary>
+                    <p><code>Array.isArray(value)</code> is the reliable check &mdash; it works even if <code>value</code> is <code>null</code>, a string, or a plain object, none of which would be caught by a truthy check alone. Use it to branch or to normalize: <code>const list = Array.isArray(value) ? value : [];</code></p>
+                </details>
+                <details>
+                    <summary>Is checking value.length enough instead of Array.isArray?</summary>
+                    <p>No &mdash; strings also have a <code>.length</code> property, so a string would pass a naive length check but still throw on <code>.map()</code>. <code>Array.isArray</code> is the only check that's specific to actual arrays; use it instead of duck-typing on length or a truthy check.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'X.map is not a function' fast?</summary>
+                    <p>Log the value and its type right before the <code>.map()</code> call to see what you actually received. If it's wrapped in an envelope, unwrap the correct field. If it's sometimes a single object, normalize it to an array. Then guard permanently with <code>Array.isArray</code> so a future shape change fails safely instead of crashing.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Is the data shaped how you think?</h3>
+                <p>Paste the API response into the formatter to see exactly which fields hold the array and how it's nested &mdash; nothing is uploaded to a server.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="uncaught-typeerror-x-is-not-a-function.html">TypeError: X is not a function</a> &mdash; the general form of this error</li>
+                <li><a href="cannot-read-properties-of-undefined.html">Cannot read properties of undefined</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../jsonpath.html">JSONPath Tester</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="RangeError: Invalid array length — why new Array() and .length assignments reject negative, non-integer, or oversized values, and how to fix the calculation that produced them.">
+    <meta name="keywords" content="Invalid array length, RangeError invalid array length, new Array negative length, array length must be a positive integer, javascript array length limit">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rangeerror-invalid-array-length.html">
+    <meta property="og:title" content="RangeError: Invalid array length — Cause & Fix">
+    <meta property="og:description" content="JavaScript array lengths must be a non-negative integer under 2^32-1. This reference covers the common negative, NaN, and oversized-length causes and how to fix each.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rangeerror-invalid-array-length.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>RangeError: Invalid array length — Cause & Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Invalid array length", "item": "https://jsondevtools.org/errors/rangeerror-invalid-array-length.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "RangeError: Invalid array length — Cause and Fix",
+  "description": "JavaScript array lengths must be a non-negative integer below 2^32-1. This reference covers the negative, non-integer, NaN, and oversized-length causes and how to fix each.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Invalid array length' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A JavaScript array's length must be a non-negative integer less than 2^32 - 1 (4,294,967,295). You passed new Array(n) or set arr.length = n with an n that is negative, a non-integer (like 3.5), NaN, or too large, and the engine rejects it immediately rather than creating a nonsensical array." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does new Array(n) behave differently from new Array(a, b, c)?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A single numeric argument to the Array constructor is special-cased to mean 'create a sparse array with this length', not 'an array containing this one number' — that's exactly why it validates the number as a length. Array.of(n) avoids this special case entirely and always creates a one-element array, whatever n is." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is my calculated length negative or NaN?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A subtraction that goes negative (end - start when end < start), a division that produces a fraction, or a value derived from an unvalidated user input or API response are the usual sources. Log the computed length right before using it — the fix is almost always in that upstream calculation, not in the array creation itself." }
+    },
+    {
+      "@type": "Question",
+      "name": "How large can a JavaScript array actually be?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The theoretical maximum length is 2^32 - 1 (4,294,967,295), but in practice you'll hit a memory allocation failure or serious performance problems long before that on any real array of actual elements — the length limit is a spec ceiling, not a practical target size." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does setting arr.length directly have the same restriction?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. arr.length = -1 or arr.length = 3.5 throws the same RangeError as new Array(-1) — both go through the same internal array-length validation. Setting length to a smaller valid number truncates the array; setting it to a larger valid number pads it with empty slots." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I prevent this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Validate or clamp any calculated length before using it: Math.max(0, Math.floor(n)) guarantees a non-negative integer. If the length ultimately comes from user input or an API, treat it the same as any other untrusted number and check it before it reaches an array constructor or length assignment." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Invalid array length</span>
+            </nav>
+            <h1>RangeError: Invalid array length</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">An array's length must be a <strong>non-negative integer under 2<sup>32</sup>-1</strong>. You passed <code>new Array(n)</code> or set <code>arr.length = n</code> with an <code>n</code> that's <strong>negative, a fraction, <code>NaN</code>, or too large</strong>. The fix is almost never at the array itself &mdash; it's in whatever <strong>calculation produced that number</strong>. Trace it back and clamp it: <code>Math.max(0, Math.floor(n))</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>new Array(-1);
+// Uncaught RangeError: Invalid array length
+
+new Array(3.5);
+// Uncaught RangeError: Invalid array length
+
+const arr = [1, 2, 3];
+arr.length = -1;
+// Uncaught RangeError: Invalid array length</code></pre>
+            </div>
+
+            <h2>Why a single-number Array() argument is special</h2>
+            <p><code>new Array(a, b, c)</code> with two or more arguments creates an array <em>containing</em> those values &mdash; but <code>new Array(n)</code> with exactly <strong>one number</strong> is special-cased by the spec to mean <em>"create a sparse array with this <code>length</code>"</em>, not "an array holding this one number." That's exactly why the number gets validated as a length and can throw. If you actually want a one-element array containing a number, use <code>Array.of(n)</code> or <code>[n]</code> instead &mdash; neither has this special case.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>new Array(5);        // [ &lt;5 empty items&gt; ] — a sparse array of length 5
+Array.of(5);         // [ 5 ] — an array containing the number 5
+[5];                 // [ 5 ] — same, more common</code></pre>
+            </div>
+
+            <h2>Cause 1: a negative length from a bad subtraction</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const length = endIndex - startIndex;   // ❌ -3 if startIndex &gt; endIndex
+new Array(length).fill(0);
+// RangeError: Invalid array length
+
+const length = Math.max(0, endIndex - startIndex);   // ✅ never negative
+new Array(length).fill(0);</code></pre>
+            </div>
+
+            <h2>Cause 2: a non-integer or NaN length</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const rows = totalItems / pageSize;   // ❌ 3.4 if it doesn't divide evenly
+new Array(rows);
+// RangeError: Invalid array length
+
+const rows = Math.ceil(totalItems / pageSize);   // ✅ whole number
+new Array(rows);
+
+const count = parseInt(userInput, 10);   // ❌ NaN if userInput isn't numeric
+new Array(count);
+// RangeError: Invalid array length — NaN is not a valid length either</code></pre>
+            </div>
+
+            <h2>Cause 3: an unvalidated value from an API or user input</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const { itemCount } = await res.json();
+new Array(itemCount).fill(null);
+// ❌ throws if itemCount is missing, negative, or not actually a number
+
+const safeCount = Number.isInteger(itemCount) && itemCount &gt;= 0 ? itemCount : 0;
+new Array(safeCount).fill(null);   // ✅</code></pre>
+            </div>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Value</th><th>Why it's invalid</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>-1</code></td><td>negative</td><td><code>Math.max(0, n)</code></td></tr>
+                    <tr><td><code>3.5</code></td><td>not an integer</td><td><code>Math.floor(n)</code> or <code>Math.ceil(n)</code></td></tr>
+                    <tr><td><code>NaN</code></td><td>not a number at all</td><td>validate the source before using it</td></tr>
+                    <tr><td><code>4294967296</code> or larger</td><td>exceeds the 2<sup>32</sup>-1 spec limit</td><td>rethink whether you need an array this large</td></tr>
+                    <tr><td>a single number you meant as a <em>value</em></td><td><code>new Array(n)</code> treats it as a length, not content</td><td>use <code>[n]</code> or <code>Array.of(n)</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Log the exact number right before it's used as a length</li>
+                <li>&#10003; Negative? Trace the subtraction/calculation that produced it and clamp with <code>Math.max(0, ...)</code></li>
+                <li>&#10003; Fraction? Round with <code>Math.floor</code>/<code>Math.ceil</code> depending on intent</li>
+                <li>&#10003; <code>NaN</code>? The source value (parsed input, API field) wasn't actually numeric &mdash; validate it</li>
+                <li>&#10003; Meant to create <code>[n]</code>, not a sparse array of length <code>n</code>? Use <code>Array.of(n)</code> or <code>[n]</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Invalid array length' mean?</summary>
+                    <p>A JavaScript array's length must be a non-negative integer less than 2<sup>32</sup> - 1 (4,294,967,295). You passed <code>new Array(n)</code> or set <code>arr.length = n</code> with an <code>n</code> that is negative, a non-integer (like 3.5), <code>NaN</code>, or too large, and the engine rejects it immediately rather than creating a nonsensical array.</p>
+                </details>
+                <details>
+                    <summary>Why does new Array(n) behave differently from new Array(a, b, c)?</summary>
+                    <p>A single numeric argument to the <code>Array</code> constructor is special-cased to mean "create a sparse array with this length", not "an array containing this one number" &mdash; that's exactly why it validates the number as a length. <code>Array.of(n)</code> avoids this special case entirely and always creates a one-element array, whatever <code>n</code> is.</p>
+                </details>
+                <details>
+                    <summary>Why is my calculated length negative or NaN?</summary>
+                    <p>A subtraction that goes negative (<code>end - start</code> when <code>end &lt; start</code>), a division that produces a fraction, or a value derived from an unvalidated user input or API response are the usual sources. Log the computed length right before using it &mdash; the fix is almost always in that upstream calculation, not in the array creation itself.</p>
+                </details>
+                <details>
+                    <summary>How large can a JavaScript array actually be?</summary>
+                    <p>The theoretical maximum length is 2<sup>32</sup> - 1 (4,294,967,295), but in practice you'll hit a memory allocation failure or serious performance problems long before that on any real array of actual elements &mdash; the length limit is a spec ceiling, not a practical target size.</p>
+                </details>
+                <details>
+                    <summary>Does setting arr.length directly have the same restriction?</summary>
+                    <p>Yes. <code>arr.length = -1</code> or <code>arr.length = 3.5</code> throws the same RangeError as <code>new Array(-1)</code> &mdash; both go through the same internal array-length validation. Setting length to a smaller valid number truncates the array; setting it to a larger valid number pads it with empty slots.</p>
+                </details>
+                <details>
+                    <summary>How do I prevent this?</summary>
+                    <p>Validate or clamp any calculated length before using it: <code>Math.max(0, Math.floor(n))</code> guarantees a non-negative integer. If the length ultimately comes from user input or an API, treat it the same as any other untrusted number and check it before it reaches an array constructor or length assignment.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More JavaScript &amp; runtime errors</h3>
+                <p>Browse the full reference for JavaScript, Node.js, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="x-map-is-not-a-function.html" class="btn btn-primary" style="background:#f0db4f;border-color:#f0db4f;color:#222;">X.map is not a function</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="x-map-is-not-a-function.html">TypeError: X.map is not a function</a></li>
+                <li><a href="maximum-call-stack-size-exceeded.html">RangeError: Maximum call stack size exceeded</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

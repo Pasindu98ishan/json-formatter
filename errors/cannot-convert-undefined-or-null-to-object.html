@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: Cannot convert undefined or null to object — a fix-first playbook for Object.keys/values/entries/assign throwing on a null or undefined value, with guards that make it never happen again.">
+    <meta name="keywords" content="Cannot convert undefined or null to object, Object.keys null, Object.entries undefined, Object.assign null, TypeError convert undefined to object">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/cannot-convert-undefined-or-null-to-object.html">
+    <meta property="og:title" content="TypeError: Cannot convert undefined or null to object — Fix">
+    <meta property="og:description" content="Object.keys/values/entries/assign throw this when given null or undefined. A fix-first playbook: guard the value, default it, and understand why spread doesn't have this problem.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/cannot-convert-undefined-or-null-to-object.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: Cannot convert undefined or null to object — Fi</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Cannot convert undefined or null to object", "item": "https://jsondevtools.org/errors/cannot-convert-undefined-or-null-to-object.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: Cannot convert undefined or null to object — Cause and Fix",
+  "description": "Object.keys/values/entries/assign throw this when given null or undefined. This playbook covers the fastest fix and every common trigger.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Cannot convert undefined or null to object' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You called an Object static method — Object.keys, Object.values, Object.entries, or Object.assign with null/undefined as the target — and that method internally tries to coerce its argument to an object first. null and undefined are the only two values JavaScript refuses to coerce this way, so the coercion step itself throws before your method logic ever runs." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why doesn't object spread have this problem?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Object spread ({...value}) is defined to silently treat a null/undefined source as contributing no properties, producing an empty object instead of throwing. This is a deliberate spec difference — spread is forgiving, Object.keys/values/entries/assign are not — so switching between the two isn't just a style choice." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this show up after fetching API data?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A field that's usually an object can come back as null for some records — a user with no profile, a cancelled order with no shipping info — and calling Object.keys(response.data.profile) blows up only for those records. It often passes testing because your sample data happened not to include the empty case." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Object.assign always throw with null/undefined?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only when null/undefined is the target (the first argument) — that's what gets coerced to the object being built. Object.assign({}, null, {a: 1}) does NOT throw: null and undefined as sources are simply skipped, contributing nothing, same as spread." }
+    },
+    {
+      "@type": "Question",
+      "name": "What about for...in on a null value?",
+      "acceptedAnswer": { "@type": "Answer", "text": "for (const k in null) also does not throw — it silently iterates zero times, same as an empty object would. The Object static methods (keys/values/entries) and Object.assign's target position are the specific cases that throw; most other 'read from a possibly-empty object' operations in JS are forgiving." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I make this stop happening entirely?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Default the value before calling an Object method: Object.keys(value ?? {}) always works, whether value is an object, null, or undefined. Doing this at every call site (or once at the point the value enters your code) removes the failure mode permanently rather than fixing it one crash at a time." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Cannot convert undefined or null to object</span>
+            </nav>
+            <h1>TypeError: Cannot convert undefined or null to object</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:700;color:#28a745;">&#9889; Fastest fix</p>
+                <p style="margin:0.4rem 0 0;">You called <code>Object.keys</code>/<code>values</code>/<code>entries</code>/<code>assign</code> with <code>null</code> or <code>undefined</code>. Those methods refuse to coerce an empty value into an object &mdash; <strong>default it with <code>?? {}</code> right at the call site</strong>:</p>
+                <div class="code-block" style="margin:0.7rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Object.keys(value ?? {});      // ✅ works whether value is an object, null, or undefined
+Object.entries(data.profile ?? {});</code></pre>
+                </div>
+            </div>
+
+            <h2>What you're seeing</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Object.keys(undefined);
+// Uncaught TypeError: Cannot convert undefined or null to object
+
+Object.entries(response.data.profile);
+// Uncaught TypeError: Cannot convert undefined or null to object
+//   -&gt; response.data.profile is null for this record</code></pre>
+            </div>
+            <p>The message doesn't say <em>which</em> call site or variable &mdash; the stack trace's top frame names the file:line, and that's the exact value that turned out to be empty.</p>
+
+            <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
+                <ul style="margin:0;padding-left:1.2rem;">
+                    <li>Crashes on <strong>some records but not others</strong>? &rarr; <a href="#fix1">Fix 1 (default the value)</a> &mdash; a field is optional/nullable</li>
+                    <li>Happens right after a <strong>fetch/API call</strong>? &rarr; <a href="#fix1">Fix 1</a> + inspect the real payload</li>
+                    <li>Using <code>Object.assign(target, ...)</code> specifically? &rarr; <a href="#fix2">Fix 2 (target vs source)</a></li>
+                    <li>Want it to <strong>never happen again</strong>, codebase-wide? &rarr; <a href="#fix3">Fix 3 (default at the boundary)</a></li>
+                </ul>
+            </div>
+
+            <h2 id="fix1">Fix 1 &mdash; Default the value at the call site (most common)</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> a field is sometimes an object, sometimes null/undefined.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const profile = response.data.profile;   // null for guest orders
+Object.keys(profile);
+// ❌ Cannot convert undefined or null to object
+
+Object.keys(profile ?? {});   // ✅ [] when profile is missing
+Object.entries(profile ?? {}).forEach(([k, v]) =&gt; { /* ... */ });</code></pre>
+            </div>
+            <p>Paste the raw response into the <a href="../formatter.html">JSON Formatter</a> to confirm which records actually have a <code>null</code> in that field before you decide how to default it.</p>
+
+            <h2 id="fix2">Fix 2 &mdash; Object.assign: only the target throws, not the sources</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the error comes from <code>Object.assign(...)</code> specifically.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Object.assign(maybeNull, { a: 1 });
+// ❌ throws — maybeNull is the TARGET (first argument), and it's null
+
+Object.assign({}, maybeNull, { a: 1 });
+// ✅ fine — null/undefined SOURCES are simply skipped, contribute nothing
+
+const merged = Object.assign({}, maybeNull, overrides);   // ✅ safe pattern</code></pre>
+            </div>
+            <p>Only the first argument (the target) is coerced with <code>ToObject</code> and throws on <code>null</code>/<code>undefined</code>. Always give <code>Object.assign</code> a literal <code>{}</code> as the target when any source might be empty.</p>
+
+            <h2 id="fix3">Fix 3 &mdash; Default once, at the boundary</h2>
+            <p style="margin:.25rem 0 .6rem;color:var(--secondary-color);font-size:14px;"><strong>When:</strong> the same field gets read with <code>Object.keys</code>/<code>values</code>/<code>entries</code> in many places.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// normalize once, right where the data enters your code:
+function normalizeOrder(raw) {
+  return { ...raw, profile: raw.profile ?? {} };
+}
+
+const order = normalizeOrder(await res.json());
+Object.keys(order.profile);   // ✅ always safe from here on</code></pre>
+            </div>
+
+            <h2>Why this happens</h2>
+            <p><code>Object.keys</code>, <code>Object.values</code>, <code>Object.entries</code>, and <code>Object.assign</code>'s target all internally call the abstract operation <strong><code>ToObject</code></strong> on their argument before doing anything else. <code>ToObject</code> can wrap almost any value in an object wrapper &mdash; a number, a string, a boolean &mdash; but the spec explicitly makes <code>null</code> and <code>undefined</code> the two exceptions that throw a <code>TypeError</code> instead. Contrast this with <strong>object spread</strong> (<code>{...value}</code>), which the spec defines to silently skip a <code>null</code>/<code>undefined</code> source and produce an empty object &mdash; a deliberate difference, not an inconsistency, so switching between spread and <code>Object.keys</code> isn't purely stylistic.</p>
+
+            <h2>What does and doesn't throw</h2>
+            <table>
+                <thead>
+                    <tr><th>Expression</th><th>With <code>null</code>/<code>undefined</code></th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>Object.keys(x)</code> / <code>values(x)</code> / <code>entries(x)</code></td><td>❌ throws</td></tr>
+                    <tr><td><code>Object.assign(x, ...)</code> &mdash; <code>x</code> is the target</td><td>❌ throws</td></tr>
+                    <tr><td><code>Object.assign({}, x, ...)</code> &mdash; <code>x</code> is a source</td><td>✅ skipped, no-op</td></tr>
+                    <tr><td><code>{...x}</code> (object spread)</td><td>✅ produces <code>{}</code></td></tr>
+                    <tr><td><code>for (const k in x)</code></td><td>✅ iterates zero times</td></tr>
+                </tbody>
+            </table>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #1a5fb4;border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:700;">&#10003; Confirm it's fixed</p>
+                <ul style="margin:.5rem 0 0;padding-left:1.2rem;">
+                    <li>Run the code path against a record where the field is genuinely <code>null</code> &mdash; no throw, empty result instead.</li>
+                    <li><code>Object.assign</code> calls always have a literal <code>{}</code> (or guaranteed object) as the target, never a variable that could be empty.</li>
+                    <li>Search the codebase for other <code>Object.keys/values/entries(</code> calls on the same field and apply the same default.</li>
+                </ul>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Cannot convert undefined or null to object' mean?</summary>
+                    <p>You called an <code>Object</code> static method &mdash; <code>Object.keys</code>, <code>Object.values</code>, <code>Object.entries</code>, or <code>Object.assign</code> with <code>null</code>/<code>undefined</code> as the target &mdash; and that method internally tries to coerce its argument to an object first. <code>null</code> and <code>undefined</code> are the only two values JavaScript refuses to coerce this way, so the coercion step itself throws before your method logic ever runs.</p>
+                </details>
+                <details>
+                    <summary>Why doesn't object spread have this problem?</summary>
+                    <p>Object spread (<code>{...value}</code>) is defined to silently treat a <code>null</code>/<code>undefined</code> source as contributing no properties, producing an empty object instead of throwing. This is a deliberate spec difference &mdash; spread is forgiving, <code>Object.keys</code>/<code>values</code>/<code>entries</code>/<code>assign</code> are not &mdash; so switching between the two isn't just a style choice.</p>
+                </details>
+                <details>
+                    <summary>Why does this show up after fetching API data?</summary>
+                    <p>A field that's usually an object can come back as <code>null</code> for some records &mdash; a user with no profile, a cancelled order with no shipping info &mdash; and calling <code>Object.keys(response.data.profile)</code> blows up only for those records. It often passes testing because your sample data happened not to include the empty case.</p>
+                </details>
+                <details>
+                    <summary>Does Object.assign always throw with null/undefined?</summary>
+                    <p>Only when <code>null</code>/<code>undefined</code> is the target (the first argument) &mdash; that's what gets coerced to the object being built. <code>Object.assign({}, null, {a: 1})</code> does NOT throw: <code>null</code> and <code>undefined</code> as sources are simply skipped, contributing nothing, same as spread.</p>
+                </details>
+                <details>
+                    <summary>What about for...in on a null value?</summary>
+                    <p><code>for (const k in null)</code> also does not throw &mdash; it silently iterates zero times, same as an empty object would. The <code>Object</code> static methods (<code>keys</code>/<code>values</code>/<code>entries</code>) and <code>Object.assign</code>'s target position are the specific cases that throw; most other "read from a possibly-empty object" operations in JS are forgiving.</p>
+                </details>
+                <details>
+                    <summary>How do I make this stop happening entirely?</summary>
+                    <p>Default the value before calling an <code>Object</code> method: <code>Object.keys(value ?? {})</code> always works, whether <code>value</code> is an object, <code>null</code>, or <code>undefined</code>. Doing this at every call site (or once at the point the value enters your code) removes the failure mode permanently rather than fixing it one crash at a time.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More JavaScript &amp; runtime errors</h3>
+                <p>Browse the full reference for JavaScript, Node.js, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="cannot-set-properties-of-undefined.html" class="btn btn-primary" style="background:#f0db4f;border-color:#f0db4f;color:#222;">Cannot set properties of undefined</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-set-properties-of-undefined.html">TypeError: Cannot set properties of undefined</a></li>
+                <li><a href="cannot-read-properties-of-undefined.html">TypeError: Cannot read properties of undefined</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

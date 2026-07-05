@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: Assignment to constant variable — why JavaScript blocks reassigning a const, the difference between reassignment and mutation, and how to fix it.">
+    <meta name="keywords" content="Assignment to constant variable, TypeError assignment to constant, const reassignment error, javascript const vs let, cannot reassign const">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/assignment-to-constant-variable.html">
+    <meta property="og:title" content="TypeError: Assignment to constant variable — Cause & Fix">
+    <meta property="og:description" content="JavaScript throws this when you try to reassign a const binding. Learn the difference between reassignment and mutation, and when to use let instead.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/assignment-to-constant-variable.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: Assignment to constant variable — Cause & Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Assignment to constant variable", "item": "https://jsondevtools.org/errors/assignment-to-constant-variable.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: Assignment to constant variable — Cause and Fix",
+  "description": "JavaScript throws this when code tries to reassign a const binding. This reference explains reassignment vs mutation and when to use let instead.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Assignment to constant variable' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You used = (or +=, -=, ++, etc.) on a variable declared with const, which only allows a single assignment at declaration. Any later attempt to rebind that name to a new value throws this TypeError, whether the new value is the same type or not." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I change the contents of a const object or array?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. const only locks the binding (the variable name), not the value's contents. const arr = [1,2]; arr.push(3) works fine — you're mutating the array, not reassigning arr. Only arr = [4,5] (pointing the name at a different array) throws." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my for loop throw this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "for (const i = 0; i < 10; i++) declares i as const, and the loop's own i++ step tries to reassign it on the very first iteration. Loop counters that increment need let, not const — reserve const for the loop body's per-iteration values that don't change." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a counter or accumulator variable throw this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Any variable you plan to reassign — a running total, a counter, a flag that flips — must be declared with let. const communicates 'this binding will never change'; if your code changes it, that's a signal the declaration should be let, not a bug to work around." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does destructuring into a const also lock the fields?",
+      "acceptedAnswer": { "@type": "Answer", "text": "const { a, b } = obj creates two new const bindings, a and b — reassigning either later throws the same error, even though obj itself might be mutable. The rule is per-binding, not inherited from where the value came from." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix this quickly?",
+      "acceptedAnswer": { "@type": "Answer", "text": "If the variable's value genuinely needs to change over time, change its declaration from const to let. If you only meant to update a property or push to an array (not rebind the variable itself), use the mutating operation instead of assignment — the const declaration is already correct." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Assignment to constant variable</span>
+            </nav>
+            <h1>TypeError: Assignment to constant variable</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You tried to <strong>reassign</strong> a variable declared with <code>const</code>. <code>const</code> locks the <em>binding</em> (the name) to its initial value permanently &mdash; it does <strong>not</strong> lock the value's contents. If you need to change what the variable points to, declare it with <strong><code>let</code></strong> instead; if you only need to change an object's property or push to an array, that's <strong>mutation</strong>, which <code>const</code> already allows.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const count = 0;
+count = count + 1;
+// Uncaught TypeError: Assignment to constant variable.
+
+const total = 0;
+total += 10;
+// Uncaught TypeError: Assignment to constant variable.</code></pre>
+            </div>
+
+            <h2>Reassignment vs mutation</h2>
+            <p>This is the single most important distinction for this error: <code>const</code> forbids pointing the variable at a <em>new</em> value (reassignment) but says nothing about changing an object or array's <em>existing contents</em> (mutation).</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const arr = [1, 2, 3];
+arr.push(4);        // ✅ mutation — arr still points to the same array
+arr[0] = 99;         // ✅ mutation — same array, different contents
+arr = [5, 6];        // ❌ reassignment — Assignment to constant variable
+
+const user = { name: "Ada" };
+user.name = "Grace"; // ✅ mutation — same object, updated property
+user = { name: "X" };   // ❌ reassignment</code></pre>
+            </div>
+
+            <h2>Cause 1: a loop counter declared const</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>for (const i = 0; i &lt; 10; i++) {
+  // ❌ i++ reassigns i on the first iteration
+}
+
+for (let i = 0; i &lt; 10; i++) {
+  // ✅ i needs to change each iteration — use let
+}</code></pre>
+            </div>
+
+            <h2>Cause 2: a running total or accumulator</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const total = 0;
+for (const price of prices) {
+  total += price;   // ❌ total needs to be reassigned each pass
+}
+
+let total = 0;         // ✅
+for (const price of prices) {
+  total += price;       // fine — `price` itself stays const per iteration
+}</code></pre>
+            </div>
+
+            <h2>Cause 3: a flag that toggles</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const isOpen = false;
+function toggle() {
+  isOpen = !isOpen;   // ❌ reassignment
+}
+
+let isOpen = false;     // ✅ this value is meant to change over time
+function toggle() {
+  isOpen = !isOpen;
+}</code></pre>
+            </div>
+
+            <h2>Cause 4: destructured bindings are const too</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const { page } = query;
+page = page + 1;   // ❌ `page` is its own const binding, regardless of `query`
+
+let { page } = query;   // ✅ if you intend to reassign it
+page = page + 1;</code></pre>
+            </div>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Pattern</th><th>Why it's reassignment</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>const i = 0; i++</code></td><td>increment rebinds <code>i</code></td><td>declare the counter with <code>let</code></td></tr>
+                    <tr><td><code>const total = 0; total += x</code></td><td><code>+=</code> is shorthand for reassignment</td><td>use <code>let total</code></td></tr>
+                    <tr><td><code>const flag = false; flag = true</code></td><td>direct reassignment</td><td>use <code>let flag</code></td></tr>
+                    <tr><td><code>arr.push(x)</code> on a <code>const arr</code></td><td><em>not</em> an error &mdash; mutation is allowed</td><td>no fix needed</td></tr>
+                    <tr><td><code>obj.key = x</code> on a <code>const obj</code></td><td><em>not</em> an error &mdash; mutation is allowed</td><td>no fix needed</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the failing line &mdash; is it <code>=</code>/<code>+=</code>/<code>++</code> on the variable itself (reassignment)?</li>
+                <li>&#10003; If yes, and the value genuinely needs to change: switch the declaration to <code>let</code></li>
+                <li>&#10003; If you only meant to update a property or array element: that's mutation, already allowed with <code>const</code> &mdash; check you didn't accidentally reassign the whole variable instead</li>
+                <li>&#10003; Loop counters and accumulators almost always need <code>let</code>, not <code>const</code></li>
+                <li>&#10003; Destructured variables are independent bindings &mdash; use <code>let { x } = obj</code> if <code>x</code> will be reassigned</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Assignment to constant variable' mean?</summary>
+                    <p>You used <code>=</code> (or <code>+=</code>, <code>-=</code>, <code>++</code>, etc.) on a variable declared with <code>const</code>, which only allows a single assignment at declaration. Any later attempt to rebind that name to a new value throws this TypeError, whether the new value is the same type or not.</p>
+                </details>
+                <details>
+                    <summary>Can I change the contents of a const object or array?</summary>
+                    <p>Yes. <code>const</code> only locks the binding (the variable name), not the value's contents. <code>const arr = [1,2]; arr.push(3)</code> works fine &mdash; you're mutating the array, not reassigning <code>arr</code>. Only <code>arr = [4,5]</code> (pointing the name at a different array) throws.</p>
+                </details>
+                <details>
+                    <summary>Why does my for loop throw this?</summary>
+                    <p><code>for (const i = 0; i &lt; 10; i++)</code> declares <code>i</code> as <code>const</code>, and the loop's own <code>i++</code> step tries to reassign it on the very first iteration. Loop counters that increment need <code>let</code>, not <code>const</code> &mdash; reserve <code>const</code> for the loop body's per-iteration values that don't change.</p>
+                </details>
+                <details>
+                    <summary>Why does a counter or accumulator variable throw this?</summary>
+                    <p>Any variable you plan to reassign &mdash; a running total, a counter, a flag that flips &mdash; must be declared with <code>let</code>. <code>const</code> communicates "this binding will never change"; if your code changes it, that's a signal the declaration should be <code>let</code>, not a bug to work around.</p>
+                </details>
+                <details>
+                    <summary>Does destructuring into a const also lock the fields?</summary>
+                    <p><code>const { a, b } = obj</code> creates two new <code>const</code> bindings, <code>a</code> and <code>b</code> &mdash; reassigning either later throws the same error, even though <code>obj</code> itself might be mutable. The rule is per-binding, not inherited from where the value came from.</p>
+                </details>
+                <details>
+                    <summary>How do I fix this quickly?</summary>
+                    <p>If the variable's value genuinely needs to change over time, change its declaration from <code>const</code> to <code>let</code>. If you only meant to update a property or push to an array (not rebind the variable itself), use the mutating operation instead of assignment &mdash; the <code>const</code> declaration is already correct.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More JavaScript &amp; runtime errors</h3>
+                <p>Browse the full reference for JavaScript, Node.js, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="cannot-access-before-initialization-tdz.html" class="btn btn-primary" style="background:#f0db4f;border-color:#f0db4f;color:#222;">Cannot access 'X' before initialization</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="cannot-access-before-initialization-tdz.html">ReferenceError: Cannot access 'X' before initialization</a></li>
+                <li><a href="uncaught-referenceerror-x-is-not-defined.html">ReferenceError: X is not defined</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

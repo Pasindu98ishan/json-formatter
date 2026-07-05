@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ReferenceError: Cannot access 'X' before initialization — what the temporal dead zone is, why let/const behave differently from var, and how to fix the common causes.">
+    <meta name="keywords" content="Cannot access before initialization, temporal dead zone, TDZ javascript, ReferenceError before initialization, let const hoisting">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/cannot-access-before-initialization-tdz.html">
+    <meta property="og:title" content="Cannot access 'X' before initialization (TDZ) — Cause & Fix">
+    <meta property="og:description" content="JavaScript's temporal dead zone blocks reading a let/const variable before its declaration line runs. Here's why, and the common patterns that trigger it.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/cannot-access-before-initialization-tdz.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Cannot access 'X' before initialization (TDZ) — Cause & Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Cannot access before initialization", "item": "https://jsondevtools.org/errors/cannot-access-before-initialization-tdz.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "ReferenceError: Cannot access 'X' before initialization — Cause and Fix",
+  "description": "JavaScript's temporal dead zone blocks reading a let/const/class binding before its declaration executes. This reference explains why and the common triggers.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-05",
+  "dateModified": "2026-07-05",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is the temporal dead zone (TDZ)?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The span of code between the start of a scope and the line where a let/const/class binding is actually declared. The name is hoisted (JavaScript knows it exists) but is uninitialized during that span — any read or write attempt throws 'Cannot access before initialization' instead of silently returning undefined." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why doesn't this happen with var?",
+      "acceptedAnswer": { "@type": "Answer", "text": "var declarations are hoisted AND initialized to undefined immediately, so reading one before its assignment line just gives undefined with no error — a different, quieter bug. let/const/class are hoisted but left uninitialized until their declaration executes, which is exactly what makes the TDZ detectable and why this error exists." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a self-referencing default parameter throw this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "function f(a = a) { } tries to read `a` while evaluating a's own default value, before `a` has been assigned — `a` is in its own TDZ at that point. Reference a different, already-initialized variable for the default, or restructure so the parameter doesn't depend on itself." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen inside a class field or constructor?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Class declarations are also subject to the TDZ — referencing a class (or one of its static/instance fields that depends on another not-yet-initialized field) before the class body finishes evaluating throws the same error. Order class fields so each only depends on fields declared above it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does swapping let for var 'fix' this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It removes the error by removing the safety net, not by fixing the underlying issue — the variable is still logically used before it has a meaningful value, now silently as undefined. Prefer reordering your code so the declaration runs before any use, rather than switching to var to suppress the error." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'Cannot access before initialization' quickly?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Move the variable's declaration above its first use, or move the use below the declaration. If a block-scoped loop or closure is involved, confirm you're not capturing a reference to a binding that hasn't run yet in that particular iteration or call." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Cannot access before initialization</span>
+            </nav>
+            <h1>ReferenceError: Cannot access 'X' before initialization</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You read or wrote a <code>let</code>/<code>const</code>/<code>class</code> binding <strong>before its declaration line actually ran</strong> &mdash; the <strong>temporal dead zone (TDZ)</strong>. Unlike <code>var</code>, which hoists as <code>undefined</code>, <code>let</code>/<code>const</code> hoist the name but leave it uninitialized and throw on any access. Fix it by moving the <strong>declaration above the use</strong>, not by switching back to <code>var</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>console.log(count);
+let count = 10;
+// Uncaught ReferenceError: Cannot access 'count' before initialization
+
+{
+  console.log(x);   // ❌ same TDZ, even though x exists later in this block
+  let x = 5;
+}</code></pre>
+            </div>
+
+            <h2>Why let/const behave differently from var</h2>
+            <p><code>var</code> declarations are hoisted <em>and</em> initialized to <code>undefined</code> immediately, so an early read just silently gives <code>undefined</code> &mdash; a quieter, harder-to-spot bug. <code>let</code>/<code>const</code>/<code>class</code> are hoisted but stay <strong>uninitialized</strong> from the top of the scope until their declaration line runs. That span is the temporal dead zone: any access inside it throws, on purpose, so the mistake surfaces immediately instead of silently producing <code>undefined</code>.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>console.log(a);   // undefined — var hoists AND initializes
+var a = 1;
+
+console.log(b);   // ❌ Cannot access 'b' before initialization — TDZ
+let b = 1;</code></pre>
+            </div>
+
+            <h2>Cause 1: using a variable before its declaration line</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function greet() {
+  console.log(message);   // ❌ still in message's TDZ
+  let message = "hi";
+}
+
+function greet() {
+  let message = "hi";     // ✅ declare first
+  console.log(message);
+}</code></pre>
+            </div>
+
+            <h2>Cause 2: a self-referencing default parameter</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function f(a = a) { }
+f();
+// ❌ Cannot access 'a' before initialization — a's default reads a itself
+
+function f(a, b = a) { }   // ✅ default refers to a different, already-set param
+f(5);</code></pre>
+            </div>
+
+            <h2>Cause 3: class fields that depend on each other</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>class Config {
+  timeout = retries * 1000;   // ❌ retries hasn't initialized yet (declared below)
+  retries = 3;
+}
+
+class Config {
+  retries = 3;                 // ✅ declare first
+  timeout = this.retries * 1000;
+}</code></pre>
+            </div>
+
+            <h2>Cause 4: block scope shadowing an outer variable</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let value = "outer";
+{
+  console.log(value);   // ❌ NOT "outer" — this block's own `value` shadows it,
+  let value = "inner";  //    and that inner `value` is in its TDZ right here
+}
+
+let value = "outer";
+{
+  let value = "inner";   // ✅ declare before any reference inside the block
+  console.log(value);
+}</code></pre>
+            </div>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Pattern</th><th>Why it's TDZ</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>use before declare, same scope</td><td>declaration line hasn't executed yet</td><td>move the declaration up</td></tr>
+                    <tr><td><code>function f(a = a)</code></td><td>default value reads its own uninitialized param</td><td>reference a different param, or restructure</td></tr>
+                    <tr><td>class field ordering</td><td>a field depends on one declared below it</td><td>reorder fields top-to-bottom by dependency</td></tr>
+                    <tr><td>shadowed block variable</td><td>inner <code>let</code> shadows outer name for the whole block</td><td>declare the inner variable first, or rename it</td></tr>
+                    <tr><td>switching to <code>var</code> "fixes" it</td><td>removes the check, not the bug</td><td>reorder code instead</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Find every use of the named variable in its enclosing scope &mdash; is one before the <code>let</code>/<code>const</code> line?</li>
+                <li>&#10003; Check for a same-named variable declared later in the <em>same block</em> that shadows an outer one</li>
+                <li>&#10003; Default parameters: does <code>a = a</code> (or a chain) reference itself before assignment?</li>
+                <li>&#10003; Class fields: does one field's initializer use another field declared below it?</li>
+                <li>&#10003; Fix by reordering declarations before use &mdash; don't switch to <code>var</code> to silence it</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What is the temporal dead zone (TDZ)?</summary>
+                    <p>The span of code between the start of a scope and the line where a <code>let</code>/<code>const</code>/<code>class</code> binding is actually declared. The name is hoisted (JavaScript knows it exists) but is uninitialized during that span &mdash; any read or write attempt throws "Cannot access before initialization" instead of silently returning <code>undefined</code>.</p>
+                </details>
+                <details>
+                    <summary>Why doesn't this happen with var?</summary>
+                    <p><code>var</code> declarations are hoisted AND initialized to <code>undefined</code> immediately, so reading one before its assignment line just gives <code>undefined</code> with no error &mdash; a different, quieter bug. <code>let</code>/<code>const</code>/<code>class</code> are hoisted but left uninitialized until their declaration executes, which is exactly what makes the TDZ detectable and why this error exists.</p>
+                </details>
+                <details>
+                    <summary>Why does a self-referencing default parameter throw this?</summary>
+                    <p><code>function f(a = a) { }</code> tries to read <code>a</code> while evaluating <code>a</code>'s own default value, before <code>a</code> has been assigned &mdash; <code>a</code> is in its own TDZ at that point. Reference a different, already-initialized variable for the default, or restructure so the parameter doesn't depend on itself.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen inside a class field or constructor?</summary>
+                    <p>Class declarations are also subject to the TDZ &mdash; referencing a class (or one of its static/instance fields that depends on another not-yet-initialized field) before the class body finishes evaluating throws the same error. Order class fields so each only depends on fields declared above it.</p>
+                </details>
+                <details>
+                    <summary>Why does swapping let for var 'fix' this?</summary>
+                    <p>It removes the error by removing the safety net, not by fixing the underlying issue &mdash; the variable is still logically used before it has a meaningful value, now silently as <code>undefined</code>. Prefer reordering your code so the declaration runs before any use, rather than switching to <code>var</code> to suppress the error.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'Cannot access before initialization' quickly?</summary>
+                    <p>Move the variable's declaration above its first use, or move the use below the declaration. If a block-scoped loop or closure is involved, confirm you're not capturing a reference to a binding that hasn't run yet in that particular iteration or call.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More JavaScript &amp; runtime errors</h3>
+                <p>Browse the full reference for JavaScript, Node.js, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="assignment-to-constant-variable.html" class="btn btn-primary" style="background:#f0db4f;border-color:#f0db4f;color:#222;">Assignment to constant variable</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="assignment-to-constant-variable.html">TypeError: Assignment to constant variable</a></li>
+                <li><a href="uncaught-referenceerror-x-is-not-defined.html">ReferenceError: X is not defined</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
