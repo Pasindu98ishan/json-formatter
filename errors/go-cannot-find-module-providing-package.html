@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="cannot find module providing package X — how Go's module resolution actually walks go.mod, the module cache, and the network, and the exact fix for each stage where it can fail.">
+    <meta name="keywords" content="cannot find module providing package go, go module resolution error, go.mod missing require, GOFLAGS mod=mod, go mod tidy error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-cannot-find-module-providing-package.html">
+    <meta property="og:title" content="Go: cannot find module providing package X — Cause and Fix">
+    <meta property="og:description" content="A deep dive into Go's module resolution walk — go.mod, the local module cache, and the network — and exactly where it breaks: a missing require, a typo'd import path, or a private-module auth gap.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-cannot-find-module-providing-package.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Go: cannot find module providing package X — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "cannot find module providing package (Go)", "item": "https://jsondevtools.org/errors/go-cannot-find-module-providing-package.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "cannot find module providing package X — Cause and Fix (Go)",
+  "description": "Go's module resolution walked go.mod, the local module cache, and the network and never found a module providing the imported package. A stage-by-stage breakdown of why, and the fix for each stage.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-09",
+  "dateModified": "2026-07-09",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'cannot find module providing package X' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Go's build tooling parsed your import statement, then tried to resolve which module (a versioned collection of packages) actually provides that import path — checking your go.mod requirements, the local module cache, and finally the network — and none of those stages produced a module containing that package." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does 'go mod tidy' sometimes fix this instantly?",
+      "acceptedAnswer": { "@type": "Answer", "text": "go mod tidy scans your source code for every imported package, resolves each to its owning module and an appropriate version, and adds any missing require directives to go.mod (removing unused ones too). If the only problem was a genuinely new import that simply hadn't been added to go.mod yet, this command performs exactly the missing resolution step and fixes it in one pass." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen for a package I'm sure exists on GitHub?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The most common cause is a mismatch between the import path in your code and the module's actual path as published — often a capitalization difference, a missing or extra path segment, or referencing a subdirectory that isn't actually its own importable package. Go's module resolution matches import paths exactly; 'it exists on GitHub' doesn't guarantee the exact string in your import statement is a valid, resolvable module path." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a private repository cause this error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — if the module lives in a private GitHub/GitLab repo or a private module proxy, the Go tool has no credentials to fetch it by default and the resolution fails at the network stage exactly as if the module didn't exist at all. Fixing it requires configuring GOPRIVATE (to skip the public checksum database for that path) and GOFLAGS or git credential configuration so the fetch itself can authenticate." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does deleting go.sum fix this error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Rarely, and it isn't the recommended first step — go.sum records cryptographic checksums for modules already resolved into go.mod, so if the module isn't resolvable at all, go.sum wasn't the blocker. Deleting it can occasionally help recover from a genuinely corrupted checksum entry, but running go mod tidy (which regenerates both files correctly) addresses the actual resolution gap directly." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this fail in CI but work on my machine?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Your machine has a populated local module cache ($GOPATH/pkg/mod) from previous work, so previously-resolved modules load instantly without hitting the network again. A fresh CI container has an empty cache and must fetch every dependency from the network or a configured proxy — if that network path is blocked, unauthenticated for a private module, or the proxy is unreachable from CI specifically, the exact same import fails there while succeeding locally." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>cannot find module providing package (Go)</span>
+            </nav>
+            <h1>no required module provides package X; to add it: go mod tidy</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Go's module resolution walked <strong><code>go.mod</code> &rarr; local module cache &rarr; the network</strong> and never found a module providing that package. Try <code>go mod tidy</code> first &mdash; it fixes the overwhelmingly common case of a genuinely new import that just hasn't been added to <code>go.mod</code> yet. If that doesn't work, check for a <strong>typo in the import path</strong> or a <strong>private repository</strong> your Go tooling can't authenticate against.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ go build .
+main.go:5:2: no required module provides package github.com/lib/pq;
+to add it:
+        go get github.com/lib/pq
+
+// or, on an older Go toolchain / different code path:
+go: cannot find module providing package github.com/lib/pq</code></pre>
+            </div>
+            <p>Both message shapes describe the same underlying failure &mdash; the resolution process below never located a module for the imported path &mdash; but the newer, friendlier form actually tells you the fix inline (<code>go get</code> for the specific missing module, or <code>go mod tidy</code> for a broader sweep of every unresolved import in the project).</p>
+
+            <h2>The module resolution walk, visually</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 320" role="img" aria-label="Diagram: Go resolves an imported package by checking go.mod's require directives first, then the local module cache on disk, then fetching from the network or a configured proxy. If all three steps fail, the build reports cannot find module providing package.">
+                    <defs>
+                        <marker id="gm-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="gm-ok" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-ok)"/></marker>
+                        <marker id="gm-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="160" y="14" width="280" height="46" rx="8"/>
+                    <text class="dg-m" x="300" y="42" text-anchor="middle">1. Check go.mod require directives</text>
+                    <path class="dg-ln-ok" d="M300,60 L300,84 L150,84 L150,110" marker-end="url(#gm-ok)"/>
+                    <path class="dg-ln-bad" d="M300,60 L300,84 L450,84 L450,110" marker-end="url(#gm-bad)"/>
+                    <text class="dg-s dg-ok" x="222" y="79" text-anchor="middle">listed</text>
+                    <text class="dg-s dg-bad" x="378" y="79" text-anchor="middle">not listed</text>
+                    <rect class="dg-box-ok" x="40" y="112" width="220" height="46" rx="8"/>
+                    <text class="dg-m dg-ok" x="150" y="140" text-anchor="middle">Resolved &mdash; build proceeds</text>
+                    <rect class="dg-box" x="340" y="112" width="220" height="46" rx="8"/>
+                    <text class="dg-m" x="450" y="140" text-anchor="middle">2. Check local module cache</text>
+                    <line class="dg-ln-bad" x1="450" y1="158" x2="450" y2="184" marker-end="url(#gm-bad)"/>
+                    <text class="dg-s dg-bad" x="462" y="174" text-anchor="start">not cached</text>
+                    <rect class="dg-box" x="340" y="186" width="220" height="46" rx="8"/>
+                    <text class="dg-m" x="450" y="214" text-anchor="middle">3. Fetch from network / proxy</text>
+                    <line class="dg-ln-bad" x1="450" y1="232" x2="450" y2="258" marker-end="url(#gm-bad)"/>
+                    <text class="dg-s dg-bad" x="462" y="248" text-anchor="start">unreachable, private, or no such path</text>
+                    <rect class="dg-box-bad" x="290" y="260" width="270" height="46" rx="8"/>
+                    <text class="dg-m dg-bad" x="425" y="288" text-anchor="middle">cannot find module providing package</text>
+                </svg>
+                <p class="dg-cap">The three stages run in order and each can independently fail. Which one failed narrows the fix: missing from <code>go.mod</code> &rarr; <code>go mod tidy</code>; not cached and fetch fails &rarr; check the import path spelling, network access, or private-module auth.</p>
+            </div>
+
+            <h2>Cause 1: the import is new and genuinely just missing from go.mod</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// you just added this import, but never ran a get/tidy step:
+import "github.com/lib/pq"
+
+// ❌ go.mod has no matching require line yet — stage 1 fails immediately
+
+// ✅ let Go resolve it and update go.mod + go.sum for you:
+go get github.com/lib/pq
+// or, to resolve every unresolved import in the whole module at once:
+go mod tidy</code></pre>
+            </div>
+            <p>This is the overwhelming majority case, and it's a normal, expected part of adding a new dependency &mdash; Go's module system requires every dependency to be explicitly recorded in <code>go.mod</code> (with a specific version) before it can be resolved, rather than implicitly trusting whatever happens to be importable. Writing the <code>import</code> line in your source is necessary but not sufficient; <code>go get</code> or <code>go mod tidy</code> performs the separate step of actually recording that dependency and its resolved version.</p>
+
+            <h2>Cause 2: a typo or wrong path segment in the import string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ extra or wrong path segment — this exact string has no
+//    corresponding module, so all three resolution stages fail:
+import "github.com/gorilla/mux/v2"
+
+// ✅ match the module's actual, published import path exactly
+//    (check the module's own go.mod / README for the correct one):
+import "github.com/gorilla/mux"</code></pre>
+            </div>
+            <p>Unlike a typo in a local identifier (which produces <a href="go-undefined-x.html">an "undefined" error</a> after successful compilation of the surrounding file), a typo'd <em>import path</em> fails at a much earlier stage — the module resolution machinery itself, before your code is even type-checked. Because module paths often mirror a hosting URL, it's tempting to assume "it exists on GitHub" guarantees resolvability, but Go matches the import string exactly against a module's declared path; an extra version suffix, a wrong case, or a subdirectory that isn't itself a separate module all produce this identical error.</p>
+
+            <h2>Cause 3: a private repository the tool can't authenticate against</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># tell Go this module path is private, so it skips the public
+# checksum database (sum.golang.org) and proxy (proxy.golang.org)
+# for it, going straight to the source instead:
+go env -w GOPRIVATE=github.com/mycompany/*
+
+# then make sure the underlying fetch (git over https) can actually
+# authenticate — e.g. via a configured git credential helper or a
+# .netrc entry for your private host</code></pre>
+            </div>
+            <p>By default, Go resolves modules through the public module proxy and verifies them against the public checksum database — neither of which has any way to see a private repository, so the network stage fails exactly as if the module didn't exist anywhere. Setting <code>GOPRIVATE</code> (or the more granular <code>GONOSUMCHECK</code>/<code>GOFLAGS</code> equivalents) tells Go to bypass the public infrastructure for matching paths and fetch directly via the underlying version control tool, which then needs its own working authentication (SSH key, a git credential helper, or a <code>.netrc</code> entry) completely independent of Go itself.</p>
+
+            <h2>Cause 4: an empty local cache — the classic "works on my machine, fails in CI"</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># confirm what's actually cached locally vs. what a clean
+# environment (like CI) would see:
+go env GOMODCACHE
+ls $(go env GOMODCACHE)/github.com/
+
+# reproduce the CI failure locally by clearing the cache first:
+go clean -modcache
+go build .   # now this machine behaves like a fresh CI runner</code></pre>
+            </div>
+            <p>A developer's machine accumulates a populated module cache over weeks or months of work, so a dependency that was fetched once loads instantly from disk on every subsequent build — masking network or authentication problems entirely. A CI runner typically starts with an empty cache every run (unless explicitly configured to persist one), so it must actually execute the network-fetch stage from scratch; if that stage is the one that's broken (a blocked outbound connection, an unconfigured private-module credential, a proxy unreachable from the CI network specifically), the exact same import that "just works" locally fails reliably in CI.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Which stage failed</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>brand new import, first build after adding it</td><td>stage 1: not in <code>go.mod</code></td><td><code>go get &lt;path&gt;</code> or <code>go mod tidy</code></td></tr>
+                    <tr><td>package "definitely exists" on GitHub</td><td>stages 1&ndash;3: the exact import string doesn't match a real module path</td><td>check the module's published import path exactly</td></tr>
+                    <tr><td>internal/company-private module</td><td>stage 3: network fetch has no credentials</td><td>set <code>GOPRIVATE</code> + configure git auth</td></tr>
+                    <tr><td>works locally, fails only in CI</td><td>stage 2/3: CI's cache is empty and its network path is blocked</td><td>reproduce with <code>go clean -modcache</code>; fix CI network/auth</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Run <code>go mod tidy</code> first &mdash; it resolves the majority of cases in one step</li>
+                <li>&#10003; Double-check the import path against the module's own published path (README, its own <code>go.mod</code>)</li>
+                <li>&#10003; If it's an internal/private module, confirm <code>GOPRIVATE</code> is set and git auth actually works</li>
+                <li>&#10003; Reproduce a CI-only failure locally with <code>go clean -modcache</code> before assuming it's environment-specific magic</li>
+                <li>&#10003; Check <code>go env GOPROXY</code> if your network requires a specific internal proxy</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "cannot find module providing package X" mean?</summary>
+                    <p>Go's build tooling parsed your import statement, then tried to resolve which module (a versioned collection of packages) actually provides that import path &mdash; checking your <code>go.mod</code> requirements, the local module cache, and finally the network &mdash; and none of those stages produced a module containing that package.</p>
+                </details>
+                <details>
+                    <summary>Why does "go mod tidy" sometimes fix this instantly?</summary>
+                    <p><code>go mod tidy</code> scans your source code for every imported package, resolves each to its owning module and an appropriate version, and adds any missing <code>require</code> directives to <code>go.mod</code> (removing unused ones too). If the only problem was a genuinely new import that simply hadn't been added to <code>go.mod</code> yet, this command performs exactly the missing resolution step and fixes it in one pass.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen for a package I'm sure exists on GitHub?</summary>
+                    <p>The most common cause is a mismatch between the import path in your code and the module's actual path as published &mdash; often a capitalization difference, a missing or extra path segment, or referencing a subdirectory that isn't actually its own importable package. Go's module resolution matches import paths exactly; "it exists on GitHub" doesn't guarantee the exact string in your import statement is a valid, resolvable module path.</p>
+                </details>
+                <details>
+                    <summary>Can a private repository cause this error?</summary>
+                    <p>Yes &mdash; if the module lives in a private GitHub/GitLab repo or a private module proxy, the Go tool has no credentials to fetch it by default and the resolution fails at the network stage exactly as if the module didn't exist at all. Fixing it requires configuring <code>GOPRIVATE</code> (to skip the public checksum database for that path) and <code>GOFLAGS</code> or git credential configuration so the fetch itself can authenticate.</p>
+                </details>
+                <details>
+                    <summary>Does deleting go.sum fix this error?</summary>
+                    <p>Rarely, and it isn't the recommended first step &mdash; <code>go.sum</code> records cryptographic checksums for modules already resolved into <code>go.mod</code>, so if the module isn't resolvable at all, <code>go.sum</code> wasn't the blocker. Deleting it can occasionally help recover from a genuinely corrupted checksum entry, but running <code>go mod tidy</code> (which regenerates both files correctly) addresses the actual resolution gap directly.</p>
+                </details>
+                <details>
+                    <summary>Why does this fail in CI but work on my machine?</summary>
+                    <p>Your machine has a populated local module cache (<code>$GOPATH/pkg/mod</code>) from previous work, so previously-resolved modules load instantly without hitting the network again. A fresh CI container has an empty cache and must fetch every dependency from the network or a configured proxy &mdash; if that network path is blocked, unauthenticated for a private module, or the proxy is unreachable from CI specifically, the exact same import fails there while succeeding locally.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go, Rust &amp; Java errors</h3>
+                <p>Browse the full reference for Go, Rust, Java, and other backend language errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="go-undefined-x.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: undefined: X</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-undefined-x.html">undefined: X</a></li>
+                <li><a href="go-imported-and-not-used.html">imported and not used: "X"</a></li>
+                <li><a href="npm-eresolve-unable-to-resolve-dependency-tree.html">npm ERR! ERESOLVE — unable to resolve dependency tree</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

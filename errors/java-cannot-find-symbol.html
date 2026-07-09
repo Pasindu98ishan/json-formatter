@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="error: cannot find symbol (javac) — how javac's two-part message (the symbol, and the location where it looked) narrows down a typo, missing import, wrong scope, or a method that doesn't actually exist on that type.">
+    <meta name="keywords" content="cannot find symbol java, javac cannot find symbol error, java symbol location, java method does not exist, java compile error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/java-cannot-find-symbol.html">
+    <meta property="og:title" content="Java: error: cannot find symbol — Cause and Fix">
+    <meta property="og:description" content="javac couldn't resolve an identifier. How to read the symbol/location pair the compiler prints, and the real fixes: typo, missing import, wrong scope, or overload mismatch.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/java-cannot-find-symbol.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Java: error: cannot find symbol — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "cannot find symbol (Java)", "item": "https://jsondevtools.org/errors/java-cannot-find-symbol.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "error: cannot find symbol — Cause and Fix (javac)",
+  "description": "javac's compiler couldn't resolve an identifier — a variable, method, or type. How to read the symbol/location pair the compiler prints, and the real fixes: typo, missing import, wrong scope, or an overload that doesn't exist.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-09",
+  "dateModified": "2026-07-09",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'error: cannot find symbol' mean in Java?",
+      "acceptedAnswer": { "@type": "Answer", "text": "javac's compiler tried to resolve an identifier — a variable, a method call, or a type name — and couldn't find a matching declaration anywhere it looked. The error always prints two extra lines beyond the message itself: 'symbol:' (exactly what it couldn't find) and 'location:' (the class or scope it searched in), which together narrow down the cause far faster than the one-line message alone." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does javac print both 'symbol' and 'location'?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The 'symbol' line tells you exactly what name and kind (variable, method, class) it was looking for, including the expected parameter types for a method call. The 'location' line tells you which class or scope it searched. Together they distinguish, for example, a genuinely nonexistent method from a method that exists but takes different argument types, or a variable that exists but in a different, inaccessible scope — three very different bugs that would otherwise look identical from the error message's first line alone." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen for a method I can see is defined in the class?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The most common reason is an argument-type mismatch: you're calling a method with arguments of types that don't match any of its overloads. javac performs overload resolution based on the exact argument types at the call site, and if none of the declared overloads accept what you're passing, the method 'doesn't exist' from the compiler's perspective even though a method with that name is clearly present in the source." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a variable declared inside an if block or loop cause this outside it?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — a variable declared with a block ({ }), including the body of an if, for, or while, only exists within that block's scope in Java. Referencing it after the closing brace, even a few lines later in the same method, produces 'cannot find symbol' because from the compiler's point of view the variable never existed at that point in the code." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a missing import cause 'cannot find symbol' for a type name?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, when the referenced type isn't in java.lang (which is imported automatically) and isn't in the same package as the file using it. Unlike an unresolved variable or method, a missing-import case for a type usually also shows a location referencing the current class, since the compiler is looking for the type name as if it should already be visible, and no import statement told it where else to look." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this cascade into dozens of errors from one typo?",
+      "acceptedAnswer": { "@type": "Answer", "text": "javac attempts to continue parsing and type-checking after the first cannot-find-symbol error to report as many real issues as possible in one pass, but once one identifier fails to resolve, everything downstream that depended on its (unknown) type can also fail to resolve, cascading into many more reported errors. Fixing the very first cannot-find-symbol in the file and recompiling often makes most or all of the subsequent errors disappear on their own." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>cannot find symbol (Java)</span>
+            </nav>
+            <h1>App.java:12: error: cannot find symbol</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;"><code>javac</code> couldn't resolve an identifier &mdash; a variable, method, or type. <strong>Always read the <code>symbol:</code> and <code>location:</code> lines</strong>, not just the one-line message: together they tell you exactly what name it looked for and where it searched, which immediately narrows this down to a <strong>typo</strong>, a <strong>missing import</strong>, a <strong>variable out of scope</strong>, or a <strong>method call with the wrong argument types</strong>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>App.java:12: error: cannot find symbol
+        System.out.println(usrName);
+                            ^
+  symbol:   variable usrName
+  location: class App
+1 error</code></pre>
+            </div>
+            <p>The <code>symbol:</code> line names exactly what <code>javac</code> was looking for &mdash; here, a variable called <code>usrName</code> &mdash; and its kind (variable, method, or class). The <code>location:</code> line names the scope it searched: <code>class App</code> means it looked through the entire <code>App</code> class and found nothing matching. These two lines, read together, are almost always enough to identify which of the causes below applies without needing to reason through the rest of the file.</p>
+
+            <h2>Cause 1: a typo in the identifier name</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>String userName = "Ada";
+System.out.println(usrName);   // ❌ cannot find symbol: variable usrName
+
+// ✅ match the exact spelling of the declared variable
+System.out.println(userName);</code></pre>
+            </div>
+            <p>The simplest and most common cause, identical in spirit to <a href="go-undefined-x.html">Go's "undefined: X"</a> — <code>javac</code>'s identifier resolution is exact-match only, with no fuzzy correction at the compiler level (though most IDEs highlight this live and suggest the closest declared name as you type). A single dropped, transposed, or miscapitalized letter produces this error with the <code>symbol:</code> line showing exactly the misspelled name you wrote, which is often the fastest way to spot the typo — compare it letter-by-letter against the actual declaration.</p>
+
+            <h2>Cause 2: the variable exists, but in a different (narrower) scope</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>public void process(boolean valid) {
+    if (valid) {
+        String result = "OK";   // scoped to this if-block only
+    }
+    System.out.println(result);   // ❌ cannot find symbol: variable result
+}                                  //    (out of scope the moment the block ends)
+
+// ✅ declare it in the outer scope so it's visible where it's needed
+public void process(boolean valid) {
+    String result = "";
+    if (valid) {
+        result = "OK";
+    }
+    System.out.println(result);
+}</code></pre>
+            </div>
+            <p>Every block delimited by <code>{ }</code> in Java &mdash; the body of an <code>if</code>, <code>for</code>, <code>while</code>, or a bare block &mdash; defines its own scope, and a variable declared inside one ceases to exist the instant that block's closing brace is reached. This is easy to miss because the variable is textually right there, a few lines above the failing reference; the compiler, however, only sees a declaration whose lifetime already ended by the time execution (and name resolution) reaches the line that tries to use it.</p>
+
+            <h2>Cause 3: a method call whose arguments don't match any existing overload</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>class Calculator {
+    int add(int a, int b) { return a + b; }
+}
+
+Calculator calc = new Calculator();
+calc.add(1, 2, 3);   // ❌ cannot find symbol
+                      //   symbol: method add(int,int,int)
+                      //   location: class Calculator
+
+// ✅ call it with the argument types/count an actual overload accepts
+calc.add(1, 2);
+// or add a genuinely new overload if 3-argument addition is intended:
+int add(int a, int b, int c) { return a + b + c; }</code></pre>
+            </div>
+            <p>This is the case most likely to look like a compiler mistake at first glance — the method visibly exists in the source, right there in the class. But the <code>symbol:</code> line is precise: it names not just <code>add</code> but <code>add(int,int,int)</code>, the exact signature it looked for and failed to find, because <code>javac</code> performs overload resolution against the specific number and types of arguments at the call site. A method with the right name but a different parameter list simply isn't a match; from the resolver's perspective, the three-argument version of <code>add</code> genuinely doesn't exist yet.</p>
+
+            <h2>Cause 4: a type used without its import (and it's not in java.lang)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>public class App {
+    public static void main(String[] args) {
+        List&lt;String&gt; names = new ArrayList&lt;&gt;();   // ❌ cannot find symbol
+    }                                                //   symbol: class List
+}                                                     //   location: class App
+
+// ✅ import the types from java.util
+import java.util.List;
+import java.util.ArrayList;</code></pre>
+            </div>
+            <p>Only the classes in <code>java.lang</code> (<code>String</code>, <code>Object</code>, <code>Integer</code>, and a handful of others) are available without an explicit import — everything else, including extremely commonly used types like <code>List</code> or <code>ArrayList</code> from <code>java.util</code>, must be imported (or referenced by its fully-qualified name) in every file that uses it. The <code>location:</code> line for this variant typically names the current class itself, since the compiler is treating the bare type name as if it should already be resolvable and finding nothing that matches within the file's own visible scope.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Symbol line shows</th><th>Likely cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>variable usrName</code></td><td>typo, or referenced before declaration</td><td>check spelling and declaration order</td></tr>
+                    <tr><td><code>variable result</code> (visibly declared above)</td><td>declared inside a narrower block scope</td><td>move the declaration to the enclosing scope</td></tr>
+                    <tr><td><code>method add(int,int,int)</code></td><td>no overload matches these exact argument types</td><td>call with matching arguments, or add the overload</td></tr>
+                    <tr><td><code>class List</code> / <code>class ArrayList</code></td><td>missing <code>import java.util.*</code></td><td>add the specific import</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Why this happens: javac reports what it searched, not just what it expected</h2>
+            <p>Unlike a runtime <code>NullPointerException</code>, which tells you where a null value was dereferenced but not why it was null, <code>javac</code>'s "cannot find symbol" is deliberately structured to report the <em>search</em> itself: exactly what name and kind it was resolving (the <code>symbol:</code> line), and exactly where it looked (the <code>location:</code> line). This design reflects how Java's name resolution actually works internally — every identifier reference is resolved against a specific enclosing scope, and printing that scope explicitly turns an otherwise generic "not found" message into a precise diagnostic. It's also why a single early typo can cascade into a wall of errors: once one identifier fails to resolve, the compiler doesn't know its type, and everything downstream that depended on that unknown type can independently fail to resolve too — fixing the very first "cannot find symbol" in a long error list and recompiling is usually far more productive than trying to address every reported error individually.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <code>symbol:</code> and <code>location:</code> lines, not just the top message</li>
+                <li>&#10003; If it names a variable that's visibly declared nearby, check whether it's inside a narrower <code>{ }</code> block</li>
+                <li>&#10003; If it names a method with a full parameter list, confirm your call's argument types actually match an existing overload</li>
+                <li>&#10003; If it names a class, confirm the import statement for that type's package is present</li>
+                <li>&#10003; Fix the <em>first</em> cannot-find-symbol error in the file first, then recompile — later ones often disappear on their own</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "error: cannot find symbol" mean in Java?</summary>
+                    <p><code>javac</code>'s compiler tried to resolve an identifier &mdash; a variable, a method call, or a type name &mdash; and couldn't find a matching declaration anywhere it looked. The error always prints two extra lines beyond the message itself: "symbol:" (exactly what it couldn't find) and "location:" (the class or scope it searched in), which together narrow down the cause far faster than the one-line message alone.</p>
+                </details>
+                <details>
+                    <summary>Why does javac print both 'symbol' and 'location'?</summary>
+                    <p>The "symbol" line tells you exactly what name and kind (variable, method, class) it was looking for, including the expected parameter types for a method call. The "location" line tells you which class or scope it searched. Together they distinguish, for example, a genuinely nonexistent method from a method that exists but takes different argument types, or a variable that exists but in a different, inaccessible scope &mdash; three very different bugs that would otherwise look identical from the error message's first line alone.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen for a method I can see is defined in the class?</summary>
+                    <p>The most common reason is an argument-type mismatch: you're calling a method with arguments of types that don't match any of its overloads. <code>javac</code> performs overload resolution based on the exact argument types at the call site, and if none of the declared overloads accept what you're passing, the method "doesn't exist" from the compiler's perspective even though a method with that name is clearly present in the source.</p>
+                </details>
+                <details>
+                    <summary>Can a variable declared inside an if block or loop cause this outside it?</summary>
+                    <p>Yes &mdash; a variable declared with a block (<code>{ }</code>), including the body of an <code>if</code>, <code>for</code>, or <code>while</code>, only exists within that block's scope in Java. Referencing it after the closing brace, even a few lines later in the same method, produces "cannot find symbol" because from the compiler's point of view the variable never existed at that point in the code.</p>
+                </details>
+                <details>
+                    <summary>Does a missing import cause "cannot find symbol" for a type name?</summary>
+                    <p>Yes, when the referenced type isn't in <code>java.lang</code> (which is imported automatically) and isn't in the same package as the file using it. Unlike an unresolved variable or method, a missing-import case for a type usually also shows a location referencing the current class, since the compiler is looking for the type name as if it should already be visible, and no import statement told it where else to look.</p>
+                </details>
+                <details>
+                    <summary>Why does this cascade into dozens of errors from one typo?</summary>
+                    <p><code>javac</code> attempts to continue parsing and type-checking after the first cannot-find-symbol error to report as many real issues as possible in one pass, but once one identifier fails to resolve, everything downstream that depended on its (unknown) type can also fail to resolve, cascading into many more reported errors. Fixing the very first cannot-find-symbol in the file and recompiling often makes most or all of the subsequent errors disappear on their own.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go, Rust &amp; Java errors</h3>
+                <p>Browse the full reference for Go, Rust, Java, and other backend language errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="java-classnotfoundexception-noclassdeffounderror.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Java: ClassNotFoundException vs NoClassDefFoundError</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="java-classnotfoundexception-noclassdeffounderror.html">ClassNotFoundException vs NoClassDefFoundError</a></li>
+                <li><a href="java-nullpointerexception.html">Exception in thread "main" java.lang.NullPointerException</a></li>
+                <li><a href="go-undefined-x.html">Go: undefined: X</a> &mdash; the same category of bug in Go</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

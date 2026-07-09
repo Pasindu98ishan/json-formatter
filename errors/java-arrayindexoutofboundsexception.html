@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Exception in thread &quot;main&quot; java.lang.ArrayIndexOutOfBoundsException — why Java arrays are fixed-length with no bounds negotiation, the classic off-by-one causes, and the fixes for loops, resizing, and multi-threaded access.">
+    <meta name="keywords" content="ArrayIndexOutOfBoundsException, java array index out of bounds, java off by one loop, java array length vs index, java arraylist vs array">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/java-arrayindexoutofboundsexception.html">
+    <meta property="og:title" content="Java: ArrayIndexOutOfBoundsException — Cause and Fix">
+    <meta property="og:description" content="An index outside 0..length-1 was used on a Java array. The classic off-by-one loop bounds, a hardcoded index after resizing, and concurrent-modification causes — with the exact fix for each.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/java-arrayindexoutofboundsexception.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Java: ArrayIndexOutOfBoundsException — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ArrayIndexOutOfBoundsException (Java)", "item": "https://jsondevtools.org/errors/java-arrayindexoutofboundsexception.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Exception in thread \"main\" java.lang.ArrayIndexOutOfBoundsException — Cause and Fix",
+  "description": "An index outside the valid 0..length-1 range was used on a Java array. Covers off-by-one loop bounds, stale indices after resizing, reversed-order iteration, and concurrent-modification causes.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-09",
+  "dateModified": "2026-07-09",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does ArrayIndexOutOfBoundsException mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Code tried to read or write an array element at an index that isn't within the array's valid range of 0 to length-1 inclusive. Java arrays are fixed-length from the moment they're created, and every access is bounds-checked at runtime; an out-of-range index throws this exception immediately rather than reading adjacent memory the way an unchecked language might." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is the most common cause using <= instead of < in a loop?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A valid index for an array of length N ranges from 0 to N-1 — the length itself is one past the last valid index. A loop written as for (int i = 0; i <= arr.length; i++) runs one iteration too many, attempting arr[arr.length] on the final pass, which is always out of bounds by exactly one. This single off-by-one mistake (<= vs <) is the single most common cause of this exception in real code." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the exception message show a negative index sometimes?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A negative index usually comes from a calculated position — array.length - someValue where someValue is larger than length, or iterating backward from the end and subtracting past zero. Java's bounds check rejects negative indices exactly the same way it rejects indices too large; there's a single valid range, and anything outside it on either side throws." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did this appear after I resized or shortened an array?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Java arrays have a fixed length set at creation — there's no way to grow or shrink one in place. 'Resizing' actually means creating a new, differently-sized array (via Arrays.copyOf or a manual copy) and reassigning the variable to point at it. If other code still holds a cached index or length value computed against the old array, it can now be out of range for the new one." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I use ArrayList instead of a plain array to avoid this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "ArrayList doesn't eliminate bounds errors — get(index) on an ArrayList throws the closely related IndexOutOfBoundsException for exactly the same reason, an out-of-range index. What ArrayList does provide is dynamic resizing (add/remove change its size safely) and helper methods (contains, indexOf) that reduce how often you need to compute a raw index yourself, which indirectly reduces how often this class of bug occurs." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can this happen from a concurrently modified array?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A plain array's length is fixed and can't change concurrently, but if the array reference itself is reassigned to a shorter array by another thread while a loop is mid-iteration using a previously-read length, the loop can run past the new array's bounds. This is rare with plain arrays (which are usually not reassigned concurrently) but common with shared mutable collections; synchronizing access or using a thread-safe collection type prevents it." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ArrayIndexOutOfBoundsException (Java)</span>
+            </nav>
+            <h1>Exception in thread "main" java.lang.ArrayIndexOutOfBoundsException</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">An index outside <code>0</code> to <code>length&minus;1</code> was used on an array. The <strong>#1 cause</strong> is a loop bound written with <code>&lt;=</code> instead of <code>&lt;</code>, running one iteration past the end. The exception message names the <strong>exact bad index and the array's actual length</strong> &mdash; read those two numbers first; the gap between them tells you exactly how far off the calculation was.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Exception in thread "main" java.lang.ArrayIndexOutOfBoundsException:
+Index 5 out of bounds for length 5
+	at com.example.App.printAll(App.java:12)
+	at com.example.App.main(App.java:6)</code></pre>
+            </div>
+            <p>Modern Java (8+) prints both numbers explicitly: the index that was attempted (<code>5</code>) and the array's actual length (<code>5</code>) — which immediately tells you this is the classic off-by-one, since valid indices for a length-5 array only run from <code>0</code> to <code>4</code>. The stack trace's top frame names the exact line that performed the access, which is where to start looking regardless of which of the causes below applies.</p>
+
+            <h2>Cause 1: an off-by-one loop bound (&lt;= instead of &lt;)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>int[] scores = {90, 85, 77, 92, 88};
+
+for (int i = 0; i &lt;= scores.length; i++) {   // ❌ runs i = 0..5 inclusive
+    System.out.println(scores[i]);           //    scores[5] is out of bounds
+}
+
+// ✅ use < so the loop stops at the last valid index (length - 1)
+for (int i = 0; i &lt; scores.length; i++) {
+    System.out.println(scores[i]);
+}</code></pre>
+            </div>
+            <p>This single character difference — <code>&lt;=</code> versus <code>&lt;</code> — accounts for a large share of every ArrayIndexOutOfBoundsException ever thrown. An array of length <code>N</code> has valid indices <code>0</code> through <code>N-1</code>; the length itself is exactly one past the last valid position, by definition. A loop condition of <code>i &lt;= arr.length</code> lets the loop variable reach <code>arr.length</code> itself on its final iteration, which is always one index past the end. Java's enhanced for-loop (<code>for (int score : scores)</code>) sidesteps this entire class of bug by never exposing a raw index at all when you don't need one.</p>
+
+            <h2>Cause 2: a hardcoded or cached index after the array was resized</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>int[] data = {1, 2, 3, 4, 5};
+int lastIndex = data.length - 1;   // 4 — valid for THIS array
+
+data = java.util.Arrays.copyOf(data, 2);   // "resized" — actually a NEW,
+                                             // shorter array is created
+System.out.println(data[lastIndex]);   // ❌ lastIndex (4) is now out of
+                                         //    bounds for length 2
+
+// ✅ recompute the bound from the current array, not a stale cached value
+System.out.println(data[data.length - 1]);</code></pre>
+            </div>
+            <p>Java arrays have a fixed length baked in at creation — there is no in-place resize operation. What looks like "resizing" (<code>Arrays.copyOf</code>, or manually allocating a new array and copying elements over) actually creates an entirely new array object and reassigns the variable to point at it; any index, length, or bound computed against the <em>old</em> array before that reassignment is now stale and can easily exceed the new array's actual size. This is a common source of subtle bugs specifically because the variable name (<code>data</code>) looks unchanged even though the object it refers to is completely different.</p>
+
+            <h2>Cause 3: a negative index from a miscalculated offset</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>int[] recent = new int[10];
+int windowSize = 15;   // ❌ larger than the array itself
+
+int start = recent.length - windowSize;   // -5 — a negative index
+System.out.println(recent[start]);        // ❌ Index -5 out of bounds for length 10
+
+// ✅ clamp the computed index to the valid range before using it
+int safeStart = Math.max(0, recent.length - windowSize);
+System.out.println(recent[safeStart]);</code></pre>
+            </div>
+            <p>Java's bounds check is symmetric: an index below <code>0</code> fails exactly the same way an index at or above <code>length</code> does, since both are outside the single valid range. Negative indices typically come from arithmetic that assumes a smaller offset than what's actually being subtracted — a "look back N items from the end" calculation where <code>N</code> turns out to be larger than the array itself is the classic version of this. Clamping a computed index with <code>Math.max(0, ...)</code> (and symmetrically <code>Math.min(length - 1, ...)</code> for the upper bound) is the standard defensive fix wherever an index is derived from a calculation rather than a simple loop counter.</p>
+
+            <h2>Cause 4: iterating in reverse and stopping at the wrong bound</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>int[] arr = {10, 20, 30};
+
+for (int i = arr.length; i &gt; 0; i--) {   // ❌ i starts at arr.length (3)
+    System.out.println(arr[i]);           //    arr[3] is out of bounds
+}
+
+// ✅ start the reverse loop at length - 1
+for (int i = arr.length - 1; i &gt;= 0; i--) {
+    System.out.println(arr[i]);
+}</code></pre>
+            </div>
+            <p>Reverse iteration is a second, less common flavor of the same off-by-one family: starting the loop counter at <code>arr.length</code> instead of <code>arr.length - 1</code> means the very first access is already one past the end, before the loop has done any useful work at all. Because the mistake is at the <em>start</em> of the loop rather than accumulating over iterations, it fails immediately and loudly on the very first pass, which at least makes it fast to spot once you know to check the initial value.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Symptom</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>index equals the array's length exactly</td><td>loop condition uses <code>&lt;=</code> instead of <code>&lt;</code></td><td>use <code>&lt;</code>, or switch to an enhanced for-loop</td></tr>
+                    <tr><td>index is a small negative number</td><td>an offset calculation subtracted too much</td><td>clamp with <code>Math.max(0, ...)</code></td></tr>
+                    <tr><td>index used to be valid, now isn't</td><td>the array was replaced by a differently-sized one</td><td>recompute bounds from the current array, don't cache them</td></tr>
+                    <tr><td>fails on the very first loop iteration</td><td>reverse loop starts at <code>length</code> instead of <code>length - 1</code></td><td>start reverse loops at <code>arr.length - 1</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Why this happens: Java always bounds-checks array access at runtime</h2>
+            <p>Unlike C, where an out-of-bounds array access silently reads or writes adjacent memory (a classic source of memory corruption and security vulnerabilities), the Java Virtual Machine checks every single array access against the array's actual length at runtime and throws immediately if the index falls outside the valid range. This is a deliberate safety guarantee baked into the platform: it trades a small, constant-time runtime check on every access for the elimination of an entire class of memory-safety bugs. The trade-off is that a bounds mistake in Java is always a loud, immediate exception rather than a silent, hard-to-trace corruption — which is precisely why this exception is so common in stack traces (it's doing its job, surfacing the bug the moment it happens) rather than a sign that something is unusually broken about the code.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read both numbers in the message &mdash; "Index N out of bounds for length M" &mdash; and compute <code>N - M</code> to see how far off it was</li>
+                <li>&#10003; Check every loop bound for <code>&lt;=</code> where it should be <code>&lt;</code></li>
+                <li>&#10003; If the index came from a calculation, clamp it with <code>Math.max</code>/<code>Math.min</code> before using it</li>
+                <li>&#10003; If the array was recently reassigned/resized, confirm no stale cached length/index is still in use</li>
+                <li>&#10003; Prefer the enhanced for-loop (<code>for (T x : arr)</code>) whenever you don't actually need the index itself</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does ArrayIndexOutOfBoundsException mean?</summary>
+                    <p>Code tried to read or write an array element at an index that isn't within the array's valid range of 0 to length-1 inclusive. Java arrays are fixed-length from the moment they're created, and every access is bounds-checked at runtime; an out-of-range index throws this exception immediately rather than reading adjacent memory the way an unchecked language might.</p>
+                </details>
+                <details>
+                    <summary>Why is the most common cause using &lt;= instead of &lt; in a loop?</summary>
+                    <p>A valid index for an array of length N ranges from 0 to N-1 &mdash; the length itself is one past the last valid index. A loop written as <code>for (int i = 0; i &lt;= arr.length; i++)</code> runs one iteration too many, attempting <code>arr[arr.length]</code> on the final pass, which is always out of bounds by exactly one. This single off-by-one mistake (<code>&lt;=</code> vs <code>&lt;</code>) is the single most common cause of this exception in real code.</p>
+                </details>
+                <details>
+                    <summary>Why does the exception message show a negative index sometimes?</summary>
+                    <p>A negative index usually comes from a calculated position &mdash; <code>array.length - someValue</code> where <code>someValue</code> is larger than length, or iterating backward from the end and subtracting past zero. Java's bounds check rejects negative indices exactly the same way it rejects indices too large; there's a single valid range, and anything outside it on either side throws.</p>
+                </details>
+                <details>
+                    <summary>Why did this appear after I resized or shortened an array?</summary>
+                    <p>Java arrays have a fixed length set at creation &mdash; there's no way to grow or shrink one in place. "Resizing" actually means creating a new, differently-sized array (via <code>Arrays.copyOf</code> or a manual copy) and reassigning the variable to point at it. If other code still holds a cached index or length value computed against the old array, it can now be out of range for the new one.</p>
+                </details>
+                <details>
+                    <summary>Should I use ArrayList instead of a plain array to avoid this?</summary>
+                    <p><code>ArrayList</code> doesn't eliminate bounds errors &mdash; <code>get(index)</code> on an <code>ArrayList</code> throws the closely related <code>IndexOutOfBoundsException</code> for exactly the same reason, an out-of-range index. What <code>ArrayList</code> does provide is dynamic resizing (add/remove change its size safely) and helper methods (<code>contains</code>, <code>indexOf</code>) that reduce how often you need to compute a raw index yourself, which indirectly reduces how often this class of bug occurs.</p>
+                </details>
+                <details>
+                    <summary>Can this happen from a concurrently modified array?</summary>
+                    <p>A plain array's length is fixed and can't change concurrently, but if the array reference itself is reassigned to a shorter array by another thread while a loop is mid-iteration using a previously-read length, the loop can run past the new array's bounds. This is rare with plain arrays (which are usually not reassigned concurrently) but common with shared mutable collections; synchronizing access or using a thread-safe collection type prevents it.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go, Rust &amp; Java errors</h3>
+                <p>Browse the full reference for Go, Rust, Java, and other backend language errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="java-nullpointerexception.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Java: NullPointerException</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="java-nullpointerexception.html">Exception in thread "main" java.lang.NullPointerException</a></li>
+                <li><a href="java-classnotfoundexception-noclassdeffounderror.html">ClassNotFoundException vs NoClassDefFoundError</a></li>
+                <li><a href="go-index-out-of-range.html">Go: panic: index out of range</a> &mdash; the same category of bug in Go</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

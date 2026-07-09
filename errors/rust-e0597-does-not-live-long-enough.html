@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="error[E0597]: 'X' does not live long enough — how Rust's borrow checker compares a value's scope against how long a reference to it needs to survive, and the real fixes: reorder drops, return owned data, or extend the value's scope.">
+    <meta name="keywords" content="E0597 rust, does not live long enough rust, rust borrow checker lifetime, dropped while still borrowed, rust dangling reference">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-e0597-does-not-live-long-enough.html">
+    <meta property="og:title" content="Rust: error[E0597]: does not live long enough — Cause and Fix">
+    <meta property="og:description" content="A reference was asked to outlive the value it points to. A deep dive into how Rust's borrow checker compares scopes, and the real fixes: return owned data, restructure drop order, or extend the value's lifetime.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0597-does-not-live-long-enough.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Rust: error[E0597]: does not live long enough — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "E0597: does not live long enough (Rust)", "item": "https://jsondevtools.org/errors/rust-e0597-does-not-live-long-enough.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "error[E0597]: 'X' does not live long enough — Cause and Fix (Rust)",
+  "description": "A reference outlived the value it pointed to. How Rust's borrow checker compares the scope of a value against the scope a reference to it needs, and the real fixes for the common ways this happens.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-09",
+  "dateModified": "2026-07-09",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'X does not live long enough' mean in Rust?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You created a reference to a value, and Rust's borrow checker determined the value will be dropped (its memory freed) before the reference is done being used — which would leave the reference pointing at freed memory, a dangling reference. Rust refuses to compile this rather than allow the undefined behavior a dangling pointer would cause at runtime." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does returning a reference to a local variable always fail this way?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A variable declared inside a function is dropped the moment that function returns — its stack frame is gone. A reference to it necessarily points at memory that no longer belongs to anything the instant the function ends, so any attempt to return &local_variable fails E0597 unconditionally; there is no valid lifetime you could annotate your way out of, because the value itself doesn't survive past the function." }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from a moved-value error (E0382)?",
+      "acceptedAnswer": { "@type": "Answer", "text": "E0382 (borrow of moved value) is about ownership transfer — using a value after you've handed its ownership to something else. E0597 is about scope duration — a reference outliving the value it borrows from, regardless of ownership. Both are enforced by the same borrow checker, but they catch different classes of mistakes: one tracks who currently owns a value, the other tracks how long a borrowed reference is allowed to exist relative to its source." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this mean Rust prevents a whole category of C/C++ bugs?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — a dangling pointer (using memory after it's been freed) is one of the most common sources of undefined behavior, memory corruption, and security vulnerabilities in C and C++. Rust's borrow checker performs exactly the scope-duration analysis needed to rule this out entirely at compile time, for zero runtime cost, which is one of the core selling points of the language's ownership model." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I fix this by adding an explicit lifetime annotation?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only if the value genuinely does live long enough somewhere else and the annotation is just clarifying an ambiguous relationship the compiler couldn't infer on its own. A lifetime annotation describes an existing relationship between scopes; it cannot force a value to live longer than its actual scope allows. If the value is truly local and temporary, the fix is to return owned data or restructure the code, not to annotate around the problem." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a temporary value in the middle of an expression sometimes cause this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A temporary created mid-expression (e.g. the Vec returned by a chained method call) is dropped at the end of that statement unless it's bound to a variable — if you take a reference into it that outlives the statement, the borrow checker reports the temporary as not living long enough. Binding the temporary to a named let variable first extends its scope to that variable's own scope, which resolves it." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>E0597: does not live long enough (Rust)</span>
+            </nav>
+            <h1>error[E0597]: `x` does not live long enough</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A <strong>reference outlived the value it points to</strong>. The value is dropped (its memory freed) at the end of its own scope, but something is still trying to use a reference to it afterward &mdash; which would be a <strong>dangling reference</strong>, exactly the class of bug Rust's borrow checker exists to eliminate at compile time. The fix is almost always to <strong>return an owned value instead of a reference</strong>, or to <strong>restructure the code so the value's scope actually covers every use of the reference</strong>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>error[E0597]: `local_name` does not live long enough
+ --> src/main.rs:3:26
+  |
+2 |     let local_name = String::from("Ada");
+  |         ---------- binding `local_name` declared here
+3 |     return &local_name;
+  |             ^^^^^^^^^^ borrowed value does not live long enough
+4 | }
+  | - `local_name` dropped here while still borrowed</code></pre>
+            </div>
+            <p>Every E0597 message names the value, the line it was declared on, the line the borrow occurs, and &mdash; critically &mdash; the exact line where the value is dropped while a reference to it is still expected to be valid. That last line is the key: it tells you precisely where the value's scope ends relative to where the reference is still needed.</p>
+
+            <h2>The scope-vs-lifetime mismatch, visually</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 230" role="img" aria-label="Diagram: a value's scope runs from its declaration to the end of its enclosing block, where it is dropped. A reference to that value needs to remain valid for as long as it is used. When the reference's needed lifetime extends past the value's scope, the borrow checker rejects it as not living long enough.">
+                    <defs>
+                        <marker id="lt-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                    </defs>
+                    <text class="dg-s" x="20" y="24" text-anchor="start">fn make_ref() -&gt; &amp;str {</text>
+                    <rect class="dg-box-ok" x="60" y="40" width="360" height="34" rx="6"/>
+                    <text class="dg-m" x="240" y="62" text-anchor="middle">local_name's scope (owns the data)</text>
+                    <line class="dg-ln" x1="60" y1="90" x2="420" y2="90" marker-end="url(#lt-a)"/>
+                    <text class="dg-s" x="240" y="86" text-anchor="middle">declared</text>
+                    <text class="dg-s dg-bad" x="430" y="63" text-anchor="start">← dropped here</text>
+
+                    <rect class="dg-box-bad" x="60" y="110" width="480" height="34" rx="6" style="stroke-dasharray:5 4"/>
+                    <text class="dg-m dg-bad" x="300" y="132" text-anchor="middle">&amp;local_name needs to stay valid this whole time (returned to the caller)</text>
+
+                    <line class="dg-ln" x1="60" y1="150" x2="60" y2="176" marker-end="url(#lt-a)"/>
+                    <line class="dg-ln" x1="420" y1="150" x2="420" y2="176" marker-end="url(#lt-a)"/>
+                    <line class="dg-ln" x1="540" y1="150" x2="540" y2="176" marker-end="url(#lt-a)"/>
+                    <text class="dg-s" x="60" y="192" text-anchor="middle">start</text>
+                    <text class="dg-s dg-bad" x="420" y="192" text-anchor="middle">value dropped</text>
+                    <text class="dg-s dg-bad" x="540" y="192" text-anchor="middle">reference still needed</text>
+                    <text class="dg-s" x="300" y="214" text-anchor="middle">the gap between "dropped" and "still needed" is exactly what E0597 rejects</text>
+                </svg>
+                <p class="dg-cap">The reference's required lifetime (bottom bar) extends past the value's actual scope (top bar). The borrow checker compares these two spans for every reference in the program — this is the entire mechanism, applied everywhere.</p>
+            </div>
+
+            <h2>Cause 1: returning a reference to a local variable</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn make_name() -&gt; &amp;str {
+    let local_name = String::from("Ada");
+    &amp;local_name   // ❌ local_name is dropped when the function returns
+}
+
+// ✅ return the owned value itself — ownership transfers to the caller,
+//    so there's nothing to outlive:
+fn make_name() -&gt; String {
+    let local_name = String::from("Ada");
+    local_name
+}</code></pre>
+            </div>
+            <p>This is the unconditional, unfixable-by-annotation version of the error: a local variable's storage belongs to its enclosing function's stack frame, which is torn down the instant the function returns. There is no lifetime you can write that makes a reference to freed stack memory valid — the only real fix is to stop trying to hand out a reference at all and return the owned value, transferring ownership to the caller instead of pointing at something about to disappear.</p>
+
+            <h2>Cause 2: a struct holding a reference that outlives its source</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>struct Wrapper&lt;'a&gt; { name: &amp;'a str }
+
+fn build() -&gt; Wrapper&lt;'static&gt; {
+    let s = String::from("Ada");
+    Wrapper { name: &amp;s }   // ❌ `s` does not live long enough
+}   // `s` dropped here, but Wrapper claims to hold a 'static reference
+
+// ✅ store an owned String instead of borrowing:
+struct Wrapper { name: String }
+fn build() -&gt; Wrapper {
+    let s = String::from("Ada");
+    Wrapper { name: s }
+}</code></pre>
+            </div>
+            <p>A struct with a lifetime parameter is making a promise: every reference it holds must remain valid for at least as long as the struct itself is used. When the struct is built from a value local to the function that's supposed to hand the struct back out, that promise is impossible to keep — the reference inside would need to outlive the local variable it points to. Storing owned data (a <code>String</code> instead of a <code>&amp;str</code>) sidesteps the whole problem by giving the struct its own copy of the data rather than a view into someone else's, at the cost of the extra allocation.</p>
+
+            <h2>Cause 3: a temporary value dropped at the end of its statement</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let first_word: &amp;str = "hello world".split(' ').collect::&lt;Vec&lt;_&gt;&gt;()[0];
+// ❌ the Vec from .collect() is a temporary — dropped at the end of this
+//    statement, taking its contents' backing storage with it
+
+// ✅ bind the temporary to a name first, extending its scope:
+let words: Vec&lt;&amp;str&gt; = "hello world".split(' ').collect();
+let first_word: &amp;str = words[0];</code></pre>
+            </div>
+            <p>An intermediate value produced mid-expression — the result of a chained method call that's never bound to a variable — is a <strong>temporary</strong>, and Rust drops temporaries at the end of the statement they're created in unless something extends their scope. Taking a reference into a temporary's contents and trying to use that reference past the end of the statement runs into exactly the same not-living-long-enough problem as any other value; giving the temporary an explicit name via <code>let</code> is what extends its lifetime to cover the rest of that variable's own scope.</p>
+
+            <h2>Cause 4: a mutex/lock guard dropped before its reference is used</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>use std::sync::Mutex;
+let data = Mutex::new(vec![1, 2, 3]);
+
+let first = &amp;data.lock().unwrap()[0];   // ❌ the MutexGuard temporary is
+                                          //    dropped at the end of this line
+println!("{}", first);
+
+// ✅ bind the guard to a name so it stays alive for the block:
+let guard = data.lock().unwrap();
+let first = &amp;guard[0];
+println!("{}", first);</code></pre>
+            </div>
+            <p>Calling <code>.lock()</code> returns a guard object (whose <code>Drop</code> implementation releases the lock), and if that guard is never bound to a name, it's a temporary that gets dropped at the end of its statement — releasing the lock and invalidating any reference taken into the locked data at the exact same moment. This is a specific, common instance of Cause 3 that trips up developers working with concurrency primitives specifically, since the error can look like a completely unrelated E0597 rather than an obviously-temporary-related mistake.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>returning <code>&amp;local_var</code> from a function</td><td>local variable dropped when the function returns</td><td>return an owned value instead</td></tr>
+                    <tr><td>a struct with a lifetime holding local data</td><td>the struct's promised lifetime outlives its source</td><td>store an owned field instead of a reference</td></tr>
+                    <tr><td>reference into a chained-call result</td><td>an unbound temporary is dropped at end of statement</td><td>bind the temporary to a <code>let</code> variable first</td></tr>
+                    <tr><td>reference into a <code>Mutex</code>/<code>RwLock</code> value</td><td>the guard temporary is dropped, releasing the lock</td><td>bind the guard to a name so it stays alive</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Why this happens: Rust checks scopes against reference needs at compile time</h2>
+            <p>The borrow checker's job for this class of error boils down to one comparison, repeated everywhere a reference exists in a program: does the value being referenced remain alive for at least as long as the reference to it is used? A value's scope ends deterministically — at the closing brace of the block it was declared in, or at the end of a statement if it's an unbound temporary — and the compiler computes exactly how long each reference needs to remain valid based on how it's used afterward (returned, stored in a struct, held across a lock). E0597 fires the moment those two spans don't nest correctly: the reference's required span extends past the value's actual span. This is precisely the compile-time analysis that eliminates dangling-pointer bugs, one of the most common and dangerous classes of memory-safety defects in languages like C and C++, at zero runtime cost — the entire check happens during compilation and produces no code in the final binary.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Find the "dropped here while still borrowed" line &mdash; that's exactly where the value's scope ends</li>
+                <li>&#10003; If you're returning a reference to something declared inside the function, return owned data instead</li>
+                <li>&#10003; If a struct holds a reference, consider whether it should own the data instead</li>
+                <li>&#10003; If the borrow is into a chained method-call result, bind the intermediate value to a <code>let</code> first</li>
+                <li>&#10003; Working with a <code>Mutex</code>/<code>RwLock</code>? Bind the guard to a named variable before borrowing into it</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "X does not live long enough" mean in Rust?</summary>
+                    <p>You created a reference to a value, and Rust's borrow checker determined the value will be dropped (its memory freed) before the reference is done being used &mdash; which would leave the reference pointing at freed memory, a dangling reference. Rust refuses to compile this rather than allow the undefined behavior a dangling pointer would cause at runtime.</p>
+                </details>
+                <details>
+                    <summary>Why does returning a reference to a local variable always fail this way?</summary>
+                    <p>A variable declared inside a function is dropped the moment that function returns &mdash; its stack frame is gone. A reference to it necessarily points at memory that no longer belongs to anything the instant the function ends, so any attempt to return <code>&amp;local_variable</code> fails E0597 unconditionally; there is no valid lifetime you could annotate your way out of, because the value itself doesn't survive past the function.</p>
+                </details>
+                <details>
+                    <summary>How is this different from a moved-value error (E0382)?</summary>
+                    <p>E0382 (borrow of moved value) is about ownership transfer &mdash; using a value after you've handed its ownership to something else. E0597 is about scope duration &mdash; a reference outliving the value it borrows from, regardless of ownership. Both are enforced by the same borrow checker, but they catch different classes of mistakes: one tracks who currently owns a value, the other tracks how long a borrowed reference is allowed to exist relative to its source.</p>
+                </details>
+                <details>
+                    <summary>Does this mean Rust prevents a whole category of C/C++ bugs?</summary>
+                    <p>Yes &mdash; a dangling pointer (using memory after it's been freed) is one of the most common sources of undefined behavior, memory corruption, and security vulnerabilities in C and C++. Rust's borrow checker performs exactly the scope-duration analysis needed to rule this out entirely at compile time, for zero runtime cost, which is one of the core selling points of the language's ownership model.</p>
+                </details>
+                <details>
+                    <summary>Can I fix this by adding an explicit lifetime annotation?</summary>
+                    <p>Only if the value genuinely does live long enough somewhere else and the annotation is just clarifying an ambiguous relationship the compiler couldn't infer on its own. A lifetime annotation describes an existing relationship between scopes; it cannot force a value to live longer than its actual scope allows. If the value is truly local and temporary, the fix is to return owned data or restructure the code, not to annotate around the problem.</p>
+                </details>
+                <details>
+                    <summary>Why does a temporary value in the middle of an expression sometimes cause this?</summary>
+                    <p>A temporary created mid-expression (e.g. the <code>Vec</code> returned by a chained method call) is dropped at the end of that statement unless it's bound to a variable &mdash; if you take a reference into it that outlives the statement, the borrow checker reports the temporary as not living long enough. Binding the temporary to a named <code>let</code> variable first extends its scope to that variable's own scope, which resolves it.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go, Rust &amp; Java errors</h3>
+                <p>Browse the full reference for Go, Rust, Java, and other backend language errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-borrow-of-moved-value-e0382.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Rust: E0382 borrow of moved value</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-borrow-of-moved-value-e0382.html">error[E0382]: borrow of moved value</a></li>
+                <li><a href="rust-cannot-borrow-as-mutable-e0499.html">error[E0499]: cannot borrow as mutable more than once</a></li>
+                <li><a href="rust-e0308-mismatched-types.html">error[E0308]: mismatched types</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Paste a raw stack trace, console error, or log line and get routed straight to the cause-and-fix reference for it. Recognizes 80+ JavaScript, TypeScript, Node.js, Python, Go, Rust, Java, Docker, PostgreSQL and browser errors — entirely in your browser.">
+    <meta name="keywords" content="error log analyzer, stack trace analyzer, error message lookup, what does this error mean, decode error, error to fix, javascript error, python traceback, node error, cors error">
+    <link rel="canonical" href="https://jsondevtools.org/error-log-analyzer.html">
+    <meta property="og:title" content="Error Log Analyzer — Paste an Error, Get the Fix">
+    <meta property="og:description" content="Paste a stack trace or console error and jump straight to the cause and fix. 80+ JS, TS, Node, Python, Go, Rust, Java, Docker & browser errors. Free, private, in-browser.">
+    <meta property="og:url" content="https://jsondevtools.org/error-log-analyzer.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Error Log Analyzer — Paste an Error, Get the Fix | Free</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <style>
+        .ela-input {
+            width:100%; min-height:190px; box-sizing:border-box; resize:vertical;
+            font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13.5px; line-height:1.5;
+            padding:0.9rem 1rem; border:1px solid var(--border-color); border-radius:8px;
+            background:var(--light-bg); color:var(--text-color);
+        }
+        .ela-input:focus { outline:2px solid var(--primary-color); outline-offset:1px; }
+        .ela-status { margin:0.6rem 0 0; font-size:13px; color:var(--secondary-color); }
+        .ela-results { margin:1.25rem 0 0; }
+        .ela-hint, .ela-browse, .ela-more { color:var(--secondary-color); font-size:14px; }
+        .ela-resulthead { font-weight:600; margin:0 0 0.75rem; }
+        .ela-resulthead code { background:var(--light-bg); border:1px solid var(--border-color); border-radius:4px; padding:1px 6px; font-size:13px; }
+        .ela-cards { display:flex; flex-direction:column; gap:0.7rem; }
+        .ela-card {
+            display:block; text-decoration:none; color:inherit;
+            border:1px solid var(--border-color); border-radius:10px; padding:0.9rem 1.1rem;
+            background:var(--light-bg); transition:border-color .12s, box-shadow .12s, transform .12s;
+        }
+        .ela-card:hover { border-color:var(--primary-color); box-shadow:0 2px 12px rgba(0,0,0,0.07); transform:translateY(-1px); }
+        .ela-card-best { border-left:4px solid var(--primary-color); }
+        .ela-card-top { display:flex; align-items:center; gap:0.5rem; margin:0 0 0.35rem; flex-wrap:wrap; }
+        .ela-badge { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#fff; background:var(--primary-color); border-radius:20px; padding:2px 9px; }
+        .ela-lang { font-size:11px; font-weight:600; color:var(--secondary-color); background:transparent; border:1px solid var(--border-color); border-radius:20px; padding:1px 9px; }
+        .ela-card-title { font-weight:700; font-size:15px; }
+        .ela-card-why { font-size:12.5px; color:var(--secondary-color); margin:0.3rem 0 0.55rem; }
+        .ela-card-why mark { background:rgba(255,214,0,0.28); color:inherit; padding:0 3px; border-radius:3px; font-family:ui-monospace,Consolas,monospace; }
+        .ela-card-cta { font-size:13px; font-weight:600; color:var(--primary-color); }
+        .ela-nomatch { border:1px solid var(--border-color); border-left:4px solid var(--secondary-color); border-radius:10px; padding:1rem 1.25rem; background:var(--light-bg); }
+        .ela-nomatch-head { font-weight:700; margin:0 0 0.4rem; }
+        .ela-nomatch-parsed { font-size:14px; margin:0 0 0.9rem; }
+        .ela-nomatch-parsed code { background:transparent; border:1px solid var(--border-color); border-radius:4px; padding:1px 6px; }
+        .ela-nomatch-cta, .ela-browse { margin:0.4rem 0 0; }
+        .ela-browse { margin-top:1rem; }
+        body.dark-mode { --light-bg:#2d2d2d; --border-color:#444; --text-color:#e0e0e0; --secondary-color:#9aa0a6; }
+        body.dark-mode .ela-input,
+        body.dark-mode .ela-card,
+        body.dark-mode .ela-nomatch { background:#2d2d2d; border-color:#444; color:#e0e0e0; }
+        body.dark-mode .ela-card-why mark { background:rgba(255,214,0,0.22); color:#e0e0e0; }
+    </style>
+    <script src="/js/analytics.js"></script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Error Log Analyzer", "item": "https://jsondevtools.org/error-log-analyzer.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Error Log Analyzer",
+      "url": "https://jsondevtools.org/error-log-analyzer.html",
+      "description": "Paste a raw stack trace, console error, or log line and get routed to the matching cause-and-fix reference. Recognizes 80+ JavaScript, TypeScript, Node.js, Python, Go, Rust, Java, Docker, PostgreSQL and browser errors, entirely in your browser.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does the Error Log Analyzer do?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Paste a raw error message, console output, or full stack trace and it matches the text against a database of known error signatures, then links you straight to the reference page explaining that error's cause and fix. Instead of needing to already know the exact phrase to search for, you paste what you actually see in your terminal or console." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my error data sent to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. All matching happens in your browser with JavaScript — the error text you paste is never uploaded or transmitted anywhere. This makes it safe to paste stack traces from private codebases, internal hostnames, or logs that might contain sensitive paths." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does it match my error to a fix?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Each reference page has a signature — a pattern that matches the stable, distinctive part of that error's message (for example 'Cannot read properties of undefined' or 'ERR_SSL_PROTOCOL_ERROR'). Your pasted text is tested against every signature, and the most specific matches are ranked first, so the exact page for your error rises to the top even inside a long multi-line stack trace." }
+        },
+        {
+          "@type": "Question",
+          "name": "What kinds of errors does it recognize?",
+          "acceptedAnswer": { "@type": "Answer", "text": "80+ common runtime and build errors across JavaScript, TypeScript, Node.js, Python, Go, Rust, and Java, plus browser network and CORS errors (net::ERR_*, preflight failures, mixed content), PostgreSQL errors, Docker errors, and JSON parsing errors. The database grows as new reference pages are added." }
+        },
+        {
+          "@type": "Question",
+          "name": "It didn't find my error — what now?",
+          "acceptedAnswer": { "@type": "Answer", "text": "If nothing matches, the tool still parses out the error type and message it detected and links you to the full error reference to browse by category. Not every error has a dedicated page yet, but the most common ones do, and the library is expanding." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work with a full stack trace, or just the error line?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Both. You can paste the entire multi-line stack trace exactly as it appears — the analyzer scans all of it for a recognizable error signature, so you don't have to hunt for and isolate the one relevant line yourself." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does it sometimes show more than one match?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Some errors are closely related — for example a generic 'X is not a function' and the more specific 'X.map is not a function'. When your text matches several signatures, the analyzer shows the most specific one as the best match and lists the related references below it, so you can pick the page that fits your exact situation." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>Error Log Analyzer</h1>
+            <p>Paste a stack trace, console error, or log line &mdash; get routed straight to its cause and fix. 80+ errors recognized, entirely in your browser.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+            <label for="logInput" style="display:block;font-weight:600;margin:0 0 0.5rem;">Paste your error or stack trace:</label>
+            <textarea id="logInput" class="ela-input" placeholder="e.g.  Uncaught TypeError: Cannot read properties of undefined (reading 'name')&#10;         at renderUser (app.js:42:17)" spellcheck="false" autocomplete="off"></textarea>
+            <div class="button-group">
+                <button id="analyzeBtn" class="btn btn-primary" aria-label="Analyze the pasted error">Analyze</button>
+                <button id="sampleBtn" class="btn btn-secondary" aria-label="Fill an example error">Try an example</button>
+                <button id="clearBtn" class="btn btn-secondary" aria-label="Clear the input">Clear</button>
+            </div>
+            <p id="analyzerStatus" class="ela-status" aria-live="polite"></p>
+            <div id="analyzerResults" class="ela-results" aria-live="polite"></div>
+        </section>
+
+        <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:2rem 0 0;">
+            <p style="margin:0;font-weight:600;">Quick answer</p>
+            <p style="margin:0.5rem 0 0;">The Error Log Analyzer matches a pasted error against a database of known error signatures and links you straight to the page explaining its cause and fix. Paste what you actually see &mdash; a full stack trace is fine. <strong>Everything runs in your browser; the error text you paste is never uploaded.</strong></p>
+        </div>
+
+        <section class="info-section">
+            <h3 style="margin-top:0;">Key takeaways</h3>
+            <ul>
+                <li><strong>Paste, don't search</strong> &mdash; drop in the raw error and skip guessing the right search phrase.</li>
+                <li><strong>Full stack traces welcome</strong> &mdash; it scans every line for a recognizable signature.</li>
+                <li><strong>Ranked results</strong> &mdash; the most specific match is highlighted as the best match.</li>
+                <li><strong>Never a dead end</strong> &mdash; no match still parses your error and links the full reference.</li>
+                <li><strong>100% private</strong> &mdash; matching is client-side; nothing you paste leaves your browser.</li>
+            </ul>
+
+            <h2>How does the analyzer work?</h2>
+            <p>Every page in our <a href="errors.html">error reference</a> is registered with a <strong>signature</strong> &mdash; a pattern that matches the stable, distinctive part of that error's message. When you paste text, it's tested against all of those signatures at once. Because a stack trace contains a lot of noise (file paths, line numbers, framework frames), the analyzer looks for the <em>error message</em> buried inside it rather than expecting you to isolate the relevant line. Matches are then ranked so the most specific one &mdash; say, <code>X.map is not a function</code> over a generic <code>is not a function</code> &mdash; rises to the top.</p>
+
+            <h2>What errors does it recognize?</h2>
+            <div class="table-container" style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <thead>
+                        <tr style="background:var(--light-bg);">
+                            <th style="padding:9px 12px;border:1px solid var(--border-color);text-align:left;">Category</th>
+                            <th style="padding:9px 12px;border:1px solid var(--border-color);text-align:left;">Examples</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">JavaScript runtime</td><td style="padding:9px 12px;border:1px solid var(--border-color);">Cannot read properties of undefined, X is not a function, Maximum call stack size exceeded</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Browser network &amp; CORS</td><td style="padding:9px 12px;border:1px solid var(--border-color);">Failed to fetch, net::ERR_* codes, CORS preflight, Mixed Content</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">TypeScript</td><td style="padding:9px 12px;border:1px solid var(--border-color);">TS2322, TS2339, TS2345, TS2532 and more</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Node.js &amp; npm</td><td style="padding:9px 12px;border:1px solid var(--border-color);">EADDRINUSE, ECONNRESET, ERESOLVE, Cannot find module</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Python</td><td style="padding:9px 12px;border:1px solid var(--border-color);">KeyError, NoneType has no attribute, JSONDecodeError, UnicodeDecodeError</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Go, Rust &amp; Java</td><td style="padding:9px 12px;border:1px solid var(--border-color);">nil pointer dereference, index out of range, E0382/E0499, NullPointerException</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Database &amp; Docker</td><td style="padding:9px 12px;border:1px solid var(--border-color);">deadlock detected, duplicate key, too many clients, exec format error</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2>Is it private?</h2>
+            <p>Yes. The matching runs entirely in your browser with JavaScript &mdash; the error text you paste is <strong>never uploaded or sent to a server</strong>. That means you can safely paste stack traces from a private codebase, internal hostnames, or logs containing sensitive file paths. If you want to strip secrets from a log before sharing it elsewhere, that's a separate concern the analyzer doesn't touch, because it never transmits your input in the first place.</p>
+
+            <h2>Why paste instead of search?</h2>
+            <p>Searching for an error assumes you already know how to phrase it &mdash; but the exact wording is often the hard part, especially for errors that embed your own variable names, file paths, or line numbers. Pasting the raw output lets the analyzer handle the messy, variable parts for you and key on the stable signature underneath, routing you to the fix without a single guess at search terms.</p>
+
+            <p style="margin-top:1rem;">Working with the raw JSON that caused the error? Format it with the <a href="formatter.html">JSON Formatter</a>, validate it with the <a href="json-validator.html">JSON Validator</a>, or decode an auth token with the <a href="jwt-decoder.html">JWT Decoder</a>.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>What does the Error Log Analyzer do?</summary>
+                <p>Paste a raw error message, console output, or full stack trace and it matches the text against a database of known error signatures, then links you straight to the reference page explaining that error's cause and fix. Instead of needing to already know the exact phrase to search for, you paste what you actually see in your terminal or console.</p>
+            </details>
+            <details>
+                <summary>Is my error data sent to a server?</summary>
+                <p>No. All matching happens in your browser with JavaScript — the error text you paste is never uploaded or transmitted anywhere. This makes it safe to paste stack traces from private codebases, internal hostnames, or logs that might contain sensitive paths.</p>
+            </details>
+            <details>
+                <summary>How does it match my error to a fix?</summary>
+                <p>Each reference page has a signature — a pattern that matches the stable, distinctive part of that error's message (for example <code>Cannot read properties of undefined</code> or <code>ERR_SSL_PROTOCOL_ERROR</code>). Your pasted text is tested against every signature, and the most specific matches are ranked first, so the exact page for your error rises to the top even inside a long multi-line stack trace.</p>
+            </details>
+            <details>
+                <summary>What kinds of errors does it recognize?</summary>
+                <p>80+ common runtime and build errors across JavaScript, TypeScript, Node.js, Python, Go, Rust, and Java, plus browser network and CORS errors (<code>net::ERR_*</code>, preflight failures, mixed content), PostgreSQL errors, Docker errors, and JSON parsing errors. The database grows as new reference pages are added.</p>
+            </details>
+            <details>
+                <summary>It didn't find my error — what now?</summary>
+                <p>If nothing matches, the tool still parses out the error type and message it detected and links you to the full error reference to browse by category. Not every error has a dedicated page yet, but the most common ones do, and the library is expanding.</p>
+            </details>
+            <details>
+                <summary>Does it work with a full stack trace, or just the error line?</summary>
+                <p>Both. You can paste the entire multi-line stack trace exactly as it appears — the analyzer scans all of it for a recognizable error signature, so you don't have to hunt for and isolate the one relevant line yourself.</p>
+            </details>
+            <details>
+                <summary>Why does it sometimes show more than one match?</summary>
+                <p>Some errors are closely related — for example a generic <code>X is not a function</code> and the more specific <code>X.map is not a function</code>. When your text matches several signatures, the analyzer shows the most specific one as the best match and lists the related references below it, so you can pick the page that fits your exact situation.</p>
+            </details>
+        </section>
+
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: July 2026</p>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="errors.html">Error Reference (browse all)</a></li>
+                <li><a href="http-status.html">HTTP Status Codes</a></li>
+                <li><a href="formatter.html">JSON Formatter</a></li>
+                <li><a href="json-validator.html">JSON Validator</a></li>
+                <li><a href="jwt-decoder.html">JWT Decoder</a></li>
+            </ul>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="blog/json-unexpected-token.html">Unexpected token in JSON</a> &mdash; the classic parse error</li>
+                <li><a href="blog/best-json-tools-2026.html">Best Free Online JSON Tools in 2026</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/error-log-analyzer-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>

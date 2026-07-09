@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="java.lang.ClassNotFoundException vs java.lang.NoClassDefFoundError — the two-phase Java classloading model, why one happens at explicit reflective load time and the other at first use, and how to fix each.">
+    <meta name="keywords" content="ClassNotFoundException vs NoClassDefFoundError, java classloading error, java classpath missing class, java static initializer failure, java NoClassDefFoundError fix">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/java-classnotfoundexception-noclassdeffounderror.html">
+    <meta property="og:title" content="Java: ClassNotFoundException vs NoClassDefFoundError — Cause and Fix">
+    <meta property="og:description" content="Two different classloading failures with different triggers. A deep dive into Java's two-phase compile-time/runtime classloading model, and the exact fix for each error.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/java-classnotfoundexception-noclassdeffounderror.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Java: ClassNotFoundException vs NoClassDefFoundError — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ClassNotFoundException vs NoClassDefFoundError (Java)", "item": "https://jsondevtools.org/errors/java-classnotfoundexception-noclassdeffounderror.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "java.lang.ClassNotFoundException / NoClassDefFoundError — Cause and Fix",
+  "description": "Two related but distinct Java classloading failures. ClassNotFoundException fires on an explicit reflective load; NoClassDefFoundError fires when a class that compiled successfully can't be found or fully initialized at first use.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-09",
+  "dateModified": "2026-07-09",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is the actual difference between ClassNotFoundException and NoClassDefFoundError?",
+      "acceptedAnswer": { "@type": "Answer", "text": "ClassNotFoundException is a checked exception thrown when code explicitly asks the classloader to load a class by name at runtime (Class.forName, a JDBC driver registration, a plugin system) and that name can't be resolved on the classpath. NoClassDefFoundError is thrown when the JVM needs a class implicitly — because compiled bytecode already references it — and either can't find its .class file at runtime despite it being present at compile time, or the class's static initializer threw an exception the first time it was loaded." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my code compile fine but throw NoClassDefFoundError at runtime?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Compilation only needs a class's .class file (or a .jar containing it) available on the compile-time classpath; running the program requires that same class to be present on the runtime classpath too. If a dependency jar is on the build classpath (via a build tool) but never gets copied into the deployed runtime environment — a common packaging or Docker-image mistake — the class resolves fine when compiling but is missing the moment the JVM actually needs to load it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a static initializer failure cause NoClassDefFoundError?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, and this is one of the most confusing variants: the JVM only attempts to run a class's static initializer once. If that first attempt throws any exception, Java marks the class as having failed initialization and throws NoClassDefFoundError on every subsequent attempt to use that class in the same JVM run — even though the class file itself is perfectly present. The real underlying cause is hidden in the ExceptionInInitializerError from the very first, original failed attempt, often much earlier in the log." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why would a JDBC driver throw ClassNotFoundException specifically?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Older JDBC code explicitly calls Class.forName(\"com.mysql.cj.jdbc.Driver\") to force-load and register a database driver class by its fully-qualified name before opening a connection. If that driver's jar isn't on the classpath, the explicit, by-name load fails with ClassNotFoundException — a textbook example of the 'code explicitly asked for a class by name' trigger, as opposed to the JVM implicitly needing a class it already knows about from compiled bytecode." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a version mismatch between compile-time and runtime jars cause this?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — if code compiles against version 2.x of a library (where a class exists) but the runtime classpath ends up with version 1.x of the same library (where that class doesn't exist, or exists under a different name/package), the compiled bytecode's reference to the class can't be satisfied at runtime, producing NoClassDefFoundError. This is a common symptom of a dependency-management conflict where two different versions of the same library end up on the classpath simultaneously." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find which jar or module actually contains the missing class?",
+      "acceptedAnswer": { "@type": "Answer", "text": "For a build-tool-managed project, running the dependency tree command (mvn dependency:tree or gradle dependencies) and searching the output for the expected library shows whether it's present, missing, or shadowed by a conflicting version. For a plain classpath, grepping the class name against every jar (unzip -l each jar and search for the .class file) locates exactly which jar should be providing it, or confirms it's absent from all of them." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ClassNotFoundException vs NoClassDefFoundError (Java)</span>
+            </nav>
+            <h1>java.lang.ClassNotFoundException / java.lang.NoClassDefFoundError</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">These are <strong>two different classloading failures</strong>, not variants of the same bug. <code>ClassNotFoundException</code> fires when code <strong>explicitly asks</strong> to load a class by name at runtime (<code>Class.forName</code>, a JDBC driver, a plugin loader) and it isn't on the classpath. <code>NoClassDefFoundError</code> fires when the JVM <strong>implicitly needs</strong> a class your compiled code already references, and either the class file is missing at runtime (present at compile time, absent when deployed) or its <strong>static initializer already failed once</strong> earlier in this same run.</p>
+            </div>
+
+            <h2>The exact error strings</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// explicit, by-name load — the class genuinely isn't on the classpath:
+java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver
+	at java.base/java.net.URLClassLoader.findClass(URLClassLoader.java:445)
+	at com.example.App.main(App.java:9)
+
+// implicit load — bytecode already references this class:
+Exception in thread "main" java.lang.NoClassDefFoundError: com/example/PaymentProcessor
+	at com.example.App.main(App.java:14)
+Caused by: java.lang.ClassNotFoundException: com.example.PaymentProcessor
+	at java.base/java.net.URLClassLoader.findClass(URLClassLoader.java:445)
+	... 1 more</code></pre>
+            </div>
+            <p>Note the second example: a <code>NoClassDefFoundError</code> can itself be <em>caused by</em> a <code>ClassNotFoundException</code> underneath — the JVM's implicit resolution mechanism internally uses the same by-name classloading lookup, and when that lookup fails, the outer implicit-load failure surfaces as the <code>Error</code>, with the inner <code>ClassNotFoundException</code> chained as its cause. Seeing both in one trace does not mean two separate bugs; it means one missing-classpath-entry problem, surfaced through the implicit-load path.</p>
+
+            <h2>The two-phase classloading model, visually</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 300" role="img" aria-label="Diagram: Java compiles source referencing a class successfully using the compile-time classpath. At runtime the JVM either implicitly loads a class already referenced by bytecode on first use, throwing NoClassDefFoundError if that fails, or code explicitly requests a class by name via Class.forName, throwing ClassNotFoundException if that fails.">
+                    <defs>
+                        <marker id="cl-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="cl-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <rect class="dg-box-ok" x="160" y="14" width="280" height="44" rx="8"/>
+                    <text class="dg-m" x="300" y="41" text-anchor="middle">Compile time: class resolves fine</text>
+                    <line class="dg-ln" x1="300" y1="58" x2="300" y2="84" marker-end="url(#cl-a)"/>
+                    <text class="dg-s" x="312" y="76" text-anchor="start">program runs</text>
+
+                    <rect class="dg-box" x="30" y="86" width="250" height="52" rx="8"/>
+                    <text class="dg-m" x="155" y="108" text-anchor="middle">Implicit load</text>
+                    <text class="dg-s" x="155" y="126" text-anchor="middle">bytecode already references the class</text>
+                    <line class="dg-ln-bad" x1="155" y1="138" x2="155" y2="164" marker-end="url(#cl-bad)"/>
+                    <rect class="dg-box-bad" x="30" y="166" width="250" height="52" rx="8"/>
+                    <text class="dg-m dg-bad" x="155" y="188" text-anchor="middle">NoClassDefFoundError</text>
+                    <text class="dg-s" x="155" y="206" text-anchor="middle">not on runtime classpath, or static init failed once</text>
+
+                    <rect class="dg-box" x="320" y="86" width="250" height="52" rx="8"/>
+                    <text class="dg-m" x="445" y="108" text-anchor="middle">Explicit load</text>
+                    <text class="dg-s" x="445" y="126" text-anchor="middle">Class.forName("...") by name</text>
+                    <line class="dg-ln-bad" x1="445" y1="138" x2="445" y2="164" marker-end="url(#cl-bad)"/>
+                    <rect class="dg-box-bad" x="320" y="166" width="250" height="52" rx="8"/>
+                    <text class="dg-m dg-bad" x="445" y="188" text-anchor="middle">ClassNotFoundException</text>
+                    <text class="dg-s" x="445" y="206" text-anchor="middle">named class isn't on the classpath</text>
+
+                    <text class="dg-s" x="300" y="240" text-anchor="middle">Both failures share the same underlying lookup —</text>
+                    <text class="dg-s" x="300" y="256" text-anchor="middle">only the trigger (implicit vs. explicit request) differs</text>
+                </svg>
+                <p class="dg-cap">"Compiled fine" only proves the class existed on the build classpath at that time — it says nothing about the runtime classpath, which is checked separately, later, and can differ.</p>
+            </div>
+
+            <h2>Cause 1 (NoClassDefFoundError): a jar present at compile time, missing at runtime</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># build succeeds — the dependency jar is on the build tool's classpath:
+mvn package
+# BUILD SUCCESS
+
+# but the deployed/runtime environment (a Docker image, a manually
+# assembled classpath) never copied that jar into it:
+java -cp app.jar com.example.App
+# Exception in thread "main" java.lang.NoClassDefFoundError: ...
+
+# ✅ ensure every compile-time dependency is also included in the
+#    runtime artifact — e.g. a "fat jar" / shaded jar bundling all
+#    dependencies, or an explicit COPY step in a Dockerfile</code></pre>
+            </div>
+            <p>Compilation and execution consult two logically separate classpaths, and build tools like Maven and Gradle can make this distinction invisible during local development (where both classpaths happen to line up) while a deployment pipeline silently diverges them — a common cause is a multi-stage Docker build where the compile stage has full access to a dependency cache, but the final runtime image only copies the application's own class files and forgets to also copy the third-party jars it depends on. The class was never missing from the code; it's missing from the specific artifact that actually gets run.</p>
+
+            <h2>Cause 2 (NoClassDefFoundError): a static initializer that already failed once</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>public class Config {
+    static final int MAX = 100 / Integer.parseInt(System.getenv("LIMIT"));
+    // ❌ throws NumberFormatException the FIRST time Config is loaded,
+    //    if LIMIT isn't set or isn't a valid number
+}
+
+// first call anywhere in the program:
+Config.MAX;   // throws ExceptionInInitializerError (the real root cause)
+
+// every LATER attempt to use Config in the same JVM run:
+Config.MAX;   // throws NoClassDefFoundError — Java won't retry a class
+              // whose static init already failed once</code></pre>
+            </div>
+            <p>The JVM guarantees a class's static initializer runs <strong>at most once</strong> per classloader per run — if that one attempt throws, the class is permanently marked as failed-to-initialize for the remainder of that JVM instance, and Java refuses to retry it, throwing <code>NoClassDefFoundError</code> on every subsequent reference instead. This produces a genuinely confusing trace: the exception you're staring at (<code>NoClassDefFoundError</code>) is not the actual bug — the real cause is an <code>ExceptionInInitializerError</code> from the <em>first</em> failed attempt, which may be much earlier in the log, or even in a different thread that happened to touch the class first.</p>
+
+            <h2>Cause 3 (ClassNotFoundException): an explicit reflective/driver load with no matching jar</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// older-style JDBC code explicitly force-loads the driver class by name:
+Class.forName("com.mysql.cj.jdbc.Driver");
+// ❌ java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver
+//    (the mysql-connector-j jar isn't on the classpath at all)
+
+// ✅ add the driver dependency (Maven example):
+// <dependency>
+//   <groupId>com.mysql</groupId>
+//   <artifactId>mysql-connector-j</artifactId>
+//   <version>8.x</version>
+// </dependency></code></pre>
+            </div>
+            <p>This is the textbook case of the "explicit, by-name" trigger: the code itself decided, at runtime, to ask the classloader for a specific fully-qualified class name — most classically to register a JDBC driver, but the same pattern appears in plugin systems, dependency-injection frameworks scanning for implementations, and any reflection-based "load a class by string" mechanism. Because the request names the class as a plain string rather than referencing it through compiled bytecode, the compiler never gets a chance to verify the class exists at all; the failure is discovered purely at runtime, the first time that string is actually resolved.</p>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Which error</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>compiled fine, fails only when deployed/run</td><td><code>NoClassDefFoundError</code></td><td>ensure the runtime artifact includes every compile-time dependency</td></tr>
+                    <tr><td>fails every time after the first attempt, in the same run</td><td><code>NoClassDefFoundError</code> (caused by a static init failure)</td><td>find the original <code>ExceptionInInitializerError</code>, fix that root cause</td></tr>
+                    <tr><td><code>Class.forName("...")</code>, a JDBC driver, a plugin loader</td><td><code>ClassNotFoundException</code></td><td>add the missing dependency jar to the classpath</td></tr>
+                    <tr><td>works with one dependency version, fails with another</td><td><code>NoClassDefFoundError</code></td><td>check for a version conflict via a dependency-tree command</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Why this happens: Java resolves classes at two distinct times, for two distinct reasons</h2>
+            <p>The compiler's job is narrower than it looks: it only verifies that every class your code references is resolvable on the <em>compile-time</em> classpath, and emits bytecode with symbolic references to those classes — it does not, and cannot, guarantee anything about what classpath the program will actually run against later. The JVM performs its own, separate resolution at runtime, and it does so in exactly two ways: implicitly, the moment compiled bytecode's reference to a class is first actually needed (triggering <code>NoClassDefFoundError</code> on failure), or explicitly, when application code deliberately asks for a class by name via reflection (triggering <code>ClassNotFoundException</code> on failure). Understanding which of these two paths produced your error immediately tells you where to look: an implicit failure means something about your deployment's classpath diverged from what you built against, while an explicit failure means a reflectively-requested dependency was never added to the classpath in the first place.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Identify which error you actually have &mdash; <code>ClassNotFoundException</code> (explicit) or <code>NoClassDefFoundError</code> (implicit)</li>
+                <li>&#10003; For <code>NoClassDefFoundError</code>, scroll up in the log for an earlier <code>ExceptionInInitializerError</code> from the same class</li>
+                <li>&#10003; Confirm the dependency jar is actually bundled in the runtime artifact, not just the build classpath</li>
+                <li>&#10003; Run a dependency-tree command (<code>mvn dependency:tree</code> / <code>gradle dependencies</code>) to spot a version conflict</li>
+                <li>&#10003; For a reflective/driver load, confirm the exact fully-qualified class name matches the dependency's actual package</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What is the actual difference between ClassNotFoundException and NoClassDefFoundError?</summary>
+                    <p><code>ClassNotFoundException</code> is a checked exception thrown when code explicitly asks the classloader to load a class by name at runtime (<code>Class.forName</code>, a JDBC driver registration, a plugin system) and that name can't be resolved on the classpath. <code>NoClassDefFoundError</code> is thrown when the JVM needs a class implicitly &mdash; because compiled bytecode already references it &mdash; and either can't find its <code>.class</code> file at runtime despite it being present at compile time, or the class's static initializer threw an exception the first time it was loaded.</p>
+                </details>
+                <details>
+                    <summary>Why does my code compile fine but throw NoClassDefFoundError at runtime?</summary>
+                    <p>Compilation only needs a class's <code>.class</code> file (or a <code>.jar</code> containing it) available on the compile-time classpath; running the program requires that same class to be present on the runtime classpath too. If a dependency jar is on the build classpath (via a build tool) but never gets copied into the deployed runtime environment &mdash; a common packaging or Docker-image mistake &mdash; the class resolves fine when compiling but is missing the moment the JVM actually needs to load it.</p>
+                </details>
+                <details>
+                    <summary>Can a static initializer failure cause NoClassDefFoundError?</summary>
+                    <p>Yes, and this is one of the most confusing variants: the JVM only attempts to run a class's static initializer once. If that first attempt throws any exception, Java marks the class as having failed initialization and throws <code>NoClassDefFoundError</code> on every subsequent attempt to use that class in the same JVM run &mdash; even though the class file itself is perfectly present. The real underlying cause is hidden in the <code>ExceptionInInitializerError</code> from the very first, original failed attempt, often much earlier in the log.</p>
+                </details>
+                <details>
+                    <summary>Why would a JDBC driver throw ClassNotFoundException specifically?</summary>
+                    <p>Older JDBC code explicitly calls <code>Class.forName("com.mysql.cj.jdbc.Driver")</code> to force-load and register a database driver class by its fully-qualified name before opening a connection. If that driver's jar isn't on the classpath, the explicit, by-name load fails with <code>ClassNotFoundException</code> &mdash; a textbook example of the "code explicitly asked for a class by name" trigger, as opposed to the JVM implicitly needing a class it already knows about from compiled bytecode.</p>
+                </details>
+                <details>
+                    <summary>Does a version mismatch between compile-time and runtime jars cause this?</summary>
+                    <p>Yes &mdash; if code compiles against version 2.x of a library (where a class exists) but the runtime classpath ends up with version 1.x of the same library (where that class doesn't exist, or exists under a different name/package), the compiled bytecode's reference to the class can't be satisfied at runtime, producing <code>NoClassDefFoundError</code>. This is a common symptom of a dependency-management conflict where two different versions of the same library end up on the classpath simultaneously.</p>
+                </details>
+                <details>
+                    <summary>How do I find which jar or module actually contains the missing class?</summary>
+                    <p>For a build-tool-managed project, running the dependency tree command (<code>mvn dependency:tree</code> or <code>gradle dependencies</code>) and searching the output for the expected library shows whether it's present, missing, or shadowed by a conflicting version. For a plain classpath, grepping the class name against every jar (<code>unzip -l</code> each jar and search for the <code>.class</code> file) locates exactly which jar should be providing it, or confirms it's absent from all of them.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go, Rust &amp; Java errors</h3>
+                <p>Browse the full reference for Go, Rust, Java, and other backend language errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="java-cannot-find-symbol.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Java: error: cannot find symbol</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="java-cannot-find-symbol.html">error: cannot find symbol</a></li>
+                <li><a href="java-nullpointerexception.html">Exception in thread "main" java.lang.NullPointerException</a></li>
+                <li><a href="npm-eresolve-unable-to-resolve-dependency-tree.html">npm ERR! ERESOLVE — unable to resolve dependency tree</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

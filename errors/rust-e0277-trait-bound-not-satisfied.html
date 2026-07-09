@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="error[E0277]: the trait bound is not satisfied — what a trait bound actually is, why a type must opt in to a capability rather than structurally matching it, and the real fixes: derive, implement, borrow, or generic bound.">
+    <meta name="keywords" content="E0277 rust, trait bound not satisfied rust, rust doesn't implement trait, rust derive debug, rust generic where clause">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-e0277-trait-bound-not-satisfied.html">
+    <meta property="og:title" content="Rust: error[E0277]: trait bound not satisfied — Cause and Fix">
+    <meta property="og:description" content="A type was used somewhere requiring a trait it doesn't implement. Why Rust requires explicit opt-in rather than structural matching, and the real fixes: #[derive], a manual impl, borrowing, or a generic bound.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0277-trait-bound-not-satisfied.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Rust: error[E0277]: trait bound not satisfied — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "E0277: trait bound not satisfied (Rust)", "item": "https://jsondevtools.org/errors/rust-e0277-trait-bound-not-satisfied.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "error[E0277]: the trait bound is not satisfied — Cause and Fix (Rust)",
+  "description": "A type was used at a point requiring a trait it doesn't implement. Covers missing #[derive] attributes, generic functions with unstated bounds, formatting traits, and the operator-overload traits.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-09",
+  "dateModified": "2026-07-09",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'the trait bound X: Y is not satisfied' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Some code — a function call, a generic constraint, an operator, a formatting macro — requires that type X implements trait Y (a defined set of capabilities, like being printable, comparable, or cloneable), and the compiler has determined X does not implement Y. Traits in Rust are never inferred structurally; a type only has a capability if something explicitly implements that trait for it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why doesn't Rust just check if my struct has the right fields, the way some languages check structurally?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Rust deliberately uses nominal typing for traits: a type must explicitly declare (via impl or #[derive]) that it provides a trait's behavior, rather than the compiler inferring it from shape alone. This prevents two unrelated types that merely look similar from being silently treated as interchangeable, and lets a trait's implementation encode real, type-specific logic (like how to actually compare two instances for equality) rather than a shallow field-by-field default that might be wrong for that type." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does println!(\"{:?}\", my_struct) fail with this error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The {:?} debug-format specifier requires the value's type to implement the Debug trait, and a plain struct doesn't get that for free. Adding #[derive(Debug)] directly above the struct definition asks the compiler to auto-generate a reasonable Debug implementation from the struct's fields, which resolves this specific and extremely common case in one line." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a generic function suddenly fail to compile when I call it with my own type?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A generic function's type parameter only has the capabilities explicitly listed in its trait bounds (fn process<T: Display>(x: T) can only call Display methods on x) — it works with built-in types like i32 or String because the standard library already implements common traits for them, but your own type needs the same traits implemented (or derived) before it can be used the same way." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I satisfy a trait bound by borrowing instead of implementing the trait?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Sometimes — many traits are automatically implemented for a reference to a type that implements them (a blanket impl), so passing &value instead of value can satisfy a bound whose real dependency is a shared reference, not ownership. This doesn't help if the bound genuinely requires functionality your type has never implemented at all, only if the issue is really about ownership versus borrowing." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the compiler tell me which trait is missing?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, always — the error explicitly names both the type and the exact trait it fails to implement, and very often adds a 'help: the trait X is not implemented for Y' note plus a suggestion (like adding a specific #[derive(...)] attribute) directly in the compiler output, making this one of the more self-diagnosing errors in the language once you know to read past the first line." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>E0277: trait bound not satisfied (Rust)</span>
+            </nav>
+            <h1>error[E0277]: the trait bound `X: Y` is not satisfied</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You used a type somewhere that requires a specific <strong>trait</strong> (a capability, like being printable or comparable), and that type <strong>never implements it</strong>. Rust never infers a trait from a type's shape &mdash; it must be explicitly given via <code>#[derive(...)]</code> or a manual <code>impl</code> block. The error always names <strong>both</strong> the type and the exact missing trait; start there.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>error[E0277]: `User` doesn't implement `Debug`
+ --> src/main.rs:8:22
+  |
+8 |     println!("{:?}", user);
+  |                       ^^^^ `User` cannot be formatted using `{:?}`
+  |
+  = help: the trait `Debug` is not implemented for `User`
+  = note: add `#[derive(Debug)]` to `User` or manually `impl Debug for User`</code></pre>
+            </div>
+            <p>Every E0277 message follows this shape: it names the concrete type, the exact trait it's missing, and almost always a <code>help:</code>/<code>note:</code> pair suggesting the fix directly &mdash; frequently the exact <code>#[derive(...)]</code> line to add. Reading those two lines is usually enough to resolve the error without reasoning through the trait system from scratch.</p>
+
+            <h2>Cause 1: a struct used with {:?} without deriving Debug</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>struct User { name: String, age: u32 }
+
+let u = User { name: "Ada".into(), age: 30 };
+println!("{:?}", u);   // ❌ `User` doesn't implement `Debug`
+
+// ✅ derive a default Debug implementation from the struct's fields:
+#[derive(Debug)]
+struct User { name: String, age: u32 }</code></pre>
+            </div>
+            <p>This is by far the most common trigger for new Rust developers. The <code>{:?}</code> debug-format specifier in <code>println!</code>/<code>format!</code> requires the value's type to implement <code>std::fmt::Debug</code>, and a plain struct has no implementation of anything beyond what it explicitly derives or implements. <code>#[derive(Debug)]</code> is a compiler-generated implementation that prints a reasonable default representation (the struct name and each field), and it's idiomatic to add it to nearly every struct during development, purely so it can be printed for debugging.</p>
+
+            <h2>Cause 2: a generic function's bound isn't satisfied by your type</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn summarize&lt;T: std::fmt::Display&gt;(item: T) {
+    println!("{item}");
+}
+
+struct Order { id: u32 }
+summarize(Order { id: 1 });   // ❌ `Order` doesn't implement `Display`
+
+// ✅ implement Display explicitly (Display has no derive — you control the format):
+impl std::fmt::Display for Order {
+    fn fmt(&amp;self, f: &amp;mut std::fmt::Formatter) -&gt; std::fmt::Result {
+        write!(f, "Order #{}", self.id)
+    }
+}</code></pre>
+            </div>
+            <p>A generic type parameter like <code>T: Display</code> is a contract: <em>only</em> types that implement <code>Display</code> are allowed to fill that slot, and the compiler enforces it at every call site rather than at runtime. Built-in types (<code>i32</code>, <code>String</code>, <code>f64</code>) already implement most common traits in the standard library, which is why generic code "just works" with them and immediately breaks the moment you pass in your own type &mdash; your type genuinely hasn't opted into that capability yet.</p>
+
+            <h2>Cause 3: comparing or sorting a type that doesn't implement PartialOrd/Ord</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>#[derive(Debug)]
+struct Score(u32);
+
+let mut scores = vec![Score(3), Score(1), Score(2)];
+scores.sort();   // ❌ `Score` doesn't implement `Ord`
+
+// ✅ derive the comparison traits too (requires PartialEq + Eq as prerequisites):
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct Score(u32);</code></pre>
+            </div>
+            <p>Sorting, min/max, and the comparison operators each depend on a specific trait (<code>Ord</code> for a total ordering, <code>PartialOrd</code> for a partial one), and none of them are implied by simply defining a struct — Rust has no notion of "comparable by default" the way some languages compare objects by reference identity as a fallback. Deriving multiple related traits together (<code>PartialEq, Eq, PartialOrd, Ord</code>) is the normal pattern, since <code>Ord</code> itself requires the others as prerequisites; the compiler's error will name exactly which one is still missing if you derive only some of them.</p>
+
+            <h2>Cause 4: an operator (+, ==, etc.) used on a type that hasn't opted in</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>struct Point { x: i32, y: i32 }
+
+let a = Point { x: 1, y: 2 };
+let b = Point { x: 3, y: 4 };
+let c = a + b;   // ❌ `Point` doesn't implement `Add`
+
+// ✅ implement the operator trait explicitly — you decide what "+" means for it:
+use std::ops::Add;
+impl Add for Point {
+    type Output = Point;
+    fn add(self, other: Point) -&gt; Point {
+        Point { x: self.x + other.x, y: self.y + other.y }
+    }
+}</code></pre>
+            </div>
+            <p>Every operator in Rust (<code>+</code>, <code>-</code>, <code>==</code>, indexing with <code>[]</code>, and more) is really just syntax sugar for a trait method call (<code>Add::add</code>, <code>PartialEq::eq</code>, <code>Index::index</code>), and none of these are defined for a custom type unless you implement them. This is the same "explicit opt-in, no structural inference" principle running through every cause on this page: the compiler will never guess that two <code>Point</code> values should be added field-by-field just because that seems like the obvious behavior — you have to say so.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Missing trait</th><th>Triggered by</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>Debug</code></td><td><code>println!("{:?}", x)</code></td><td><code>#[derive(Debug)]</code></td></tr>
+                    <tr><td><code>Display</code></td><td><code>println!("{x}")</code>, a generic bound</td><td>manual <code>impl Display</code> (no derive exists)</td></tr>
+                    <tr><td><code>PartialEq</code> / <code>Eq</code></td><td><code>==</code>, <code>assert_eq!</code></td><td><code>#[derive(PartialEq, Eq)]</code></td></tr>
+                    <tr><td><code>PartialOrd</code> / <code>Ord</code></td><td><code>.sort()</code>, <code>&lt;</code>/<code>&gt;</code></td><td><code>#[derive(PartialOrd, Ord)]</code> (plus <code>PartialEq</code>/<code>Eq</code>)</td></tr>
+                    <tr><td><code>Clone</code> / <code>Copy</code></td><td><code>.clone()</code>, implicit copy on use</td><td><code>#[derive(Clone)]</code> (<code>Copy</code> only for simple stack-only data)</td></tr>
+                    <tr><td><code>Add</code>/<code>Sub</code>/etc.</td><td><code>+</code>, <code>-</code>, other operators</td><td>manual <code>impl Add for T</code> (define the behavior yourself)</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Why this happens: Rust traits are nominal, not structural</h2>
+            <p>The unifying reason every cause above requires an explicit derive or <code>impl</code> is Rust's choice of <strong>nominal</strong> typing for traits, as opposed to a structural system that would grant a capability automatically to any type whose shape happens to match. A structural approach (as in some languages' interfaces) would let two unrelated types silently become interchangeable the moment their fields happened to line up — convenient sometimes, but a source of subtle bugs when the resemblance is coincidental rather than intentional. By requiring every trait implementation to be a deliberate, visible statement in the code (either handwritten or requested via <code>#[derive(...)]</code>), Rust guarantees that any capability a type has was actually decided by whoever wrote that type, and that a reader can find the exact logic (or auto-generated default) backing any operation performed on a value. E0277 is simply the compiler enforcing that guarantee at every use site.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the exact type and exact trait named in the error &mdash; both are always stated</li>
+                <li>&#10003; Check the <code>help:</code>/<code>note:</code> lines &mdash; they often name the exact <code>#[derive(...)]</code> to add</li>
+                <li>&#10003; If it's <code>Debug</code>, <code>Clone</code>, <code>PartialEq</code>/<code>Eq</code>, or <code>PartialOrd</code>/<code>Ord</code>, try deriving it first</li>
+                <li>&#10003; If it's <code>Display</code> or an operator trait, write the manual <code>impl</code> yourself — these have no derive</li>
+                <li>&#10003; In a generic function, confirm the bound (<code>T: SomeTrait</code>) actually matches what the function body calls on <code>T</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "the trait bound X: Y is not satisfied" mean?</summary>
+                    <p>Some code &mdash; a function call, a generic constraint, an operator, a formatting macro &mdash; requires that type X implements trait Y (a defined set of capabilities, like being printable, comparable, or cloneable), and the compiler has determined X does not implement Y. Traits in Rust are never inferred structurally; a type only has a capability if something explicitly implements that trait for it.</p>
+                </details>
+                <details>
+                    <summary>Why doesn't Rust just check if my struct has the right fields, the way some languages check structurally?</summary>
+                    <p>Rust deliberately uses nominal typing for traits: a type must explicitly declare (via <code>impl</code> or <code>#[derive]</code>) that it provides a trait's behavior, rather than the compiler inferring it from shape alone. This prevents two unrelated types that merely look similar from being silently treated as interchangeable, and lets a trait's implementation encode real, type-specific logic (like how to actually compare two instances for equality) rather than a shallow field-by-field default that might be wrong for that type.</p>
+                </details>
+                <details>
+                    <summary>Why does println!("{:?}", my_struct) fail with this error?</summary>
+                    <p>The <code>{:?}</code> debug-format specifier requires the value's type to implement the <code>Debug</code> trait, and a plain struct doesn't get that for free. Adding <code>#[derive(Debug)]</code> directly above the struct definition asks the compiler to auto-generate a reasonable <code>Debug</code> implementation from the struct's fields, which resolves this specific and extremely common case in one line.</p>
+                </details>
+                <details>
+                    <summary>Why does a generic function suddenly fail to compile when I call it with my own type?</summary>
+                    <p>A generic function's type parameter only has the capabilities explicitly listed in its trait bounds (<code>fn process&lt;T: Display&gt;(x: T)</code> can only call <code>Display</code> methods on <code>x</code>) &mdash; it works with built-in types like <code>i32</code> or <code>String</code> because the standard library already implements common traits for them, but your own type needs the same traits implemented (or derived) before it can be used the same way.</p>
+                </details>
+                <details>
+                    <summary>Can I satisfy a trait bound by borrowing instead of implementing the trait?</summary>
+                    <p>Sometimes &mdash; many traits are automatically implemented for a reference to a type that implements them (a blanket impl), so passing <code>&amp;value</code> instead of <code>value</code> can satisfy a bound whose real dependency is a shared reference, not ownership. This doesn't help if the bound genuinely requires functionality your type has never implemented at all, only if the issue is really about ownership versus borrowing.</p>
+                </details>
+                <details>
+                    <summary>Does the compiler tell me which trait is missing?</summary>
+                    <p>Yes, always &mdash; the error explicitly names both the type and the exact trait it fails to implement, and very often adds a "help: the trait X is not implemented for Y" note plus a suggestion (like adding a specific <code>#[derive(...)]</code> attribute) directly in the compiler output, making this one of the more self-diagnosing errors in the language once you know to read past the first line.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go, Rust &amp; Java errors</h3>
+                <p>Browse the full reference for Go, Rust, Java, and other backend language errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-e0308-mismatched-types.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Rust: E0308 mismatched types</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-e0308-mismatched-types.html">error[E0308]: mismatched types</a></li>
+                <li><a href="rust-e0597-does-not-live-long-enough.html">error[E0597]: does not live long enough</a></li>
+                <li><a href="rust-cannot-borrow-as-mutable-e0499.html">error[E0499]: cannot borrow as mutable more than once</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

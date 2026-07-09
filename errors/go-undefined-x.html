@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="./main.go: undefined: X — why Go's compiler rejects a name it can't resolve, the four real causes (typo, missing import, unexported identifier, wrong build tags), and how to fix each one.">
+    <meta name="keywords" content="undefined: X go, go compile error undefined, go undefined function, go undefined variable, go unexported identifier">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-undefined-x.html">
+    <meta property="og:title" content="Go: undefined: X — Cause and Fix">
+    <meta property="og:description" content="Go's compiler couldn't resolve a name at compile time. Four real causes — typo, missing import, unexported identifier, wrong build tags — and the exact fix for each.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-undefined-x.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Go: undefined: X — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "undefined: X (Go)", "item": "https://jsondevtools.org/errors/go-undefined-x.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "undefined: X — Cause and Fix (Go compile error)",
+  "description": "The Go compiler could not resolve a name at compile time. Covers typos, missing imports, unexported identifiers, build-tag exclusion, and the go vet/gopls tools that catch it before you even build.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-09",
+  "dateModified": "2026-07-09",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'undefined: X' mean in Go?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The compiler encountered an identifier — a function, variable, type, or constant — that it cannot resolve in the current scope or any imported package. This is strictly a compile-time failure: Go never gets far enough to produce a binary, so there is no stack trace, only a file:line pointing at the unresolved name." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen even though the function is clearly defined somewhere in my project?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Most often the identifier is defined in a different package and either the import is missing, the package alias/prefix wasn't used when calling it, or the identifier starts with a lowercase letter and is therefore unexported — invisible outside its own package regardless of import. Go's compiler resolves names strictly per-package; being 'defined somewhere in the module' is not the same as being visible from the file that references it." }
+    },
+    {
+      "@type": "Question",
+      "name": "How does Go decide whether an identifier is exported?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Purely by the first letter's case — there is no separate 'export' keyword. An identifier starting with an uppercase letter (Func, Type, Var) is exported and visible to importing packages; one starting with lowercase (func, typo, helper) is unexported and only visible within its own package. A single accidental lowercase letter is one of the most common causes of this error when calling code you just wrote in another package." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can build tags cause an 'undefined' error even when the function exists in the file?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. A build constraint comment (//go:build linux) or a _linux.go / _test.go filename suffix excludes that file from compilation under other conditions (a different OS, GOOS/GOARCH, or a normal non-test build). The function is textually present in your project but the compiler never even parses that file for the build you're running, so it reports the identifier as undefined." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does gofmt or go vet catch this before I build?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No — gofmt only reformats syntax, and go vet checks for suspicious constructs in code that already compiles; neither performs full identifier resolution. An editor running gopls (the standard Go language server) does catch undefined identifiers live, as does go build/go run, which is ultimately the same identifier-resolution pass that produces this error." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the error sometimes name a package, like undefined: strings.Trimm?",
+      "acceptedAnswer": { "@type": "Answer", "text": "That format means the package itself resolved correctly (strings was imported and used), but the specific member you referenced inside it does not exist — almost always a typo of the real function name (strings.TrimSpace, not strings.Trimm). This is a narrower, easier case than a fully unresolved bare identifier, since the package half of the search already succeeded." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>undefined: X (Go)</span>
+            </nav>
+            <h1>./main.go:10:2: undefined: X</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The compiler cannot resolve <code>X</code> in scope. This is <strong>always one of four things</strong>: a <strong>typo</strong> in the name, a <strong>missing import</strong>, an <strong>unexported identifier</strong> (starts with a lowercase letter) referenced from another package, or the defining file being <strong>excluded by a build tag</strong> for the build you're running. This is purely a compile-time failure &mdash; there is no runtime, no stack trace, only a <code>file:line</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ go build .
+./main.go:10:2: undefined: greetUser
+./handler.go:22:9: undefined: strings.Trimm</code></pre>
+            </div>
+            <p>Go's build failures always carry a <code>file:line:column</code> prefix and stop the entire build &mdash; there is no partial binary, and no way to run code that references an unresolved name, even if that name is never actually called at runtime. This is a stricter guarantee than most dynamic languages offer: a Python or JavaScript program can run for hours before hitting an undefined name on a rarely-exercised code path, but Go's compiler resolves every identifier in every reachable file before producing anything at all.</p>
+
+            <h2>How to read the message</h2>
+            <p>The format is always <code>undefined: &lt;name&gt;</code> or <code>undefined: &lt;package&gt;.&lt;name&gt;</code>. The second form is the easier case: the package half already resolved (the import exists and is used), so the search space narrows to "does this exact member exist in that package" &mdash; almost always a typo of a real standard-library or third-party function name. The first form, a bare identifier, requires checking the four causes below in order, since the compiler gives no further hint about which one applies.</p>
+
+            <h2>Cause 1: a typo in the identifier name</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>func greetUser(name string) string {
+    return "Hello, " + name
+}
+
+func main() {
+    fmt.Println(greetUsr("Ada"))   // ❌ undefined: greetUsr (typo)
+}
+
+// ✅ fix: match the exact spelling
+fmt.Println(greetUser("Ada"))</code></pre>
+            </div>
+            <p>The simplest and most common cause. Go's identifier resolution is exact-match only &mdash; there is no fuzzy matching or "did you mean" at the compiler level (though <code>gopls</code>-powered editors surface a suggestion as you type). A single dropped or transposed letter, especially in a long camelCase name, produces this error with no other symptom.</p>
+
+            <h2>Cause 2: the package isn't imported (or isn't referenced with its prefix)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ no import for "strings" — every strings.* call is undefined
+func clean(s string) string {
+    return strings.TrimSpace(s)   // undefined: strings
+}
+
+// ✅ import the package the identifier lives in
+import "strings"
+
+func clean(s string) string {
+    return strings.TrimSpace(s)
+}</code></pre>
+            </div>
+            <p>Go requires every package you reference to appear in the file's <code>import</code> block &mdash; there's no implicit global namespace the way some languages provide for their standard library. Copy-pasting a code snippet from documentation or another file without also copying its imports is the most common trigger; <code>goimports</code> (bundled with most Go tooling) can auto-add the missing import once you save, which is why editors configured with it rarely show this specific variant.</p>
+
+            <h2>Cause 3: the identifier is unexported and you're calling it from another package</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// file: internal/user/user.go, package user
+func validateEmail(e string) bool { ... }   // lowercase = unexported
+
+// file: main.go, package main
+import "myapp/internal/user"
+
+func main() {
+    user.validateEmail("a@b.com")   // ❌ undefined: user.validateEmail
+}
+
+// ✅ export it by capitalizing the first letter, in its own package
+func ValidateEmail(e string) bool { ... }
+// then call it as user.ValidateEmail(...) from main.go</code></pre>
+            </div>
+            <p>Go has no <code>export</code> or <code>public</code> keyword &mdash; visibility is determined entirely by the case of the first letter, a design choice that makes the export boundary visible directly in the name at every call site, with no need to check a separate declaration. An identifier starting with a lowercase letter is scoped to its own package only; referencing it with a package prefix from anywhere else fails to resolve, and the compiler reports it identically to a genuinely nonexistent name, since from the importing package's perspective, it effectively doesn't exist.</p>
+
+            <h2>Cause 4: the defining file is excluded by a build tag for this build</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// file: platform_linux.go
+//go:build linux
+
+package main
+func platformInit() { ... }
+
+// file: main.go — building on macOS or Windows:
+func main() {
+    platformInit()   // ❌ undefined: platformInit (file excluded on this OS)
+}
+
+// ✅ provide a version for every platform you build on, or a
+//    fallback with a broader/negated constraint:
+//go:build !linux
+func platformInit() { /* no-op or generic fallback */ }</code></pre>
+            </div>
+            <p>A <code>//go:build</code> constraint (or the older <code>_linux.go</code> / <code>_windows.go</code> / <code>_test.go</code> filename-suffix convention) tells the compiler to skip that entire file unless the stated condition matches the current <code>GOOS</code>/<code>GOARCH</code> or build mode. The function is textually present in your repository, your editor can even navigate to its definition, but the compiler for <em>this specific build</em> never parses that file at all &mdash; making this the least intuitive of the four causes, since nothing about the source code itself looks wrong.</p>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Message shape</th><th>Likely cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>undefined: myFunc</code></td><td>typo, or the function is in an unimported package</td><td>check spelling; add the import</td></tr>
+                    <tr><td><code>undefined: pkg.Func</code></td><td>package resolved, member name is wrong</td><td>check the package's actual exported API</td></tr>
+                    <tr><td><code>undefined: pkg.func</code> (lowercase)</td><td>calling an unexported identifier across packages</td><td>export it (capitalize) or move the caller into that package</td></tr>
+                    <tr><td>works in the IDE, fails on <code>go build</code></td><td>build-tag-excluded file, or a different <code>GOOS</code>/<code>GOARCH</code> target</td><td>check <code>//go:build</code> constraints and filename suffixes</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Why this happens: Go resolves names at compile time, exhaustively</h2>
+            <p>Unlike a scripting language that resolves a name only when the line actually executes, Go's compiler performs identifier resolution across every file it decides to compile for the current build, before generating any code. This is a deliberate trade-off: it catches typos and missing imports in dead code paths that might never run in a dynamic language, at the cost of requiring every referenced name to genuinely exist and be visible <em>before</em> the program can run at all. The practical implication is that "undefined" is never a runtime surprise in Go the way a <code>NameError</code> can be in Python &mdash; it's always caught at the earliest possible point, which is also why the four causes above are exhaustive: there's no fifth category of "the name exists but something else went wrong," because name resolution is a single, total, compile-time pass.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Re-read the exact spelling and case of the identifier named in the error</li>
+                <li>&#10003; Confirm the package it lives in is in your <code>import</code> block</li>
+                <li>&#10003; If it's a cross-package call, confirm the identifier starts with an uppercase letter (exported)</li>
+                <li>&#10003; Check the defining file for a <code>//go:build</code> line or an OS/test filename suffix</li>
+                <li>&#10003; Run <code>go build ./...</code> (not just your editor's live check) to confirm the fix across the whole module</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "undefined: X" mean in Go?</summary>
+                    <p>The compiler encountered an identifier &mdash; a function, variable, type, or constant &mdash; that it cannot resolve in the current scope or any imported package. This is strictly a compile-time failure: Go never gets far enough to produce a binary, so there is no stack trace, only a file:line pointing at the unresolved name.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen even though the function is clearly defined somewhere in my project?</summary>
+                    <p>Most often the identifier is defined in a different package and either the import is missing, the package alias/prefix wasn't used when calling it, or the identifier starts with a lowercase letter and is therefore unexported &mdash; invisible outside its own package regardless of import. Go's compiler resolves names strictly per-package; being "defined somewhere in the module" is not the same as being visible from the file that references it.</p>
+                </details>
+                <details>
+                    <summary>How does Go decide whether an identifier is exported?</summary>
+                    <p>Purely by the first letter's case &mdash; there is no separate "export" keyword. An identifier starting with an uppercase letter (<code>Func</code>, <code>Type</code>, <code>Var</code>) is exported and visible to importing packages; one starting with lowercase (<code>func</code>, <code>typo</code>, <code>helper</code>) is unexported and only visible within its own package. A single accidental lowercase letter is one of the most common causes of this error when calling code you just wrote in another package.</p>
+                </details>
+                <details>
+                    <summary>Can build tags cause an "undefined" error even when the function exists in the file?</summary>
+                    <p>Yes. A build constraint comment (<code>//go:build linux</code>) or a <code>_linux.go</code> / <code>_test.go</code> filename suffix excludes that file from compilation under other conditions (a different OS, <code>GOOS</code>/<code>GOARCH</code>, or a normal non-test build). The function is textually present in your project but the compiler never even parses that file for the build you're running, so it reports the identifier as undefined.</p>
+                </details>
+                <details>
+                    <summary>Does gofmt or go vet catch this before I build?</summary>
+                    <p>No &mdash; <code>gofmt</code> only reformats syntax, and <code>go vet</code> checks for suspicious constructs in code that already compiles; neither performs full identifier resolution. An editor running <code>gopls</code> (the standard Go language server) does catch undefined identifiers live, as does <code>go build</code>/<code>go run</code>, which is ultimately the same identifier-resolution pass that produces this error.</p>
+                </details>
+                <details>
+                    <summary>Why does the error sometimes name a package, like undefined: strings.Trimm?</summary>
+                    <p>That format means the package itself resolved correctly (<code>strings</code> was imported and used), but the specific member you referenced inside it does not exist &mdash; almost always a typo of the real function name (<code>strings.TrimSpace</code>, not <code>strings.Trimm</code>). This is a narrower, easier case than a fully unresolved bare identifier, since the package half of the search already succeeded.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go, Rust &amp; Java errors</h3>
+                <p>Browse the full reference for Go, Rust, Java, and other backend language errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="go-imported-and-not-used.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: imported and not used</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-imported-and-not-used.html">imported and not used: "X"</a></li>
+                <li><a href="go-cannot-find-module-providing-package.html">cannot find module providing package X</a></li>
+                <li><a href="go-nil-pointer-dereference.html">panic: nil pointer dereference</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

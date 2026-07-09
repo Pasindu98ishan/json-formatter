@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="error[E0308]: mismatched types — Rust's compiler caught two incompatible types at the same point. The five real causes (integer width, &amp;T vs T, Option/Result unwrapping, String vs &amp;str, if-branch mismatch) and the fix for each.">
+    <meta name="keywords" content="E0308 rust, mismatched types rust, rust expected found error, rust integer type mismatch, rust string vs str">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-e0308-mismatched-types.html">
+    <meta property="og:title" content="Rust: error[E0308]: mismatched types — Cause and Fix">
+    <meta property="og:description" content="Rust's type checker found two incompatible types where one was expected. Five real causes — integer width, reference vs value, Option/Result, String vs &str, if-branch mismatch — and the exact fix for each.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0308-mismatched-types.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Rust: error[E0308]: mismatched types — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "E0308: mismatched types (Rust)", "item": "https://jsondevtools.org/errors/rust-e0308-mismatched-types.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "error[E0308]: mismatched types — Cause and Fix (Rust)",
+  "description": "Rust's compiler found two incompatible types where one specific type was expected. Covers integer-width mismatches, reference vs owned value, Option/Result unwrapping, String vs &str, and if/match branch mismatches.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-09",
+  "dateModified": "2026-07-09",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'error[E0308]: mismatched types' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Rust's type checker determined that a value of one specific type was supplied where a different specific type was required — a function parameter, a variable's declared type, a match arm, or a return type all fixed an expectation the actual value didn't satisfy. The compiler always names both the 'expected' and 'found' type explicitly." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why doesn't Rust automatically convert between integer types like i32 and u64?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Rust deliberately has no implicit numeric coercion between distinct integer types, unlike C or Java, because a silent narrowing conversion (e.g. i64 to i32) can silently truncate a value, and Rust's core design goal is to make every possible source of undefined or surprising behavior an explicit, visible choice in the code. You must call an explicit conversion — try_into() (checked, returns a Result) or as (unchecked, truncates silently) — so the possibility of data loss is visible at the call site." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the compiler expect &str but I passed a String, or vice versa?",
+      "acceptedAnswer": { "@type": "Answer", "text": "String is an owned, heap-allocated, growable string, while &str is a borrowed, fixed-size view into string data (owned by something else, or a string literal baked into the binary). A function that takes &str can accept both a string literal and a borrowed String directly (via automatic deref coercion, &my_string becomes &str), but a function that specifically requires an owned String needs .to_string() or .to_owned() called on a &str to actually allocate one." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen inside an if/else or match even though each branch looks fine alone?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Every branch of an if/else expression (and every arm of a match) must produce the exact same type, because the whole expression itself has one single type, determined by unifying all its branches. If one branch returns a String and another returns a &str literal, that mismatch is only visible when the compiler tries to reconcile the two branches into one overall expression type." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does E0308 show up when I forget to handle an Option or Result?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A function that returns Option<T> gives you a wrapper type, not a bare T — passing that wrapper directly to something expecting a plain T is a type mismatch between Option<T> and T, not a special case of 'missing a value'. You must unwrap it deliberately (via unwrap(), expect(), a match, or the ? operator) to extract the T before using it as one." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the compiler suggest a fix for E0308?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Very often, yes — rustc's diagnostics for E0308 frequently include a 'help:' line suggesting the exact missing conversion (e.g. 'try using a conversion method: .to_string()' or 'consider borrowing here'). Reading past the first two lines of the error to the help text resolves a large fraction of these without needing to reason through the type system manually." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>E0308: mismatched types (Rust)</span>
+            </nav>
+            <h1>error[E0308]: mismatched types</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Rust's type checker found <strong>two incompatible types</strong> at a point where one specific type was required. The compiler always prints both an <code>expected</code> type and a <code>found</code> type &mdash; read those two lines first. The five real-world causes are <strong>integer-width mismatches</strong>, <strong><code>&amp;T</code> vs owned <code>T</code></strong>, an unhandled <strong><code>Option</code>/<code>Result</code></strong> wrapper, <strong><code>String</code> vs <code>&amp;str</code></strong>, and <strong>mismatched <code>if</code>/<code>match</code> branches</strong>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>error[E0308]: mismatched types
+ --> src/main.rs:4:20
+  |
+4 |     let x: i32 = get_count();
+  |            ---   ^^^^^^^^^^^ expected `i32`, found `u64`
+  |            |
+  |            expected due to this
+  |
+help: you can convert a `u64` to an `i32` and panic if the converted
+      value doesn't fit
+  |
+4 |     let x: i32 = get_count().try_into().unwrap();
+  |                             ++++++++++++++++++++</code></pre>
+            </div>
+            <p>Every E0308 error follows this shape: a caret pointing at the exact expression, an <code>expected &lt;type&gt;, found &lt;type&gt;</code> line naming both sides precisely, and very often a <code>help:</code> suggestion with the exact conversion call to insert. Reading the expected/found pair first &mdash; before scrolling past it to reason about the code yourself &mdash; is the fastest way to diagnose which of the five causes below applies.</p>
+
+            <h2>Cause 1: two different integer types (no implicit numeric coercion)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn get_count() -> u64 { 42 }
+
+let x: i32 = get_count();   // ❌ expected i32, found u64
+
+// ✅ checked conversion — returns a Result, panics on overflow with .unwrap()
+let x: i32 = get_count().try_into().unwrap();
+
+// ✅ or an unchecked cast — silently truncates on overflow, use with care
+let x: i32 = get_count() as i32;</code></pre>
+            </div>
+            <p>Rust has no automatic widening or narrowing between distinct integer types &mdash; not even from a smaller type to a strictly larger one that could hold every value, like <code>i32</code> to <code>i64</code>. This is a deliberate departure from C-family languages: implicit numeric coercion is a well-documented source of silent bugs (a narrowing conversion truncating a value with no visible signal at the call site), and Rust's design philosophy treats "this could lose data" as something that must be spelled out explicitly, either as a checked <code>try_into()</code> that forces you to handle failure, or an explicit <code>as</code> cast that visibly marks the truncation as an accepted risk.</p>
+
+            <h2>Cause 2: a reference where an owned value was expected (or vice versa)</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn print_name(name: String) { println!("{name}"); }
+
+let n = String::from("Ada");
+print_name(&amp;n);        // ❌ expected `String`, found `&String`
+
+// ✅ pass the owned value (moves it), or clone if you still need `n` after:
+print_name(n);
+print_name(n.clone());  // if `n` is used again later</code></pre>
+            </div>
+            <p>A <code>&amp;String</code> (a borrowed reference) and a <code>String</code> (an owned value) are distinct types with different implications for ownership, and a function signature that specifically asks for the owned type won't accept a reference to it, even though the underlying data looks identical. This is where Rust's ownership model surfaces directly in the type system: the compiler is really asking "do you want to hand over ownership of this value, or just lend a look at it," and the fix depends on which one the function actually needs.</p>
+
+            <h2>Cause 3: an unhandled Option&lt;T&gt; or Result&lt;T, E&gt; passed where T was expected</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn find_user(id: u32) -> Option&lt;String&gt; { /* ... */ None }
+
+let name: String = find_user(1);   // ❌ expected `String`, found `Option<String>`
+
+// ✅ unwrap deliberately — panics if None, only for cases you're SURE succeed:
+let name: String = find_user(1).unwrap();
+
+// ✅ or handle both cases explicitly (the idiomatic default):
+let name: String = match find_user(1) {
+    Some(n) => n,
+    None => "unknown".to_string(),
+};</code></pre>
+            </div>
+            <p><code>Option&lt;T&gt;</code> and <code>Result&lt;T, E&gt;</code> are wrapper types, not T itself with an asterisk — the compiler treats <code>Option&lt;String&gt;</code> and <code>String</code> as completely unrelated types for the purposes of type-checking, the same as it would treat <code>Vec&lt;String&gt;</code> and <code>String</code> as unrelated. This is the type-system-level enforcement of Rust's "no null, no silent failure" philosophy: you cannot accidentally use a possibly-absent value as if it were guaranteed present, because the wrapper type itself blocks it at compile time until you explicitly decide what happens in the absent/error case.</p>
+
+            <h2>Cause 4: String vs &amp;str at a boundary that only accepts one</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn store_owned(s: String) { /* takes ownership, e.g. stores in a struct */ }
+
+let greeting = "hello";       // &str — a string literal
+store_owned(greeting);        // ❌ expected `String`, found `&str`
+
+// ✅ allocate an owned String from the borrowed &str:
+store_owned(greeting.to_string());
+store_owned(greeting.to_owned());
+store_owned(String::from(greeting));</code></pre>
+            </div>
+            <p><code>&amp;str</code> is a borrowed view into string data that Rust doesn't own at that point (a literal baked into the binary, or a slice of someone else's <code>String</code>), while <code>String</code> is an owned, heap-allocated, growable buffer. Functions that only need to <em>read</em> a string typically accept <code>&amp;str</code> (and Rust's deref coercion conveniently lets you pass a <code>&amp;String</code> there too), but a function that needs to <em>keep</em> the string — store it in a struct field, return it, push it into a <code>Vec&lt;String&gt;</code> — must ask for an owned <code>String</code>, forcing the explicit allocation that a plain reference can't provide.</p>
+
+            <h2>Cause 5: if/else or match branches that don't all produce the same type</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let label = if count == 1 {
+    "one item"              // &str
+} else {
+    format!("{count} items") // ❌ String — expected &str, found String
+};
+
+// ✅ make both branches produce the same type
+let label = if count == 1 {
+    "one item".to_string()
+} else {
+    format!("{count} items")
+};</code></pre>
+            </div>
+            <p>An <code>if</code>/<code>else</code> (or <code>match</code>) is itself a single expression with one overall type, computed by unifying every branch's type into one — this is what lets Rust support expression-oriented patterns like <code>let x = if cond { a } else { b };</code> at all. Each branch is type-checked individually first and looks perfectly valid in isolation; the mismatch only becomes visible once the compiler tries to reconcile all branches into the one type the whole expression must have.</p>
+
+            <h2>Common causes at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Expected / found pair</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>i32</code> / <code>u64</code> (or any two integer types)</td><td>no implicit numeric coercion between distinct integer types</td><td><code>.try_into()</code> (checked) or <code>as</code> (unchecked cast)</td></tr>
+                    <tr><td><code>String</code> / <code>&amp;String</code></td><td>owned value required, reference supplied</td><td>pass the owned value, or <code>.clone()</code></td></tr>
+                    <tr><td><code>String</code> / <code>Option&lt;String&gt;</code></td><td>wrapper type not unwrapped</td><td><code>.unwrap()</code>, <code>match</code>, or the <code>?</code> operator</td></tr>
+                    <tr><td><code>String</code> / <code>&amp;str</code></td><td>owned value needed at a boundary, borrowed slice supplied</td><td><code>.to_string()</code> / <code>.to_owned()</code></td></tr>
+                    <tr><td>same pair, inside an <code>if</code>/<code>match</code></td><td>branches don't produce identical types</td><td>make every branch return the same type</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Why this happens: Rust's type system has no implicit coercion by design</h2>
+            <p>Most of the causes above trace back to a single underlying design principle: Rust deliberately minimizes implicit type conversions, treating every conversion — numeric narrowing, borrowing vs owning, unwrapping a fallible/optional value — as something the programmer must request explicitly rather than something the compiler infers on your behalf. Languages with generous implicit coercion (C's numeric promotions, JavaScript's type juggling) trade type-safety for convenience, and that convenience is exactly where a large fraction of runtime bugs in those languages originate — a silent truncation, an unexpected string-to-number coercion, a null where a value was assumed. Rust's E0308 is the compiler catching precisely those moments and demanding an explicit decision instead, which is why nearly every fix above is "call the specific conversion function" rather than "adjust some compiler flag" — the type mismatch is the language successfully doing its job, not an obstacle around it.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <code>expected</code> / <code>found</code> line first — it names both types exactly</li>
+                <li>&#10003; Check the <code>help:</code> suggestion below the error — rustc often names the exact conversion to insert</li>
+                <li>&#10003; Two integer types? Use <code>.try_into()</code> (checked) or <code>as</code> (explicit truncation)</li>
+                <li>&#10003; <code>Option</code>/<code>Result</code> involved? Unwrap or <code>match</code> it before using the inner value</li>
+                <li>&#10003; Inside an <code>if</code>/<code>match</code>? Confirm every single branch returns the identical type</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "error[E0308]: mismatched types" mean?</summary>
+                    <p>Rust's type checker determined that a value of one specific type was supplied where a different specific type was required &mdash; a function parameter, a variable's declared type, a match arm, or a return type all fixed an expectation the actual value didn't satisfy. The compiler always names both the "expected" and "found" type explicitly.</p>
+                </details>
+                <details>
+                    <summary>Why doesn't Rust automatically convert between integer types like i32 and u64?</summary>
+                    <p>Rust deliberately has no implicit numeric coercion between distinct integer types, unlike C or Java, because a silent narrowing conversion (e.g. <code>i64</code> to <code>i32</code>) can silently truncate a value, and Rust's core design goal is to make every possible source of undefined or surprising behavior an explicit, visible choice in the code. You must call an explicit conversion &mdash; <code>try_into()</code> (checked, returns a <code>Result</code>) or <code>as</code> (unchecked, truncates silently) &mdash; so the possibility of data loss is visible at the call site.</p>
+                </details>
+                <details>
+                    <summary>Why does the compiler expect &str but I passed a String, or vice versa?</summary>
+                    <p><code>String</code> is an owned, heap-allocated, growable string, while <code>&amp;str</code> is a borrowed, fixed-size view into string data (owned by something else, or a string literal baked into the binary). A function that takes <code>&amp;str</code> can accept both a string literal and a borrowed <code>String</code> directly (via automatic deref coercion, <code>&amp;my_string</code> becomes <code>&amp;str</code>), but a function that specifically requires an owned <code>String</code> needs <code>.to_string()</code> or <code>.to_owned()</code> called on a <code>&amp;str</code> to actually allocate one.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen inside an if/else or match even though each branch looks fine alone?</summary>
+                    <p>Every branch of an <code>if</code>/<code>else</code> expression (and every arm of a <code>match</code>) must produce the exact same type, because the whole expression itself has one single type, determined by unifying all its branches. If one branch returns a <code>String</code> and another returns a <code>&amp;str</code> literal, that mismatch is only visible when the compiler tries to reconcile the two branches into one overall expression type.</p>
+                </details>
+                <details>
+                    <summary>Why does E0308 show up when I forget to handle an Option or Result?</summary>
+                    <p>A function that returns <code>Option&lt;T&gt;</code> gives you a wrapper type, not a bare <code>T</code> with an asterisk — passing that wrapper directly to something expecting a plain <code>T</code> is a type mismatch between <code>Option&lt;T&gt;</code> and <code>T</code>, not a special case of "missing a value." You must unwrap it deliberately (via <code>unwrap()</code>, <code>expect()</code>, a <code>match</code>, or the <code>?</code> operator) to extract the <code>T</code> before using it as one.</p>
+                </details>
+                <details>
+                    <summary>Does the compiler suggest a fix for E0308?</summary>
+                    <p>Very often, yes &mdash; rustc's diagnostics for E0308 frequently include a "help:" line suggesting the exact missing conversion (e.g. "try using a conversion method: <code>.to_string()</code>" or "consider borrowing here"). Reading past the first two lines of the error to the help text resolves a large fraction of these without needing to reason through the type system manually.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go, Rust &amp; Java errors</h3>
+                <p>Browse the full reference for Go, Rust, Java, and other backend language errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-e0277-trait-bound-not-satisfied.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Rust: E0277 trait bound not satisfied</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-e0277-trait-bound-not-satisfied.html">error[E0277]: the trait bound is not satisfied</a></li>
+                <li><a href="rust-e0597-does-not-live-long-enough.html">error[E0597]: does not live long enough</a></li>
+                <li><a href="rust-borrow-of-moved-value-e0382.html">error[E0382]: borrow of moved value</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

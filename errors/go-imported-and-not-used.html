@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="imported and not used: &quot;fmt&quot; — why Go refuses to compile with an unused import, why this is a deliberate design choice rather than a lint warning, and the exact fixes (blank identifier, goimports, actually using the package).">
+    <meta name="keywords" content="imported and not used go, go unused import error, go blank identifier import, goimports, go compile error import">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-imported-and-not-used.html">
+    <meta property="og:title" content="Go: imported and not used — Cause and Fix">
+    <meta property="og:description" content="Go treats an unused import as a hard compile error, not a warning. Why this is deliberate, and the exact fixes: remove it, use it, or the blank identifier for side-effect-only imports.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-imported-and-not-used.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Go: imported and not used — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "imported and not used (Go)", "item": "https://jsondevtools.org/errors/go-imported-and-not-used.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "imported and not used: \"X\" — Cause and Fix (Go compile error)",
+  "description": "Go refuses to compile a file that imports a package it never references. Why this is a deliberate compiler decision, not a linter warning, and the exact fixes for every situation, including side-effect-only imports.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-09",
+  "dateModified": "2026-07-09",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'imported and not used' mean in Go?",
+      "acceptedAnswer": { "@type": "Answer", "text": "You added a package to a file's import block but never referenced it anywhere in that file's code. Unlike most languages, where an unused import is at most a linter warning, Go's own compiler treats it as a hard compile error and refuses to build the package at all." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is this a compile error instead of just a warning?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It's a deliberate language design decision by Go's creators, aimed at keeping codebases clean by construction rather than by convention. An unused import usually signals leftover code from a refactor or an incomplete edit, and Go's designers decided that tolerating it — even with a warning — leads to codebases that accumulate dead imports over time. Making it a hard error forces immediate cleanup." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I import a package purely for its side effects, without using it directly?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Prefix the import with a blank identifier: import _ \"database/sql/driver-name\". This tells the compiler you're intentionally importing the package only to run its package-level init() function (commonly used to register a database driver, an image format decoder, or an HTTP handler) and suppresses the unused-import error entirely for that import." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did this appear right after I deleted or commented out some code?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Removing the only line that referenced a package (commenting it out while debugging, or deleting a function during a refactor) leaves the import behind with nothing left to use it. This is the single most common trigger — the import was correct when written, and became stale the moment its only caller was removed." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does goimports fix this automatically?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, for the removal side: goimports (a superset of gofmt that most Go editors run on save) automatically deletes import lines that aren't referenced anywhere in the file, and adds missing ones for identifiers it recognizes. Running it, or configuring your editor to run it on save, eliminates most instances of this error before you ever see it on the command line." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does an unused import in a _test.go file cause the same error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — test files are compiled by the same Go compiler and follow the identical unused-import rule as any other .go file. There's no relaxed mode for tests; an accidentally-left-behind testing/import after removing the only test that used it fails the build the same way production code would." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>imported and not used (Go)</span>
+            </nav>
+            <h1>./main.go:4:2: imported and not used: "fmt"</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A package is in your <code>import</code> block but never referenced in the file. This is a <strong>hard compiler error in Go, not a linter warning</strong> like in most languages. Either <strong>delete the unused import</strong>, <strong>actually use it</strong> (you likely deleted the only line that did), or if you need it purely for its side effects (like a driver registration), prefix it with a <strong>blank identifier</strong>: <code>import _ "pkg"</code>.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ go build .
+./main.go:4:2: imported and not used: "fmt"
+./handler.go:6:2: imported and not used: "encoding/json" as jsonlib</code></pre>
+            </div>
+            <p>Notice this is not a warning printed alongside a successful build &mdash; it is a hard failure with a <code>file:line:column</code> location, and <code>go build</code> exits non-zero, producing no binary at all. Go is unusual among mainstream languages in refusing to compile a file with a dead import; most compilers either ignore unused imports entirely or leave the concern to an external linter that a team may or may not have wired into CI.</p>
+
+            <h2>Cause 1: leftover import after removing the code that used it</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import (
+    "fmt"
+    "os"
+)
+
+func main() {
+    // fmt.Println("debug:", os.Args)   // ← commented out during debugging
+    os.Exit(0)
+}
+// ❌ "fmt" is no longer referenced anywhere — imported and not used: "fmt"
+
+// ✅ either restore a real use of fmt, or remove the import line entirely:
+import "os"</code></pre>
+            </div>
+            <p>This is overwhelmingly the most common trigger: a debugging <code>fmt.Println</code> gets commented out, a function that used a package gets deleted during a refactor, or a code path gets simplified away &mdash; and the import statement, sitting separately at the top of the file, is easy to forget about entirely. Go's compiler doesn't care <em>why</em> the import is now dead; it applies the same hard rule regardless of how the file arrived at this state.</p>
+
+            <h2>Cause 2: a typo'd or renamed identifier means the import looks unused</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import "strings"
+
+func clean(s string) string {
+    return strngs.TrimSpace(s)   // ❌ typo — this isn't "strings" at all
+}
+// the compiler sees two separate problems here:
+//   undefined: strngs
+//   imported and not used: "strings"
+
+// ✅ fix the typo so the reference actually resolves to the import
+func clean(s string) string {
+    return strings.TrimSpace(s)
+}</code></pre>
+            </div>
+            <p>A misspelled reference to a package doesn't just produce an <a href="go-undefined-x.html">undefined identifier</a> error — since the import is never actually referenced under its correct name, the compiler reports <em>both</em> errors for the same underlying typo. Seeing this pair together (an undefined identifier that looks suspiciously like a package name, plus an unused-import error for that exact package) is a strong signal the real bug is a single typo, not two separate problems.</p>
+
+            <h2>Cause 3: importing a package purely for its side effects, without the blank identifier</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ imported to register a database driver via its init(), but the
+//    package name itself is never referenced in this file:
+import "github.com/lib/pq"
+
+func main() {
+    db, _ := sql.Open("postgres", dsn)   // driver is used via sql.Open's string
+}
+// → imported and not used: "github.com/lib/pq"
+
+// ✅ the blank identifier signals "intentionally side-effect-only":
+import _ "github.com/lib/pq"</code></pre>
+            </div>
+            <p>Some packages are designed to be imported purely so their package-level <code>init()</code> function runs &mdash; registering a SQL driver with <code>database/sql</code>, an image codec with <code>image</code>, or a profiling endpoint with <code>net/http/pprof</code> are the classic examples. Since the package's exported identifiers are never directly referenced in these cases, Go needs an explicit signal that the omission is intentional rather than accidental dead code; the blank identifier <code>_</code> as the import name is exactly that signal, and it's the only way to satisfy the compiler for a legitimately side-effect-only import.</p>
+
+            <h2>How goimports prevents most of this</h2>
+            <p><code>goimports</code> is a drop-in superset of <code>gofmt</code> that, in addition to formatting, automatically removes import lines that have become unreferenced and adds missing ones it can confidently infer from unresolved identifiers matching well-known package paths. Most Go editor integrations (VS Code's Go extension, GoLand, vim-go) run it on every save by default, which is why many Go developers rarely see this error directly &mdash; the tooling silently deletes the dead import before the file is ever built. Running <code>goimports -w .</code> manually across a project is a fast way to clean up a batch of these after a large refactor.</p>
+
+            <h2>Common variants at a glance</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Root cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>appeared after commenting out debug code</td><td>the only reference to the package was removed</td><td>delete the import, or restore a real use</td></tr>
+                    <tr><td>paired with an "undefined" error for a similar name</td><td>a typo means the reference never resolves to the import</td><td>fix the typo so it matches the import</td></tr>
+                    <tr><td>driver/codec registration pattern</td><td>package is needed only for its <code>init()</code> side effect</td><td>prefix with the blank identifier: <code>import _ "pkg"</code></td></tr>
+                    <tr><td>happens repeatedly across a project</td><td>editor isn't running <code>goimports</code> on save</td><td>enable <code>goimports</code> in your editor, or run it manually</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Why this happens: Go treats dead code as a build-blocking defect, not a style nit</h2>
+            <p>Most languages leave the "unused import" concern to an optional linter, precisely because reasonable teams disagree about how strict to be about dead code — some want it flagged, some want it auto-removed, some don't care. Go's designers deliberately removed that choice from the equation: an unused import is folded into the same hard error class as a syntax error, alongside <a href="go-undefined-x.html">an undefined identifier</a>. The stated rationale from the language's authors is that unused imports accumulate silently in large codebases if left to convention, each one adding a small, real cost (slower compilation, unclear dependency graphs, confusion about what a file actually needs) that compounds across thousands of files. Making it a compiler error rather than a lint rule guarantees every Go codebase — not just ones with a particular linter configured in CI — stays free of this specific kind of drift.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Check whether you recently commented out or deleted the only code that used this import</li>
+                <li>&#10003; Look for a paired "undefined" error on a similarly-spelled identifier — it's likely one typo, not two bugs</li>
+                <li>&#10003; If the package is needed only for its <code>init()</code> side effect, prefix it with <code>_</code></li>
+                <li>&#10003; Run <code>goimports -w .</code> to auto-clean a whole project after a big refactor</li>
+                <li>&#10003; Enable <code>goimports</code>-on-save in your editor to stop seeing this on the command line at all</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does "imported and not used" mean in Go?</summary>
+                    <p>You added a package to a file's import block but never referenced it anywhere in that file's code. Unlike most languages, where an unused import is at most a linter warning, Go's own compiler treats it as a hard compile error and refuses to build the package at all.</p>
+                </details>
+                <details>
+                    <summary>Why is this a compile error instead of just a warning?</summary>
+                    <p>It's a deliberate language design decision by Go's creators, aimed at keeping codebases clean by construction rather than by convention. An unused import usually signals leftover code from a refactor or an incomplete edit, and Go's designers decided that tolerating it &mdash; even with a warning &mdash; leads to codebases that accumulate dead imports over time. Making it a hard error forces immediate cleanup.</p>
+                </details>
+                <details>
+                    <summary>How do I import a package purely for its side effects, without using it directly?</summary>
+                    <p>Prefix the import with a blank identifier: <code>import _ "database/sql/driver-name"</code>. This tells the compiler you're intentionally importing the package only to run its package-level <code>init()</code> function (commonly used to register a database driver, an image format decoder, or an HTTP handler) and suppresses the unused-import error entirely for that import.</p>
+                </details>
+                <details>
+                    <summary>Why did this appear right after I deleted or commented out some code?</summary>
+                    <p>Removing the only line that referenced a package (commenting it out while debugging, or deleting a function during a refactor) leaves the import behind with nothing left to use it. This is the single most common trigger &mdash; the import was correct when written, and became stale the moment its only caller was removed.</p>
+                </details>
+                <details>
+                    <summary>Does goimports fix this automatically?</summary>
+                    <p>Yes, for the removal side: <code>goimports</code> (a superset of <code>gofmt</code> that most Go editors run on save) automatically deletes import lines that aren't referenced anywhere in the file, and adds missing ones for identifiers it recognizes. Running it, or configuring your editor to run it on save, eliminates most instances of this error before you ever see it on the command line.</p>
+                </details>
+                <details>
+                    <summary>Does an unused import in a _test.go file cause the same error?</summary>
+                    <p>Yes &mdash; test files are compiled by the same Go compiler and follow the identical unused-import rule as any other <code>.go</code> file. There's no relaxed mode for tests; an accidentally-left-behind <code>testing</code> import after removing the only test that used it fails the build the same way production code would.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go, Rust &amp; Java errors</h3>
+                <p>Browse the full reference for Go, Rust, Java, and other backend language errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="go-undefined-x.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: undefined: X</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#1a5fb4;border-color:#1a5fb4;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-undefined-x.html">undefined: X</a></li>
+                <li><a href="go-cannot-find-module-providing-package.html">cannot find module providing package X</a></li>
+                <li><a href="go-nil-pointer-dereference.html">panic: nil pointer dereference</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
