@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running? — the real causes (daemon not started, wrong context, stale DOCKER_HOST, WSL2 integration) and how to fix each.">
+    <meta name="keywords" content="cannot connect to the docker daemon, is the docker daemon running, docker.sock, docker daemon not running, DOCKER_HOST, docker context, wsl2 docker not running, docker compose cannot connect to the docker daemon, rootless docker, dial unix /var/run/docker.sock">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-cannot-connect-to-daemon.html">
+    <meta property="og:title" content="Docker: Cannot connect to the Docker daemon — Cause &amp; Fix">
+    <meta property="og:description" content="This means the Docker CLI can't reach the daemon at all — before it even gets to your image or container. Work through the six real causes: daemon not running, wrong context, stale DOCKER_HOST, permissions, WSL2, and remote/dind setups.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-cannot-connect-to-daemon.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Cannot Connect to the Docker Daemon at unix:///var/run/docker.sock (6 Fixes)</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Cannot connect to the Docker daemon", "item": "https://jsondevtools.org/errors/docker-cannot-connect-to-daemon.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: Cannot connect to the Docker daemon — Cause and Fix",
+  "description": "The Docker CLI failed to reach the daemon at all, before it ever got to your image or container. This reference covers every real cause: the daemon isn't running, a wrong or stale Docker context, a bad DOCKER_HOST, socket permissions, WSL2 integration, and remote/Docker-in-Docker setups.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-13",
+  "dateModified": "2026-07-13",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Cannot connect to the Docker daemon' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The docker CLI is just a client — every command it runs is sent over a socket to a separate background process, the Docker daemon (dockerd), which does the actual work. This error means the client couldn't reach that daemon at all, before it ever got to pulling an image or starting a container. The fix is always about the daemon's availability or the connection to it, never about your Dockerfile or image."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I check if the Docker daemon is actually running?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run 'docker info' or 'docker version' — if the daemon (server) section fails to print while the client section succeeds, the daemon is down. On Linux, check 'systemctl status docker'. On Mac/Windows, check whether the Docker Desktop app is open and its whale icon shows a steady (not spinning) state in the menu bar/system tray."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did this start happening right after I opened my laptop?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Docker Desktop takes several seconds to finish starting its background VM after login or a fresh boot. If you run a docker command in that window, the daemon genuinely isn't ready yet. Wait for the whale icon to stop animating, or add a short retry loop in scripts that run automatically at login/boot."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is a Docker context and why would it break this?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A Docker context tells the CLI which daemon to talk to and how (local socket, remote SSH host, a cloud provider's Docker endpoint). If a context was switched — often by a docker-compose plugin, a CI script, or Docker Desktop's own 'default' vs 'desktop-linux' contexts — the CLI can end up pointed at a daemon that isn't running or isn't reachable from where you are. 'docker context ls' shows which one is active and 'docker context use default' resets it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does DOCKER_HOST cause this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If the DOCKER_HOST environment variable is set — often left over from a previous remote-Docker or Docker-in-Docker session — every docker command uses that address instead of the default local socket, even if the variable is now stale or pointing at a host that's gone. 'echo $DOCKER_HOST' reveals it; unset it to fall back to the default local daemon."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "I get 'permission denied' instead — is that the same error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No — that's a related but distinct failure. 'Cannot connect' means the daemon isn't reachable at all; 'permission denied while trying to connect to the Docker daemon socket' means the daemon IS running and the socket exists, but your user account lacks permission to use it. That's fixed by adding your user to the docker group, not by starting anything."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen only inside my CI pipeline or a container?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Inside a CI job or another container, there usually is no daemon running locally at all unless you explicitly provide one — either by mounting the host's socket (-v /var/run/docker.sock:/var/run/docker.sock, 'Docker-out-of-Docker') or running a dedicated docker:dind service and pointing DOCKER_HOST at it. Forgetting either step is the most common CI-specific cause of this error."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Cannot connect to the Docker daemon</span>
+            </nav>
+            <h1>Docker: Cannot connect to the Docker daemon at unix:///var/run/docker.sock</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The Docker <strong>CLI couldn't reach the daemon</strong> at all &mdash; before your image or container was ever touched. Check, in order:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Is Docker Desktop / the <code>docker</code> service actually running?</li>
+                    <li>Is the active <strong>context</strong> pointed somewhere odd (<code>docker context ls</code>)?</li>
+                    <li>Is a stale <code>DOCKER_HOST</code> env var overriding the default socket?</li>
+                    <li>If you're in CI or WSL2, is the socket actually mounted / integration actually enabled?</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+
+# Windows / named-pipe variant:
+error during connect: this error may indicate that the docker daemon is not running:
+open //./pipe/docker_engine: The system cannot find the file specified.</code></pre>
+            </div>
+
+            <p>The <code>docker</code> command you run is a thin client. It sends every request over a socket (or named pipe on Windows) to a separate background process &mdash; the daemon, <code>dockerd</code> &mdash; which actually pulls images, starts containers, and manages networks. This error fires at the very first step, the connection itself, so it is never about your Dockerfile, your image, or your container: something is wrong with the daemon's availability or how the client is trying to reach it.</p>
+
+            <p>This error also shows up constantly while running <code>docker compose up</code> or <code>docker-compose up</code> &mdash; Compose isn't a separate thing here, it's just another client that talks to the same Docker API over the same socket. If the daemon is unavailable, every <code>docker compose</code> command fails with this same underlying error, sometimes wrapped in Compose's own error text.</p>
+
+            <h2>Symptoms: the different ways this error shows up</h2>
+            <p>The underlying failure is always the same &mdash; the CLI can't reach <code>dockerd</code> &mdash; but the exact wording depends on your OS, shell, and which command triggered it. You may see one of these:</p>
+            <ul>
+                <li><code>Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</code></li>
+                <li><code>Cannot connect to the Docker daemon. Is the docker daemon running?</code></li>
+                <li><code>error during connect: this error may indicate that the docker daemon is not running</code></li>
+                <li><code>open //./pipe/docker_engine: The system cannot find the file specified.</code> (Windows)</li>
+                <li><code>dial unix /var/run/docker.sock: connect: connection refused</code></li>
+                <li><code>docker info: Cannot connect to the Docker daemon at unix:///var/run/docker.sock</code></li>
+            </ul>
+            <p>If your message says <code>permission denied</code> instead of "cannot connect" or "connection refused", that's a different, related problem &mdash; see Fix 5 below.</p>
+
+            <h2>Step 1: confirm the daemon is actually running</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker info      # if only the "Client" section prints, the daemon is unreachable
+docker version   # same idea — a missing "Server" block confirms it</code></pre>
+            </div>
+
+            <h3>🐧 Linux</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>systemctl status docker
+sudo systemctl start docker
+
+# Using rootless Docker instead of the system-wide daemon?
+systemctl --user status docker
+systemctl --user start docker</code></pre>
+            </div>
+            <p>Also check the socket itself:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>ls -l /var/run/docker.sock</code></pre>
+            </div>
+            <ul>
+                <li><strong>Socket exists, owned by <code>root:docker</code>, still unreachable:</strong> the socket isn't the problem &mdash; check the active context and <code>DOCKER_HOST</code> below (Fix 2, Fix 3).</li>
+                <li><strong>Socket missing entirely:</strong> the daemon never created it, meaning it isn't running &mdash; start it with the commands above. Rootless installs use a different path, typically <code>$XDG_RUNTIME_DIR/docker.sock</code>.</li>
+                <li><strong>Socket exists but the permissions look wrong:</strong> you'll get <code>permission denied</code> rather than "cannot connect" &mdash; that's a different, related error, covered in Fix 5.</li>
+            </ul>
+            <p><strong>Verify:</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker info
+docker ps</code></pre>
+            </div>
+
+            <h3>🍎 macOS</h3>
+            <p>There is no <code>dockerd</code> running directly on your machine at all &mdash; Docker Desktop runs it inside a lightweight VM. Open the Docker Desktop app and check the whale icon in the menu bar: a steady icon means the daemon is up, a spinning/animated one means it's still starting (often for 10&ndash;30 seconds right after login or a reboot), and a missing icon means the app isn't running.</p>
+            <p><strong>Verify:</strong> once the whale icon is steady, run <code>docker info</code> and <code>docker ps</code> again.</p>
+
+            <h3>🪟 Windows</h3>
+            <p>Same idea as macOS &mdash; Docker Desktop runs the daemon inside a VM (WSL2 or Hyper-V backend) and exposes it over a named pipe. Check the whale icon in the system tray the same way. If you're working inside a WSL2 distro specifically, see Fix 4 below &mdash; the daemon can be running fine on the Windows side while still being invisible to that particular distro.</p>
+            <p><strong>Verify:</strong> once the whale icon is steady, run <code>docker info</code> and <code>docker ps</code> again.</p>
+
+            <h2>Fix 1: start Docker Desktop / the docker service</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Linux
+sudo systemctl start docker
+sudo systemctl enable docker   # start automatically on boot
+
+# macOS/Windows: just open the Docker Desktop application, then wait
+# for the whale icon to stop animating before running any docker command</code></pre>
+            </div>
+            <p>If it fails to start at all, check its own logs (<code>journalctl -u docker</code> on Linux, or the Docker Desktop "Troubleshoot &rarr; View logs" panel on Mac/Windows) &mdash; a corrupt VM disk image or a port conflict on the Docker Desktop backend are the usual causes of a daemon that refuses to come up, and both are usually fixed by Docker Desktop's own "Reset to factory defaults" as a last resort.</p>
+            <p><strong>Verify:</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker info
+docker ps</code></pre>
+            </div>
+
+            <h2>Fix 2: check for a wrong or stale Docker context</h2>
+            <p>A Docker <strong>context</strong> tells the CLI which daemon to talk to and how &mdash; the local socket, a remote host over SSH, or a cloud provider's Docker endpoint. If something switched it (a Compose plugin, a CI script, or even Docker Desktop's own internal switch between its <code>default</code> and <code>desktop-linux</code> contexts across versions), the CLI can end up pointed at a daemon that isn't running or isn't reachable from where you currently are:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker context ls          # shows all contexts and marks the active one with *
+docker context use default # reset back to the local daemon</code></pre>
+            </div>
+            <p><strong>Verify:</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker info
+docker ps</code></pre>
+            </div>
+
+            <h2>Fix 3: unset a stale DOCKER_HOST</h2>
+            <p>If <code>DOCKER_HOST</code> is set in your shell &mdash; commonly left behind from a previous remote-Docker session, an SSH tunnel, or a Docker-in-Docker container &mdash; every <code>docker</code> command uses that address instead of the default local socket, even long after the thing it pointed to is gone:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>echo $DOCKER_HOST     # if this prints anything, that's where docker is trying to connect
+unset DOCKER_HOST      # fall back to the default local daemon for this shell session</code></pre>
+            </div>
+            <p>Check your shell profile (<code>~/.bashrc</code>, <code>~/.zshrc</code>) for a line that exports it permanently if it keeps coming back in every new terminal.</p>
+            <p><strong>Verify:</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker info
+docker ps</code></pre>
+            </div>
+
+            <h2>Fix 4: WSL2 integration not enabled (Windows)</h2>
+            <p>On Windows with WSL2, Docker Desktop only exposes the daemon to the specific Linux distributions you've explicitly enabled. If you open a terminal in a distro that isn't enabled, the socket simply isn't there:</p>
+            <ul>
+                <li>Docker Desktop &rarr; <strong>Settings &rarr; Resources &rarr; WSL Integration</strong> &rarr; enable the toggle for your distro.</li>
+                <li>Restart the WSL terminal (or run <code>wsl --shutdown</code> from PowerShell, then reopen) after enabling it.</li>
+                <li>Confirm Docker Desktop itself is running on the Windows side first &mdash; WSL integration forwards to it, it doesn't run an independent daemon.</li>
+            </ul>
+            <p><strong>Verify:</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker info
+docker ps</code></pre>
+            </div>
+
+            <h2 id="fix-5">Fix 5: permission denied is a different, related error</h2>
+            <p>Don't confuse this with a lookalike: <strong>this</strong> page is about the daemon being unreachable. If instead you see <code>permission denied while trying to connect to the Docker daemon socket</code>, the daemon <em>is</em> running and the socket exists &mdash; your user account just isn't in the <code>docker</code> group yet:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>sudo usermod -aG docker $USER
+newgrp docker   # or log out and back in for the group change to take effect</code></pre>
+            </div>
+            <p><strong>Verify:</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker info
+docker ps</code></pre>
+            </div>
+
+            <h2>Fix 6: CI pipelines and Docker-in-Docker</h2>
+            <p>Inside a CI job (or any container), there is no daemon at all unless you explicitly provide one. Two patterns fix this differently, and mixing them up is a common source of this error in pipelines:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Docker-OUT-of-Docker: mount the HOST's socket into the job/container
+# (containers you start share the host's daemon — fast, but less isolated)
+docker run -v /var/run/docker.sock:/var/run/docker.sock ...
+
+# Docker-IN-Docker (dind): run a separate, isolated daemon as its own service
+# and point the client at it
+services:
+  - docker:dind
+variables:
+  DOCKER_HOST: tcp://docker:2375</code></pre>
+            </div>
+            <p>Forgetting the socket mount (DooD) or the <code>docker:dind</code> service plus matching <code>DOCKER_HOST</code> (DinD) is, in practice, the single most common reason this error shows up specifically inside CI and not on a developer's own machine.</p>
+            <p><strong>Verify:</strong></p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker info
+docker ps</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>docker info</code> — does the "Server" section print at all?</li>
+                <li>&#10003; Linux: <code>systemctl status docker</code> (or <code>systemctl --user status docker</code> for rootless), start it if stopped</li>
+                <li>&#10003; Linux: <code>ls -l /var/run/docker.sock</code> — does the socket exist, and with what permissions?</li>
+                <li>&#10003; Mac/Windows: is Docker Desktop open, and has the whale icon stopped animating?</li>
+                <li>&#10003; <code>docker context ls</code> — is the active context the one you expect?</li>
+                <li>&#10003; <code>echo $DOCKER_HOST</code> — unset it if it's stale</li>
+                <li>&#10003; WSL2: is integration enabled for this specific distro?</li>
+                <li>&#10003; Running <code>docker compose up</code>? The underlying cause is identical — Compose just calls the same Docker API</li>
+                <li>&#10003; Seeing "permission denied" instead? That's the docker-group issue, not this one</li>
+                <li>&#10003; CI/container: did you mount the socket (DooD) or start <code>docker:dind</code> with a matching <code>DOCKER_HOST</code> (DinD)?</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Cannot connect to the Docker daemon' mean?</summary>
+                    <p>The docker CLI is just a client &mdash; every command it runs is sent over a socket to a separate background process, the Docker daemon (dockerd), which does the actual work. This error means the client couldn't reach that daemon at all, before it ever got to pulling an image or starting a container. The fix is always about the daemon's availability or the connection to it, never about your Dockerfile or image.</p>
+                </details>
+                <details>
+                    <summary>How do I check if the Docker daemon is actually running?</summary>
+                    <p>Run <code>docker info</code> or <code>docker version</code> &mdash; if the daemon (server) section fails to print while the client section succeeds, the daemon is down. On Linux, check <code>systemctl status docker</code>. On Mac/Windows, check whether the Docker Desktop app is open and its whale icon shows a steady (not spinning) state in the menu bar/system tray.</p>
+                </details>
+                <details>
+                    <summary>Why did this start happening right after I opened my laptop?</summary>
+                    <p>Docker Desktop takes several seconds to finish starting its background VM after login or a fresh boot. If you run a docker command in that window, the daemon genuinely isn't ready yet. Wait for the whale icon to stop animating, or add a short retry loop in scripts that run automatically at login/boot.</p>
+                </details>
+                <details>
+                    <summary>What is a Docker context and why would it break this?</summary>
+                    <p>A Docker context tells the CLI which daemon to talk to and how (local socket, remote SSH host, a cloud provider's Docker endpoint). If a context was switched &mdash; often by a docker-compose plugin, a CI script, or Docker Desktop's own 'default' vs 'desktop-linux' contexts &mdash; the CLI can end up pointed at a daemon that isn't running or isn't reachable from where you are. <code>docker context ls</code> shows which one is active and <code>docker context use default</code> resets it.</p>
+                </details>
+                <details>
+                    <summary>How does DOCKER_HOST cause this error?</summary>
+                    <p>If the <code>DOCKER_HOST</code> environment variable is set &mdash; often left over from a previous remote-Docker or Docker-in-Docker session &mdash; every docker command uses that address instead of the default local socket, even if the variable is now stale or pointing at a host that's gone. <code>echo $DOCKER_HOST</code> reveals it; unset it to fall back to the default local daemon.</p>
+                </details>
+                <details>
+                    <summary>I get 'permission denied' instead — is that the same error?</summary>
+                    <p>No &mdash; that's a related but distinct failure. 'Cannot connect' means the daemon isn't reachable at all; 'permission denied while trying to connect to the Docker daemon socket' means the daemon IS running and the socket exists, but your user account lacks permission to use it. That's fixed by adding your user to the <code>docker</code> group, not by starting anything.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen only inside my CI pipeline or a container?</summary>
+                    <p>Inside a CI job or another container, there usually is no daemon running locally at all unless you explicitly provide one &mdash; either by mounting the host's socket (<code>-v /var/run/docker.sock:/var/run/docker.sock</code>, 'Docker-out-of-Docker') or running a dedicated <code>docker:dind</code> service and pointing <code>DOCKER_HOST</code> at it. Forgetting either step is the most common CI-specific cause of this error.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More backend &amp; build errors</h3>
+                <p>Browse the full reference for Node.js, Python, Docker, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="docker-container-exited-code-137-oomkilled.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker: exited with code 137 (OOMKilled)</a>
+                    <a href="docker-exec-format-error.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Docker: exec format error</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-container-exited-code-137-oomkilled.html">Container exited with code 137 (OOMKilled)</a> &mdash; the other everyday Docker runtime failure</li>
+                <li><a href="docker-port-is-already-allocated.html">Docker: port is already allocated</a></li>
+                <li><a href="docker-exec-format-error.html">Docker: standard_init_linux.go &mdash; exec format error</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

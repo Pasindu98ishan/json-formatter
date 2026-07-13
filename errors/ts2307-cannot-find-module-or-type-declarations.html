@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2307: Cannot find module 'X' or its corresponding type declarations — why TypeScript can't resolve an import (missing install, missing @types, wrong path, alias/moduleResolution mismatch) and how to fix each cause.">
+    <meta name="keywords" content="TS2307, Cannot find module or its corresponding type declarations, typescript cannot find module, cannot find module npm package types, typescript path alias not resolving, moduleResolution bundler node16">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2307-cannot-find-module-or-type-declarations.html">
+    <meta property="og:title" content="TS2307: Cannot find module 'X' or its corresponding type declarations — Cause &amp; Fix">
+    <meta property="og:description" content="TS2307 means TypeScript's module resolver found nothing at all for an import — no JS file, no .d.ts, no @types package. Work through the six real causes and fix the one that matches yours.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2307-cannot-find-module-or-type-declarations.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2307: Cannot Find Module or Its Type Declarations — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2307: Cannot find module", "item": "https://jsondevtools.org/errors/ts2307-cannot-find-module-or-type-declarations.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2307: Cannot find module 'X' or its corresponding type declarations — Cause and Fix",
+  "description": "TypeScript raises TS2307 when its module resolver finds absolutely nothing for an import target — no JavaScript file, no .d.ts, no matching @types package. This reference walks through the six real causes: missing install, missing types, a wrong path, an unmirrored alias, a moduleResolution mismatch, and non-JS asset imports.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-13",
+  "dateModified": "2026-07-13",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does TS2307 actually mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means TypeScript's module resolver looked everywhere it knows to look — node_modules, your tsconfig paths, ambient declaration files — and found absolutely nothing for that import specifier: no .js/.ts file and no .d.ts. It is a stronger failure than 'has no exported member' or an implicit-any warning; the module target simply isn't there from TypeScript's point of view."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is TS2307 different from TS7016?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TS7016 ('implicitly has an any type') fires when a module IS found and loads at runtime, but TypeScript can't find type declarations for it — so it falls back to any under noImplicitAny. TS2307 is the harder case: nothing resolves at all, not even a fallback any. If your build actually runs at runtime but only the type-checker complains, you likely have TS7016, not TS2307."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it work in one editor but fail in tsc or CI?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The most common reason is filename casing. macOS and Windows filesystems are case-insensitive by default, so './Utils' resolves fine locally even if the real file is 'utils.ts'. Linux CI runners are case-sensitive, so the same import fails there with TS2307. Turn on forceConsistentCasingInFileNames in tsconfig.json to catch this locally before it reaches CI."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "I installed the package — why does TypeScript still say it can't find it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "npm install only guarantees the JavaScript is there; it says nothing about types. If the package ships no bundled .d.ts files and no matching @types/<package> exists on npm, TypeScript has nothing to type-check against and reports TS2307. Check the package's own README for TypeScript support, or write a minimal ambient declaration yourself."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do path aliases work in the editor but fail when I run tsc or build?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "tsconfig.json's compilerOptions.paths is a type-checking hint only — it doesn't rewrite anything at runtime or in most bundlers by itself. Webpack, Vite, Jest, and Node each need the same alias mirrored in their own config (resolve.alias, moduleNameMapper, or a runtime package like tsconfig-paths). Miss one and that tool reports TS2307 or its own module-not-found error even though tsc alone is happy."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does moduleResolution matter for this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Under the older node10 (classic 'node') resolution, TypeScript ignores a package's exports field and just walks main/types directly, which can find things that newer resolution won't. Under node16/nodenext/bundler resolution, TypeScript respects package.json exports strictly — a dual ESM/CJS package with a misconfigured or missing types condition in exports will fail to resolve even though the package works fine at runtime with plain Node."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can importing a JSON or SVG file cause TS2307?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. TypeScript doesn't understand non-code file extensions out of the box. Importing a .json file needs resolveJsonModule: true in tsconfig.json. Importing assets like .svg, .css, or .png needs an ambient module declaration (declare module '*.svg') in a .d.ts file included by your project, otherwise TypeScript reports it can't find the module or its declarations."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2307: Cannot find module</span>
+            </nav>
+            <h1>TS2307: Cannot find module 'X' or its corresponding type declarations</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">TypeScript's module resolver found <strong>nothing</strong> for that import &mdash; not the module, not a <code>.d.ts</code>, not an <code>@types</code> package. Work down the real causes in order:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Package not installed</li>
+                    <li>Installed, but untyped &mdash; no matching <code>@types</code></li>
+                    <li>A wrong or case-mismatched local path</li>
+                    <li>A <code>tsconfig</code> path alias not mirrored in your bundler</li>
+                    <li>A <code>moduleResolution</code> mismatch against a package's <code>exports</code> map</li>
+                </ul>
+            </div>
+
+            <h2>Quick fix flowchart</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 660 430" role="img" aria-label="Decision tree: read the import specifier and follow the matching branch to its fix. A relative path with ./ or ../ points to a casing or path problem (Fix 3). A bare package name points to either a missing install (Fix 1) or missing types (Fix 2). An alias like @app or tilde points to a bundler mirroring problem (Fix 4). Code that runs under plain Node but fails only in tsc points to a moduleResolution mismatch (Fix 5). Importing JSON, SVG, or CSS points to missing TypeScript asset support (Fix 6). And an editor-only failure where a real build succeeds points to a stale TypeScript language server (Fix 7).">
+                    <defs>
+                        <marker id="ts307-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="170" y="6" width="320" height="40" rx="8"/>
+                    <text class="dg-m" x="330" y="30" text-anchor="middle">TS2307: Cannot find module 'X'?</text>
+                    <path class="dg-ln" d="M330,46 L330,66 L40,66"/>
+                    <line class="dg-ln" x1="40" y1="66" x2="40" y2="400"/>
+
+                    <line class="dg-ln" x1="40" y1="106" x2="70" y2="106" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box" x="70" y="86" width="210" height="40" rx="6"/>
+                    <text class="dg-m" x="175" y="110" text-anchor="middle">Starts with ./ or ../</text>
+                    <line class="dg-ln" x1="280" y1="106" x2="335" y2="106" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box-ok" x="335" y="86" width="290" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="480" y="110" text-anchor="middle">Check path/casing &rarr; Fix 3</text>
+
+                    <line class="dg-ln" x1="40" y1="172" x2="70" y2="172" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box" x="70" y="140" width="210" height="64" rx="6"/>
+                    <text class="dg-m" x="175" y="176" text-anchor="middle">Bare package name</text>
+                    <line class="dg-ln" x1="280" y1="172" x2="335" y2="172" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box-ok" x="335" y="140" width="290" height="64" rx="6"/>
+                    <text class="dg-m dg-ok" x="480" y="168" text-anchor="middle">Not installed &rarr; Fix 1</text>
+                    <text class="dg-m dg-ok" x="480" y="186" text-anchor="middle">Installed, no types &rarr; Fix 2</text>
+
+                    <line class="dg-ln" x1="40" y1="238" x2="70" y2="238" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box" x="70" y="218" width="210" height="40" rx="6"/>
+                    <text class="dg-m" x="175" y="242" text-anchor="middle">Alias (@app/, ~/, #)</text>
+                    <line class="dg-ln" x1="280" y1="238" x2="335" y2="238" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box-ok" x="335" y="218" width="290" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="480" y="242" text-anchor="middle">Mirror in bundler &rarr; Fix 4</text>
+
+                    <line class="dg-ln" x1="40" y1="292" x2="70" y2="292" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box" x="70" y="272" width="210" height="40" rx="6"/>
+                    <text class="dg-m" x="175" y="296" text-anchor="middle">OK in Node, fails tsc</text>
+                    <line class="dg-ln" x1="280" y1="292" x2="335" y2="292" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box-ok" x="335" y="272" width="290" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="480" y="296" text-anchor="middle">moduleResolution &rarr; Fix 5</text>
+
+                    <line class="dg-ln" x1="40" y1="346" x2="70" y2="346" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box" x="70" y="326" width="210" height="40" rx="6"/>
+                    <text class="dg-m" x="175" y="350" text-anchor="middle">Importing JSON/SVG/CSS</text>
+                    <line class="dg-ln" x1="280" y1="346" x2="335" y2="346" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box-ok" x="335" y="326" width="290" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="480" y="350" text-anchor="middle">resolveJsonModule &rarr; Fix 6</text>
+
+                    <line class="dg-ln" x1="40" y1="400" x2="70" y2="400" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box" x="70" y="380" width="210" height="40" rx="6"/>
+                    <text class="dg-m" x="175" y="404" text-anchor="middle">Editor-only; build OK</text>
+                    <line class="dg-ln" x1="280" y1="400" x2="335" y2="400" marker-end="url(#ts307-a)"/>
+                    <rect class="dg-box-ok" x="335" y="380" width="290" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="480" y="404" text-anchor="middle">Restart TS Server &rarr; Fix 7</text>
+                </svg>
+                <p class="dg-cap">Follow the first branch that matches your import, then jump to that numbered fix below.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { formatDate } from "fancy-date-lib";
+// error TS2307: Cannot find module 'fancy-date-lib' or its corresponding type declarations.
+
+import { helper } from "./Utils";
+// error TS2307: Cannot find module './Utils' or its corresponding type declarations.</code></pre>
+            </div>
+
+            <p>Both lines above throw the identical message, but for entirely different reasons &mdash; one is a third-party package with no types, the other is a local file whose name doesn't quite match. TypeScript deliberately collapses several distinct failures into one message, which is exactly why diagnosing TS2307 well means reading the <em>module specifier</em>, not just the error text.</p>
+
+            <h2>How to diagnose it (read the import path first)</h2>
+            <p>Before touching config, look at what's actually being imported:</p>
+            <ul>
+                <li>Starts with a package name, no <code>./</code> or <code>../</code> &rarr; a <strong>node_modules package</strong>. Check install + types (Fix 1 &amp; 2).</li>
+                <li>Starts with <code>./</code> or <code>../</code> &rarr; a <strong>local file</strong>. Check the path, extension, and casing (Fix 3).</li>
+                <li>Starts with something like <code>@app/</code>, <code>~/</code>, or <code>#</code> that isn't a real scoped package you installed &rarr; a <strong>path alias</strong>. Check it's mirrored everywhere (Fix 4).</li>
+                <li>The package installs and runs fine with plain Node, but TypeScript alone rejects it &rarr; a <strong>moduleResolution / exports-map</strong> mismatch (Fix 5).</li>
+                <li>Importing <code>.json</code>, <code>.svg</code>, <code>.css</code>, or another non-code asset &rarr; needs explicit TypeScript support (Fix 6).</li>
+                <li>A real build/runtime actually works, only your editor complains &rarr; a <strong>stale TS language-server cache</strong> (Fix 7).</li>
+                <li>Fine on your machine, fails only in CI &rarr; a <strong>lockfile or <code>--save</code>/<code>--save-dev</code></strong> mismatch (see the CI variant right after Fix 1).</li>
+            </ul>
+
+            <h2>Fix 1: the package genuinely isn't installed</h2>
+            <p>The simplest cause is also the most common one during onboarding or after pulling a branch: <code>node_modules</code> is out of sync with <code>package.json</code>.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>npm ls fancy-date-lib        # confirm it's actually installed
+npm install fancy-date-lib   # install if missing
+rm -rf node_modules package-lock.json &amp;&amp; npm install   # nuke-and-reinstall if in doubt</code></pre>
+            </div>
+            <p>In a monorepo, also confirm you're installing at the right workspace level &mdash; a package hoisted to the repo root won't help a package nested three levels down if your package manager's workspace linking isn't set up the way you think it is.</p>
+
+            <h2>A CI-only variant: lockfile drift and npm ci</h2>
+            <p>This same "not installed" cause has a distinctly CI-flavored shape: it works on every developer's machine and fails only in the pipeline. The usual culprit is <code>npm ci</code>, which installs <strong>strictly</strong> from <code>package-lock.json</code> and does not update it &mdash; unlike <code>npm install</code>, which reconciles <code>package.json</code> and the lockfile together.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># locally: package.json has the dependency, so `npm install` just works
+npm install fancy-date-lib --save
+# ✅ updates both package.json AND package-lock.json
+
+# but if it was accidentally installed as a devDependency...
+npm install fancy-date-lib --save-dev
+# ❌ fine for local dev/test, but many CI pipelines run
+#    `npm ci --omit=dev` for production builds — devDependencies
+#    never get installed at all, and the build reports TS2307</code></pre>
+            </div>
+            <p>Two concrete ways this shows up: someone commits a <code>package.json</code> change but forgets to commit the regenerated <code>package-lock.json</code>, so <code>npm ci</code> in CI installs a stale dependency tree that predates the new import; or a package genuinely needed at runtime gets installed with <code>--save-dev</code> by mistake, so it's simply absent the moment CI runs a production-only install. Fix: install with the correct flag for how the package is actually used, and always commit the lockfile in the same commit as the <code>package.json</code> change that produced it.</p>
+
+            <h2>Fix 2: installed, but no types anywhere</h2>
+            <p><code>npm install</code> only guarantees the JavaScript exists. TypeScript separately needs a <code>.d.ts</code> &mdash; either bundled with the package itself, or published separately on DefinitelyTyped as <code>@types/&lt;package&gt;</code>. If neither exists, TS2307 is correct: there really is nothing to type-check against.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># check the package's own package.json for a "types" or "typings" field first
+cat node_modules/fancy-date-lib/package.json | grep -E '"types"|"typings"'
+
+# then try the community types package
+npm install --save-dev @types/fancy-date-lib</code></pre>
+            </div>
+            <p>If no <code>@types</code> package exists either, write a minimal ambient declaration yourself so TypeScript treats the module as typed (loosely) instead of missing entirely:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// src/types/fancy-date-lib.d.ts
+declare module "fancy-date-lib" {
+  export function formatDate(input: Date | string, pattern?: string): string;
+}</code></pre>
+            </div>
+            <p>Make sure this file is actually included by your <code>tsconfig.json</code>'s <code>include</code>/<code>files</code> array &mdash; an ambient declaration TypeScript never loads doesn't help.</p>
+
+            <h2>Fix 3: a wrong or case-mismatched local path</h2>
+            <p>For relative imports, three sub-causes cover almost every case: a typo in the path, a missing/wrong extension, and &mdash; the one that bites hardest &mdash; filename casing that differs between your editor's OS and your CI runner's OS.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// file on disk is actually: src/utils.ts (lowercase u)
+import { helper } from "./Utils";   // ❌ works on Mac/Windows, fails on Linux CI
+import { helper } from "./utils";   // ✅ matches exactly</code></pre>
+            </div>
+            <p>macOS and Windows filesystems are case-insensitive by default, so a casing mismatch resolves silently on your laptop and only explodes once it hits a case-sensitive Linux CI runner. Turn on this compiler flag so TypeScript catches it locally, before CI does:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "compilerOptions": {
+    "forceConsistentCasingInFileNames": true
+  }
+}</code></pre>
+            </div>
+
+            <h2>Fix 4: a path alias not mirrored outside tsconfig</h2>
+            <p>This is the fix people miss most often, because it half-works: <code>tsconfig.json</code>'s <code>paths</code> is a hint for the <em>type-checker only</em>. It does not rewrite anything at runtime, and most bundlers and test runners know nothing about it unless you tell them separately.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// tsconfig.json — the type-checker's view
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@app/*": ["src/*"] }
+  }
+}</code></pre>
+            </div>
+            <p>Editors that use the TypeScript language service (VS Code included) read this and resolve <code>@app/utils</code> just fine &mdash; which is exactly why it looks correct while you're writing the code. The same alias then needs to be mirrored, separately, in whichever tool actually runs your code:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// webpack.config.js
+resolve: { alias: { "@app": path.resolve(__dirname, "src") } }
+
+// vite.config.ts
+resolve: { alias: { "@app": path.resolve(__dirname, "src") } }
+
+// jest.config.js
+moduleNameMapper: { "^@app/(.*)$": "&lt;rootDir&gt;/src/$1" }
+
+// running plain ts-node/Node directly — needs a runtime resolver
+node -r tsconfig-paths/register dist/index.js</code></pre>
+            </div>
+            <p>Miss any one of these and that specific tool &mdash; not necessarily <code>tsc</code> itself &mdash; will report a module-not-found error, sometimes TS2307, sometimes its own bundler-flavored version of the same complaint.</p>
+
+            <h3>Worked example: a React + Vite project</h3>
+            <p>This exact scenario is one of the most common versions of Fix 4 in practice &mdash; a React component imported through an alias, in a Vite project:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// src/App.tsx
+import Button from "@/components/Button";
+// error TS2307: Cannot find module '@/components/Button' or its corresponding type declarations.</code></pre>
+            </div>
+            <p>The editor may show no error at all if <code>tsconfig.json</code> already declares the alias &mdash; but <code>vite build</code> (or <code>tsc</code> run standalone in CI) fails, because Vite's own dev server and bundler have never been told about it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// tsconfig.json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] }
+  }
+}
+
+// vite.config.ts — the piece that's usually missing
+import path from "path";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  resolve: {
+    alias: { "@": path.resolve(__dirname, "src") }
+  }
+});</code></pre>
+            </div>
+            <p>Both files need the alias, and they need to agree: <code>tsconfig.json</code>'s <code>paths</code> satisfies the type-checker (and your editor), while <code>vite.config.ts</code>'s <code>resolve.alias</code> is what actually makes <code>vite build</code>, <code>vite dev</code>, and a standalone <code>tsc</code> run resolve the import for real.</p>
+
+            <h2>Fix 5: moduleResolution vs a package's exports map</h2>
+            <p>This is the newest and least understood cause. TypeScript's <code>moduleResolution</code> setting controls exactly how strictly it honors a package's <code>package.json</code> <code>exports</code> field:</p>
+            <table>
+                <thead><tr><th>moduleResolution</th><th>Behavior</th></tr></thead>
+                <tbody>
+                    <tr><td><code>node10</code> (formerly <code>node</code>, legacy)</td><td>Ignores <code>exports</code> entirely; walks <code>main</code>/<code>types</code> directly &mdash; more forgiving, sometimes resolves things that shouldn't work</td></tr>
+                    <tr><td><code>node16</code> / <code>nodenext</code></td><td>Honors <code>exports</code> strictly, matching how Node itself resolves ESM &mdash; a missing <code>"types"</code> condition inside <code>exports</code> means TypeScript sees nothing, even if the package works at runtime</td></tr>
+                    <tr><td><code>bundler</code></td><td>Similar strictness to <code>node16</code>, tuned for bundlers that don't fully replicate Node's runtime resolution</td></tr>
+                </tbody>
+            </table>
+            <p>If a dual ESM/CJS package's <code>exports</code> map forgets to list a <code>"types"</code> condition (or lists it in the wrong order &mdash; it must come first), packages that run perfectly under plain Node will still throw TS2307 under the newer resolution modes. There is nothing wrong with your code in this case; it's the package's <code>exports</code> map that's incomplete. Report it upstream, pin an older version, or add a manual override via <code>paths</code> as a stopgap.</p>
+
+            <h2>Fix 6: non-code assets need explicit TypeScript support</h2>
+            <p>TypeScript only understands <code>.ts</code>/<code>.tsx</code>/<code>.js</code> out of the box. Two common asset imports need one extra step each:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// tsconfig.json — for importing .json files directly
+{ "compilerOptions": { "resolveJsonModule": true } }</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// src/types/assets.d.ts — for importing .svg/.css/etc. (bundler-processed, not real JS)
+declare module "*.svg" {
+  const content: string;
+  export default content;
+}
+declare module "*.css";</code></pre>
+            </div>
+            <p>Without one of these, importing <code>data.json</code> or <code>icon.svg</code> reports the exact same TS2307 as a missing npm package, because from TypeScript's perspective it is the same situation: an import target with no recognized module shape.</p>
+
+            <h2>Fix 7: restart the TypeScript language server (editor-only staleness)</h2>
+            <p>Not a root cause, but worth ruling out before you go further: your editor's TypeScript language service caches module resolution results, and that cache occasionally goes stale &mdash; especially right after installing a new package, adding a path alias, or switching git branches. If a plain terminal build (<code>tsc</code>, or your bundler's build command) actually <strong>succeeds</strong> while your editor keeps showing TS2307 on the same import, this is almost always the cause.</p>
+            <p>In VS Code:</p>
+            <ul>
+                <li>Open the Command Palette: <code>Ctrl+Shift+P</code> (<code>Cmd+Shift+P</code> on macOS)</li>
+                <li>Run <strong>TypeScript: Restart TS Server</strong></li>
+            </ul>
+            <p>Other editors with a TypeScript language service (WebStorm, Neovim with an LSP client) have an equivalent "restart language server" action. If restarting doesn't help, close and reopen the project entirely &mdash; a corrupted <code>.tsbuildinfo</code> incremental-build cache can occasionally survive a language-server restart but not a fresh editor launch.</p>
+
+            <h2>Worked example: a monorepo package that hasn't been built yet</h2>
+            <p>A workspace layout with <code>packages/shared</code> and <code>packages/app</code>, where <code>app</code> imports from <code>@myorg/shared</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { formatId } from "@myorg/shared";
+// error TS2307: Cannot find module '@myorg/shared' or its corresponding type declarations.</code></pre>
+            </div>
+            <p>The package exists in the workspace and is correctly listed as a dependency &mdash; but its <code>package.json</code> <code>"main"</code>/<code>"types"</code> fields point at a <code>dist/</code> folder that hasn't been generated yet, because the build order ran <code>app</code> before <code>shared</code>. This is a build-graph problem, not a TypeScript problem: build (or watch) the dependency package first, or configure your monorepo tool's task graph (Turborepo, Nx, or npm/pnpm/yarn workspaces with an explicit <code>build</code> dependency) so <code>shared</code> always builds before anything that imports it.</p>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Real cause</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Package name, no local path prefix</td><td>not installed, or no types</td><td>Fix 1 / Fix 2</td></tr>
+                    <tr><td><code>./</code> or <code>../</code> path</td><td>typo, extension, or casing</td><td>Fix 3</td></tr>
+                    <tr><td>Custom alias (<code>@app/</code>, <code>~/</code>)</td><td>not mirrored in bundler/test runner</td><td>Fix 4</td></tr>
+                    <tr><td>Works with plain Node, fails only in <code>tsc</code></td><td><code>moduleResolution</code> vs package <code>exports</code></td><td>Fix 5</td></tr>
+                    <tr><td><code>.json</code>/<code>.svg</code>/<code>.css</code> import</td><td>no TypeScript asset support configured</td><td>Fix 6</td></tr>
+                    <tr><td>Editor shows it, but a real build succeeds</td><td>stale TS language-server cache</td><td>Fix 7</td></tr>
+                    <tr><td>Works locally, fails only in CI</td><td>lockfile drift, or <code>--save-dev</code> instead of <code>--save</code></td><td>npm ci variant</td></tr>
+                    <tr><td>Monorepo internal package</td><td>dependency package not built yet</td><td>fix build order</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the import specifier first: package name, local path, or alias?</li>
+                <li>&#10003; Package: <code>npm ls &lt;pkg&gt;</code> to confirm it's actually installed</li>
+                <li>&#10003; Package installed but still failing? Check for bundled types, then <code>@types/&lt;pkg&gt;</code>, then write your own <code>declare module</code></li>
+                <li>&#10003; Only fails in CI? Check for lockfile drift, or the package being installed with <code>--save-dev</code> when a production build needs it</li>
+                <li>&#10003; Local path: verify the exact filename casing matches on disk (turn on <code>forceConsistentCasingInFileNames</code>)</li>
+                <li>&#10003; Alias: is it mirrored in webpack/vite/jest/ts-node, not just <code>tsconfig.json</code>?</li>
+                <li>&#10003; Runs fine under plain Node but not <code>tsc</code>? Check <code>moduleResolution</code> vs the package's <code>exports</code> map</li>
+                <li>&#10003; Importing <code>.json</code>/<code>.svg</code>/<code>.css</code>? Enable <code>resolveJsonModule</code> or add an ambient <code>declare module</code></li>
+                <li>&#10003; Editor-only, and a real build actually succeeds? Restart the TS language server before debugging further</li>
+                <li>&#10003; Monorepo? Confirm the dependency package has actually been built before the one importing it</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does TS2307 actually mean?</summary>
+                    <p>It means TypeScript's module resolver looked everywhere it knows to look &mdash; node_modules, your tsconfig paths, ambient declaration files &mdash; and found absolutely nothing for that import specifier: no .js/.ts file and no .d.ts. It is a stronger failure than 'has no exported member' or an implicit-any warning; the module target simply isn't there from TypeScript's point of view.</p>
+                </details>
+                <details>
+                    <summary>How is TS2307 different from TS7016?</summary>
+                    <p>TS7016 ('implicitly has an any type') fires when a module <em>is</em> found and loads at runtime, but TypeScript can't find type declarations for it &mdash; so it falls back to <code>any</code> under <code>noImplicitAny</code>. TS2307 is the harder case: nothing resolves at all, not even a fallback <code>any</code>. If your build actually runs at runtime but only the type-checker complains, you likely have TS7016, not TS2307.</p>
+                </details>
+                <details>
+                    <summary>Why does it work in one editor but fail in tsc or CI?</summary>
+                    <p>The most common reason is filename casing. macOS and Windows filesystems are case-insensitive by default, so <code>./Utils</code> resolves fine locally even if the real file is <code>utils.ts</code>. Linux CI runners are case-sensitive, so the same import fails there with TS2307. Turn on <code>forceConsistentCasingInFileNames</code> in <code>tsconfig.json</code> to catch this locally before it reaches CI.</p>
+                </details>
+                <details>
+                    <summary>I installed the package — why does TypeScript still say it can't find it?</summary>
+                    <p><code>npm install</code> only guarantees the JavaScript is there; it says nothing about types. If the package ships no bundled <code>.d.ts</code> files and no matching <code>@types/&lt;package&gt;</code> exists on npm, TypeScript has nothing to type-check against and reports TS2307. Check the package's own README for TypeScript support, or write a minimal ambient declaration yourself.</p>
+                </details>
+                <details>
+                    <summary>Why do path aliases work in the editor but fail when I run tsc or build?</summary>
+                    <p><code>tsconfig.json</code>'s <code>compilerOptions.paths</code> is a type-checking hint only &mdash; it doesn't rewrite anything at runtime or in most bundlers by itself. Webpack, Vite, Jest, and Node each need the same alias mirrored in their own config (<code>resolve.alias</code>, <code>moduleNameMapper</code>, or a runtime package like <code>tsconfig-paths</code>). Miss one and that tool reports TS2307 or its own module-not-found error even though <code>tsc</code> alone is happy.</p>
+                </details>
+                <details>
+                    <summary>Does moduleResolution matter for this error?</summary>
+                    <p>Yes. Under the older <code>node10</code> (classic 'node') resolution, TypeScript ignores a package's <code>exports</code> field and just walks <code>main</code>/<code>types</code> directly, which can find things that newer resolution won't. Under <code>node16</code>/<code>nodenext</code>/<code>bundler</code> resolution, TypeScript respects package.json <code>exports</code> strictly &mdash; a dual ESM/CJS package with a misconfigured or missing <code>types</code> condition in <code>exports</code> will fail to resolve even though the package works fine at runtime with plain Node.</p>
+                </details>
+                <details>
+                    <summary>Can importing a JSON or SVG file cause TS2307?</summary>
+                    <p>Yes. TypeScript doesn't understand non-code file extensions out of the box. Importing a <code>.json</code> file needs <code>resolveJsonModule: true</code> in <code>tsconfig.json</code>. Importing assets like <code>.svg</code>, <code>.css</code>, or <code>.png</code> needs an ambient module declaration (<code>declare module '*.svg'</code>) in a <code>.d.ts</code> file included by your project, otherwise TypeScript reports it can't find the module or its declarations.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More TypeScript &amp; JSON errors</h3>
+                <p>Browse the full reference, or generate accurate interfaces from your JSON.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="ts7016-could-not-find-declaration-file.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">TS7016: Missing declaration file</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts7016-could-not-find-declaration-file.html">TS7016: Could not find a declaration file for module 'X'</a> &mdash; the softer, module-found-but-untyped sibling of this error</li>
+                <li><a href="ts2339-property-does-not-exist.html">TS2339: Property does not exist on type</a></li>
+                <li><a href="cannot-find-module.html">Error: Cannot find module</a> &mdash; the same failure at runtime in plain Node.js</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

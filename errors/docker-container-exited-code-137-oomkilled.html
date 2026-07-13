@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Container exited with code 137 (OOMKilled) — how to confirm it was actually the OOM killer (not a manual kill), find what used the memory, and fix it with limits, heap sizing, or a real memory leak fix.">
+    <meta name="keywords" content="container exited with code 137, docker exit code 137, OOMKilled, docker container killed out of memory, kubernetes OOMKilled, exit code 137 meaning, docker memory limit">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-container-exited-code-137-oomkilled.html">
+    <meta property="og:title" content="Docker: Container Exited with Code 137 (OOMKilled) — Cause &amp; Fix">
+    <meta property="og:description" content="Exit code 137 means SIGKILL — usually the OOM killer, but not always. Confirm it with docker inspect, find what actually used the memory, then fix the limit, the heap sizing, or the real leak.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-container-exited-code-137-oomkilled.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker: Container Exited with Code 137 (OOMKilled) — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Container exited with code 137 (OOMKilled)", "item": "https://jsondevtools.org/errors/docker-container-exited-code-137-oomkilled.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: Container exited with code 137 (OOMKilled) — Cause and Fix",
+  "description": "Exit code 137 means the container's main process received SIGKILL — most often from the kernel's out-of-memory killer, but not exclusively. This reference shows how to confirm the real cause with docker inspect and dmesg, then fix it with a correct memory limit, proper heap sizing, or a genuine memory-leak fix.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-13",
+  "dateModified": "2026-07-13",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does exit code 137 actually mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "137 is Docker/Linux's convention of 128 + signal number, and 9 is SIGKILL — so 137 means the container's main process was forcibly killed and had no chance to shut down cleanly. The OOM killer sends SIGKILL, which is why 137 is strongly associated with 'out of memory', but a manual docker kill, a failed healthcheck killing the container, or an orchestrator forcefully stopping it also produce the exact same code."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I confirm it was actually the OOM killer?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run docker inspect <container> --format='{{.State.OOMKilled}}'. If it prints true, the kernel's OOM killer specifically terminated this container for using too much memory. If it prints false, the process still received SIGKILL for another reason — a manual kill, a healthcheck failure, or the orchestrator stopping it — and you're debugging the wrong thing if you assume memory."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is this the container's memory limit, or the whole host running out?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Both trigger the same OOM killer, at different scopes. If you set -m/mem_limit on the container, exceeding that cgroup limit gets only that container killed. If no limit is set (or the limit is fine) but the host itself runs out of physical memory and swap, the kernel's global OOM killer picks a victim process anywhere on the machine — which might be this container, a different one, or even something unrelated."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my Java app get OOMKilled even though -Xmx is set below the container limit?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The JVM heap is only part of a Java process's total memory — thread stacks, metaspace, the JIT's code cache, and native/off-heap buffers all sit outside -Xmx and count against the container's cgroup limit too. Setting -Xmx close to the container limit leaves no room for that overhead. On modern JDKs (10+, with UseContainerSupport on by default), prefer -XX:MaxRAMPercentage (e.g. 75%) so the JVM sizes itself with headroom automatically."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does this look different in Kubernetes?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Same underlying mechanism, different vocabulary. 'kubectl describe pod' shows 'Last State: Terminated, Reason: OOMKilled, Exit Code: 137' when a container exceeds its configured resources.limits.memory. Kubernetes also distinguishes this from an eviction, where the kubelet proactively removes a whole pod under node memory pressure before the kernel OOM killer would even trigger — that shows a different reason ('Evicted'), not OOMKilled."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just raise the memory limit and move on?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sometimes — if the workload genuinely needs more memory than you originally budgeted, raising the limit is the correct fix. But if usage climbs steadily over hours or days rather than sitting at a stable working set, that's a memory leak, and a higher limit only delays the same crash. Track memory over time with docker stats or a metrics tool before deciding which situation you're in."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does exit code 137 always mean memory?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. 137 is just 'this process received SIGKILL' — it says nothing about why. A docker stop that times out and escalates to SIGKILL, a failed Docker/Kubernetes healthcheck killing an unresponsive container, or an operator running docker kill manually all produce the identical exit code 137 with OOMKilled reported as false. Always check the OOMKilled flag before assuming memory."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Container exited with code 137 (OOMKilled)</span>
+            </nav>
+            <h1>Docker: Container Exited with Code 137 (OOMKilled)</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Exit code <strong>137</strong> = <code>128 + 9</code> = the process received <strong>SIGKILL</strong>. It's usually the kernel's <strong>OOM killer</strong>, but not always &mdash; <strong>confirm it first</strong> with <code>docker inspect &lt;container&gt; --format='{{.State.OOMKilled}}'</code>. If true: raise the memory limit if the workload genuinely needs it, fix runtime heap sizing (Java/Node), or track down a real memory leak with <code>docker stats</code> over time before just bumping the number.</p>
+            </div>
+
+            <h2>The exact signal</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker ps -a
+CONTAINER ID   IMAGE       STATUS
+a1b2c3d4e5f6   my-api      Exited (137) 3 minutes ago
+
+$ docker inspect a1b2c3d4e5f6 --format='{{.State.OOMKilled}}'
+true</code></pre>
+            </div>
+            <p>137 is Docker's convention of <code>128 + signal number</code>, and signal 9 is <code>SIGKILL</code> &mdash; an unconditional, un-catchable kill with no chance for the process to clean up. The OOM killer always uses SIGKILL, which is why 137 is strongly associated with memory exhaustion. But it is not the <em>only</em> thing that sends SIGKILL, which is exactly why the confirmation step above matters before you spend time chasing a memory leak that doesn't exist.</p>
+
+            <h2>Troubleshooting at a glance</h2>
+            <p>The single <code>OOMKilled</code> flag splits this error into two completely different worlds. Start here:</p>
+            <div style="overflow-x:auto;margin:0 0 1.5rem;-webkit-overflow-scrolling:touch;">
+                <svg viewBox="0 0 800 400" role="img" aria-label="Decision tree for Docker exit code 137. Start at exit code 137, then check whether OOMKilled is true. If yes, it is a memory problem: a container cgroup limit, the whole host running out of RAM and swap, or a memory leak that climbs over time. If no, SIGKILL came from another cause: a docker stop that timed out and escalated to kill, a failed healthcheck, or an orchestrator or manual kill." style="max-width:100%;height:auto;font-family:inherit;display:block;margin:0 auto;">
+                    <defs>
+                        <marker id="arrow137" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+                        </marker>
+                    </defs>
+                    <g fill="currentColor" stroke="currentColor" stroke-width="1.4">
+                        <!-- title -->
+                        <rect x="330" y="16" width="140" height="40" rx="8" fill="var(--primary-color)" fill-opacity="0.1" stroke="var(--primary-color)" stroke-opacity="0.45"/>
+                        <text x="400" y="41" text-anchor="middle" fill="var(--primary-color)" stroke="none" font-size="15" font-weight="700">Exit code 137</text>
+                        <line x1="400" y1="56" x2="400" y2="74" fill="none" marker-end="url(#arrow137)"/>
+                        <!-- decision diamond -->
+                        <polygon points="400,74 528,112 400,150 272,112" fill="var(--primary-color)" fill-opacity="0.06" stroke="var(--primary-color)" stroke-opacity="0.45"/>
+                        <text x="400" y="107" text-anchor="middle" stroke="none" font-size="13" font-weight="600">OOMKilled</text>
+                        <text x="400" y="123" text-anchor="middle" stroke="none" font-size="13" font-weight="600">== true?</text>
+                        <!-- YES branch -->
+                        <path d="M272,112 L190,112 L190,166" fill="none" marker-end="url(#arrow137)"/>
+                        <text x="228" y="104" text-anchor="middle" stroke="none" font-size="12" font-weight="700">Yes</text>
+                        <rect x="70" y="166" width="240" height="40" rx="8" fill="var(--primary-color)" fill-opacity="0.1" stroke="var(--primary-color)" stroke-opacity="0.45"/>
+                        <text x="190" y="191" text-anchor="middle" fill="var(--primary-color)" stroke="none" font-size="13" font-weight="700">Memory (OOM killer)</text>
+                        <line x1="190" y1="206" x2="190" y2="224" fill="none" marker-end="url(#arrow137)"/>
+                        <rect x="70" y="224" width="240" height="38" rx="8" fill="var(--light-bg)"/>
+                        <text x="190" y="248" text-anchor="middle" stroke="none" font-size="12.5">Container cgroup limit (-m)</text>
+                        <line x1="190" y1="262" x2="190" y2="276" fill="none" marker-end="url(#arrow137)"/>
+                        <rect x="70" y="276" width="240" height="38" rx="8" fill="var(--light-bg)"/>
+                        <text x="190" y="300" text-anchor="middle" stroke="none" font-size="12.5">Whole-host out of RAM + swap</text>
+                        <line x1="190" y1="314" x2="190" y2="328" fill="none" marker-end="url(#arrow137)"/>
+                        <rect x="70" y="328" width="240" height="38" rx="8" fill="var(--light-bg)"/>
+                        <text x="190" y="352" text-anchor="middle" stroke="none" font-size="12.5">Memory leak (climbs over time)</text>
+                        <!-- NO branch -->
+                        <path d="M528,112 L610,112 L610,166" fill="none" marker-end="url(#arrow137)"/>
+                        <text x="572" y="104" text-anchor="middle" stroke="none" font-size="12" font-weight="700">No</text>
+                        <rect x="490" y="166" width="240" height="40" rx="8" fill="var(--primary-color)" fill-opacity="0.1" stroke="var(--primary-color)" stroke-opacity="0.45"/>
+                        <text x="610" y="191" text-anchor="middle" fill="var(--primary-color)" stroke="none" font-size="13" font-weight="700">SIGKILL &mdash; other cause</text>
+                        <line x1="610" y1="206" x2="610" y2="224" fill="none" marker-end="url(#arrow137)"/>
+                        <rect x="490" y="224" width="240" height="38" rx="8" fill="var(--light-bg)"/>
+                        <text x="610" y="248" text-anchor="middle" stroke="none" font-size="12.5">docker stop timed out &rarr; kill</text>
+                        <line x1="610" y1="262" x2="610" y2="276" fill="none" marker-end="url(#arrow137)"/>
+                        <rect x="490" y="276" width="240" height="38" rx="8" fill="var(--light-bg)"/>
+                        <text x="610" y="300" text-anchor="middle" stroke="none" font-size="12.5">Failed healthcheck</text>
+                        <line x1="610" y1="314" x2="610" y2="328" fill="none" marker-end="url(#arrow137)"/>
+                        <rect x="490" y="328" width="240" height="38" rx="8" fill="var(--light-bg)"/>
+                        <text x="610" y="352" text-anchor="middle" stroke="none" font-size="12.5">Orchestrator / manual kill</text>
+                    </g>
+                </svg>
+            </div>
+
+            <h2>Step 1: confirm it was actually the OOM killer</h2>
+            <p>Don't assume &mdash; check. This single flag tells you definitively whether memory was the cause:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker inspect &lt;container&gt; --format='{{.State.OOMKilled}}'
+# true  -&gt; the kernel's OOM killer terminated this container specifically
+# false -&gt; SIGKILL came from somewhere else (see "other causes" below)</code></pre>
+            </div>
+            <p>You can also confirm it at the kernel level. On the Docker host (not inside the container), the OOM killer logs every kill it performs:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>dmesg | grep -i "killed process"
+# or on systemd hosts:
+journalctl -k | grep -i "out of memory"</code></pre>
+            </div>
+            <p><strong>cgroup v1 vs v2:</strong> most current Linux distributions (and Docker Desktop) now default to cgroup v2 rather than the older v1. This doesn't change anything you do on this page &mdash; Docker reports <code>OOMKilled: true</code> and the kernel logs the kill identically regardless of the cgroup version. If <code>docker inspect</code> shows the flag, you can trust it either way.</p>
+
+            <h2>Step 2: figure out which scope ran out — container or host</h2>
+            <p>The same OOM killer operates at two different scopes, and the fix is different for each:</p>
+            <table>
+                <thead><tr><th>Scope</th><th>What happened</th><th>Where to look</th></tr></thead>
+                <tbody>
+                    <tr><td>Container cgroup limit</td><td>Your container hit its own <code>-m</code>/<code>mem_limit</code> ceiling; only that container is killed</td><td><code>docker inspect --format='{{.HostConfig.Memory}}'</code></td></tr>
+                    <tr><td>Whole host</td><td>No limit was set (or it was fine), but physical memory + swap on the machine itself ran out; the kernel picks a victim anywhere on the box</td><td><code>free -h</code>, <code>docker stats</code> across <em>all</em> containers, not just this one</td></tr>
+                </tbody>
+            </table>
+            <p>On macOS and Windows the "host" is the Docker Desktop VM, which has its own separate ceiling &mdash; see the next section.</p>
+
+            <h2>Docker Desktop (macOS/Windows): the VM has its own memory ceiling</h2>
+            <p>On macOS and Windows there is no Linux "host" in the usual sense &mdash; the daemon and every container run inside a single Docker Desktop VM, and that VM is allocated a fixed slice of your machine's memory. Even a container with no <code>-m</code> limit of its own can't exceed what the VM has, so a memory-hungry container gets OOMKilled the moment the whole VM fills up. Raise the VM's allocation here:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Docker Desktop → Settings → Resources → Advanced → Memory limit</code></pre>
+            </div>
+            <p>This is one of the most common reasons a container that runs fine in CI or on a Linux server gets OOMKilled <em>only</em> on a developer's Mac or Windows laptop &mdash; the default Docker Desktop memory allocation is simply smaller than what the workload needs.</p>
+
+            <h2>Fix 1: the workload genuinely needs more memory — raise the limit</h2>
+            <p>If usage sits at a stable, predictable working set that's simply higher than your original budget, raising the limit is the correct, complete fix:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># docker run
+docker run -m 1g my-api
+
+# docker-compose.yml
+services:
+  api:
+    mem_limit: 1g
+
+# Kubernetes
+resources:
+  limits:
+    memory: "1Gi"</code></pre>
+            </div>
+            <p>Before raising it, watch the trend with <code>docker stats</code> for a while &mdash; a stable plateau near the limit supports "just needs more"; a line that keeps climbing without leveling off supports "leak" (Fix 3), and a higher limit there just delays the identical crash.</p>
+
+            <h2>Fix 2: runtime heap sizing that ignores the container limit</h2>
+            <p>Several language runtimes historically sized their default heap from the <em>host's</em> total memory, not the container's cgroup limit &mdash; a container capped at 512MB but running on a 64GB host would happily try to grow a multi-gigabyte heap and get OOMKilled almost immediately.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Java (JDK 10+ has UseContainerSupport on by default, but pin it explicitly):
+java -XX:MaxRAMPercentage=75.0 -jar app.jar
+# leaves ~25% headroom for thread stacks, metaspace, and off-heap buffers
+
+# Node.js — the V8 heap default also isn't container-aware:
+node --max-old-space-size=384 server.js   # for a 512MB container limit
+
+# Python — no heap flag as such, but cap worker count so total RSS fits:
+gunicorn --workers=2 --max-requests=1000 --max-requests-jitter=100 app:app</code></pre>
+            </div>
+            <p>The Node and Java flags above are deliberately set <em>below</em> the container's memory limit, not equal to it &mdash; thread stacks, native buffers, and the runtime's own bookkeeping all need headroom outside whatever number you hand to <code>-Xmx</code> or <code>--max-old-space-size</code>.</p>
+
+            <h2>Fix 3: it's a genuine memory leak</h2>
+            <p>If memory climbs steadily over hours or days instead of leveling off at a working set, no limit is generous enough &mdash; you're watching a leak, and it will eventually hit any ceiling you set. Confirm the trend and then look at what's actually accumulating:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># watch live, container-scoped memory over time
+docker stats &lt;container&gt;
+
+# Node: a leak often shows as a growing heap even after forced GC —
+# take two heap snapshots an hour apart and diff them in Chrome DevTools
+
+# Python: common culprits are a growing in-memory cache/list with no eviction,
+# or objects held by closures/listeners that are never unregistered</code></pre>
+            </div>
+            <p>A pragmatic stopgap while you track down the real leak: recycle worker processes periodically (<code>gunicorn --max-requests</code>, PM2's <code>max_memory_restart</code>) so accumulated memory gets released on a schedule instead of crashing unpredictably in production.</p>
+
+            <h2>How this looks in Kubernetes</h2>
+            <p>Same mechanism, different vocabulary. A pod hitting its memory limit shows up like this:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ kubectl describe pod my-api-7d4f9c
+Last State:   Terminated
+  Reason:     OOMKilled
+  Exit Code:  137</code></pre>
+            </div>
+            <p>Kubernetes distinguishes this from <strong>eviction</strong>: when the whole node is under memory pressure, the kubelet can proactively remove entire pods (lowest-priority/most-over-limit first) before the kernel OOM killer would even trigger. That shows <code>Reason: Evicted</code>, not <code>OOMKilled</code> &mdash; a node-level capacity problem rather than one pod exceeding its own limit, and it needs more cluster capacity or better resource requests/limits across pods, not just a bigger number on this one deployment.</p>
+
+            <h2>When 137 is NOT about memory</h2>
+            <p>Because 137 only encodes "received SIGKILL," a few other things produce it identically &mdash; and <code>OOMKilled: false</code> from Step 1 tells you decisively that you're in one of these cases instead:</p>
+            <ul>
+                <li>A <code>docker stop</code> that didn't exit cleanly within its grace period, escalated automatically to <code>docker kill</code> (SIGKILL)</li>
+                <li>A failed Docker or Kubernetes <strong>healthcheck</strong> causing the platform to forcibly kill an unresponsive container</li>
+                <li>An operator or script running <code>docker kill &lt;container&gt;</code> directly</li>
+                <li>An orchestrator forcefully rescheduling/stopping a container during a deploy or scale-down</li>
+            </ul>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>docker inspect --format='{{.State.OOMKilled}}'</code> &mdash; true or false, first, before anything else</li>
+                <li>&#10003; If true: container limit (<code>-m</code>/<code>mem_limit</code>) or whole-host memory? Check both</li>
+                <li>&#10003; Mac/Windows: is Docker Desktop's own VM memory (Settings &rarr; Resources) large enough for the workload?</li>
+                <li>&#10003; <code>docker stats</code> over time &mdash; stable plateau (needs more memory) vs steady climb (leak)?</li>
+                <li>&#10003; Java: is <code>-Xmx</code>/<code>-XX:MaxRAMPercentage</code> leaving headroom below the container limit?</li>
+                <li>&#10003; Node: is <code>--max-old-space-size</code> set below the container's memory limit?</li>
+                <li>&#10003; Kubernetes: <code>kubectl describe pod</code> &mdash; "OOMKilled" (this container) or "Evicted" (whole node)?</li>
+                <li>&#10003; If <code>OOMKilled: false</code>: check for a healthcheck failure, a manual kill, or an orchestrator-triggered stop instead</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does exit code 137 actually mean?</summary>
+                    <p>137 is Docker/Linux's convention of 128 + signal number, and 9 is SIGKILL &mdash; so 137 means the container's main process was forcibly killed and had no chance to shut down cleanly. The OOM killer sends SIGKILL, which is why 137 is strongly associated with 'out of memory', but a manual <code>docker kill</code>, a failed healthcheck killing the container, or an orchestrator forcefully stopping it also produce the exact same code.</p>
+                </details>
+                <details>
+                    <summary>How do I confirm it was actually the OOM killer?</summary>
+                    <p>Run <code>docker inspect &lt;container&gt; --format='{{.State.OOMKilled}}'</code>. If it prints <code>true</code>, the kernel's OOM killer specifically terminated this container for using too much memory. If it prints <code>false</code>, the process still received SIGKILL for another reason &mdash; a manual kill, a healthcheck failure, or the orchestrator stopping it &mdash; and you're debugging the wrong thing if you assume memory.</p>
+                </details>
+                <details>
+                    <summary>Is this the container's memory limit, or the whole host running out?</summary>
+                    <p>Both trigger the same OOM killer, at different scopes. If you set <code>-m</code>/<code>mem_limit</code> on the container, exceeding that cgroup limit gets only that container killed. If no limit is set (or the limit is fine) but the host itself runs out of physical memory and swap, the kernel's global OOM killer picks a victim process anywhere on the machine &mdash; which might be this container, a different one, or even something unrelated.</p>
+                </details>
+                <details>
+                    <summary>Why does my Java app get OOMKilled even though -Xmx is set below the container limit?</summary>
+                    <p>The JVM heap is only part of a Java process's total memory &mdash; thread stacks, metaspace, the JIT's code cache, and native/off-heap buffers all sit outside <code>-Xmx</code> and count against the container's cgroup limit too. Setting <code>-Xmx</code> close to the container limit leaves no room for that overhead. On modern JDKs (10+, with <code>UseContainerSupport</code> on by default), prefer <code>-XX:MaxRAMPercentage</code> (e.g. 75%) so the JVM sizes itself with headroom automatically.</p>
+                </details>
+                <details>
+                    <summary>How does this look different in Kubernetes?</summary>
+                    <p>Same underlying mechanism, different vocabulary. <code>kubectl describe pod</code> shows <code>Last State: Terminated, Reason: OOMKilled, Exit Code: 137</code> when a container exceeds its configured <code>resources.limits.memory</code>. Kubernetes also distinguishes this from an <strong>eviction</strong>, where the kubelet proactively removes a whole pod under node memory pressure before the kernel OOM killer would even trigger &mdash; that shows a different reason ('Evicted'), not OOMKilled.</p>
+                </details>
+                <details>
+                    <summary>Should I just raise the memory limit and move on?</summary>
+                    <p>Sometimes &mdash; if the workload genuinely needs more memory than you originally budgeted, raising the limit is the correct fix. But if usage climbs steadily over hours or days rather than sitting at a stable working set, that's a memory leak, and a higher limit only delays the same crash. Track memory over time with <code>docker stats</code> or a metrics tool before deciding which situation you're in.</p>
+                </details>
+                <details>
+                    <summary>Does exit code 137 always mean memory?</summary>
+                    <p>No. 137 is just 'this process received SIGKILL' &mdash; it says nothing about why. A <code>docker stop</code> that times out and escalates to SIGKILL, a failed Docker/Kubernetes healthcheck killing an unresponsive container, or an operator running <code>docker kill</code> manually all produce the identical exit code 137 with <code>OOMKilled</code> reported as <code>false</code>. Always check the OOMKilled flag before assuming memory.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More backend &amp; build errors</h3>
+                <p>Browse the full reference for Node.js, Python, Docker, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="docker-cannot-connect-to-daemon.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker: Cannot connect to the daemon</a>
+                    <a href="javascript-heap-out-of-memory.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Node: JavaScript heap out of memory</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-cannot-connect-to-daemon.html">Docker: Cannot connect to the Docker daemon</a> &mdash; the other everyday Docker runtime failure</li>
+                <li><a href="javascript-heap-out-of-memory.html">FATAL ERROR: JavaScript heap out of memory</a> &mdash; the in-process Node.js version of running out of memory</li>
+                <li><a href="docker-port-is-already-allocated.html">Docker: port is already allocated</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
