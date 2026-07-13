@@ -67,10 +67,10 @@ Use this checklist to ensure your JSON Formatter is ready for GitHub Pages deplo
   - [ ] ID added to `index.html` (replace `G-XXXXXXXXXX`)
   - [ ] Deployed to production
 
-- [ ] **AdSense Setup**
-  - [ ] AdSense account created
-  - [ ] Publisher ID obtained
-  - [ ] ID added to `index.html` (replace `ca-pub-XXXXXXXXXXXXXXXX`)
+- [x] **AdSense Setup**
+  - [x] AdSense account created, applied 2026-07-13
+  - [x] Publisher ID obtained: `ca-pub-3477621730217949`
+  - [x] ID replaces placeholder site-wide (all 72 pages already wired with the ad script)
   - [ ] Ads set up in AdSense dashboard
   - [ ] Deployed to production
 
