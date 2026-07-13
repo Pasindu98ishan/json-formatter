@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Strip secrets from logs before sharing them. Redacts AWS keys, API keys, bearer/JWT tokens, passwords, emails, IPs and card numbers with one paste — entirely in your browser, nothing is uploaded.">
+    <meta name="keywords" content="log redactor, sanitize logs, remove secrets from logs, redact api key, redact log file, scrub logs, share logs safely, redact aws key, redact jwt, mask sensitive data">
+    <link rel="canonical" href="https://jsondevtools.org/log-redactor.html">
+    <meta property="og:title" content="Log Redactor — Strip Secrets from Logs Before Sharing">
+    <meta property="og:description" content="Paste a raw log and get a shareable copy with AWS keys, API keys, tokens, passwords, emails, IPs and card numbers redacted. Free, private, 100% in-browser.">
+    <meta property="og:url" content="https://jsondevtools.org/log-redactor.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Log Redactor — Strip Secrets from Logs Before Sharing | Free</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <style>
+        .lr-input {
+            width:100%; min-height:190px; box-sizing:border-box; resize:vertical;
+            font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13.5px; line-height:1.5;
+            padding:0.9rem 1rem; border:1px solid var(--border-color); border-radius:8px;
+            background:var(--light-bg); color:var(--text-color);
+        }
+        .lr-input:focus { outline:2px solid var(--primary-color); outline-offset:1px; }
+        .lr-input.drag-over { border-color:var(--primary-color); background:rgba(74,144,226,0.06); }
+
+        /* upload bar */
+        .lr-uploadbar { display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem 0.85rem; margin:0.6rem 0 0; }
+        .lr-uploadbtn {
+            display:inline-flex; align-items:center; gap:0.4rem; font-size:13.5px; font-weight:600;
+            color:var(--primary-color); background:transparent; cursor:pointer;
+            border:1px solid var(--primary-color); border-radius:8px; padding:0.42rem 0.9rem; transition:background .12s;
+        }
+        .lr-uploadbtn:hover { background:rgba(74,144,226,0.09); }
+        .lr-uploadnote { font-size:12.5px; color:var(--secondary-color); }
+
+        /* redaction category panel */
+        .lr-cats { border:1px solid var(--border-color); border-radius:10px; padding:0.4rem 0.7rem 0.55rem; margin:0.85rem 0 0; }
+        .lr-cats-legend { padding:0 0.35rem; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--secondary-color); }
+        .lr-chips { display:flex; flex-wrap:wrap; gap:0.35rem; }
+        .lr-chip {
+            display:inline-flex; align-items:center; gap:0.4rem; font-size:12.5px; font-weight:600;
+            color:var(--secondary-color); background:var(--light-bg); cursor:pointer; user-select:none;
+            border:1px solid var(--border-color); border-radius:18px; padding:0.26rem 0.65rem 0.26rem 0.55rem;
+            transition:border-color .12s, background .12s, color .12s;
+        }
+        .lr-chip:hover { border-color:var(--primary-color); }
+        .lr-chip input { accent-color:var(--primary-color); width:13px; height:13px; margin:0; cursor:pointer; }
+        .lr-chip:has(input:checked) { border-color:var(--primary-color); background:rgba(74,144,226,0.10); color:var(--text-color); }
+
+        /* tighten the standard button-group spacing on this page only */
+        .lr-buttons { margin:0.7rem 0 0.6rem; }
+        .lr-stats { margin:0.9rem 0 0; font-size:13.5px; color:var(--secondary-color); }
+        .lr-stats strong { color:var(--text-color); }
+        .lr-outwrap { margin:0.75rem 0 0; }
+        .lr-outlabel { display:block; font-weight:600; margin:0 0 0.5rem; }
+        .lr-output {
+            margin:0; white-space:pre-wrap; word-break:break-word; min-height:60px; max-height:420px; overflow:auto;
+            font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13.5px; line-height:1.55;
+            padding:0.9rem 1rem; border:1px solid var(--border-color); border-left:4px solid var(--primary-color);
+            border-radius:8px; background:var(--light-bg); color:var(--text-color);
+        }
+        .lr-mark { background:rgba(255,214,0,0.28); color:inherit; padding:0 3px; border-radius:3px; font-weight:600; }
+        body.dark-mode { --light-bg:#2d2d2d; --border-color:#444; --text-color:#e0e0e0; --secondary-color:#9aa0a6; }
+        body.dark-mode .lr-input,
+        body.dark-mode .lr-output,
+        body.dark-mode .lr-chip { background:#2d2d2d; border-color:#444; color:#9aa0a6; }
+        body.dark-mode .lr-cats { border-color:#444; }
+        body.dark-mode .lr-output { border-left-color:var(--primary-color); }
+        body.dark-mode .lr-chip:has(input:checked) { background:rgba(74,144,226,0.18); border-color:var(--primary-color); color:#e0e0e0; }
+        body.dark-mode .lr-mark { background:rgba(255,214,0,0.22); color:#e0e0e0; }
+    </style>
+    <script src="/js/analytics.js"></script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Log Redactor", "item": "https://jsondevtools.org/log-redactor.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Log Redactor",
+      "url": "https://jsondevtools.org/log-redactor.html",
+      "description": "Paste a raw log and get a shareable copy with AWS keys, API keys, bearer and JWT tokens, passwords, connection-string credentials, emails, IP addresses and card numbers redacted — entirely in your browser.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does the Log Redactor do?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Paste a raw log, stack trace, or terminal output and it replaces secrets — AWS keys, API keys, bearer and JWT tokens, passwords, connection-string credentials, emails, IP addresses and credit-card numbers — with clearly labeled placeholders like [REDACTED_JWT]. You get a copy that is safe to paste into a bug report, a Slack channel, or an AI chat." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my log uploaded to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. The redaction is pure JavaScript running in your browser — the log you paste is never uploaded or transmitted anywhere. That is the whole point: you can sanitize logs from private infrastructure without the log ever leaving your machine." }
+        },
+        {
+          "@type": "Question",
+          "name": "What kinds of secrets does it detect?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Vendor credentials with recognizable formats (AWS access key IDs, GitHub, Slack, Stripe, Google and npm tokens, sk-style API keys), JWTs, Bearer and Basic authorization headers, private-key PEM blocks, user:password pairs inside connection strings, key=value pairs where the key looks secret-like (password, secret, api_key, token…), email addresses, IPv4/IPv6 and MAC addresses, and Luhn-valid credit-card numbers." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why should I redact logs before sharing them?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Logs routinely capture more than you intend: an Authorization header in a request dump, a connection string in a crash message, an API key echoed by a startup script. Once pasted into an issue tracker, chat, or AI assistant, that secret is stored on someone else's servers and should be considered leaked — most security teams require rotating it. Redacting first costs seconds; rotating credentials costs a lot more." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can it miss secrets?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. It matches known patterns, and a secret with no recognizable shape — a random string with no context around it — can slip through. Treat the output as a strong first pass, not a guarantee, and skim it before sharing. When in doubt, redact more: the checkboxes let you strip whole categories like every email or IP address." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does it catch card numbers but not my order IDs?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Every candidate digit sequence is checked against the Luhn checksum that real payment-card numbers must satisfy, plus a 13–19 digit length rule. Random IDs, timestamps and phone numbers almost never pass that checksum, so they are left alone while real card numbers are caught." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I choose what gets redacted?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Detection is grouped into six categories — vendor/API keys, tokens and auth headers, passwords and secrets, email addresses, network addresses, and card numbers — each with its own checkbox. Untick a category if, say, internal IPs are fine to share, and the output updates instantly." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>Log Redactor</h1>
+            <p>Strip API keys, tokens, passwords, emails and IPs from a log before pasting it into a bug report, Slack, or an AI chat &mdash; entirely in your browser.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+            <label for="logInput" style="display:block;font-weight:600;margin:0 0 0.5rem;">Paste your raw log:</label>
+            <textarea id="logInput" class="lr-input" placeholder="e.g.  2026-07-10 09:14:24 INFO  Authorization: Bearer eyJhbGciOiJIUzI1...&#10;         2026-07-10 09:14:25 DEBUG aws_access_key_id=AKIA..." spellcheck="false" autocomplete="off"></textarea>
+            <div class="lr-uploadbar">
+                <label for="fileInput" class="lr-uploadbtn">&#128228; Upload a log file</label>
+                <span class="lr-uploadnote">&hellip; or drag &amp; drop it onto the box above &mdash; read in your browser, never uploaded.</span>
+            </div>
+            <input type="file" id="fileInput" accept=".log,.txt,.json,.out,.err,.ndjson,text/*" hidden>
+
+            <fieldset class="lr-cats">
+                <legend class="lr-cats-legend">Redact these categories</legend>
+                <div class="lr-chips">
+                    <label class="lr-chip"><input type="checkbox" value="vendor" checked> Vendor &amp; API keys</label>
+                    <label class="lr-chip"><input type="checkbox" value="tokens" checked> Tokens &amp; auth headers</label>
+                    <label class="lr-chip"><input type="checkbox" value="secrets" checked> Passwords &amp; secrets</label>
+                    <label class="lr-chip"><input type="checkbox" value="email" checked> Email addresses</label>
+                    <label class="lr-chip"><input type="checkbox" value="network" checked> IP &amp; MAC addresses</label>
+                    <label class="lr-chip"><input type="checkbox" value="card" checked> Card numbers</label>
+                </div>
+            </fieldset>
+
+            <div class="button-group lr-buttons">
+                <button id="redactBtn" class="btn btn-primary" aria-label="Redact the pasted log">Redact</button>
+                <button id="sampleBtn" class="btn btn-secondary" aria-label="Fill an example log">Try an example</button>
+                <button id="copyBtn" class="btn btn-secondary" aria-label="Copy the redacted log">Copy result</button>
+                <button id="downloadBtn" class="btn btn-secondary" aria-label="Download the redacted log">Download</button>
+                <button id="clearBtn" class="btn btn-secondary" aria-label="Clear the input">Clear</button>
+            </div>
+
+            <p id="redactorStats" class="lr-stats" aria-live="polite"></p>
+            <div id="redactorOutputWrap" class="lr-outwrap" style="display:none;">
+                <span class="lr-outlabel">Redacted log (safe to share):</span>
+                <pre id="redactorOutput" class="lr-output" aria-live="polite"></pre>
+            </div>
+        </section>
+
+        <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:2rem 0 0;">
+            <p style="margin:0;font-weight:600;">Quick answer</p>
+            <p style="margin:0.5rem 0 0;">The Log Redactor replaces secrets in a pasted log &mdash; AWS keys, API keys, bearer/JWT tokens, passwords, emails, IPs, card numbers &mdash; with labeled placeholders like <code>[REDACTED_JWT]</code>, so you can share the log without leaking credentials. <strong>Everything runs in your browser; the log you paste is never uploaded.</strong></p>
+        </div>
+
+        <section class="info-section">
+            <h3 style="margin-top:0;">Key takeaways</h3>
+            <ul>
+                <li><strong>Redact before you paste</strong> &mdash; a secret shared in a bug report, Slack, or an AI chat should be treated as leaked.</li>
+                <li><strong>Labeled placeholders</strong> &mdash; <code>[REDACTED_AWS_KEY_ID]</code> beats <code>*****</code>: readers still understand the log.</li>
+                <li><strong>Six toggleable categories</strong> &mdash; keep internal IPs if they're safe to share, strip everything else.</li>
+                <li><strong>Luhn-checked card detection</strong> &mdash; catches real card numbers without flagging every long ID.</li>
+                <li><strong>100% private</strong> &mdash; pure client-side regex substitution; nothing you paste leaves your browser.</li>
+            </ul>
+
+            <h2>How does the redactor work?</h2>
+            <p>The pasted text is scanned by a set of patterns in two styles. <strong>Format-based</strong> patterns catch secrets with a recognizable shape no matter where they appear &mdash; an AWS access key ID always looks like <code>AKIA…</code>, a JWT is three base64url segments where the first two start with <code>eyJ</code>, a GitHub token starts with <code>ghp_</code>. <strong>Context-based</strong> patterns catch values that are only secret because of what sits next to them: <code>password=…</code>, <code>api_key: …</code>, or the <code>user:password@</code> pair inside a database connection string &mdash; there the key name is kept and only the value is replaced, so the log stays readable. Overlaps are resolved so each character is redacted at most once, and every replacement is a labeled placeholder rather than asterisks, because whoever reads the log still needs to understand what happened.</p>
+
+            <h2>What does it detect?</h2>
+            <div class="table-container" style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <thead>
+                        <tr style="background:var(--light-bg);">
+                            <th style="padding:9px 12px;border:1px solid var(--border-color);text-align:left;">Category</th>
+                            <th style="padding:9px 12px;border:1px solid var(--border-color);text-align:left;">Examples</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Vendor &amp; API keys</td><td style="padding:9px 12px;border:1px solid var(--border-color);">AWS access key IDs, GitHub / Slack / npm tokens, Stripe &amp; Google keys, <code>sk-…</code> style API keys</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Tokens &amp; auth headers</td><td style="padding:9px 12px;border:1px solid var(--border-color);">JWTs, <code>Authorization: Bearer …</code>, <code>Basic …</code>, PEM private-key blocks</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Passwords &amp; secrets</td><td style="padding:9px 12px;border:1px solid var(--border-color);"><code>password=…</code>, <code>client_secret: …</code>, <code>user:pass@host</code> in connection strings</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Email addresses</td><td style="padding:9px 12px;border:1px solid var(--border-color);">Any <code>name@domain.tld</code> &mdash; user emails are personal data</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Network addresses</td><td style="padding:9px 12px;border:1px solid var(--border-color);">IPv4 &amp; IPv6 addresses (localhost excluded), MAC addresses</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Card numbers</td><td style="padding:9px 12px;border:1px solid var(--border-color);">13&ndash;19 digit sequences that pass the Luhn checksum, with or without spaces/dashes</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2>Is it private?</h2>
+            <p>Yes &mdash; and for this tool that's the entire point. The redaction is plain regex substitution running in your browser: <strong>the log you paste is never uploaded or sent to a server</strong>. A log sanitizer that uploaded your logs to sanitize them would defeat its own purpose. This also means it works offline once the page is loaded.</p>
+
+            <h2>When should I use it?</h2>
+            <p>Any time a log is about to leave your machine: attaching output to a GitHub issue, pasting a stack trace into Slack or a support ticket, or handing a log to an AI assistant for debugging. Request dumps are the classic trap &mdash; one <code>curl -v</code> or middleware log line quietly includes your <code>Authorization</code> header, and once it's on someone else's server the token has to be rotated. A second pair of use cases is compliance-shaped: emails, IPs and card numbers in logs are personal or payment data you often aren't allowed to share internally, let alone externally.</p>
+
+            <h2>What are its limits?</h2>
+            <p>Pattern matching can only catch secrets that look like secrets. A random hex string with no key name next to it and no vendor prefix is indistinguishable from a request ID, so it passes through. The detector deliberately errs toward catching more &mdash; but you should still skim the output before sharing, especially for secrets your own systems invent. And redaction is one-way by design: keep the original if you'll need those values again.</p>
+
+            <p style="margin-top:1rem;">Debugging the error inside that log? Paste it into the <a href="error-log-analyzer.html">Error Log Analyzer</a> to jump straight to the fix. Need to inspect a token before redacting it? Use the <a href="jwt-decoder.html">JWT Decoder</a> &mdash; it's just as private.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>What does the Log Redactor do?</summary>
+                <p>Paste a raw log, stack trace, or terminal output and it replaces secrets — AWS keys, API keys, bearer and JWT tokens, passwords, connection-string credentials, emails, IP addresses and credit-card numbers — with clearly labeled placeholders like <code>[REDACTED_JWT]</code>. You get a copy that is safe to paste into a bug report, a Slack channel, or an AI chat.</p>
+            </details>
+            <details>
+                <summary>Is my log uploaded to a server?</summary>
+                <p>No. The redaction is pure JavaScript running in your browser — the log you paste is never uploaded or transmitted anywhere. That is the whole point: you can sanitize logs from private infrastructure without the log ever leaving your machine.</p>
+            </details>
+            <details>
+                <summary>What kinds of secrets does it detect?</summary>
+                <p>Vendor credentials with recognizable formats (AWS access key IDs, GitHub, Slack, Stripe, Google and npm tokens, <code>sk-</code>style API keys), JWTs, <code>Bearer</code> and <code>Basic</code> authorization headers, private-key PEM blocks, <code>user:password</code> pairs inside connection strings, key=value pairs where the key looks secret-like (<code>password</code>, <code>secret</code>, <code>api_key</code>, <code>token</code>…), email addresses, IPv4/IPv6 and MAC addresses, and Luhn-valid credit-card numbers.</p>
+            </details>
+            <details>
+                <summary>Why should I redact logs before sharing them?</summary>
+                <p>Logs routinely capture more than you intend: an <code>Authorization</code> header in a request dump, a connection string in a crash message, an API key echoed by a startup script. Once pasted into an issue tracker, chat, or AI assistant, that secret is stored on someone else's servers and should be considered leaked — most security teams require rotating it. Redacting first costs seconds; rotating credentials costs a lot more.</p>
+            </details>
+            <details>
+                <summary>Can it miss secrets?</summary>
+                <p>Yes. It matches known patterns, and a secret with no recognizable shape — a random string with no context around it — can slip through. Treat the output as a strong first pass, not a guarantee, and skim it before sharing. When in doubt, redact more: the checkboxes let you strip whole categories like every email or IP address.</p>
+            </details>
+            <details>
+                <summary>Why does it catch card numbers but not my order IDs?</summary>
+                <p>Every candidate digit sequence is checked against the Luhn checksum that real payment-card numbers must satisfy, plus a 13–19 digit length rule. Random IDs, timestamps and phone numbers almost never pass that checksum, so they are left alone while real card numbers are caught.</p>
+            </details>
+            <details>
+                <summary>Can I choose what gets redacted?</summary>
+                <p>Yes. Detection is grouped into six categories — vendor/API keys, tokens and auth headers, passwords and secrets, email addresses, network addresses, and card numbers — each with its own checkbox. Untick a category if, say, internal IPs are fine to share, and the output updates instantly.</p>
+            </details>
+        </section>
+
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: July 2026</p>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="error-log-analyzer.html">Error Log Analyzer</a></li>
+                <li><a href="jwt-decoder.html">JWT Decoder</a></li>
+                <li><a href="hash.html">Hash Generator</a></li>
+                <li><a href="formatter.html">JSON Formatter</a></li>
+                <li><a href="errors.html">Error Reference</a></li>
+            </ul>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/common-json-errors.html">Common JSON Errors and How to Fix Them</a></li>
+                <li><a href="blog/best-json-tools-2026.html">Best Free Online JSON Tools in 2026</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/log-redactor-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>
