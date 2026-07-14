@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Rust: called Option::unwrap() on a None value — why unwrap panics, and the safe ladder of fixes: match, if let, unwrap_or, unwrap_or_else, expect, and the ? operator.">
+    <meta name="keywords" content="called Option unwrap on a None value, rust unwrap panic, rust option none panic, unwrap_or, rust if let, rust question mark operator, rust expect vs unwrap">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-unwrap-on-none-value.html">
+    <meta property="og:title" content="Rust: called Option::unwrap() on a None Value — Why &amp; How to Fix">
+    <meta property="og:description" content="unwrap() panics the moment an Option is None. Replace it with the right tool for the situation — match, if let, unwrap_or, unwrap_or_else, expect, or the ? operator.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-unwrap-on-none-value.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Rust: called Option::unwrap() on a None Value — Why &amp; How to Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Rust: called Option::unwrap() on a None value", "item": "https://jsondevtools.org/errors/rust-unwrap-on-none-value.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Rust: called Option::unwrap() on a None value — Cause and Fix",
+  "description": "Rust panics with 'called Option::unwrap() on a None value' when you unwrap an Option that is None. This reference shows the safe alternatives — match, if let, unwrap_or, unwrap_or_else, expect, and the ? operator — and when to use each.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-14",
+  "dateModified": "2026-07-14",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'called Option::unwrap() on a None value' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You called .unwrap() on an Option that turned out to be None. unwrap() means 'give me the value inside, and panic if there isn't one' — so when the Option is None, it panics and aborts the thread. The same applies to Result: .unwrap() on an Err panics with 'called Result::unwrap() on an Err value'. It's not a compile error; it's a deliberate runtime crash you asked for by using unwrap()."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix an unwrap panic on None?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Replace unwrap() with a form that handles the None case: use match or if let to branch, unwrap_or(default) to supply a fallback value, unwrap_or_else(|| ...) for a computed fallback, or the ? operator to propagate None up to the caller. Which one depends on what should happen when the value is absent — a default, an early return, or a specific error."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is unwrap() ever okay to use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes — in tests, quick prototypes, and cases where None genuinely represents an unreachable state that would be a bug. When you do use it in real code, prefer expect(\"reason\") over unwrap(): it produces the same panic but with a message explaining the invariant you're relying on, which turns a bare panic into a documented assumption for whoever debugs it later."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What's the difference between unwrap_or, unwrap_or_else, and unwrap_or_default?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "All three replace None with a value instead of panicking. unwrap_or(x) uses x, which is evaluated eagerly even when the Option is Some — fine for cheap values. unwrap_or_else(|| expensive()) computes the fallback lazily via a closure, only when needed, so use it when the default is costly. unwrap_or_default() uses the type's Default implementation, e.g. 0 for numbers or an empty string."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does the ? operator help with Option?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In a function that returns Option (or Result), value? extracts the value from a Some and, on None, immediately returns None from the whole function instead of panicking — it does not unwrap in the panicking sense. It's the cleanest way to chain several fallible lookups — each ? short-circuits to None the moment one step is absent, so the happy path reads linearly without nested matches. The enclosing function's return type must be Option or Result for ? to be allowed."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I see where the unwrap panic happened?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run with RUST_BACKTRACE=1 (or RUST_BACKTRACE=full) set in the environment. The panic message already prints the file and line of the unwrap call, and the backtrace shows the full call stack that led there. Setting expect(\"...\") messages on your unwraps also makes each panic self-identifying, so you don't have to guess which of several unwraps fired."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Rust: called Option::unwrap() on a None value</span>
+            </nav>
+            <h1>Rust: called `Option::unwrap()` on a `None` value</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You called <code>.unwrap()</code> on an <code>Option</code> that was <code>None</code>, and unwrap panics when there's no value. Pick the fix that matches what should happen when the value is absent:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Want a fallback value? <code>unwrap_or(default)</code> or <code>unwrap_or_else(|| ...)</code>.</li>
+                    <li>Want to branch on Some/None? <code>match</code> or <code>if let</code>.</li>
+                    <li>Want to pass the absence up to the caller? the <code>?</code> operator.</li>
+                    <li>Truly should never be None? <code>expect("why")</code> &mdash; same panic, but documented.</li>
+                </ul>
+            </div>
+
+            <h2>The exact panic</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let items = vec![1, 2, 3];
+let first = items.iter().find(|&amp;&amp;x| x &gt; 10).unwrap();
+// thread 'main' panicked at 'called `Option::unwrap()` on a `None` value', src/main.rs:3:52
+// note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace</code></pre>
+            </div>
+
+            <p>An <code>Option&lt;T&gt;</code> is either <code>Some(value)</code> or <code>None</code> &mdash; Rust's way of forcing you to acknowledge that a value might be absent. Calling <code>.unwrap()</code> says &ldquo;I'm certain this is <code>Some</code>; give me the value, and crash if I'm wrong.&rdquo; When the <code>Option</code> is actually <code>None</code>, that's exactly what happens: the current thread panics (and the program aborts unless something catches it, e.g. with <code>catch_unwind</code>, or the panic strategy is set to <code>abort</code>, in which case the whole process ends immediately). The fix is never to make unwrap &ldquo;work&rdquo; &mdash; it's to decide what should happen when the value is missing, and use the method that expresses it.</p>
+
+            <h2>The unwrap ladder: choose by what should happen on None</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 640 320" role="img" aria-label="A ladder of choices for handling an Option instead of unwrap. If you want a default value, use unwrap_or or unwrap_or_else. If you want to run different code for Some versus None, use match or if let. If you want to return None to the caller, use the question-mark operator. If None should be impossible, use expect with a message. Only fall back to unwrap in tests or throwaway code.">
+                    <defs>
+                        <marker id="rw-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="180" y="8" width="280" height="38" rx="8"/>
+                    <text class="dg-m" x="320" y="31" text-anchor="middle">Option is None — what should happen?</text>
+
+                    <line class="dg-ln" x1="60" y1="46" x2="60" y2="300"/>
+                    <path class="dg-ln" d="M320,46 L320,60 L60,60"/>
+
+                    <line class="dg-ln" x1="60" y1="84" x2="90" y2="84" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box" x="90" y="64" width="220" height="40" rx="6"/>
+                    <text class="dg-m" x="200" y="88" text-anchor="middle">Use a default value</text>
+                    <line class="dg-ln" x1="310" y1="84" x2="340" y2="84" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box-ok" x="340" y="64" width="285" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="482" y="88" text-anchor="middle">unwrap_or / unwrap_or_else</text>
+
+                    <line class="dg-ln" x1="60" y1="138" x2="90" y2="138" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box" x="90" y="118" width="220" height="40" rx="6"/>
+                    <text class="dg-m" x="200" y="142" text-anchor="middle">Branch on Some vs None</text>
+                    <line class="dg-ln" x1="310" y1="138" x2="340" y2="138" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box-ok" x="340" y="118" width="285" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="482" y="142" text-anchor="middle">match / if let</text>
+
+                    <line class="dg-ln" x1="60" y1="192" x2="90" y2="192" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box" x="90" y="172" width="220" height="40" rx="6"/>
+                    <text class="dg-m" x="200" y="196" text-anchor="middle">Return None to caller</text>
+                    <line class="dg-ln" x1="310" y1="192" x2="340" y2="192" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box-ok" x="340" y="172" width="285" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="482" y="196" text-anchor="middle">the ? operator</text>
+
+                    <line class="dg-ln" x1="60" y1="246" x2="90" y2="246" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box" x="90" y="226" width="220" height="40" rx="6"/>
+                    <text class="dg-m" x="200" y="250" text-anchor="middle">None is truly impossible</text>
+                    <line class="dg-ln" x1="310" y1="246" x2="340" y2="246" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box-ok" x="340" y="226" width="285" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="482" y="250" text-anchor="middle">expect(&quot;reason&quot;)</text>
+
+                    <line class="dg-ln" x1="60" y1="300" x2="90" y2="300" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box" x="90" y="280" width="220" height="34" rx="6"/>
+                    <text class="dg-m" x="200" y="301" text-anchor="middle">Test / throwaway code</text>
+                    <line class="dg-ln" x1="310" y1="300" x2="340" y2="300" marker-end="url(#rw-a)"/>
+                    <rect class="dg-box" x="340" y="280" width="285" height="34" rx="6"/>
+                    <text class="dg-m" x="482" y="301" text-anchor="middle">unwrap() is fine here</text>
+                </svg>
+                <p class="dg-cap">Start from what the code should do when the value is absent, then read across to the method that expresses it &mdash; unwrap is only the right answer in the bottom row.</p>
+            </div>
+
+            <h2>Fix 1: supply a fallback with unwrap_or / unwrap_or_else</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let port = config.get("port").map(String::as_str).unwrap_or("8080");   // eager default
+let id = cache.lookup(key).unwrap_or_else(|| generate_id());           // lazy — only runs on None
+let count = maybe_count.unwrap_or_default();                            // 0 for numbers, "" for String</code></pre>
+            </div>
+            <p>Use <code>unwrap_or</code> for a cheap constant, <code>unwrap_or_else</code> when computing the fallback is expensive (the closure only runs on <code>None</code>), and <code>unwrap_or_default</code> when the type's <code>Default</code> is what you want. One footgun to know about: <code>config.get("port").unwrap_or(&amp;"8080".to_string())</code> looks reasonable but <strong>won't compile</strong> &mdash; the <code>"8080".to_string()</code> temporary is dropped at the end of the statement, so the reference to it can't outlive the borrow (<code>E0716: temporary value dropped while borrowed</code>). Rust only extends a temporary's lifetime when the <code>&amp;expr</code> sits directly in a <code>let</code> binding, not inside a method-call argument. Going through <code>&amp;str</code> via <code>.map(String::as_str)</code>, as above, sidesteps the problem entirely.</p>
+
+            <h2>Fix 2: branch explicitly with match or if let</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>match users.get(&amp;id) {
+    Some(user) =&gt; println!("found {}", user.name),
+    None =&gt; println!("no user with id {id}"),
+}
+
+// or, when you only care about the Some case:
+if let Some(user) = users.get(&amp;id) {
+    println!("found {}", user.name);
+}</code></pre>
+            </div>
+
+            <h2>Fix 3: propagate None with the ? operator</h2>
+            <p>In a function that returns <code>Option</code>, <code>?</code> extracts the value from a <code>Some</code> (it doesn't unwrap in the panicking sense) and returns <code>None</code> from the whole function the instant any step is absent &mdash; letting you chain lookups without a pyramid of matches:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn first_admin_email(users: &amp;[User]) -&gt; Option&lt;&amp;str&gt; {
+    let admin = users.iter().find(|u| u.is_admin)?;   // None here → return None
+    let email = admin.email.as_deref()?;              // None here → return None
+    Some(email)
+}</code></pre>
+            </div>
+            <p>The enclosing function must return <code>Option</code> (or <code>Result</code>) for <code>?</code> to be allowed &mdash; that's what it short-circuits into.</p>
+
+            <h2>Fix 4: if it really can't be None, use expect</h2>
+            <p>When <code>None</code> would genuinely be a bug &mdash; an invariant your program guarantees &mdash; a panic is acceptable, but make it <em>self-explaining</em>. Prefer <code>expect</code> over <code>unwrap</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ bare panic, no context for whoever hits it
+let cfg = load_config().unwrap();
+
+// ✅ same panic, but it documents the assumption
+let cfg = load_config().expect("config was validated at startup — this can't be None");</code></pre>
+            </div>
+            <p>The two produce identical behavior on <code>None</code>, but <code>expect</code>'s message tells the next engineer <em>which</em> invariant was violated instead of leaving them to reverse-engineer it from a line number.</p>
+
+            <h2>Fix 5: transform without unwrapping (map, and_then)</h2>
+            <p>Often you don't need the raw value at all &mdash; you need to <em>do something</em> with it if it's present. The combinator methods let you keep working inside the <code>Option</code> and never risk a panic:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// map: transform the inner value if Some, stay None otherwise
+let len: Option&lt;usize&gt; = name.map(|n| n.len());
+
+// and_then: chain another Option-returning step (flatMap)
+let city: Option&lt;&amp;str&gt; = user.address.as_ref().and_then(|a| a.city.as_deref());
+
+// filter: keep Some only if a predicate holds
+let positive = count.filter(|&amp;n| n &gt; 0);</code></pre>
+            </div>
+            <p>These read top-to-bottom and compose cleanly, which is why idiomatic Rust reaches for them long before <code>unwrap</code>. When you finally need a concrete value at the end of a chain, close it out with one of the ladder's safe endings (<code>unwrap_or</code>, <code>match</code>, or <code>?</code>).</p>
+
+            <h2>Turning Option into Result with ok_or</h2>
+            <p>When a missing value should become a real error to propagate &mdash; not just a <code>None</code> &mdash; convert with <code>ok_or</code> / <code>ok_or_else</code>, then use <code>?</code> to bubble it up as an <code>Err</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn load_user(id: u32) -&gt; Result&lt;User, AppError&gt; {
+    let user = cache.get(&amp;id).ok_or(AppError::NotFound(id))?;   // None → Err, propagated
+    Ok(user.clone())
+}</code></pre>
+            </div>
+
+            <h2>The same applies to Result</h2>
+            <p><code>.unwrap()</code> on a <code>Result</code> that's <code>Err</code> panics identically (&ldquo;called <code>Result::unwrap()</code> on an <code>Err</code> value&rdquo;). The ladder maps across: <code>unwrap_or</code>/<code>unwrap_or_else</code> for a fallback, <code>match</code> to branch on <code>Ok</code>/<code>Err</code>, <code>?</code> to propagate the error, and <code>expect</code> for a documented invariant.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Decide first: on <code>None</code>, do you want a default, a branch, an early return, or a crash?</li>
+                <li>&#10003; Default &rarr; <code>unwrap_or</code> / <code>unwrap_or_else</code> / <code>unwrap_or_default</code></li>
+                <li>&#10003; Branch &rarr; <code>match</code> or <code>if let Some(x)</code></li>
+                <li>&#10003; Propagate &rarr; <code>?</code> (function must return <code>Option</code>/<code>Result</code>)</li>
+                <li>&#10003; Genuinely impossible &rarr; <code>expect("reason")</code>, never bare <code>unwrap()</code></li>
+                <li>&#10003; Set <code>RUST_BACKTRACE=1</code> to see the full stack to the panic</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'called Option::unwrap() on a None value' mean?</summary>
+                    <p>You called <code>.unwrap()</code> on an <code>Option</code> that turned out to be <code>None</code>. <code>unwrap()</code> means &lsquo;give me the value inside, and panic if there isn't one&rsquo; &mdash; so when the <code>Option</code> is <code>None</code>, it panics and aborts the thread. The same applies to <code>Result</code>: <code>.unwrap()</code> on an <code>Err</code> panics with &lsquo;called <code>Result::unwrap()</code> on an <code>Err</code> value&rsquo;. It's not a compile error; it's a deliberate runtime crash you asked for by using <code>unwrap()</code>.</p>
+                </details>
+                <details>
+                    <summary>How do I fix an unwrap panic on None?</summary>
+                    <p>Replace <code>unwrap()</code> with a form that handles the <code>None</code> case: use <code>match</code> or <code>if let</code> to branch, <code>unwrap_or(default)</code> to supply a fallback value, <code>unwrap_or_else(|| ...)</code> for a computed fallback, or the <code>?</code> operator to propagate <code>None</code> up to the caller. Which one depends on what should happen when the value is absent &mdash; a default, an early return, or a specific error.</p>
+                </details>
+                <details>
+                    <summary>Is unwrap() ever okay to use?</summary>
+                    <p>Yes &mdash; in tests, quick prototypes, and cases where <code>None</code> genuinely represents an unreachable state that would be a bug. When you do use it in real code, prefer <code>expect("reason")</code> over <code>unwrap()</code>: it produces the same panic but with a message explaining the invariant you're relying on, which turns a bare panic into a documented assumption for whoever debugs it later.</p>
+                </details>
+                <details>
+                    <summary>What's the difference between unwrap_or, unwrap_or_else, and unwrap_or_default?</summary>
+                    <p>All three replace <code>None</code> with a value instead of panicking. <code>unwrap_or(x)</code> uses <code>x</code>, which is evaluated eagerly even when the <code>Option</code> is <code>Some</code> &mdash; fine for cheap values. <code>unwrap_or_else(|| expensive())</code> computes the fallback lazily via a closure, only when needed, so use it when the default is costly. <code>unwrap_or_default()</code> uses the type's <code>Default</code> implementation, e.g. <code>0</code> for numbers or an empty string.</p>
+                </details>
+                <details>
+                    <summary>How does the ? operator help with Option?</summary>
+                    <p>In a function that returns <code>Option</code> (or <code>Result</code>), <code>value?</code> extracts the value from a <code>Some</code> and, on <code>None</code>, immediately returns <code>None</code> from the whole function instead of panicking &mdash; it does not unwrap in the panicking sense. It's the cleanest way to chain several fallible lookups &mdash; each <code>?</code> short-circuits to <code>None</code> the moment one step is absent, so the happy path reads linearly without nested matches. The enclosing function's return type must be <code>Option</code> or <code>Result</code> for <code>?</code> to be allowed.</p>
+                </details>
+                <details>
+                    <summary>How do I see where the unwrap panic happened?</summary>
+                    <p>Run with <code>RUST_BACKTRACE=1</code> (or <code>RUST_BACKTRACE=full</code>) set in the environment. The panic message already prints the file and line of the <code>unwrap</code> call, and the backtrace shows the full call stack that led there. Setting <code>expect("...")</code> messages on your unwraps also makes each panic self-identifying, so you don't have to guess which of several unwraps fired.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Rust &amp; backend errors</h3>
+                <p>Browse the full reference for Rust, Go, and Java errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-e0308-mismatched-types.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Rust E0308: mismatched types</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-e0308-mismatched-types.html">Rust E0308: mismatched types</a> &mdash; often an <code>Option&lt;T&gt;</code> vs <code>T</code> mismatch that tempts an unwrap</li>
+                <li><a href="rust-e0597-does-not-live-long-enough.html">Rust E0597: does not live long enough</a></li>
+                <li><a href="go-nil-pointer-dereference.html">Go: nil pointer dereference</a> &mdash; the closest thing in a language without Option</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

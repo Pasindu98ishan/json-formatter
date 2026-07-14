@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS7006: Parameter 'x' implicitly has an 'any' type — why noImplicitAny flags untyped parameters, and how to fix it by annotating the type, typing the callback, or adding a declaration.">
+    <meta name="keywords" content="TS7006, Parameter implicitly has an any type, noImplicitAny, typescript implicit any parameter, typescript callback parameter type, element implicitly has any type">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts7006-parameter-implicitly-has-an-any-type.html">
+    <meta property="og:title" content="TS7006: Parameter Implicitly Has an 'any' Type — How to Fix It">
+    <meta property="og:description" content="TypeScript flags TS7006 under noImplicitAny when a parameter has no type it can infer. Fix it by annotating the parameter, letting a typed callback give it context, or typing the surrounding function.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts7006-parameter-implicitly-has-an-any-type.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS7006: Parameter Implicitly Has an 'any' Type — How to Fix It</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS7006: Parameter implicitly has an 'any' type", "item": "https://jsondevtools.org/errors/ts7006-parameter-implicitly-has-an-any-type.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS7006: Parameter 'x' implicitly has an 'any' type — How to Fix It",
+  "description": "TypeScript raises TS7006 under noImplicitAny when a function parameter has no annotation and no context to infer a type from. This reference explains why it happens and how to fix it — annotate the parameter, let a typed callback provide contextual types, type the enclosing function, or handle event and JSON-shaped values properly.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-14",
+  "dateModified": "2026-07-14",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does TS7006 'Parameter implicitly has an any type' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You wrote a function parameter with no type annotation, and TypeScript couldn't infer one from context, so it would have to fall back to 'any'. Because your project has noImplicitAny turned on (it's part of strict mode), TypeScript refuses to do that silently and reports TS7006 instead. The fix is to give the parameter a type, or arrange for the surrounding code to supply one."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix TS7006 quickly?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Add an explicit type annotation to the parameter: change function greet(name) to function greet(name: string). For a callback, type the array or function it belongs to so TypeScript can infer the parameter contextually — for example items.map((item: Item) => ...) or, better, give items the type Item[] so item is inferred automatically."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my array callback parameter get TS7006 but sometimes not?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "When the array has a known element type, TypeScript infers the callback parameter contextually and no annotation is needed — users.map(u => u.name) works if users is User[]. TS7006 appears when the array itself is untyped (for example it came from JSON.parse, which returns any, or an untyped function), so there's no context to infer from. Type the array at its source and the callback parameter resolves for free."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just turn off noImplicitAny?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No — disabling noImplicitAny throws away most of the value of using TypeScript, because untyped parameters silently become any and stop being checked at all. If you're migrating a large JavaScript codebase and need breathing room, annotate the parameter as x: any explicitly (which documents the intent and silences the error) rather than turning the whole check off. Fix the real types incrementally."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do event handler parameters trigger TS7006?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An event handler assigned in a way TypeScript can't connect to a known event type has no context for its parameter. If you write const onClick = (e) => ... standalone, e is implicitly any. Annotate it with the right DOM event type — (e: MouseEvent) => ... — or attach the handler inline where the element's type provides the event type contextually, such as element.addEventListener('click', e => ...), where e is inferred as MouseEvent."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is TS7006 different from TS7053 or TS7031?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They're all noImplicitAny errors for different syntax positions. TS7006 is a function parameter with no inferable type. TS7053 is an element access with an implicit any index (obj[key] where key isn't keyof obj). TS7031 is a binding-element implicit any, typically a destructured parameter like ({ id }) => ... with no type on the object. Same root cause — no type to infer — different place in the code."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS7006: Parameter implicitly has an 'any' type</span>
+            </nav>
+            <h1>TS7006: Parameter 'x' implicitly has an 'any' type</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A function parameter has no type and TypeScript can't infer one, so under <code>noImplicitAny</code> (part of <code>strict</code>) it errors instead of silently using <code>any</code>. Fix it one of these ways:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Annotate the parameter directly: <code>(name: string)</code>.</li>
+                    <li>Type the array/function so a callback parameter is inferred: give <code>items</code> the type <code>Item[]</code>.</li>
+                    <li>Give an event handler its DOM type: <code>(e: MouseEvent)</code>.</li>
+                    <li>Migrating from JS? Annotate <code>x: any</code> explicitly &mdash; don't disable the check.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function greet(name) {
+  return `Hello, ${name}`;
+}
+// error TS7006: Parameter 'name' implicitly has an 'any' type.
+
+const data = JSON.parse(raw);
+const names = data.map((item) =&gt; item.name);
+// error TS7006: Parameter 'item' implicitly has an 'any' type.</code></pre>
+            </div>
+
+            <p>TypeScript's job is to know the type of every value. When a parameter has no annotation, TypeScript tries to <em>infer</em> one from context &mdash; and when there's no context to infer from, it would have to fall back to <code>any</code>, which disables type-checking for that value entirely. The <code>noImplicitAny</code> flag (on by default in <code>strict</code> mode) turns that silent fallback into the TS7006 error, so the untyped value can't slip through unnoticed.</p>
+
+            <h2>Fix 1: annotate the parameter</h2>
+            <p>The direct fix, and the right one for a standalone function, is to state the type:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ name is implicitly any
+function greet(name) { return `Hello, ${name}`; }
+
+// ✅ annotate it
+function greet(name: string) { return `Hello, ${name}`; }</code></pre>
+            </div>
+
+            <h2>Fix 2: type the source so callbacks infer for free</h2>
+            <p>This is the subtler and more important case. Callback parameters usually <em>don't</em> need annotations &mdash; TypeScript infers them from the array or function they belong to. TS7006 shows up when that source is itself untyped:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ JSON.parse returns any, so data is any, so item is implicitly any
+const data = JSON.parse(raw);
+const names = data.map((item) =&gt; item.name);
+
+// ✅ type the parsed data at its source — now item is inferred as User
+interface User { id: number; name: string; }
+const data: User[] = JSON.parse(raw);
+const names = data.map((item) =&gt; item.name);   // item: User, no annotation needed</code></pre>
+            </div>
+            <p>Notice the fix is on <code>data</code>, not on <code>item</code>. Annotating the callback parameter directly (<code>(item: User) =&gt;</code>) also silences the error, but typing the source is better: it makes every downstream use of <code>data</code> type-safe, not just this one callback. Because <code>JSON.parse</code> returns <code>any</code>, parsed API responses are the single most common origin of TS7006 in real codebases &mdash; give the parsed value a real interface and a cascade of implicit-any errors disappears at once. Need that interface fast? Paste a sample response into <a href="../json-to-typescript.html">JSON to TypeScript</a> and it generates the type for you.</p>
+
+            <h2>Fix 3: event handlers need their event type</h2>
+            <p>A handler defined standalone has nothing to infer its parameter from:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ e is implicitly any
+const onClick = (e) =&gt; console.log(e.clientX);
+
+// ✅ annotate with the DOM event type
+const onClick = (e: MouseEvent) =&gt; console.log(e.clientX);
+
+// ✅ or attach inline, where the element supplies the type contextually
+button.addEventListener("click", (e) =&gt; console.log(e.clientX));  // e: MouseEvent</code></pre>
+            </div>
+            <p>In React, the equivalents are the framework's synthetic event types &mdash; <code>React.ChangeEvent&lt;HTMLInputElement&gt;</code>, <code>React.MouseEvent</code>, and so on &mdash; or, again, writing the handler inline on the JSX element so the prop's type provides the event type for you.</p>
+
+            <h2>Fix 4: destructured parameters (TS7031's cousin)</h2>
+            <p>Destructuring a parameter with no object type gives the same class of error (often reported as the closely related TS7031):</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ the destructured object has no type
+function render({ id, name }) { /* ... */ }
+
+// ✅ type the whole parameter object
+function render({ id, name }: { id: number; name: string }) { /* ... */ }
+
+// ✅ or with a named interface
+interface Props { id: number; name: string; }
+function render({ id, name }: Props) { /* ... */ }</code></pre>
+            </div>
+
+            <h2>What NOT to do: disabling noImplicitAny</h2>
+            <p>It's tempting to make the error vanish by setting <code>"noImplicitAny": false</code> &mdash; don't. That doesn't fix anything; it just re-hides every untyped parameter as <code>any</code>, which is most of the reason to use TypeScript in the first place. If you're migrating a large JavaScript codebase and need to move incrementally, annotate the specific parameter as <code>x: any</code> <em>explicitly</em>. That silences TS7006 for that one spot, documents that the <code>any</code> is deliberate, and keeps the check on everywhere else so you can tighten types file by file.</p>
+
+            <h2>Related noImplicitAny errors</h2>
+            <table>
+                <thead>
+                    <tr><th>Code</th><th>Where it fires</th><th>Typical fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>TS7006</td><td>a function parameter with no inferable type</td><td>annotate it, or type the source</td></tr>
+                    <tr><td>TS7031</td><td>a destructured (binding-element) parameter</td><td>type the whole parameter object</td></tr>
+                    <tr><td>TS7053</td><td><code>obj[key]</code> where <code>key</code> isn't <code>keyof obj</code></td><td>type the key, use <code>keyof</code> / <code>Record</code></td></tr>
+                    <tr><td>TS7034</td><td>a variable whose type can't be determined</td><td>annotate the variable</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Standalone function? Annotate the parameter directly</li>
+                <li>&#10003; Callback on an array/function? Type the <em>source</em>, not the callback param</li>
+                <li>&#10003; Came from <code>JSON.parse</code> or an untyped API? Give the parsed value an interface</li>
+                <li>&#10003; Event handler? Add the DOM/React event type, or attach it inline</li>
+                <li>&#10003; Destructured param? Type the whole object (or use a named interface)</li>
+                <li>&#10003; Migrating from JS? Annotate <code>x: any</code> explicitly &mdash; never turn off <code>noImplicitAny</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does TS7006 'Parameter implicitly has an any type' mean?</summary>
+                    <p>You wrote a function parameter with no type annotation, and TypeScript couldn't infer one from context, so it would have to fall back to <code>any</code>. Because your project has <code>noImplicitAny</code> turned on (it's part of strict mode), TypeScript refuses to do that silently and reports TS7006 instead. The fix is to give the parameter a type, or arrange for the surrounding code to supply one.</p>
+                </details>
+                <details>
+                    <summary>How do I fix TS7006 quickly?</summary>
+                    <p>Add an explicit type annotation to the parameter: change <code>function greet(name)</code> to <code>function greet(name: string)</code>. For a callback, type the array or function it belongs to so TypeScript can infer the parameter contextually &mdash; for example <code>items.map((item: Item) =&gt; ...)</code> or, better, give <code>items</code> the type <code>Item[]</code> so <code>item</code> is inferred automatically.</p>
+                </details>
+                <details>
+                    <summary>Why does my array callback parameter get TS7006 but sometimes not?</summary>
+                    <p>When the array has a known element type, TypeScript infers the callback parameter contextually and no annotation is needed &mdash; <code>users.map(u =&gt; u.name)</code> works if <code>users</code> is <code>User[]</code>. TS7006 appears when the array itself is untyped (for example it came from <code>JSON.parse</code>, which returns <code>any</code>, or an untyped function), so there's no context to infer from. Type the array at its source and the callback parameter resolves for free.</p>
+                </details>
+                <details>
+                    <summary>Should I just turn off noImplicitAny?</summary>
+                    <p>No &mdash; disabling <code>noImplicitAny</code> throws away most of the value of using TypeScript, because untyped parameters silently become <code>any</code> and stop being checked at all. If you're migrating a large JavaScript codebase and need breathing room, annotate the parameter as <code>x: any</code> explicitly (which documents the intent and silences the error) rather than turning the whole check off. Fix the real types incrementally.</p>
+                </details>
+                <details>
+                    <summary>Why do event handler parameters trigger TS7006?</summary>
+                    <p>An event handler assigned in a way TypeScript can't connect to a known event type has no context for its parameter. If you write <code>const onClick = (e) =&gt; ...</code> standalone, <code>e</code> is implicitly <code>any</code>. Annotate it with the right DOM event type &mdash; <code>(e: MouseEvent) =&gt; ...</code> &mdash; or attach the handler inline where the element's type provides the event type contextually, such as <code>element.addEventListener('click', e =&gt; ...)</code>, where <code>e</code> is inferred as <code>MouseEvent</code>.</p>
+                </details>
+                <details>
+                    <summary>How is TS7006 different from TS7053 or TS7031?</summary>
+                    <p>They're all <code>noImplicitAny</code> errors for different syntax positions. TS7006 is a function parameter with no inferable type. TS7053 is an element access with an implicit any index (<code>obj[key]</code> where <code>key</code> isn't <code>keyof obj</code>). TS7031 is a binding-element implicit any, typically a destructured parameter like <code>({ id }) =&gt; ...</code> with no type on the object. Same root cause &mdash; no type to infer &mdash; different place in the code.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More TypeScript &amp; JSON errors</h3>
+                <p>Browse the full reference, or turn a JSON sample into the interface that fixes this.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="ts7053-element-implicitly-any-index.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">TS7053: Implicit any index</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts7053-element-implicitly-any-index.html">TS7053: Element implicitly has an 'any' type (index signature)</a> &mdash; the same noImplicitAny check on index access</li>
+                <li><a href="ts2304-cannot-find-name.html">TS2304: Cannot find name 'X'</a></li>
+                <li><a href="ts2307-cannot-find-module-or-type-declarations.html">TS2307: Cannot find module 'X'</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

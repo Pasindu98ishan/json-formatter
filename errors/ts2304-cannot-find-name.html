@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2304: Cannot find name 'X' — why TypeScript can't resolve an identifier (missing import, missing lib/types, typo, scope, or a browser/Node global) and the exact fix for each.">
+    <meta name="keywords" content="TS2304, Cannot find name, typescript cannot find name, cannot find name process, cannot find name require, cannot find name document, typescript missing types">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2304-cannot-find-name.html">
+    <meta property="og:title" content="TS2304: Cannot Find Name 'X' — Causes and the Exact Fix">
+    <meta property="og:description" content="TypeScript says 'Cannot find name X' when it can't resolve an identifier. Here are the six real causes — missing import, missing lib/types, typo, scope, browser/Node globals, and an unpicked-up ambient declaration — with the fix for each.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2304-cannot-find-name.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2304: Cannot Find Name 'X' — Causes and the Exact Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2304: Cannot find name", "item": "https://jsondevtools.org/errors/ts2304-cannot-find-name.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2304: Cannot find name 'X' — Causes and the Exact Fix",
+  "description": "TypeScript raises TS2304 when it cannot resolve an identifier to any declaration in scope. This reference walks through the six real causes — a missing import, a missing lib or @types package, a typo, a scope problem, browser/Node globals without their type definitions, and a custom ambient declaration TypeScript never parsed — and the exact fix for each.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-14",
+  "dateModified": "2026-07-14",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does TS2304: Cannot find name mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TypeScript tried to resolve an identifier — a variable, function, type, or global — and found no declaration for it anywhere in scope. Unlike TS2307 (which is about a whole module not resolving), TS2304 is about a single name inside your code that TypeScript has never seen declared: you either forgot to import it, forgot to declare it, misspelled it, or it's a runtime global whose type definitions aren't loaded."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does TypeScript say 'Cannot find name process' or 'Cannot find name require'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "process, require, __dirname, Buffer and module are Node.js globals. TypeScript doesn't know their types until you install the Node type definitions and include them: run npm install --save-dev @types/node, and make sure your tsconfig.json includes 'node' in compilerOptions.types (or leaves types unset so all @types packages load). The values exist at runtime via Node; the error is purely about missing type declarations."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does 'Cannot find name document' or 'window' happen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "document, window and localStorage are browser DOM globals. Their types come from the DOM library, which TypeScript only includes when 'DOM' is in your tsconfig.json compilerOptions.lib. If you set lib manually (for example to ['ES2022']) you dropped the DOM types; add 'DOM' back to the lib array to make browser globals resolve. fetch is a special case: browsers provide it through the DOM types, but modern Node (18+) provides fetch natively at runtime and types it separately via @types/node — so a missing fetch in Node code points at Fix 2, not Fix 3."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is TS2304 different from TS2552 'did you mean'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TS2552 is the same underlying failure but TypeScript found a close match and suggests it — 'Cannot find name getUserById. Did you mean getUserByID?' That's a strong signal it's a typo or casing mistake. Plain TS2304 with no suggestion usually means the name isn't declared or imported anywhere close, pointing at a missing import or missing type library rather than a misspelling."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a missing import cause Cannot find name?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes — this is the most common cause in application code. If you use a value, class, or type from another module but never wrote the import statement for it, TypeScript has no declaration in scope and reports TS2304. Editors usually offer a quick-fix 'Add import' code action; accept it, or write the import manually. This also covers auto-import failing when the exporting module isn't found."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen only in certain files, like test or config files?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Test globals such as describe, it, expect, jest or vi need their type packages (@types/jest, @types/mocha, or vitest/globals) installed and referenced. A file that isn't covered by your tsconfig.json include/files array, or a separate tsconfig for tests that omits the right types, will report TS2304 on those globals even though the tests run fine. Add the test type package and make sure the file is in a tsconfig that references it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "I declared the name myself in a .d.ts file — why does TypeScript still say Cannot find name?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Two common causes. First, the .d.ts file may not be covered by tsconfig.json's include (or is caught by exclude) — TypeScript only reads files reachable from include/files, so a stray declarations file outside that graph is silently never parsed. Second, if that same file has any top-level import or export, TypeScript treats it as a module rather than a global script, and its declarations stop being global automatically — wrap them in declare global { ... } and add export {} to restore global scope."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2304: Cannot find name</span>
+            </nav>
+            <h1>TS2304: Cannot find name 'X'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">TypeScript couldn't resolve the identifier <code>X</code> to any declaration in scope. Match your case to one of these:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>It's from another module &mdash; you forgot the <code>import</code> (most common).</li>
+                    <li>It's a Node global (<code>process</code>, <code>require</code>, <code>Buffer</code>) &mdash; install <code>@types/node</code>.</li>
+                    <li>It's a browser global (<code>document</code>, <code>window</code>) &mdash; add <code>"DOM"</code> to <code>tsconfig</code> <code>lib</code>. (<code>fetch</code> in Node? See Fix 3.)</li>
+                    <li>It's a typo or wrong casing &mdash; TypeScript often suggests the intended name (TS2552).</li>
+                    <li>It's a test global (<code>describe</code>, <code>expect</code>) &mdash; install the test framework's <code>@types</code>.</li>
+                    <li>You declared it yourself in a <code>.d.ts</code> file, but it's still not found &mdash; the file isn't in <code>tsconfig</code> <code>include</code>.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const id = randomUUID();
+// error TS2304: Cannot find name 'randomUUID'.
+
+console.log(process.env.NODE_ENV);
+// error TS2304: Cannot find name 'process'.
+
+document.querySelector("#app");
+// error TS2304: Cannot find name 'document'.</code></pre>
+            </div>
+
+            <p>All three lines throw the same error code for genuinely different reasons: a missing import, a missing Node type package, and a missing DOM library. TS2304 is TypeScript telling you a single <em>name</em> has no declaration it can see &mdash; not a syntax problem and not a whole-module failure (that's <a href="ts2307-cannot-find-module-or-type-declarations.html">TS2307</a>). Diagnosing it well means asking one question first: <strong>what kind of name is this?</strong></p>
+
+            <h2>How to diagnose it (what kind of name is X?)</h2>
+            <ul>
+                <li>A value/type you wrote in another file &rarr; <strong>missing import</strong> (Fix 1).</li>
+                <li><code>process</code>, <code>require</code>, <code>__dirname</code>, <code>Buffer</code>, <code>module</code> &rarr; <strong>Node globals</strong>, need <code>@types/node</code> (Fix 2).</li>
+                <li><code>document</code>, <code>window</code>, <code>localStorage</code> &rarr; <strong>browser/DOM globals</strong>, need the DOM lib (Fix 3). (<code>fetch</code> is different in Node &mdash; see Fix 3.)</li>
+                <li>TypeScript says &ldquo;Did you mean&hellip;?&rdquo; &rarr; a <strong>typo or casing</strong> mistake (Fix 4).</li>
+                <li><code>describe</code>, <code>it</code>, <code>expect</code>, <code>jest</code>, <code>vi</code> &rarr; <strong>test-runner globals</strong>, need their types (Fix 5).</li>
+                <li>You wrote a <code>.d.ts</code> declaring it yourself, but TS still can't see it &rarr; <strong>ambient declaration not picked up</strong> (Fix 6).</li>
+            </ul>
+
+            <h2>Fix 1: a missing import (the most common cause)</h2>
+            <p>In application code, this is the overwhelming majority of TS2304 errors. You referenced something exported by another module but never imported it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ randomUUID is never imported
+const id = randomUUID();
+
+// ✅ import it from the module that exports it
+import { randomUUID } from "crypto";
+const id = randomUUID();</code></pre>
+            </div>
+            <p>Your editor almost always offers a lightbulb quick-fix (&ldquo;Add import from&hellip;&rdquo;) &mdash; accept it and move on. When the auto-import doesn't appear, it usually means the exporting module itself can't be resolved, which is a <a href="ts2307-cannot-find-module-or-type-declarations.html">TS2307</a> problem hiding underneath; fix that first and the import suggestion returns.</p>
+
+            <h2>Fix 2: Node globals (process, require, Buffer, __dirname)</h2>
+            <p>These identifiers exist at runtime in Node, but TypeScript ships no types for them by default. Install the Node type definitions:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>npm install --save-dev @types/node</code></pre>
+            </div>
+            <p>Then make sure your <code>tsconfig.json</code> actually loads them. If you set <code>compilerOptions.types</code> at all, it becomes an allow-list &mdash; anything not listed is excluded, including <code>@types/node</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "compilerOptions": {
+    "types": ["node"]   // ✅ if you list types at all, include "node"
+    // omitting "types" entirely also works — then ALL @types packages load
+  }
+}</code></pre>
+            </div>
+
+            <h2>Fix 3: browser/DOM globals (document, window, fetch)</h2>
+            <p>DOM globals get their types from TypeScript's built-in <code>DOM</code> library, which is included automatically <em>unless</em> you override <code>lib</code>. If you set <code>lib</code> manually and left <code>DOM</code> out, browser globals stop resolving:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]   // ✅ add "DOM" back
+  }
+}</code></pre>
+            </div>
+            <p>For code that never touches the browser (a pure Node service), the correct move is the opposite &mdash; keep <code>DOM</code> out so a stray <code>document</code> reference is caught at compile time rather than crashing at runtime. <code>fetch</code> deserves a special note: it isn't strictly a DOM-only global anymore. Browsers provide it through the DOM lib, but Node 18+ ships <code>fetch</code> natively at runtime, and its types come from <code>@types/node</code>, not <code>DOM</code>. If <code>fetch</code> is undefined in a Node file, install/update <code>@types/node</code> (Fix 2) rather than adding <code>DOM</code> to <code>lib</code> &mdash; pulling in the full DOM lib for a Node project brings along browser types (like <code>Window</code>) that don't exist at runtime and can mask real bugs.</p>
+
+            <h2>Fix 4: a typo or wrong casing</h2>
+            <p>When TypeScript can find a nearby declaration with a similar name, it upgrades the message to TS2552 and suggests the fix:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const user = getUserByID(1);
+getUserById(user);
+// error TS2552: Cannot find name 'getUserById'. Did you mean 'getUserByID'?</code></pre>
+            </div>
+            <p>That &ldquo;Did you mean&rdquo; line is the strongest possible hint &mdash; it's almost always a casing or spelling slip. Plain TS2304 with <em>no</em> suggestion points the other way: the name isn't declared anywhere nearby, so look at Fixes 1&ndash;3 instead.</p>
+
+            <h2>Fix 5: test-runner and framework globals</h2>
+            <p>Globals injected by a test runner (<code>describe</code>, <code>it</code>, <code>expect</code>, <code>jest</code>, <code>vi</code>, <code>beforeEach</code>) need their type packages installed and referenced:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Jest
+npm install --save-dev @types/jest
+
+# Vitest — enable globals in the config instead of importing them everywhere
+// vitest.config.ts
+export default { test: { globals: true } }
+// tsconfig.json
+{ "compilerOptions": { "types": ["vitest/globals"] } }</code></pre>
+            </div>
+            <p>A frequent trap here: a separate <code>tsconfig</code> for tests that forgets to include the test types, or a test file that falls outside the <code>include</code> glob of any tsconfig. If the tests <em>run</em> but the editor still flags the globals, the file simply isn't covered by a tsconfig that references the right types &mdash; add it to <code>include</code>.</p>
+
+            <h2>Fix 6: your own ambient declaration isn't being picked up</h2>
+            <p>This one is the most confusing to hit, because the declaration is sitting right there in your own codebase and TypeScript still won't recognize it. It happens when a custom <code>.d.ts</code> file declares a global, but the TypeScript program never actually parses that file:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// globals.d.ts
+declare const API_URL: string;
+
+// somewhere else in the project
+console.log(API_URL);
+// error TS2304: Cannot find name 'API_URL' — even though globals.d.ts declares it right there</code></pre>
+            </div>
+            <p>Two separate things can cause this, and they need different fixes:</p>
+            <ul>
+                <li><strong>The <code>.d.ts</code> file isn't covered by <code>tsconfig.json</code>'s <code>include</code></strong> (or is caught by <code>exclude</code>). TypeScript only looks at files reachable from <code>include</code>/<code>files</code> plus whatever those files import &mdash; a stray <code>types/globals.d.ts</code> outside that graph is silently never read. Add its path (or its containing folder) to <code>include</code>.</li>
+                <li><strong>The <code>.d.ts</code> file accidentally became a module.</strong> A declaration file with no top-level <code>import</code> or <code>export</code> is treated as a <em>global</em> script, and everything in it merges into global scope. The moment you add any top-level <code>import</code>/<code>export</code> to that same file, TypeScript treats it as a <em>module</em> instead, and its contents stop being global automatically. To declare globals from a module-shaped file, wrap them explicitly:</li>
+            </ul>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// globals.d.ts — this file has other imports, so it's a module, not a script
+import type { SomeType } from "./types";
+
+declare global {
+  const API_URL: string;
+  interface Window {
+    myAppVersion: string;
+  }
+}
+
+export {};   // required so the file is a module and declare global has an effect</code></pre>
+            </div>
+            <p>The search terms that land here are usually <em>&ldquo;typescript cannot find name global variable&rdquo;</em>, <em>&ldquo;typescript declare global variable&rdquo;</em>, or <em>&ldquo;typescript global.d.ts not working&rdquo;</em> &mdash; if that's your situation, check <code>include</code> first, then check whether the file has an <code>import</code>/<code>export</code> without a matching <code>declare global</code> block.</p>
+
+            <h2>Common variants of this message</h2>
+            <table>
+                <thead>
+                    <tr><th>The name</th><th>What it is</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Something from your own code</td><td>missing import</td><td>Fix 1</td></tr>
+                    <tr><td><code>process</code>, <code>require</code>, <code>Buffer</code></td><td>Node globals</td><td><code>@types/node</code> (Fix 2)</td></tr>
+                    <tr><td><code>document</code>, <code>window</code>, <code>fetch</code></td><td>DOM globals</td><td>add <code>"DOM"</code> to <code>lib</code> (Fix 3)</td></tr>
+                    <tr><td>Says &ldquo;Did you mean&hellip;?&rdquo;</td><td>typo / casing</td><td>Fix 4</td></tr>
+                    <tr><td><code>describe</code>, <code>expect</code>, <code>jest</code></td><td>test-runner globals</td><td>install test <code>@types</code> (Fix 5)</td></tr>
+                    <tr><td>A type you use only as a type</td><td>missing <code>import type</code></td><td>Fix 1 (use <code>import type</code>)</td></tr>
+                    <tr><td><code>fetch</code> (in a Node file)</td><td>Node 18+ runtime global</td><td><code>@types/node</code>, not <code>DOM</code> (Fix 2)</td></tr>
+                    <tr><td>You see it declared in your own <code>.d.ts</code></td><td>ambient declaration not loaded</td><td>Fix 6</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Is <code>X</code> defined in another file? Add the import (accept the editor's quick-fix)</li>
+                <li>&#10003; Is it a Node global? <code>npm i -D @types/node</code>, and include <code>"node"</code> if you set <code>types</code></li>
+                <li>&#10003; Is it a browser global? Add <code>"DOM"</code> to <code>compilerOptions.lib</code></li>
+                <li>&#10003; Does TypeScript say &ldquo;Did you mean&rdquo;? It's a typo &mdash; accept the suggestion</li>
+                <li>&#10003; Is it a test global? Install <code>@types/jest</code> / enable <code>vitest/globals</code></li>
+                <li>&#10003; Is it <code>fetch</code> in a Node file? Update <code>@types/node</code>, not <code>lib</code></li>
+                <li>&#10003; Declared it yourself in a <code>.d.ts</code>? Check <code>tsconfig</code> <code>include</code>, and whether the file needs <code>declare global { }</code> + <code>export {}</code></li>
+                <li>&#10003; Editor-only, but the build works? Restart the TS server to clear a stale cache</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does TS2304: Cannot find name mean?</summary>
+                    <p>TypeScript tried to resolve an identifier &mdash; a variable, function, type, or global &mdash; and found no declaration for it anywhere in scope. Unlike TS2307 (which is about a whole module not resolving), TS2304 is about a single name inside your code that TypeScript has never seen declared: you either forgot to import it, forgot to declare it, misspelled it, or it's a runtime global whose type definitions aren't loaded.</p>
+                </details>
+                <details>
+                    <summary>Why does TypeScript say 'Cannot find name process' or 'Cannot find name require'?</summary>
+                    <p><code>process</code>, <code>require</code>, <code>__dirname</code>, <code>Buffer</code> and <code>module</code> are Node.js globals. TypeScript doesn't know their types until you install the Node type definitions and include them: run <code>npm install --save-dev @types/node</code>, and make sure your <code>tsconfig.json</code> includes <code>"node"</code> in <code>compilerOptions.types</code> (or leaves <code>types</code> unset so all <code>@types</code> packages load). The values exist at runtime via Node; the error is purely about missing type declarations.</p>
+                </details>
+                <details>
+                    <summary>Why does 'Cannot find name document' or 'window' happen?</summary>
+                    <p><code>document</code>, <code>window</code> and <code>localStorage</code> are browser DOM globals. Their types come from the DOM library, which TypeScript only includes when <code>"DOM"</code> is in your <code>tsconfig.json</code> <code>compilerOptions.lib</code>. If you set <code>lib</code> manually (for example to <code>["ES2022"]</code>) you dropped the DOM types; add <code>"DOM"</code> back to the <code>lib</code> array to make browser globals resolve. <code>fetch</code> is a special case: browsers provide it through the DOM types, but modern Node (18+) provides <code>fetch</code> natively at runtime and types it separately via <code>@types/node</code> &mdash; so a missing <code>fetch</code> in Node code points at Fix 2, not Fix 3.</p>
+                </details>
+                <details>
+                    <summary>How is TS2304 different from TS2552 'did you mean'?</summary>
+                    <p>TS2552 is the same underlying failure but TypeScript found a close match and suggests it &mdash; &ldquo;Cannot find name getUserById. Did you mean getUserByID?&rdquo; That's a strong signal it's a typo or casing mistake. Plain TS2304 with no suggestion usually means the name isn't declared or imported anywhere close, pointing at a missing import or missing type library rather than a misspelling.</p>
+                </details>
+                <details>
+                    <summary>Can a missing import cause Cannot find name?</summary>
+                    <p>Yes &mdash; this is the most common cause in application code. If you use a value, class, or type from another module but never wrote the import statement for it, TypeScript has no declaration in scope and reports TS2304. Editors usually offer a quick-fix &ldquo;Add import&rdquo; code action; accept it, or write the import manually. This also covers auto-import failing when the exporting module isn't found.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen only in certain files, like test or config files?</summary>
+                    <p>Test globals such as <code>describe</code>, <code>it</code>, <code>expect</code>, <code>jest</code> or <code>vi</code> need their type packages (<code>@types/jest</code>, <code>@types/mocha</code>, or <code>vitest/globals</code>) installed and referenced. A file that isn't covered by your <code>tsconfig.json</code> <code>include</code>/<code>files</code> array, or a separate tsconfig for tests that omits the right types, will report TS2304 on those globals even though the tests run fine. Add the test type package and make sure the file is in a tsconfig that references it.</p>
+                </details>
+                <details>
+                    <summary>I declared the name myself in a .d.ts file — why does TypeScript still say Cannot find name?</summary>
+                    <p>Two common causes. First, the <code>.d.ts</code> file may not be covered by <code>tsconfig.json</code>'s <code>include</code> (or is caught by <code>exclude</code>) &mdash; TypeScript only reads files reachable from <code>include</code>/<code>files</code>, so a stray declarations file outside that graph is silently never parsed. Second, if that same file has any top-level <code>import</code> or <code>export</code>, TypeScript treats it as a <em>module</em> rather than a global script, and its declarations stop being global automatically &mdash; wrap them in <code>declare global { ... }</code> and add <code>export {}</code> to restore global scope.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More TypeScript &amp; JSON errors</h3>
+                <p>Browse the full reference, or generate accurate interfaces from your JSON.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="ts2307-cannot-find-module-or-type-declarations.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">TS2307: Cannot find module</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts2307-cannot-find-module-or-type-declarations.html">TS2307: Cannot find module 'X' or its corresponding type declarations</a> &mdash; a whole module doesn't resolve, not just a name</li>
+                <li><a href="ts7006-parameter-implicitly-has-an-any-type.html">TS7006: Parameter implicitly has an 'any' type</a></li>
+                <li><a href="uncaught-referenceerror-x-is-not-defined.html">Uncaught ReferenceError: X is not defined</a> &mdash; the runtime version of an undefined name</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Java ConcurrentModificationException — why modifying a collection while iterating it throws, even in single-threaded code, and the right fixes: Iterator.remove(), removeIf(), or a copy.">
+    <meta name="keywords" content="ConcurrentModificationException, java concurrentmodificationexception, modify list while iterating java, iterator remove java, removeIf java, java remove from list in loop">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/java-concurrentmodificationexception.html">
+    <meta property="og:title" content="Java ConcurrentModificationException — Cause and the Right Fix">
+    <meta property="og:description" content="ConcurrentModificationException fires when you change a collection's structure while iterating it — usually in a single thread, not from concurrency. Fix it with Iterator.remove(), removeIf(), or iterating a copy.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/java-concurrentmodificationexception.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Java ConcurrentModificationException — Cause and the Right Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Java ConcurrentModificationException", "item": "https://jsondevtools.org/errors/java-concurrentmodificationexception.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Java ConcurrentModificationException — Cause and the Right Fix",
+  "description": "ConcurrentModificationException is thrown when a collection is structurally modified while it's being iterated. Despite the name it's usually a single-threaded bug. This reference explains the fail-fast mechanism and the correct fixes: Iterator.remove(), Collection.removeIf(), or iterating over a copy.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-14",
+  "dateModified": "2026-07-14",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What causes ConcurrentModificationException in Java?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You structurally modified a collection — added or removed an element — while iterating over it. Most collections' iterators are 'fail-fast': they track a modification count, and if the collection changes through anything other than the iterator's own methods during iteration, the next call to next() throws ConcurrentModificationException. It's a deliberate guard against iterating a collection whose structure shifted underneath you."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen in single-threaded code with no concurrency?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The name is misleading. 'Concurrent' here means the collection was modified concurrently with iteration, not necessarily from another thread. The classic trigger is a single for-each loop that calls list.remove(x) on the same list it's iterating — one thread, no concurrency, still thrown. The fail-fast check fires the moment the modification count no longer matches what the iterator expected."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I remove elements from a list while iterating?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use the iterator's own remove() method, or the collection's removeIf(). Either iterator.remove() (with an explicit Iterator obtained from the collection) or list.removeIf(x -> condition) modifies the collection through a path the iteration knows about, so the fail-fast check isn't tripped. removeIf is the cleanest one-liner for conditional removal on Java 8 and later."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the enhanced for-each loop cause this?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A for-each loop compiles down to an Iterator under the hood. When you call collection.remove(x) inside the loop body, you modify the collection directly — bypassing the iterator — so on the next iteration the iterator detects the modification-count mismatch and throws. Because the removal is hidden behind familiar syntax, this is the most common way developers hit the exception without realizing they're modifying during iteration."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "When is ConcurrentModificationException actually about threads?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "When one thread iterates a collection while another thread modifies it. Fail-fast iterators may — but are not guaranteed to — throw in that case, so you can't rely on it for correctness. For genuinely shared collections use a thread-safe type such as ConcurrentHashMap or CopyOnWriteArrayList, or synchronize access externally, rather than depending on the exception to signal the race."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does iterating over a copy fix it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. If you iterate over a snapshot — for example for (var x : new ArrayList<>(list)) — and modify the original list inside the loop, the iteration and the modification touch different objects, so no fail-fast check trips. It costs a copy but is simple and safe when you need to both read every original element and mutate the source. For pure conditional removal, removeIf is lighter."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Java ConcurrentModificationException</span>
+            </nav>
+            <h1>java.util.ConcurrentModificationException</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You added to or removed from a collection <em>while</em> looping over it. Despite the name it's almost always single-threaded. Fix it by modifying <em>through</em> the iteration:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Removing by a condition? Use <code>list.removeIf(x -&gt; ...)</code> &mdash; the cleanest fix.</li>
+                    <li>Need the <code>Iterator</code> directly? Call <code>iterator.remove()</code>, not <code>list.remove()</code>.</li>
+                    <li>Must modify the original while reading it? Iterate a <strong>copy</strong>.</li>
+                    <li>Actually shared across threads? Use <code>ConcurrentHashMap</code> / <code>CopyOnWriteArrayList</code>.</li>
+                </ul>
+            </div>
+
+            <h2>The exact stack trace</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>List&lt;String&gt; items = new ArrayList&lt;&gt;(List.of("a", "b", "c"));
+for (String item : items) {
+    if (item.equals("b")) {
+        items.remove(item);   // modifying while iterating
+    }
+}
+// Exception in thread "main" java.util.ConcurrentModificationException
+//     at java.base/java.util.ArrayList$Itr.checkForComodification(ArrayList.java:1096)
+//     at java.base/java.util.ArrayList$Itr.next(ArrayList.java:1050)</code></pre>
+            </div>
+
+            <p>The name is the biggest source of confusion: <strong>&ldquo;concurrent&rdquo; does not mean threads here.</strong> It means the collection was modified <em>concurrently with</em> an in-progress iteration &mdash; and the example above, a single-threaded for-each loop, is the textbook trigger. Most collections use <em>fail-fast</em> iterators that detect this and throw immediately, rather than silently returning wrong results.</p>
+
+            <p>The reason a plain for-each loop can trip this at all is that it secretly uses an <code>Iterator</code>. The compiler desugars it &mdash; <code>for (String s : list)</code> becomes, roughly:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Iterator&lt;String&gt; it = list.iterator();
+while (it.hasNext()) {
+    String s = it.next();      // ← the check runs here, on every next()
+    // ... your loop body ...
+}</code></pre>
+            </div>
+            <p>So calling <code>list.remove(s)</code> in the loop body modifies the list behind that hidden iterator's back, and the very next <code>it.next()</code> catches it. Seeing the desugared form makes the fix obvious: change the collection <em>through</em> <code>it</code>, not through <code>list</code>.</p>
+
+            <h2>Why it throws: the fail-fast modification count</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 640 250" role="img" aria-label="Timeline: the list starts with a modification count, modCount, of 3. The for-each loop creates an iterator that snapshots expectedModCount as 3. During iteration, list.remove increments the list's modCount to 4 but the iterator's expectedModCount stays 3. On the next call to next, the iterator compares the two, sees 4 does not equal 3, and throws ConcurrentModificationException.">
+                    <defs>
+                        <marker id="cme-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="cme-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="30" y="14" width="250" height="44" rx="6"/>
+                    <text class="dg-m" x="155" y="34" text-anchor="middle">for-each starts iterating</text>
+                    <text class="dg-s" x="155" y="50" text-anchor="middle">iterator.expectedModCount = 3</text>
+                    <line class="dg-ln" x1="280" y1="36" x2="360" y2="36" marker-end="url(#cme-a)"/>
+                    <rect class="dg-box" x="360" y="14" width="250" height="44" rx="6"/>
+                    <text class="dg-m" x="485" y="34" text-anchor="middle">list.remove("b")</text>
+                    <text class="dg-s" x="485" y="50" text-anchor="middle">list.modCount 3 &rarr; 4</text>
+
+                    <path class="dg-ln" d="M485,58 L485,86 L155,86 L155,110" marker-end="url(#cme-a)"/>
+
+                    <rect class="dg-box" x="30" y="112" width="250" height="46" rx="6"/>
+                    <text class="dg-m" x="155" y="132" text-anchor="middle">next() call: compare counts</text>
+                    <text class="dg-s" x="155" y="148" text-anchor="middle">expected 3  vs  actual 4</text>
+                    <line class="dg-ln-bad" x1="280" y1="135" x2="360" y2="135" marker-end="url(#cme-bad)"/>
+                    <rect class="dg-box-bad" x="360" y="112" width="250" height="46" rx="6"/>
+                    <text class="dg-m dg-bad" x="485" y="132" text-anchor="middle">3 &ne; 4 &rarr; fail-fast</text>
+                    <text class="dg-s dg-bad" x="485" y="148" text-anchor="middle">ConcurrentModificationException</text>
+
+                    <rect class="dg-box-ok" x="130" y="192" width="380" height="44" rx="6"/>
+                    <text class="dg-m dg-ok" x="320" y="212" text-anchor="middle">Fix: modify THROUGH the iterator</text>
+                    <text class="dg-s dg-ok" x="320" y="228" text-anchor="middle">iterator.remove() / removeIf() keep the counts in sync</text>
+                </svg>
+                <p class="dg-cap">Every structural change bumps the list's <code>modCount</code>. The iterator remembers the count it started with; when they diverge, <code>next()</code> throws. Removing <em>through</em> the iterator updates both counts together.</p>
+            </div>
+
+            <h2>Why does set() work but remove() throws?</h2>
+            <p>A common surprise: <em>replacing</em> an existing element while iterating is perfectly fine, while adding or removing one throws. The rule is the word <strong>structural</strong> &mdash; only changes to the collection's <em>size</em> bump <code>modCount</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>List&lt;String&gt; items = new ArrayList&lt;&gt;(List.of("a", "b", "c"));
+for (int i = 0; i &lt; items.size(); i++) {
+    items.set(i, items.get(i).toUpperCase());   // ✅ not structural — modCount unchanged
+}</code></pre>
+            </div>
+            <p><code>List.set(index, value)</code> overwrites a slot without changing the size, so it doesn't touch <code>modCount</code> and never trips a fail-fast iterator. Only <code>add</code> and <code>remove</code> (and their bulk cousins) are structural modifications. That's why the fixes below are all about how you <em>add or remove</em> during iteration &mdash; replacing values in place was never the problem.</p>
+
+            <h2>Fix 1: removeIf (the cleanest, Java 8+)</h2>
+            <p>For conditional removal, <code>removeIf</code> is a one-liner that handles the iteration internally and never trips the check:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>items.removeIf(item -&gt; item.equals("b"));   // ✅ no loop, no exception</code></pre>
+            </div>
+
+            <h2>Fix 2: Iterator.remove()</h2>
+            <p>When you need explicit control, obtain the <code>Iterator</code> yourself and remove <em>through</em> it &mdash; this updates the iterator's expected count in lockstep with the list's:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Iterator&lt;String&gt; it = items.iterator();
+while (it.hasNext()) {
+    String item = it.next();
+    if (item.equals("b")) {
+        it.remove();   // ✅ removes via the iterator — counts stay in sync
+    }
+}</code></pre>
+            </div>
+            <p>The distinction is the whole point: <code>it.remove()</code> works, <code>items.remove(item)</code> inside the same loop throws.</p>
+            <p>One rule to know so you don't swap this error for another: <code>Iterator.remove()</code> may be called <strong>only once per <code>next()</code></strong>, and only <em>after</em> a successful <code>next()</code>. Calling it twice in a row, or before the first <code>next()</code>, throws <code>IllegalStateException</code> instead &mdash; a different exception people often hit while trying to fix this one.</p>
+
+            <h2>Fix 3: iterate over a copy</h2>
+            <p>When you must both read every original element <em>and</em> mutate the source (for example adding new elements, which <code>removeIf</code> can't do), iterate a snapshot so the two collections are independent:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>for (String item : new ArrayList&lt;&gt;(items)) {   // iterate a copy
+    if (shouldReplace(item)) {
+        items.remove(item);
+        items.add(transform(item));           // ✅ modifying the original is safe now
+    }
+}</code></pre>
+            </div>
+            <p>It costs one array copy, but it's simple and correct when the modification isn't a pure conditional delete.</p>
+
+            <h2>Why the examples wrap List.of() in a new ArrayList</h2>
+            <p>You'll notice the examples here start with <code>new ArrayList&lt;&gt;(List.of("a", "b", "c"))</code> rather than <code>List.of(...)</code> directly. That's deliberate, and it heads off a <em>different</em> error you can hit while fixing this one: <code>List.of()</code> (and <code>Arrays.asList()</code>, <code>Collections.unmodifiableList()</code>, and streams' <code>toList()</code>) returns an <strong>immutable</strong> list. Calling <code>remove()</code>, <code>add()</code>, or <code>removeIf()</code> on it doesn't throw <code>ConcurrentModificationException</code> &mdash; it throws <code>UnsupportedOperationException</code>, because the list forbids <em>any</em> structural change, iteration or not:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>List&lt;String&gt; fixed = List.of("a", "b", "c");
+fixed.removeIf(s -&gt; s.equals("b"));   // ❌ UnsupportedOperationException, not CME
+
+List&lt;String&gt; mutable = new ArrayList&lt;&gt;(fixed);   // ✅ a real, modifiable copy
+mutable.removeIf(s -&gt; s.equals("b"));            // ✅ works</code></pre>
+            </div>
+            <p>So if <code>removeIf</code> or <code>Iterator.remove()</code> gives you <code>UnsupportedOperationException</code> instead of the error on this page, the collection is immutable &mdash; wrap it in a <code>new ArrayList&lt;&gt;(...)</code> first.</p>
+
+            <h2>Fix 4: when it really is threads</h2>
+            <p>If two threads genuinely share the collection &mdash; one iterating, one modifying &mdash; fail-fast iterators <em>may</em> throw, but that's an unreliable signal, not a fix. Use a collection built for concurrent access instead:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// reads and writes from many threads
+Map&lt;String, Integer&gt; counts = new ConcurrentHashMap&lt;&gt;();
+
+// safe iteration under concurrent writes (snapshot semantics)
+List&lt;String&gt; listeners = new CopyOnWriteArrayList&lt;&gt;();</code></pre>
+            </div>
+            <p><code>CopyOnWriteArrayList</code> gives iterators a stable snapshot (great for read-heavy, write-rare cases like listener lists); <code>ConcurrentHashMap</code> supports concurrent reads and writes without fail-fast iteration. Don't reach for these for the single-threaded case, though &mdash; there, Fixes 1&ndash;3 are correct and cheaper.</p>
+            <p>Watch out for a false fix here: wrapping a list in <code>Collections.synchronizedList(list)</code> does <strong>not</strong> make iteration safe. It synchronizes each individual method call, but a whole iteration is many calls, so another thread can still modify the list mid-loop and trigger the exception. You have to synchronize the <em>entire iteration</em> yourself:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>List&lt;String&gt; list = Collections.synchronizedList(new ArrayList&lt;&gt;());
+// ...
+synchronized (list) {                 // ✅ required — synchronizedList alone isn't enough
+    for (String item : list) { /* ... */ }
+}</code></pre>
+            </div>
+            <p>This is a classic &ldquo;I did what the docs said and it still breaks&rdquo; trap &mdash; <code>synchronizedList</code> protects single operations, not compound ones like iterating.</p>
+
+            <h2>Adding during iteration: use a ListIterator</h2>
+            <p><code>Iterator</code> can only <em>remove</em>. If you need to <em>add</em> or <em>replace</em> elements while walking a list, use a <code>ListIterator</code>, which exposes <code>add()</code> and <code>set()</code> that keep the modification counts in sync just like <code>remove()</code> does:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>ListIterator&lt;String&gt; it = items.listIterator();
+while (it.hasNext()) {
+    String item = it.next();
+    if (item.startsWith("temp-")) {
+        it.set(item.substring(5));   // ✅ replace in place, no exception
+    }
+}</code></pre>
+            </div>
+
+            <h2>Watch out for Map iteration</h2>
+            <p>The same rule applies to maps, just through a different door. Iterating <code>map.keySet()</code> or <code>map.entrySet()</code> and calling <code>map.remove(key)</code> inside the loop throws the exact same exception. Remove through the entry-set iterator, or &mdash; cleanest on Java 8+ &mdash; use <code>values().removeIf(...)</code> or <code>entrySet().removeIf(...)</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ throws — modifying the map while iterating its entrySet
+for (var entry : scores.entrySet()) {
+    if (entry.getValue() == 0) scores.remove(entry.getKey());
+}
+
+// ✅ removeIf on the entry set
+scores.entrySet().removeIf(e -&gt; e.getValue() == 0);</code></pre>
+            </div>
+            <h2>Or build a new collection with a Stream</h2>
+            <p>When you don't actually need to mutate the original at all, the most declarative fix is to filter into a <em>new</em> collection and leave the source untouched:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>List&lt;String&gt; filtered = items.stream()
+                             .filter(item -&gt; !item.equals("b"))
+                             .toList();   // Java 16+; use collect(Collectors.toList()) before that</code></pre>
+            </div>
+            <p>Streams create a new collection instead of modifying the one being iterated, so there is nothing for a fail-fast iterator to catch. This is often the cleanest choice when the &ldquo;modification&rdquo; you wanted was really just &ldquo;a filtered version of this list&rdquo; &mdash; you get an immutable result and the original stays intact.</p>
+
+            <h2>One caveat: fail-fast is best-effort, not a guarantee</h2>
+            <p>It's worth understanding the guarantee you're <em>not</em> getting. The Java documentation is explicit that fail-fast behavior cannot be guaranteed: the modification-count check is done on a best-effort basis, so a program must never depend on this exception for correctness &mdash; it exists only to detect bugs. In practice that means two things. First, in single-threaded code the exception is reliable enough to treat as a hard signal that you modified during iteration, and you should fix the code as shown above. Second, in multi-threaded code the <em>absence</em> of the exception proves nothing &mdash; a data race can corrupt a shared collection silently without ever tripping the check. So don't try to &ldquo;catch and ignore&rdquo; ConcurrentModificationException to paper over a threading problem; the correct response is always to fix the structure of the code, either by modifying through the iterator (single-threaded) or by using a concurrent collection (multi-threaded).</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Are you calling <code>collection.remove()</code>/<code>add()</code> inside a loop over that same collection?</li>
+                <li>&#10003; Conditional delete? Replace the loop with <code>removeIf(...)</code></li>
+                <li>&#10003; Need explicit control? Use <code>Iterator.remove()</code>, never <code>collection.remove()</code> in the loop</li>
+                <li>&#10003; Adding elements or complex mutation? Iterate a <code>new ArrayList&lt;&gt;(...)</code> copy</li>
+                <li>&#10003; Multiple threads on one collection? Switch to <code>ConcurrentHashMap</code> / <code>CopyOnWriteArrayList</code></li>
+                <li>&#10003; Remember: &ldquo;concurrent&rdquo; usually means &ldquo;during iteration,&rdquo; not &ldquo;from another thread&rdquo;</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What causes ConcurrentModificationException in Java?</summary>
+                    <p>You structurally modified a collection &mdash; added or removed an element &mdash; while iterating over it. Most collections' iterators are &lsquo;fail-fast&rsquo;: they track a modification count, and if the collection changes through anything other than the iterator's own methods during iteration, the next call to <code>next()</code> throws ConcurrentModificationException. It's a deliberate guard against iterating a collection whose structure shifted underneath you.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen in single-threaded code with no concurrency?</summary>
+                    <p>The name is misleading. &lsquo;Concurrent&rsquo; here means the collection was modified concurrently with iteration, not necessarily from another thread. The classic trigger is a single for-each loop that calls <code>list.remove(x)</code> on the same list it's iterating &mdash; one thread, no concurrency, still thrown. The fail-fast check fires the moment the modification count no longer matches what the iterator expected.</p>
+                </details>
+                <details>
+                    <summary>How do I remove elements from a list while iterating?</summary>
+                    <p>Use the iterator's own <code>remove()</code> method, or the collection's <code>removeIf()</code>. Either <code>iterator.remove()</code> (with an explicit <code>Iterator</code> obtained from the collection) or <code>list.removeIf(x -&gt; condition)</code> modifies the collection through a path the iteration knows about, so the fail-fast check isn't tripped. <code>removeIf</code> is the cleanest one-liner for conditional removal on Java 8 and later.</p>
+                </details>
+                <details>
+                    <summary>Why does the enhanced for-each loop cause this?</summary>
+                    <p>A for-each loop compiles down to an <code>Iterator</code> under the hood. When you call <code>collection.remove(x)</code> inside the loop body, you modify the collection directly &mdash; bypassing the iterator &mdash; so on the next iteration the iterator detects the modification-count mismatch and throws. Because the removal is hidden behind familiar syntax, this is the most common way developers hit the exception without realizing they're modifying during iteration.</p>
+                </details>
+                <details>
+                    <summary>When is ConcurrentModificationException actually about threads?</summary>
+                    <p>When one thread iterates a collection while another thread modifies it. Fail-fast iterators may &mdash; but are not guaranteed to &mdash; throw in that case, so you can't rely on it for correctness. For genuinely shared collections use a thread-safe type such as <code>ConcurrentHashMap</code> or <code>CopyOnWriteArrayList</code>, or synchronize access externally, rather than depending on the exception to signal the race.</p>
+                </details>
+                <details>
+                    <summary>Does iterating over a copy fix it?</summary>
+                    <p>Yes. If you iterate over a snapshot &mdash; for example <code>for (var x : new ArrayList&lt;&gt;(list))</code> &mdash; and modify the original list inside the loop, the iteration and the modification touch different objects, so no fail-fast check trips. It costs a copy but is simple and safe when you need to both read every original element and mutate the source. For pure conditional removal, <code>removeIf</code> is lighter.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Java &amp; backend errors</h3>
+                <p>Browse the full reference for Java, Go, and Rust errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="java-nullpointerexception.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Java NullPointerException</a>
+                    <a href="java-arrayindexoutofboundsexception.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Java ArrayIndexOutOfBounds</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="java-nullpointerexception.html">Java NullPointerException</a> &mdash; the other everyday Java runtime exception</li>
+                <li><a href="java-arrayindexoutofboundsexception.html">Java ArrayIndexOutOfBoundsException</a></li>
+                <li><a href="java-cannot-find-symbol.html">Java: cannot find symbol</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

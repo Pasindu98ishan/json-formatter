@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Docker: no space left on device — where Docker's disk actually goes (images, containers, volumes, build cache) and how to reclaim it safely with docker system prune, without deleting data you need.">
+    <meta name="keywords" content="docker no space left on device, docker system prune, docker disk full, reclaim docker disk space, docker build cache, dangling images, docker volume prune">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-no-space-left-on-device.html">
+    <meta property="og:title" content="Docker: No Space Left on Device — Reclaim It the Right Way">
+    <meta property="og:description" content="Docker's disk fills up with images, stopped containers, volumes, and build cache. Find where it went with docker system df, then reclaim it with prune — without nuking volumes you still need.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-no-space-left-on-device.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker: No Space Left on Device — Reclaim It the Right Way</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Docker: no space left on device", "item": "https://jsondevtools.org/errors/docker-no-space-left-on-device.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: no space left on device — Cause and Fix",
+  "description": "Docker's disk usage grows silently across images, stopped containers, volumes, and build cache until a pull or build fails with 'no space left on device'. This reference shows how to see where the space went with docker system df and reclaim it safely — including why volume pruning can delete data you need.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-14",
+  "dateModified": "2026-07-14",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What causes 'no space left on device' in Docker?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Docker has run out of disk in the area it stores data (by default /var/lib/docker, or the Docker Desktop VM disk). The space is consumed by four things that accumulate over time: image layers, stopped containers and their writable layers, named and anonymous volumes, and the build cache. A pull, build, or container write then fails because there's no room left to write the new data."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I free up Docker disk space quickly?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run docker system df to see what's using space, then docker system prune to remove stopped containers, unused networks, dangling images, and the build cache. Add -a to also remove all unused images (any image not attached to a running container), and --volumes only if you're sure no unused volume holds data you need. Start with the plain prune and escalate."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is docker system prune safe? Will it delete my data?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "docker system prune without --volumes is safe for your data: it removes stopped containers, dangling images, unused networks, and build cache, none of which hold persistent data. The one flag that can destroy data is --volumes — it deletes every volume not currently attached to a container, which can wipe a database volume whose container happens to be stopped. Adding -a is not a data risk: it removes all unused images, so its only cost is having to re-pull or rebuild them later. Treat --volumes as the single line you never cross without checking docker volume ls first."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is taking up the most Docker space — images or build cache?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It varies, which is why docker system df is the first command to run — it breaks usage down into Images, Containers, Local Volumes, and Build Cache with a RECLAIMABLE column. On CI runners and active dev machines the build cache is frequently the biggest and most surprising consumer; docker builder prune clears it specifically. On servers running many versions of an image over time, old image layers usually dominate."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I stop Docker from filling the disk again?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Prune on a schedule (a cron job running docker system prune -f, or docker builder prune for cache), use multi-stage builds and smaller base images to shrink image size, and avoid unbounded log growth by configuring the json-file log driver with max-size and max-file in daemon.json. On Docker Desktop, you can also cap the VM's disk image size in settings and reclaim space there."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the host show free space but Docker still says the disk is full?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Two common reasons. On Docker Desktop, Docker lives inside a fixed-size VM disk, so the Mac/Windows host can have plenty of free space while the VM is full — prune inside Docker or raise the VM disk limit. On Linux, you may have run out of inodes rather than bytes (df -i shows this) — millions of tiny layer files exhaust the inode table even with free bytes; pruning images and containers frees inodes too."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Docker: no space left on device</span>
+            </nav>
+            <h1>Docker: no space left on device</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Docker's disk (default <code>/var/lib/docker</code>) is full &mdash; from images, stopped containers, volumes, and build cache. Reclaim it in order:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>See where it went: <code>docker system df</code>.</li>
+                    <li>Safe cleanup: <code>docker system prune</code> (containers, dangling images, cache).</li>
+                    <li>More aggressive: add <code>-a</code> to remove all unused images.</li>
+                    <li><strong>Careful:</strong> <code>--volumes</code> can delete database data &mdash; only if you're sure.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># during a pull:
+write /var/lib/docker/tmp/...: no space left on device
+
+# during a build:
+failed to solve: write /var/lib/docker/...: no space left on device
+
+# from inside a container writing a file:
+Error: ENOSPC: no space left on device, write</code></pre>
+            </div>
+
+            <p>Docker stores everything it manages under one directory &mdash; <code>/var/lib/docker</code> on Linux, or a fixed-size virtual disk inside the VM on Docker Desktop. That space accumulates quietly: every image you pull, every container you stop but don't remove, every volume, and every layer of build cache stays on disk until something removes it. Eventually a pull or build needs room that isn't there, and you get <code>no space left on device</code> &mdash; the disk counterpart to running out of memory, which surfaces as <a href="docker-container-exited-code-137-oomkilled.html">exit code 137 (OOMKilled)</a>. The fix is to see where the space went, then reclaim the parts you don't need.</p>
+
+            <h2>Where Docker's disk actually goes</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 640 250" role="img" aria-label="Docker's disk usage is divided into four buckets: images (layers of every pulled and built image), containers (stopped containers and their writable layers), volumes (named and anonymous, holding persistent data), and build cache (intermediate build layers). docker system df shows all four. docker system prune reclaims containers, dangling images, and build cache safely; adding dash a also removes all unused images; adding dash dash volumes also removes unused volumes, which can delete data.">
+                    <defs>
+                        <marker id="ds-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="220" y="8" width="200" height="36" rx="8"/>
+                    <text class="dg-m" x="320" y="31" text-anchor="middle">/var/lib/docker</text>
+                    <path class="dg-ln" d="M320,44 L320,58 L110,58 L110,72" marker-end="url(#ds-a)"/>
+                    <path class="dg-ln" d="M320,44 L320,58 L250,58 L250,72" marker-end="url(#ds-a)"/>
+                    <path class="dg-ln" d="M320,44 L320,58 L390,58 L390,72" marker-end="url(#ds-a)"/>
+                    <path class="dg-ln" d="M320,44 L320,58 L530,58 L530,72" marker-end="url(#ds-a)"/>
+
+                    <rect class="dg-box" x="30" y="72" width="160" height="44" rx="6"/>
+                    <text class="dg-m" x="110" y="92" text-anchor="middle">Images</text>
+                    <text class="dg-s" x="110" y="108" text-anchor="middle">layers</text>
+                    <rect class="dg-box" x="200" y="72" width="140" height="44" rx="6"/>
+                    <text class="dg-m" x="270" y="92" text-anchor="middle">Containers</text>
+                    <text class="dg-s" x="270" y="108" text-anchor="middle">writable layers</text>
+                    <rect class="dg-box-bad" x="350" y="72" width="130" height="44" rx="6"/>
+                    <text class="dg-m dg-bad" x="415" y="92" text-anchor="middle">Volumes</text>
+                    <text class="dg-s dg-bad" x="415" y="108" text-anchor="middle">your DATA</text>
+                    <rect class="dg-box" x="490" y="72" width="120" height="44" rx="6"/>
+                    <text class="dg-m" x="550" y="92" text-anchor="middle">Build cache</text>
+                    <text class="dg-s" x="550" y="108" text-anchor="middle">intermediate</text>
+
+                    <rect class="dg-box-ok" x="40" y="150" width="270" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="175" y="174" text-anchor="middle">docker system prune  (safe)</text>
+                    <rect class="dg-box-ok" x="40" y="196" width="270" height="34" rx="6"/>
+                    <text class="dg-s dg-ok" x="175" y="217" text-anchor="middle">+ -a : also all unused images</text>
+
+                    <rect class="dg-box-bad" x="345" y="150" width="270" height="40" rx="6"/>
+                    <text class="dg-m dg-bad" x="480" y="174" text-anchor="middle">--volumes  (can delete data)</text>
+                    <rect class="dg-box" x="345" y="196" width="270" height="34" rx="6"/>
+                    <text class="dg-s" x="480" y="217" text-anchor="middle">only if no volume holds data you need</text>
+                </svg>
+                <p class="dg-cap">Four buckets fill the disk. The plain prune (green) is safe for data; <code>--volumes</code> (red) is the one that can wipe a database &mdash; volumes are where persistent data lives.</p>
+            </div>
+
+            <h2>Step 1: see where the space went</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker system df
+TYPE            TOTAL   ACTIVE   SIZE      RECLAIMABLE
+Images          42      6        18.3GB    14.1GB (77%)
+Containers      15      3        1.2GB     0.9GB (75%)
+Local Volumes   9       4        6.4GB     3.1GB (48%)
+Build Cache     210     0        11.8GB    11.8GB (100%)</code></pre>
+            </div>
+            <p>The <code>RECLAIMABLE</code> column is the one to read &mdash; it shows how much of each category can be freed. Here the build cache (11.8GB, 100% reclaimable) and old images (14.1GB) are the big wins, and no volume data needs touching. Add <code>-v</code> to <code>docker system df -v</code> for a per-image and per-volume breakdown.</p>
+            <p>Before you prune anything, list the individual items so you can see exactly what's about to go &mdash; especially useful for images and volumes, where a wrong assumption is expensive:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker image ls     # every image, its tag, and size — review before pruning
+docker volume ls    # every volume — check nothing here holds data you need
+docker ps -a        # all containers, including stopped ones</code></pre>
+            </div>
+
+            <h2>Step 2: reclaim safely, escalating as needed</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># 1) safe: stopped containers, dangling images, unused networks, build cache
+docker system prune
+
+# 2) also remove ALL unused images (not just dangling ones)
+docker system prune -a
+
+# 3) target just the build cache — often the biggest, and always safe
+docker builder prune       # removes unused (dangling) cache
+docker builder prune -a    # removes ALL cache no longer needed by a build
+
+# 4) remove only dangling images
+docker image prune</code></pre>
+            </div>
+            <p>Work down this list rather than jumping to the most aggressive option. The plain <code>docker system prune</code> is safe for your data and frees stopped containers plus dangling images plus the entire build cache &mdash; frequently enough on its own. Escalate to <code>-a</code> when old image versions dominate. Note the difference on the cache: <code>docker builder prune</code> clears only <em>dangling</em> cache, while <code>docker builder prune -a</code> also removes cache that's still referenced by previous builds but no longer needed &mdash; the bigger reclaim, and safe either way since build cache is never your data.</p>
+
+            <h2>BuildKit: the cache that quietly eats the most</h2>
+            <p>Modern Docker builds use <strong>BuildKit</strong> (the default since Docker 23), which maintains its own layer cache separate from image layers. On an active development machine &mdash; where you rebuild the same project dozens of times a day &mdash; this cache is frequently the single largest consumer of disk space, and it's the one most people forget exists because it never shows up in <code>docker image ls</code>. It's the <code>Build Cache</code> line in <code>docker system df</code>, and <code>docker builder prune -a</code> is what clears it completely. If your <code>system df</code> shows a surprisingly large, 100%-reclaimable Build Cache (as in the example above), that's your fastest win and there's zero risk in clearing it.</p>
+
+            <h2>The dangerous flag: --volumes</h2>
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #b02a37;border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;">
+                <p style="margin:0;font-weight:600;">Read before you run <code>--volumes</code></p>
+                <p style="margin:0.5rem 0 0;"><code>docker system prune --volumes</code> deletes every volume <em>not currently attached to a container</em>. A database whose container is merely <strong>stopped</strong> counts as unattached &mdash; so this command can silently wipe your Postgres or MySQL data directory. Volumes are exactly where persistent data is meant to live. Only add <code>--volumes</code> after confirming with <code>docker volume ls</code> that nothing important is unattached.</p>
+            </div>
+
+            <h2>Special cases worth knowing</h2>
+            <ul>
+                <li><strong>Docker Desktop shows the host as free.</strong> Docker runs in a <a href="docker-cannot-connect-to-daemon.html">fixed-size VM</a>, so your Mac/Windows drive can have plenty of room while the VM is full. Prune inside Docker, or raise the VM's disk-image size in Settings &rarr; Resources.</li>
+                <li><strong>Out of inodes, not bytes.</strong> On Linux, run <code>df -i</code>. Millions of tiny layer files can exhaust the inode table even with free bytes &mdash; the error is identical, and pruning images/containers frees inodes too.</li>
+                <li><strong>A single log file ate the disk.</strong> A chatty container with the default <code>json-file</code> log driver and no size cap can grow a multi-gigabyte log. Cap it in <code>daemon.json</code> with <code>log-opts</code> <code>max-size</code> and <code>max-file</code>.</li>
+            </ul>
+
+            <h2>Step 3: keep it from filling up again</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># cron/CI: reclaim without a confirmation prompt
+docker system prune -f
+docker builder prune -f --filter "until=168h"   # cache older than 7 days
+
+# cap container log growth in /etc/docker/daemon.json
+{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "10m", "max-file": "3" }
+}</code></pre>
+            </div>
+            <p>Combine scheduled prunes with smaller images &mdash; multi-stage builds and <code>-slim</code>/<code>-alpine</code> base images cut image size at the source, which is the most durable way to avoid the problem returning.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>docker system df</code> &mdash; read the <code>RECLAIMABLE</code> column to see the big consumers</li>
+                <li>&#10003; Start safe: <code>docker system prune</code> (data-safe without <code>--volumes</code>)</li>
+                <li>&#10003; Old image versions dominating? Add <code>-a</code></li>
+                <li>&#10003; Build cache is the biggest? <code>docker builder prune</code></li>
+                <li>&#10003; <strong>Never</strong> add <code>--volumes</code> without checking <code>docker volume ls</code> first</li>
+                <li>&#10003; Docker Desktop? The VM disk may be full while the host is free</li>
+                <li>&#10003; Linux with free bytes but still failing? Check <code>df -i</code> for inode exhaustion</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What causes 'no space left on device' in Docker?</summary>
+                    <p>Docker has run out of disk in the area it stores data (by default <code>/var/lib/docker</code>, or the Docker Desktop VM disk). The space is consumed by four things that accumulate over time: image layers, stopped containers and their writable layers, named and anonymous volumes, and the build cache. A pull, build, or container write then fails because there's no room left to write the new data.</p>
+                </details>
+                <details>
+                    <summary>How do I free up Docker disk space quickly?</summary>
+                    <p>Run <code>docker system df</code> to see what's using space, then <code>docker system prune</code> to remove stopped containers, unused networks, dangling images, and the build cache. Add <code>-a</code> to also remove all unused images (any image not attached to a running container), and <code>--volumes</code> only if you're sure no unused volume holds data you need. Start with the plain prune and escalate.</p>
+                </details>
+                <details>
+                    <summary>Is docker system prune safe? Will it delete my data?</summary>
+                    <p><code>docker system prune</code> without <code>--volumes</code> is safe for your data: it removes stopped containers, dangling images, unused networks, and build cache, none of which hold persistent data. The one flag that can destroy data is <code>--volumes</code> &mdash; it deletes every volume not currently attached to a container, which can wipe a database volume whose container happens to be stopped. Adding <code>-a</code> is not a data risk: it removes all unused images, so its only cost is having to re-pull or rebuild them later. Treat <code>--volumes</code> as the single line you never cross without checking <code>docker volume ls</code> first.</p>
+                </details>
+                <details>
+                    <summary>What is taking up the most Docker space — images or build cache?</summary>
+                    <p>It varies, which is why <code>docker system df</code> is the first command to run &mdash; it breaks usage down into Images, Containers, Local Volumes, and Build Cache with a RECLAIMABLE column. On CI runners and active dev machines the build cache is frequently the biggest and most surprising consumer; <code>docker builder prune</code> clears it specifically. On servers running many versions of an image over time, old image layers usually dominate.</p>
+                </details>
+                <details>
+                    <summary>How do I stop Docker from filling the disk again?</summary>
+                    <p>Prune on a schedule (a cron job running <code>docker system prune -f</code>, or <code>docker builder prune</code> for cache), use multi-stage builds and smaller base images to shrink image size, and avoid unbounded log growth by configuring the <code>json-file</code> log driver with <code>max-size</code> and <code>max-file</code> in <code>daemon.json</code>. On Docker Desktop, you can also cap the VM's disk image size in settings and reclaim space there.</p>
+                </details>
+                <details>
+                    <summary>Why does the host show free space but Docker still says the disk is full?</summary>
+                    <p>Two common reasons. On Docker Desktop, Docker lives inside a fixed-size VM disk, so the Mac/Windows host can have plenty of free space while the VM is full &mdash; prune inside Docker or raise the VM disk limit. On Linux, you may have run out of inodes rather than bytes (<code>df -i</code> shows this) &mdash; millions of tiny layer files exhaust the inode table even with free bytes; pruning images and containers frees inodes too.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Docker &amp; backend errors</h3>
+                <p>Browse the full reference for Docker, Node.js, Python, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="docker-container-exited-code-137-oomkilled.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker: exited with code 137</a>
+                    <a href="docker-permission-denied-daemon-socket.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Docker: permission denied on socket</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-container-exited-code-137-oomkilled.html">Docker: Container exited with code 137 (OOMKilled)</a> &mdash; the memory counterpart to running out of disk</li>
+                <li><a href="docker-permission-denied-daemon-socket.html">Docker: permission denied on the daemon socket</a></li>
+                <li><a href="docker-cannot-connect-to-daemon.html">Docker: Cannot connect to the Docker daemon</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

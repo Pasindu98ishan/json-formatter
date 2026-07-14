@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Go panic: interface conversion: interface {} is string, not int — why a type assertion panics, the comma-ok fix, and how it hits map[string]interface{} after json.Unmarshal.">
+    <meta name="keywords" content="interface conversion interface is string not int, go type assertion panic, go interface conversion panic, comma ok type assertion, json unmarshal interface, map string interface go">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-panic-interface-conversion.html">
+    <meta property="og:title" content="Go panic: interface conversion — interface {} is X, not Y (The Fix)">
+    <meta property="og:description" content="A Go type assertion panics when the concrete type inside an interface isn't what you asserted. Use the comma-ok form or a type switch — especially after json.Unmarshal into map[string]interface{}.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-panic-interface-conversion.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Go panic: interface conversion — interface {} is X, not Y (The Fix)</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Go: panic: interface conversion", "item": "https://jsondevtools.org/errors/go-panic-interface-conversion.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Go panic: interface conversion: interface {} is string, not int — Cause and Fix",
+  "description": "A Go type assertion panics when the concrete value stored in an interface is a different type than the one you asserted. This reference explains the comma-ok assertion, the type switch, and why this happens constantly with map[string]interface{} after json.Unmarshal.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-14",
+  "dateModified": "2026-07-14",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What causes 'panic: interface conversion' in Go?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You performed a type assertion — value.(int) — on an interface whose stored concrete type is not the type you asserted. Go can't convert the underlying value, so it panics at runtime. The message tells you both types: 'interface {} is string, not int' means the interface actually held a string but you asserted int. It is always a mismatch between the real stored type and the asserted type."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I stop a type assertion from panicking?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use the two-value 'comma-ok' form: v, ok := value.(int). When the assertion fails, ok is false and v is the zero value instead of a panic, so you can handle the mismatch gracefully. The single-value form v := value.(int) is the one that panics on a wrong type — only use it when you are certain of the type or a panic is genuinely the correct outcome."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen after json.Unmarshal?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "When you unmarshal JSON into an interface{} or a map[string]interface{}, Go decodes every JSON number as float64, every string as string, objects as map[string]interface{}, and arrays as []interface{}. So asserting result[\"age\"].(int) panics because the value is actually a float64, not an int. Assert .(float64) and convert to int, or unmarshal into a typed struct instead of a generic map."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is my JSON number a float64 and not an int?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "JSON has a single number type with no integer/float distinction, so Go's encoding/json decodes every number into float64 when the target is interface{}. Even a value like 42 becomes float64(42). Assert .(float64) then convert with int(f), use json.Number via a decoder with UseNumber(), or — the cleanest option — unmarshal into a struct with an int field so the decoder produces a real int for you."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "When should I use a type switch instead of a single assertion?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use a type switch when an interface value could legitimately hold several types and you want to branch on each — switch v := value.(type) { case string: ...; case float64: ...; default: ... }. It's the idiomatic way to handle heterogeneous JSON data or any interface{} whose concrete type varies at runtime, and it never panics because the default case catches everything you didn't list."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does 'interface conversion' mean the same as a failed cast?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Go doesn't have casts between arbitrary types; it has type assertions on interfaces and explicit numeric conversions. 'panic: interface conversion' is specifically a failed type assertion — extracting a concrete type from an interface value that holds a different concrete type. It is not about converting an int to a float or a string to a number; those are separate conversion operations with their own rules."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Go: panic: interface conversion</span>
+            </nav>
+            <h1>Go: panic: interface conversion: interface {} is string, not int</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A type assertion <code>value.(int)</code> panicked because the interface actually held a different type. The fixes:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Use the two-value <strong>comma-ok</strong> form: <code>v, ok := value.(int)</code> &mdash; no panic when it doesn't match.</li>
+                    <li>Assert the type it <em>actually</em> holds &mdash; the message tells you (&ldquo;is string, not int&rdquo;).</li>
+                    <li>After <code>json.Unmarshal</code>, numbers are <code>float64</code>, not <code>int</code> &mdash; assert <code>.(float64)</code>.</li>
+                    <li>Many possible types? Use a <strong>type switch</strong>.</li>
+                </ul>
+            </div>
+
+            <h2>The exact panic</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>var value interface{} = "42"
+n := value.(int)   // assert it's an int
+// panic: interface conversion: interface {} is string, not int
+
+goroutine 1 [running]:
+main.main()
+        /app/main.go:8 +0x2c</code></pre>
+            </div>
+
+            <p>An <code>interface{}</code> (or any interface) stores two things at runtime: a concrete <em>type</em> and a value of that type. A <strong>type assertion</strong> pulls the value back out under a specific type &mdash; but only if the stored type matches. When it doesn't, the single-value form panics, and the message spells out exactly what went wrong: <code>is string, not int</code> means the interface really held a <code>string</code>, but you asserted <code>int</code>.</p>
+
+            <h2>How a type assertion decides to panic</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 640 260" role="img" aria-label="Flow: you assert value dot open-paren int close-paren. Go checks whether the concrete type stored in the interface is int. If yes, you get the int value. If no, the single-value form panics with interface conversion, while the two-value comma-ok form instead returns the zero value and ok equals false, which you can handle safely.">
+                    <defs>
+                        <marker id="goic-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="goic-ok" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-ok)"/></marker>
+                        <marker id="goic-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="205" y="8" width="230" height="40" rx="8"/>
+                    <text class="dg-m" x="320" y="32" text-anchor="middle">value.(int)</text>
+                    <line class="dg-ln" x1="320" y1="48" x2="320" y2="70" marker-end="url(#goic-a)"/>
+                    <rect class="dg-box" x="160" y="70" width="320" height="40" rx="6"/>
+                    <text class="dg-m" x="320" y="94" text-anchor="middle">Is the stored concrete type int?</text>
+
+                    <path class="dg-ln-ok" d="M320,110 L320,124 L140,124 L140,148" marker-end="url(#goic-ok)"/>
+                    <path class="dg-ln-bad" d="M320,110 L320,124 L500,124 L500,148" marker-end="url(#goic-bad)"/>
+                    <text class="dg-s dg-ok" x="215" y="140" text-anchor="middle">yes</text>
+                    <text class="dg-s dg-bad" x="425" y="140" text-anchor="middle">no</text>
+
+                    <rect class="dg-box-ok" x="40" y="150" width="200" height="44" rx="6"/>
+                    <text class="dg-m dg-ok" x="140" y="178" text-anchor="middle">You get the int value</text>
+
+                    <rect class="dg-box-bad" x="360" y="150" width="240" height="44" rx="6"/>
+                    <text class="dg-m dg-bad" x="480" y="172" text-anchor="middle">single form: PANIC</text>
+                    <text class="dg-s dg-bad" x="480" y="188" text-anchor="middle">interface conversion</text>
+                    <line class="dg-ln" x1="480" y1="194" x2="480" y2="216" marker-end="url(#goic-a)"/>
+                    <rect class="dg-box" x="345" y="218" width="270" height="34" rx="6"/>
+                    <text class="dg-m" x="480" y="239" text-anchor="middle">comma-ok form: v=zero, ok=false</text>
+                </svg>
+                <p class="dg-cap">The single-value assertion panics on a type mismatch; the two-value comma-ok form hands you the zero value and <code>ok == false</code> instead, so you stay in control.</p>
+            </div>
+
+            <h2>Fix 1: the comma-ok assertion</h2>
+            <p>The two-value form of a type assertion never panics. On a mismatch it returns the zero value and <code>false</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>if n, ok := value.(int); ok {
+    fmt.Println("it's an int:", n)
+} else {
+    fmt.Println("not an int, got:", reflect.TypeOf(value))
+}</code></pre>
+            </div>
+            <p>Reach for the single-value form (<code>n := value.(int)</code>) only when a wrong type is genuinely a programming bug you <em>want</em> to crash on. For anything driven by external data, use comma-ok.</p>
+
+            <h2>Fix 2: the JSON trap — numbers are float64</h2>
+            <p>This is where the panic bites hardest, and it connects straight to working with JSON in Go. When you unmarshal into <code>interface{}</code> or <code>map[string]interface{}</code>, the <code>encoding/json</code> package maps JSON types to Go types with no configuration &mdash; and JSON's single number type always becomes <code>float64</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>var result map[string]interface{}
+json.Unmarshal([]byte(`{"age": 30}`), &amp;result)
+
+age := result["age"].(int)      // ❌ panic: interface {} is float64, not int
+age := int(result["age"].(float64))  // ✅ assert float64, then convert</code></pre>
+            </div>
+            <p>The JSON-to-Go mapping to keep in mind whenever you assert on decoded data:</p>
+            <table>
+                <thead><tr><th>JSON</th><th>Go type inside interface{}</th></tr></thead>
+                <tbody>
+                    <tr><td>number (<code>30</code>, <code>3.14</code>)</td><td><code>float64</code></td></tr>
+                    <tr><td>string</td><td><code>string</code></td></tr>
+                    <tr><td>boolean</td><td><code>bool</code></td></tr>
+                    <tr><td>object</td><td><code>map[string]interface{}</code></td></tr>
+                    <tr><td>array</td><td><code>[]interface{}</code></td></tr>
+                    <tr><td>null</td><td><code>nil</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Fix 3: unmarshal into a struct (the real fix)</h2>
+            <p>Asserting types out of a generic map is fragile. If you know the shape of the JSON, decode into a typed struct and let the decoder produce real <code>int</code>, <code>string</code>, and nested types for you &mdash; no assertions, no panics:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type Person struct {
+    Name string `json:"name"`
+    Age  int    `json:"age"`   // decoder gives you a real int
+}
+
+var p Person
+if err := json.Unmarshal(data, &amp;p); err != nil { /* handle */ }
+fmt.Println(p.Age)   // ✅ int, no assertion needed</code></pre>
+            </div>
+            <p>If you're staring at an unfamiliar payload trying to work out its shape, format it first with the <a href="../formatter.html">JSON Formatter</a> to read the structure, then generate a matching struct. When you must keep numbers exact (large IDs that lose precision as <code>float64</code>), decode with <code>json.NewDecoder(r)</code> and call <code>UseNumber()</code> so numbers arrive as <code>json.Number</code> instead.</p>
+
+            <h2>Fix 4: a type switch for heterogeneous values</h2>
+            <p>When an interface value could legitimately be several types, branch on all of them with a type switch &mdash; the idiomatic, panic-free way to handle mixed JSON data:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>switch v := value.(type) {
+case string:
+    fmt.Println("string:", v)
+case float64:
+    fmt.Println("number:", v)
+case map[string]interface{}:
+    fmt.Println("object with", len(v), "keys")
+case nil:
+    fmt.Println("null")
+default:
+    fmt.Printf("unhandled type %T\n", v)
+}</code></pre>
+            </div>
+
+            <h2>The nil edge case</h2>
+            <p>One subtlety worth knowing: asserting a concrete type on a <code>nil</code> interface also panics, but the comma-ok form handles it cleanly. A <code>nil</code> interface holds neither a type nor a value, so any single-value assertion on it fails:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>var value interface{} = nil
+s := value.(string)        // ❌ panic: interface conversion: interface {} is nil, not string
+s, ok := value.(string)    // ✅ ok == false, s == "" — no panic</code></pre>
+            </div>
+            <p>This is one more reason to default to comma-ok for anything that could be absent, such as an optional field pulled from decoded JSON that may be missing entirely.</p>
+
+            <h2>Prefer generics or a struct over interface{}</h2>
+            <p>Since Go 1.18, generics remove many of the situations that used to force <code>interface{}</code> and its risky assertions &mdash; a function parameterized over a type keeps full type information, so there's nothing to assert and nothing to panic on. And for decoded data specifically, a typed struct (Fix 3) is almost always the better design than a <code>map[string]interface{}</code> you then pick apart with assertions. Treat a proliferation of type assertions as a signal that the value should have had a concrete type further upstream.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the panic: &ldquo;is <em>X</em>, not <em>Y</em>&rdquo; &mdash; assert <em>X</em>, the type it really holds</li>
+                <li>&#10003; Switch to the comma-ok form <code>v, ok := value.(T)</code> to stop panicking</li>
+                <li>&#10003; After <code>json.Unmarshal</code>, assert numbers as <code>.(float64)</code> then <code>int(...)</code></li>
+                <li>&#10003; Better: unmarshal into a typed struct so no assertion is needed</li>
+                <li>&#10003; Value could be several types? Use <code>switch v := value.(type)</code></li>
+                <li>&#10003; Need big integers exact? Decode with <code>UseNumber()</code> for <code>json.Number</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What causes 'panic: interface conversion' in Go?</summary>
+                    <p>You performed a type assertion &mdash; <code>value.(int)</code> &mdash; on an interface whose stored concrete type is not the type you asserted. Go can't convert the underlying value, so it panics at runtime. The message tells you both types: &lsquo;interface {} is string, not int&rsquo; means the interface actually held a string but you asserted int. It is always a mismatch between the real stored type and the asserted type.</p>
+                </details>
+                <details>
+                    <summary>How do I stop a type assertion from panicking?</summary>
+                    <p>Use the two-value &lsquo;comma-ok&rsquo; form: <code>v, ok := value.(int)</code>. When the assertion fails, <code>ok</code> is false and <code>v</code> is the zero value instead of a panic, so you can handle the mismatch gracefully. The single-value form <code>v := value.(int)</code> is the one that panics on a wrong type &mdash; only use it when you are certain of the type or a panic is genuinely the correct outcome.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen after json.Unmarshal?</summary>
+                    <p>When you unmarshal JSON into an <code>interface{}</code> or a <code>map[string]interface{}</code>, Go decodes every JSON number as <code>float64</code>, every string as <code>string</code>, objects as <code>map[string]interface{}</code>, and arrays as <code>[]interface{}</code>. So asserting <code>result["age"].(int)</code> panics because the value is actually a <code>float64</code>, not an <code>int</code>. Assert <code>.(float64)</code> and convert to int, or unmarshal into a typed struct instead of a generic map.</p>
+                </details>
+                <details>
+                    <summary>Why is my JSON number a float64 and not an int?</summary>
+                    <p>JSON has a single number type with no integer/float distinction, so Go's <code>encoding/json</code> decodes every number into <code>float64</code> when the target is <code>interface{}</code>. Even a value like <code>42</code> becomes <code>float64(42)</code>. Assert <code>.(float64)</code> then convert with <code>int(f)</code>, use <code>json.Number</code> via a decoder with <code>UseNumber()</code>, or &mdash; the cleanest option &mdash; unmarshal into a struct with an int field so the decoder produces a real int for you.</p>
+                </details>
+                <details>
+                    <summary>When should I use a type switch instead of a single assertion?</summary>
+                    <p>Use a type switch when an interface value could legitimately hold several types and you want to branch on each &mdash; <code>switch v := value.(type) { case string: ...; case float64: ...; default: ... }</code>. It's the idiomatic way to handle heterogeneous JSON data or any <code>interface{}</code> whose concrete type varies at runtime, and it never panics because the default case catches everything you didn't list.</p>
+                </details>
+                <details>
+                    <summary>Does 'interface conversion' mean the same as a failed cast?</summary>
+                    <p>Go doesn't have casts between arbitrary types; it has type assertions on interfaces and explicit numeric conversions. &lsquo;panic: interface conversion&rsquo; is specifically a failed type assertion &mdash; extracting a concrete type from an interface value that holds a different concrete type. It is not about converting an int to a float or a string to a number; those are separate conversion operations with their own rules.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Working with JSON in Go?</h3>
+                <p>Format an unfamiliar payload to see its shape, or browse more Go and JSON errors.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="go-json-cannot-unmarshal.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: json cannot unmarshal</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-json-cannot-unmarshal.html">Go: json: cannot unmarshal X into Go value of type Y</a> &mdash; the decode-time cousin of this runtime panic</li>
+                <li><a href="go-nil-pointer-dereference.html">Go: invalid memory address or nil pointer dereference</a></li>
+                <li><a href="go-index-out-of-range.html">Go: index out of range</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

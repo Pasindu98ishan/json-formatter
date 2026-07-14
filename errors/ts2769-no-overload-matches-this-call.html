@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2769: No overload matches this call — how to read the error, find the failing argument, and fix it: wrong type, a union arg, or a bad options object.">
+    <meta name="keywords" content="TS2769, No overload matches this call, typescript no overload matches, overload error typescript, typescript function overload, the last overload gave the following error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2769-no-overload-matches-this-call.html">
+    <meta property="og:title" content="TS2769: No Overload Matches This Call — What It Means &amp; How to Fix">
+    <meta property="og:description" content="TS2769 means your arguments fit none of a function's overload signatures. Learn to read the per-overload errors, find the one you meant to call, and fix the argument that doesn't match.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2769-no-overload-matches-this-call.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2769: No Overload Matches This Call — What It Means &amp; How to Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2769: No overload matches this call", "item": "https://jsondevtools.org/errors/ts2769-no-overload-matches-this-call.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2769: No overload matches this call — What It Means and How to Fix",
+  "description": "TypeScript raises TS2769 when the arguments you passed match none of a function's overload signatures. This reference shows how to read the per-overload error output, identify which overload you meant, and fix the argument type, count, or shape that doesn't match.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-14",
+  "dateModified": "2026-07-14",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does TS2769: No overload matches this call mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The function you called is declared with multiple overload signatures, and the arguments you passed don't fully match any single one of them. TypeScript then reports the call as unresolvable and, underneath, lists the reason each overload was rejected. It's not saying the function is wrong — it's saying your specific combination of argument types or count doesn't line up with any allowed shape."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I read the 'Overload N of M gave the following error' output?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TypeScript prints one sub-error per overload it tried: 'Overload 1 of 3 ... Argument of type X is not assignable to parameter of type Y.' Find the overload you actually intended to call, ignore the others, and read only its sub-error — that line tells you exactly which argument doesn't match and what type it expected. Fixing that one argument usually resolves the whole TS2769."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen when I pass a union type as an argument?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Overload resolution needs one overload to accept the entire argument type. If your value is a union like string | number and each overload only accepts one member, none accepts the whole union, so TS2769 fires even though every possible runtime value would be valid for some overload. Narrow the union first with a typeof or type guard so that at the call site the argument is a single concrete type, then call inside each branch."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get TS2769 on an options or config object?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "When a function is overloaded on the shape of an options object, an object with an extra, missing, or mistyped property matches no overload. Read the last overload's sub-error — it usually points at the offending property, for example 'responseType is not assignable' — and fix that property's value or type. Excess-property checks on object literals are a frequent trigger here."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is casting the argument to any a good fix for TS2769?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Casting an argument to any forces one overload to accept it and silences TS2769, but it also disables checking for that argument, so a genuinely wrong call ships to runtime. Fix the real mismatch instead: correct the argument's type, narrow a union before the call, or adjust the argument count to match a real overload. Cast only as a last resort when you've verified the runtime value is actually valid."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is TS2769 related to TS2345?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TS2345 ('Argument of type X is not assignable to parameter of type Y') is the single-signature version: one function, one signature, one bad argument. TS2769 is the multi-signature version: the same kind of argument mismatch, but the function has several overloads, so TypeScript reports that none of them matched and nests a TS2345-style reason under each rejected overload. Read the nested reason for the overload you intended."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2769: No overload matches this call</span>
+            </nav>
+            <h1>TS2769: No overload matches this call</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Your arguments match none of the function's overload signatures. To fix it:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Find the overload you <em>meant</em> to call in the error output, and read only its sub-error.</li>
+                    <li>That sub-error names the argument that doesn't match and the type it expected &mdash; fix that one argument.</li>
+                    <li>Passing a union (<code>string | number</code>)? Narrow it with <code>typeof</code> before the call.</li>
+                    <li>An options object? The mismatch is usually one wrong or extra property.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function toArray(x: string): string[];
+function toArray(x: number): number[];
+function toArray&lt;T&gt;(x: T): T[] {
+  return [x];
+}
+
+const value: string | number = getValue();
+toArray(value);
+// error TS2769: No overload matches this call.
+//   Overload 1 of 2, '(x: string): string[]', gave the following error.
+//     Argument of type 'string | number' is not assignable to parameter of type 'string'.
+//   Overload 2 of 2, '(x: number): number[]', gave the following error.
+//     Argument of type 'string | number' is not assignable to parameter of type 'number'.</code></pre>
+            </div>
+
+            <p>An <strong>overloaded</strong> function has more than one call signature. When you call it, TypeScript tries each signature in order and, if none accepts your exact arguments, reports TS2769 and prints <em>why each one was rejected</em>. The error looks intimidating because it dumps every failed overload &mdash; but the trick is to ignore most of it and read only the overload you actually intended to call. Note that the implementation signature above is generic (<code>&lt;T&gt;</code>) even though the two public overloads only allow <code>string</code> or <code>number</code> &mdash; that's normal, not a mistake: the overload signatures are the restricted public API callers see, while the implementation signature can be broader internally. Callers never see or call the implementation signature directly, so it doesn't loosen what's actually allowed at a call site.</p>
+
+            <h2>How overload resolution works (and how to read the error)</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 640 300" role="img" aria-label="Flow: TypeScript tries each overload signature in order against your arguments. If one matches, the call type-checks. If none matches, it reports TS2769 and nests, under each overload, the specific argument mismatch that caused that overload to be rejected. You read the nested reason for the overload you intended to call.">
+                    <defs>
+                        <marker id="ts769-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="ts769-ok" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-ok)"/></marker>
+                        <marker id="ts769-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="200" y="8" width="240" height="40" rx="8"/>
+                    <text class="dg-m" x="320" y="32" text-anchor="middle">Your call: toArray(value)</text>
+                    <line class="dg-ln" x1="320" y1="48" x2="320" y2="70" marker-end="url(#ts769-a)"/>
+
+                    <rect class="dg-box" x="150" y="70" width="340" height="40" rx="6"/>
+                    <text class="dg-m" x="320" y="94" text-anchor="middle">Try each overload signature, in order</text>
+
+                    <path class="dg-ln-ok" d="M320,110 L320,124 L150,124 L150,146" marker-end="url(#ts769-ok)"/>
+                    <path class="dg-ln-bad" d="M320,110 L320,124 L490,124 L490,146" marker-end="url(#ts769-bad)"/>
+                    <text class="dg-s dg-ok" x="230" y="140" text-anchor="middle">one matches</text>
+                    <text class="dg-s dg-bad" x="410" y="140" text-anchor="middle">none matches</text>
+
+                    <rect class="dg-box-ok" x="40" y="148" width="220" height="44" rx="6"/>
+                    <text class="dg-m dg-ok" x="150" y="176" text-anchor="middle">Call type-checks &mdash; done</text>
+
+                    <rect class="dg-box-bad" x="360" y="148" width="250" height="44" rx="6"/>
+                    <text class="dg-m dg-bad" x="485" y="176" text-anchor="middle">TS2769: no overload matches</text>
+                    <line class="dg-ln-bad" x1="485" y1="192" x2="485" y2="216" marker-end="url(#ts769-bad)"/>
+
+                    <rect class="dg-box" x="330" y="218" width="310" height="66" rx="6"/>
+                    <text class="dg-m" x="485" y="242" text-anchor="middle">Under each overload, the exact</text>
+                    <text class="dg-m" x="485" y="260" text-anchor="middle">argument mismatch. Read only the one</text>
+                    <text class="dg-m" x="485" y="278" text-anchor="middle">for the overload you meant to call.</text>
+                </svg>
+                <p class="dg-cap">TypeScript reports every rejected overload, but you only need the sub-error for the signature you actually intended &mdash; that line names the argument to fix.</p>
+            </div>
+
+            <h2>Fix 1: narrow a union argument before the call</h2>
+            <p>In the example above, <code>value</code> is <code>string | number</code>. Overload 1 wants a <code>string</code>, overload 2 wants a <code>number</code>, and neither accepts the whole union &mdash; so the call fails even though every runtime value would be valid for <em>some</em> overload. Narrow it first:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>if (typeof value === "string") {
+  toArray(value);   // ✅ value is string here — overload 1 matches
+} else {
+  toArray(value);   // ✅ value is number here — overload 2 matches
+}</code></pre>
+            </div>
+            <p>Inside each branch the argument is a single concrete type, so exactly one overload applies and TS2769 disappears.</p>
+
+            <h2>Fix 2: fix a wrong argument type</h2>
+            <p>Often the mismatch is simpler &mdash; a value that's just the wrong type for the overload you wanted. This is the multi-overload cousin of <a href="ts2345-argument-not-assignable.html">TS2345</a>. Read the sub-error for your intended overload and correct that argument:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// a real-world shape: an overloaded API client
+declare function request(url: string, opts?: { method: "GET" }): Promise&lt;Response&gt;;
+declare function request(url: string, opts: { method: "POST"; body: string }): Promise&lt;Response&gt;;
+
+request("/api", { method: "POST", body: { id: 1 } });
+// ❌ TS2769 — the POST overload wants body: string, you passed an object
+request("/api", { method: "POST", body: JSON.stringify({ id: 1 }) });
+// ✅ body is now a string — the POST overload matches</code></pre>
+            </div>
+            <p>Passing raw objects where a serialized string is expected is a classic trigger here; when the target type is a string body, run the value through <a href="../formatter.html">JSON stringify</a> (or <code>JSON.stringify</code>) first.</p>
+
+            <h2>Fix 3: an options object with a wrong or extra property</h2>
+            <p>When overloads differ by the shape of an options object, a single bad property rejects every overload. The last overload's sub-error usually points right at it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ 'responseType' has a typo'd value; no overload accepts "jsonn"
+axiosLike.get("/users", { responseType: "jsonn" });
+//   ... Type '"jsonn"' is not assignable to type 'ResponseType'.
+
+// ✅ correct the property value
+axiosLike.get("/users", { responseType: "json" });</code></pre>
+            </div>
+            <p>Excess-property checks make object literals especially strict here: an extra property that no overload declares is itself enough to cause TS2769, so also check for a stray or misnamed key, not just a wrong value.</p>
+
+            <h2>Fix 4: wrong number of arguments</h2>
+            <p>If your argument <em>count</em> matches no overload &mdash; too few required arguments, or more than any signature accepts &mdash; you get TS2769 as well. Compare your call against each signature's arity and pass the set of arguments one real overload declares.</p>
+
+            <h2>Fix 5: a literal type got widened before the call</h2>
+            <p>This one is confusing because, unlike Fix 1, there's no visible union anywhere in your code &mdash; the value just <em>looks</em> like it should match. The culprit is TypeScript's literal-widening rule: assigning a string literal to a <code>let</code> widens its type to the general <code>string</code>, discarding the specific literal:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function setStatus(status: "active"): void;
+function setStatus(status: "inactive"): void;
+
+let status = "active";      // widened to `string`, not the literal "active"
+setStatus(status);          // TS2769 — no overload accepts a plain string</code></pre>
+            </div>
+            <p>Both overloads only accept a specific string literal, but <code>status</code>'s inferred type is the wider <code>string</code>, and <code>string</code> isn't assignable to either literal type &mdash; so neither overload matches, even though the runtime value <code>"active"</code> is exactly what one overload wants. Fix it by preventing the widening, not by changing the value:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let status = "active" as const;              // ✅ keeps the literal type "active"
+// or:
+let status: "active" | "inactive" = "active"; // ✅ explicit union annotation
+// or, if the value never needs to be reassigned:
+const status = "active";                      // ✅ const infers the literal type directly</code></pre>
+            </div>
+            <p>Diagnose this by checking the declaration, not the call: if the argument is declared with <code>let</code> and no type annotation, and every overload expects a specific literal, widening is very likely the cause.</p>
+
+            <h2>Fix 6: the library's overloads changed after an upgrade</h2>
+            <p>Sometimes none of the above applies because the code used to compile and nothing in your call site changed &mdash; only a dependency version did. A minor or major upgrade of a library can add, remove, or reshape its overload signatures, and existing calls that matched the old signatures stop matching the new ones. When TS2769 appears right after running <code>npm update</code> or bumping a version in <code>package.json</code>:</p>
+            <ul>
+                <li>Check the installed version of the package against the version your code was written for &mdash; a changelog or migration guide often documents the overload change directly.</li>
+                <li>If you're unsure what changed, diff the relevant <code>.d.ts</code> file between the two versions in <code>node_modules</code> (or on a site like unpkg) to see the exact signature difference.</li>
+                <li>Update the call site to match the new signature &mdash; this is usually a small, mechanical change once you know what moved, rather than a sign your code was ever wrong.</li>
+            </ul>
+
+            <h2>Common React TS2769 cases</h2>
+            <p>Two patterns produce a genuine TS2769 in React code specifically &mdash; both are argument-count or overload-selection failures, the same class of problem as Fix 4:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// too many arguments — same class as Fix 4
+const [count, setCount] = useState(0, 10);
+// TS2769: Expected 0-1 arguments, but got 2.
+
+// no overload of useRef accepts this initial value's type
+const ref = useRef&lt;HTMLInputElement&gt;("not a DOM node");
+// TS2769: No overload matches this call.</code></pre>
+            </div>
+            <p><code>useState</code> only ever takes zero or one argument (the initial state); a second argument matches no overload, exactly like Fix 4. <code>useRef&lt;HTMLInputElement&gt;</code> is overloaded on the initial value's type, and a string doesn't satisfy any of them. Two other React errors get miscategorized as this one but aren't &mdash; worth knowing so you land on the right fix: passing the wrong value to a single-signature setter like <code>useState(null)</code> then <code>setValue("hello")</code> is <a href="ts2345-argument-not-assignable.html">TS2345</a>, not TS2769 (there's only one signature, not several); and a bad JSX prop like <code>&lt;MyButton size="largee" /&gt;</code> is <a href="ts2322-type-not-assignable.html">TS2322</a>, since JSX props are checked as object-literal assignability, not function overload resolution.</p>
+
+            <h2>What NOT to do</h2>
+            <p>Casting the argument to <code>any</code> (<code>toArray(value as any)</code>) forces an overload to accept it and makes the red squiggle vanish &mdash; but it also turns off checking for that argument, so a genuinely wrong call sails through to runtime. Narrow the union, fix the type, or correct the argument count instead. Reach for a cast only when you've confirmed at runtime that the value really is valid for the overload you're calling.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Identify which overload you <em>meant</em> to call, and read only that sub-error</li>
+                <li>&#10003; The sub-error names one argument and the type it expected &mdash; fix that argument</li>
+                <li>&#10003; Union argument (<code>string | number</code>)? Narrow with <code>typeof</code> / a type guard first</li>
+                <li>&#10003; Options object? Look for a wrong value <em>or</em> an extra/misnamed property</li>
+                <li>&#10003; Count mismatch? Match your argument count to a real signature's arity</li>
+                <li>&#10003; Value declared with <code>let</code>, overloads expect a specific literal? Check for widening &mdash; use <code>as const</code> or an explicit union type</li>
+                <li>&#10003; Started right after a dependency upgrade? Diff the library's <code>.d.ts</code> for a changed overload</li>
+                <li>&#10003; Don't cast to <code>any</code> to silence it &mdash; that ships the real bug to runtime</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does TS2769: No overload matches this call mean?</summary>
+                    <p>The function you called is declared with multiple overload signatures, and the arguments you passed don't fully match any single one of them. TypeScript then reports the call as unresolvable and, underneath, lists the reason each overload was rejected. It's not saying the function is wrong &mdash; it's saying your specific combination of argument types or count doesn't line up with any allowed shape.</p>
+                </details>
+                <details>
+                    <summary>How do I read the 'Overload N of M gave the following error' output?</summary>
+                    <p>TypeScript prints one sub-error per overload it tried: &ldquo;Overload 1 of 3 ... Argument of type X is not assignable to parameter of type Y.&rdquo; Find the overload you actually intended to call, ignore the others, and read only its sub-error &mdash; that line tells you exactly which argument doesn't match and what type it expected. Fixing that one argument usually resolves the whole TS2769.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen when I pass a union type as an argument?</summary>
+                    <p>Overload resolution needs one overload to accept the entire argument type. If your value is a union like <code>string | number</code> and each overload only accepts one member, none accepts the whole union, so TS2769 fires even though every possible runtime value would be valid for some overload. Narrow the union first with a <code>typeof</code> or type guard so that at the call site the argument is a single concrete type, then call inside each branch.</p>
+                </details>
+                <details>
+                    <summary>Why do I get TS2769 on an options or config object?</summary>
+                    <p>When a function is overloaded on the shape of an options object, an object with an extra, missing, or mistyped property matches no overload. Read the last overload's sub-error &mdash; it usually points at the offending property, for example &lsquo;responseType is not assignable&rsquo; &mdash; and fix that property's value or type. Excess-property checks on object literals are a frequent trigger here.</p>
+                </details>
+                <details>
+                    <summary>Is casting the argument to any a good fix for TS2769?</summary>
+                    <p>No. Casting an argument to <code>any</code> forces one overload to accept it and silences TS2769, but it also disables checking for that argument, so a genuinely wrong call ships to runtime. Fix the real mismatch instead: correct the argument's type, narrow a union before the call, or adjust the argument count to match a real overload. Cast only as a last resort when you've verified the runtime value is actually valid.</p>
+                </details>
+                <details>
+                    <summary>How is TS2769 related to TS2345?</summary>
+                    <p>TS2345 (&ldquo;Argument of type X is not assignable to parameter of type Y&rdquo;) is the single-signature version: one function, one signature, one bad argument. TS2769 is the multi-signature version: the same kind of argument mismatch, but the function has several overloads, so TypeScript reports that none of them matched and nests a TS2345-style reason under each rejected overload. Read the nested reason for the overload you intended.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More TypeScript &amp; JSON errors</h3>
+                <p>Browse the full reference, or generate accurate interfaces from your JSON.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="ts2345-argument-not-assignable.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">TS2345: Argument not assignable</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts2345-argument-not-assignable.html">TS2345: Argument of type 'X' is not assignable to parameter of type 'Y'</a> &mdash; the single-signature version of this mismatch</li>
+                <li><a href="ts2349-expression-not-callable.html">TS2349: This expression is not callable</a></li>
+                <li><a href="ts2322-type-not-assignable.html">TS2322: Type 'X' is not assignable to type 'Y'</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

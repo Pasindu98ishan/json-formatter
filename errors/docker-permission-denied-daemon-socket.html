@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Got permission denied while trying to connect to the Docker daemon socket — why it happens and the fix: add your user to the docker group, not sudo.">
+    <meta name="keywords" content="Got permission denied while trying to connect to the Docker daemon socket, docker permission denied, docker.sock permission denied, add user to docker group, dial unix docker.sock connect permission denied">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-permission-denied-daemon-socket.html">
+    <meta property="og:title" content="Docker: Got Permission Denied on the Daemon Socket — The Real Fix">
+    <meta property="og:description" content="This means the daemon is running but your user can't access the Docker socket. Add your user to the docker group — the correct fix — instead of prefixing every command with sudo.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-permission-denied-daemon-socket.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker: Got Permission Denied on the Daemon Socket — The Real Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Docker: permission denied on the daemon socket", "item": "https://jsondevtools.org/errors/docker-permission-denied-daemon-socket.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: Got permission denied while trying to connect to the Docker daemon socket — Cause and Fix",
+  "description": "This Docker error means the daemon is running but your user lacks permission to access /var/run/docker.sock. This reference explains the socket's group ownership and the correct fix — adding your user to the docker group — plus why sudo is only a workaround and the rootless-mode alternative.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-14",
+  "dateModified": "2026-07-14",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'permission denied while trying to connect to the Docker daemon socket' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The Docker daemon is running and its socket exists at /var/run/docker.sock, but your user account doesn't have permission to read and write that socket. The socket is owned by root and the docker group, so only root or members of the docker group can talk to the daemon. Your user is in neither, so the connection is refused with permission denied — a different problem from the daemon not running at all."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix Docker permission denied without sudo?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Add your user to the docker group: sudo usermod -aG docker $USER. Then apply the new group membership by logging out and back in, or running newgrp docker in the current shell. After that, docker commands work without sudo because your user is now a member of the group that owns the socket. This is the standard, documented fix on Linux."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I still get permission denied after usermod -aG docker?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Group membership changes only take effect in new login sessions. Your current shell was started before you were added to the docker group, so it doesn't see the change yet. Log out completely and back in, reboot, or run newgrp docker to start a subshell with the updated groups. Run the id command to confirm 'docker' now appears in your group list."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just use sudo docker instead?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It works, but it's a workaround, not a fix — you'd have to prefix every command with sudo, and files created by containers may end up owned by root. Adding your user to the docker group is cleaner and permanent. See the next question for why docker-group membership isn't a free lunch either."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is adding my user to the docker group a security risk?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, it grants root-equivalent power. Anyone in the docker group can run a container that bind-mounts the host root filesystem and read or modify any file, so treat docker-group membership like handing out root. On multi-user or production machines where that's unacceptable, use rootless Docker instead, which runs the daemon as your own unprivileged user and avoids the group entirely."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from 'Cannot connect to the Docker daemon'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They sound alike but are opposite situations. 'Cannot connect to the Docker daemon' means the daemon isn't running or isn't reachable at all. 'Permission denied while trying to connect to the Docker daemon socket' means the daemon IS running and the socket exists — you simply lack permission to use it. The first is fixed by starting the daemon; this one is fixed by group membership, not by starting anything."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Docker: permission denied on the daemon socket</span>
+            </nav>
+            <h1>Docker: Got permission denied while trying to connect to the Docker daemon socket</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The daemon <em>is</em> running &mdash; your user just can't access <code>/var/run/docker.sock</code>, which is owned by the <code>docker</code> group. The fix:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Add your user to the group: <code>sudo usermod -aG docker $USER</code>.</li>
+                    <li>Apply it: log out and back in, or run <code>newgrp docker</code>.</li>
+                    <li>Verify with <code>id</code> that <code>docker</code> now appears in your groups.</li>
+                    <li>Don't just <code>sudo docker</code> forever &mdash; that's a workaround, not a fix.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker ps
+Got permission denied while trying to connect to the Docker daemon socket
+at unix:///var/run/docker.sock: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.45/containers/json":
+dial unix /var/run/docker.sock: connect: permission denied</code></pre>
+            </div>
+
+            <p>Docker is a client&ndash;daemon system. The <code>docker</code> command talks to the background daemon (<code>dockerd</code>) over a Unix socket at <code>/var/run/docker.sock</code>. That socket is owned by <code>root</code> and the <code>docker</code> group, with group read/write permission &mdash; so to use it, you must be <code>root</code> or a member of the <code>docker</code> group. This error means the daemon is up and the socket is there; your user simply isn't allowed to open it. That's a crucial distinction from <a href="docker-cannot-connect-to-daemon.html">&ldquo;Cannot connect to the Docker daemon&rdquo;</a>, which means the daemon isn't running at all.</p>
+
+            <p>Before you assume it's a permissions issue, rule out the daemon itself &mdash; a stopped or crashed daemon can sometimes surface as a permission-flavored message too, depending on the client version:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>sudo systemctl status docker</code></pre>
+            </div>
+            <p>If that shows the daemon as <code>inactive</code> or <code>failed</code>, you're actually looking at <a href="docker-cannot-connect-to-daemon.html">a different error</a> &mdash; start the daemon first, and this page no longer applies. If it shows <code>active (running)</code>, the daemon is fine and the rest of this page is the right fix.</p>
+
+            <h2>Confirm what you're looking at</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># the socket exists and shows group "docker" with rw permission:
+$ ls -l /var/run/docker.sock
+srw-rw---- 1 root docker 0 Jul 14 09:00 /var/run/docker.sock
+
+# your user's groups — note whether "docker" is present:
+$ id
+uid=1000(dev) gid=1000(dev) groups=1000(dev),27(sudo)   # ← no "docker"
+
+# simpler, and what most tutorials show:
+$ groups
+dev sudo</code></pre>
+            </div>
+            <p>Reading the <code>ls -l</code> output left to right: <code>srw-rw----</code> breaks down as a socket file (<code>s</code>) with owner permissions <code>rw-</code>, group permissions <code>rw-</code>, and others <code>---</code> &mdash; meaning <strong>owner = root</strong> (full access), <strong>group = docker</strong> (full access), and <strong>everyone else = no access at all</strong>. The socket's group is <code>docker</code>, but the user above isn't in it &mdash; exactly the mismatch that produces the error. <code>groups</code> is the shorter command for the same check; <code>id</code> additionally shows your UID/GID numerically, which is useful when debugging inside containers.</p>
+
+            <h2>The permanent fix: add your user to the docker group</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>sudo usermod -aG docker $USER</code></pre>
+            </div>
+            <p>The <code>-aG</code> matters: <code>-a</code> means <em>append</em>, and without it <code>usermod -G</code> would <em>replace</em> all your other group memberships (including <code>sudo</code>) &mdash; a classic footgun. This one command is the entire fix; the rest is just making it take effect.</p>
+
+            <h2>Apply the new group membership (the step people miss)</h2>
+            <p>Group changes only apply to <strong>new login sessions</strong>. Your current shell started before the change, so it still doesn't see <code>docker</code> in your groups &mdash; which is why the error often persists right after running <code>usermod</code>. Pick one:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># option A: start a subshell with the updated groups (no logout needed)
+newgrp docker
+
+# option B: log out completely and back in (or reboot)
+
+# then confirm — "docker" should now be listed:
+id
+docker ps    # ✅ works without sudo</code></pre>
+            </div>
+            <p>Over SSH, closing and reopening the connection is enough; on a desktop, a full log out&ndash;in (not just a new terminal tab) is the reliable option.</p>
+
+            <p>If <code>usermod</code> complains that the group doesn't exist, create it first with <code>sudo groupadd docker</code>, then re-run the <code>usermod</code> command &mdash; a fresh install or a package that didn't create the group on setup can leave it missing. You can confirm the group exists at any time with <code>getent group docker</code>, which prints the group and its members.</p>
+
+            <h2>Why not just use sudo?</h2>
+            <p><code>sudo docker ps</code> works, and it's fine for a one-off. But as a permanent approach it has two real downsides: you must prefix <em>every</em> command with <code>sudo</code>, and files a container writes to a bind-mounted host directory can end up owned by <code>root</code>, creating permission headaches later. Adding your user to the <code>docker</code> group removes both problems.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #b02a37;border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;">
+                <p style="margin:0;font-weight:600;">Security note worth knowing</p>
+                <p style="margin:0.5rem 0 0;">Membership in the <code>docker</code> group is effectively <strong>root-equivalent</strong>: anyone in it can start a container that bind-mounts the host's root filesystem (<code>docker run -v /:/host ...</code>) and read or modify any file on the machine. Only add users you'd trust with <code>root</code>. On shared or production hosts where that's unacceptable, use rootless Docker instead.</p>
+            </div>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #b02a37;border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;">
+                <p style="margin:0;font-weight:600;">Never do this: chmod 666 the socket</p>
+                <p style="margin:0.5rem 0 0;">A surprising number of Stack Overflow answers suggest <code>sudo chmod 666 /var/run/docker.sock</code> as a quick fix. Don't. It makes the socket world-writable, so <em>any</em> local user or process can control Docker &mdash; and by extension, root the machine via a bind-mounted container, with no group membership required. It's also not even durable: the permission resets to <code>root:docker</code> the next time the daemon restarts, so you'd be reapplying a security hole on every reboot for nothing. Use the group fix above instead.</p>
+            </div>
+
+            <table>
+                <thead><tr><th>Situation</th><th>Fix</th></tr></thead>
+                <tbody>
+                    <tr><td><code>docker</code> group doesn't exist</td><td><code>sudo groupadd docker</code>, then re-run <code>usermod</code></td></tr>
+                    <tr><td>Added to the group but still fails</td><td>Log out/in, or run <code>newgrp docker</code></td></tr>
+                    <tr><td>Daemon not running</td><td><code>sudo systemctl start docker</code> &mdash; different error, see above</td></tr>
+                    <tr><td>Shared or production server</td><td>Use rootless Docker instead of the group</td></tr>
+                    <tr><td>Need it working right now, one-off</td><td><code>sudo docker ...</code> &mdash; a temporary workaround only</td></tr>
+                </tbody>
+            </table>
+
+            <h2>The stricter alternative: rootless Docker</h2>
+            <p>Rootless mode runs the daemon as your own unprivileged user, so there's no root-owned socket and no <code>docker</code> group to join &mdash; the whole permission question disappears, at the cost of a few feature limitations. It's the right choice on multi-user machines:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>dockerd-rootless-setuptool.sh install
+# then use the per-user socket it configures, e.g.:
+export DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock</code></pre>
+            </div>
+
+            <h2>Note for macOS and Windows</h2>
+            <p>This error is essentially Linux-only. On Docker Desktop (Mac/Windows) the daemon runs inside a managed VM and the client connects through a per-user socket or named pipe, so there's no host <code>docker</code> group to configure. If you hit a connection problem there, it's almost always the daemon not being started &mdash; see <a href="docker-cannot-connect-to-daemon.html">Cannot connect to the Docker daemon</a>.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>sudo systemctl status docker</code> &mdash; rule out the daemon not running first</li>
+                <li>&#10003; <code>ls -l /var/run/docker.sock</code> &mdash; confirms the socket exists, group <code>docker</code></li>
+                <li>&#10003; <code>id</code> or <code>groups</code> &mdash; is <code>docker</code> in your group list? If not, that's the cause</li>
+                <li>&#10003; <code>sudo usermod -aG docker $USER</code> &mdash; note the <code>-a</code> (append, don't replace)</li>
+                <li>&#10003; <code>newgrp docker</code> or log out/in &mdash; group changes need a fresh session</li>
+                <li>&#10003; <code>docker ps</code> now works without <code>sudo</code></li>
+                <li>&#10003; Shared/production host? Prefer rootless Docker over the group (it's root-equivalent)</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'permission denied while trying to connect to the Docker daemon socket' mean?</summary>
+                    <p>The Docker daemon is running and its socket exists at <code>/var/run/docker.sock</code>, but your user account doesn't have permission to read and write that socket. The socket is owned by <code>root</code> and the <code>docker</code> group, so only <code>root</code> or members of the <code>docker</code> group can talk to the daemon. Your user is in neither, so the connection is refused with permission denied &mdash; a different problem from the daemon not running at all.</p>
+                </details>
+                <details>
+                    <summary>How do I fix Docker permission denied without sudo?</summary>
+                    <p>Add your user to the <code>docker</code> group: <code>sudo usermod -aG docker $USER</code>. Then apply the new group membership by logging out and back in, or running <code>newgrp docker</code> in the current shell. After that, <code>docker</code> commands work without <code>sudo</code> because your user is now a member of the group that owns the socket. This is the standard, documented fix on Linux.</p>
+                </details>
+                <details>
+                    <summary>Why do I still get permission denied after usermod -aG docker?</summary>
+                    <p>Group membership changes only take effect in new login sessions. Your current shell was started before you were added to the <code>docker</code> group, so it doesn't see the change yet. Log out completely and back in, reboot, or run <code>newgrp docker</code> to start a subshell with the updated groups. Run the <code>id</code> command to confirm <code>docker</code> now appears in your group list.</p>
+                </details>
+                <details>
+                    <summary>Should I just use sudo docker instead?</summary>
+                    <p>It works, but it's a workaround, not a fix &mdash; you'd have to prefix every command with <code>sudo</code>, and files created by containers may end up owned by <code>root</code>. Adding your user to the <code>docker</code> group is cleaner and permanent. See the next question for why docker-group membership isn't a free lunch either.</p>
+                </details>
+                <details>
+                    <summary>Is adding my user to the docker group a security risk?</summary>
+                    <p>Yes, it grants root-equivalent power. Anyone in the <code>docker</code> group can run a container that bind-mounts the host root filesystem and read or modify any file, so treat docker-group membership like handing out root. On multi-user or production machines where that's unacceptable, use rootless Docker instead, which runs the daemon as your own unprivileged user and avoids the group entirely.</p>
+                </details>
+                <details>
+                    <summary>How is this different from 'Cannot connect to the Docker daemon'?</summary>
+                    <p>They sound alike but are opposite situations. &lsquo;Cannot connect to the Docker daemon&rsquo; means the daemon isn't running or isn't reachable at all. &lsquo;Permission denied while trying to connect to the Docker daemon socket&rsquo; means the daemon IS running and the socket exists &mdash; you simply lack permission to use it. The first is fixed by starting the daemon; this one is fixed by group membership, not by starting anything.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Docker &amp; backend errors</h3>
+                <p>Browse the full reference for Docker, Node.js, Python, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="docker-cannot-connect-to-daemon.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker: Cannot connect to the daemon</a>
+                    <a href="docker-no-space-left-on-device.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Docker: no space left on device</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-cannot-connect-to-daemon.html">Docker: Cannot connect to the Docker daemon</a> &mdash; the lookalike where the daemon isn't running at all</li>
+                <li><a href="docker-no-space-left-on-device.html">Docker: no space left on device</a></li>
+                <li><a href="npm-eacces-permission-denied.html">npm ERR! code EACCES: permission denied</a> &mdash; the same class of Unix permission fix for npm</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
