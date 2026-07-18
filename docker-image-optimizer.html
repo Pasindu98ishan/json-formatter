@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Paste a Dockerfile and get line-by-line advice to shrink the image: slim base images, layer caching, apt cleanup, multi-stage builds. 100% in your browser.">
+    <meta name="keywords" content="docker image optimizer, dockerfile analyzer, reduce docker image size, dockerfile best practices, dockerfile linter online, docker multi-stage build, docker layer caching, smaller docker image">
+    <link rel="canonical" href="https://jsondevtools.org/docker-image-optimizer.html">
+    <meta property="og:title" content="Docker Image Optimizer — Dockerfile Size &amp; Caching Advisor">
+    <meta property="og:description" content="Paste a Dockerfile and get concrete, line-anchored advice to shrink the image and speed up builds — slim bases, layer order, apt cleanup, multi-stage builds. Free, private, in-browser.">
+    <meta property="og:url" content="https://jsondevtools.org/docker-image-optimizer.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker Image Optimizer — Dockerfile Size &amp; Caching Advisor | Free</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <style>
+        .do-input {
+            width:100%; min-height:220px; box-sizing:border-box; resize:vertical;
+            font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13.5px; line-height:1.5;
+            padding:0.9rem 1rem; border:1px solid var(--border-color); border-radius:8px;
+            background:var(--light-bg); color:var(--text-color);
+        }
+        .do-input:focus { outline:2px solid var(--primary-color); outline-offset:1px; }
+        .do-input.drag-over { border-color:var(--primary-color); background:rgba(74,144,226,0.06); }
+
+        .do-uploadbar { display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem 0.85rem; margin:0.6rem 0 0; }
+        .do-uploadbtn {
+            display:inline-flex; align-items:center; gap:0.4rem; font-size:13.5px; font-weight:600;
+            color:var(--primary-color); background:transparent; cursor:pointer;
+            border:1px solid var(--primary-color); border-radius:8px; padding:0.42rem 0.9rem; transition:background .12s;
+        }
+        .do-uploadbtn:hover { background:rgba(74,144,226,0.09); }
+        .do-uploadnote { font-size:12.5px; color:var(--secondary-color); }
+
+        .do-advisornote {
+            display:flex; gap:0.5rem; align-items:flex-start; font-size:12.5px; color:var(--secondary-color);
+            margin:0.75rem 0 0; padding:0.55rem 0.8rem; border:1px dashed var(--border-color); border-radius:8px;
+        }
+
+        .do-buttons { margin:0.7rem 0 0.6rem; }
+
+        .do-summary { display:flex; align-items:center; flex-wrap:wrap; gap:0.6rem; font-size:14.5px; color:var(--text-color); margin:1rem 0 0.4rem; }
+        .do-grade {
+            display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px;
+            border-radius:10px; font-weight:800; font-size:19px; color:#fff;
+        }
+        .do-grade-A { background:#28a745; } .do-grade-B { background:#7cb342; }
+        .do-grade-C { background:#f0ad4e; } .do-grade-D { background:#e8590c; } .do-grade-F { background:#b02a37; }
+
+        .do-findings { list-style:none; padding:0; margin:0.6rem 0 0; display:flex; flex-direction:column; gap:0.7rem; }
+        .do-finding {
+            border:1px solid var(--border-color); border-left-width:4px; border-radius:8px;
+            padding:0.8rem 1rem 0.85rem; background:var(--light-bg);
+        }
+        .do-sev-high { border-left-color:#b02a37; }
+        .do-sev-med  { border-left-color:#f0ad4e; }
+        .do-sev-info { border-left-color:#4a90e2; }
+
+        .do-f-head { display:flex; align-items:center; flex-wrap:wrap; gap:0.55rem; }
+        .do-badge {
+            font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+            border-radius:5px; padding:2px 7px; color:#fff;
+        }
+        .do-badge-high { background:#b02a37; } .do-badge-med { background:#e09b1a; } .do-badge-info { background:#4a90e2; }
+        .do-f-title { font-weight:700; font-size:14.5px; }
+        .do-f-line { margin-left:auto; font-size:12px; color:var(--secondary-color); white-space:nowrap; }
+        .do-f-raw {
+            display:block; margin:0.55rem 0 0; padding:0.45rem 0.7rem; overflow-x:auto;
+            font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px;
+            background:rgba(0,0,0,0.045); border-radius:6px; white-space:pre;
+        }
+        .do-f-detail { margin:0.55rem 0 0; font-size:13.8px; line-height:1.55; }
+        .do-f-fix { margin:0.45rem 0 0; font-size:13.8px; line-height:1.55; }
+        .do-f-fix code, .do-f-detail code { font-size:12.5px; }
+
+        body.dark-mode { --light-bg:#2d2d2d; --border-color:#444; --text-color:#e0e0e0; --secondary-color:#9aa0a6; }
+        body.dark-mode .do-input { background:#2d2d2d; border-color:#444; color:#e0e0e0; }
+        body.dark-mode .do-finding { background:#2d2d2d; border-color:#444; }
+        body.dark-mode .do-sev-high { border-left-color:#e05260; }
+        body.dark-mode .do-sev-med  { border-left-color:#f0ad4e; }
+        body.dark-mode .do-sev-info { border-left-color:#4a90e2; }
+        body.dark-mode .do-f-raw { background:rgba(255,255,255,0.06); }
+        body.dark-mode .do-advisornote { border-color:#444; }
+    </style>
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Docker Image Optimizer", "item": "https://jsondevtools.org/docker-image-optimizer.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Docker Image Optimizer",
+      "url": "https://jsondevtools.org/docker-image-optimizer.html",
+      "description": "Paste a Dockerfile and get line-anchored, static-analysis advice to shrink the image and speed up builds: slim base images, layer-cache-friendly COPY order, apt/apk cleanup in the same layer, multi-stage builds, npm ci and pip flags, baked-in secrets, and .dockerignore reminders — entirely in your browser.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does the Docker Image Optimizer do?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Paste a Dockerfile and it statically analyzes the instructions, then reports line-anchored findings with concrete fixes: an unpinned or bloated base image, COPY ordering that breaks layer caching, apt/apk installs without same-layer cleanup, a missing multi-stage build, npm install instead of npm ci, pip without --no-cache-dir, secrets baked into ENV/ARG, running as root, and a .dockerignore reminder. Each finding explains why it costs image size or build time and shows the exact change to make." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it build or run my image?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No — it is an advisor, not a builder. It only reads the Dockerfile text you paste and applies static-analysis rules to it. Nothing is built, pulled, or executed, so the advice is based on the instructions themselves, not on measuring a real image. For actual layer-by-layer size measurement of a built image, use a local tool like docker history or dive alongside it." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my Dockerfile uploaded anywhere?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. The analysis is plain JavaScript running in your browser — the Dockerfile you paste is never uploaded or transmitted. Dockerfiles frequently reveal internal registry names, service layout, and sometimes accidentally-committed secrets, so keeping the analysis fully client-side is the point." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is my Docker image so large?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The usual causes, in order of impact: a full base image where a -slim or -alpine variant exists (often 300+ MB of difference), no multi-stage build so compilers and dev dependencies ship in the final image, package-manager caches left in layers (apt lists, pip wheels, npm cache), and COPY . . dragging node_modules, .git and build output into the image because there is no .dockerignore. This tool flags each of these from the Dockerfile text." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the COPY ordering / layer caching issue?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Docker caches each instruction as a layer and reuses it only if nothing above it changed. If you COPY . . before running npm ci or pip install, then any source-file change invalidates the COPY layer and everything after it — so dependencies reinstall from scratch on every build. The fix is to copy only the dependency manifest first (package*.json, requirements.txt, go.mod), install, and copy the rest of the source afterwards." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does deleting files in a later RUN not shrink the image?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Image layers are additive: a file created in one layer is stored in that layer forever, and a later rm only hides it. That is why cleanup must happen inside the same RUN instruction that created the files — apt-get install -y pkg && rm -rf /var/lib/apt/lists/* in one command shrinks the layer, while a separate RUN rm afterwards does not." }
+        },
+        {
+          "@type": "Question",
+          "name": "When should I use a multi-stage build?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Whenever the image needs tools to build that it does not need to run: compiling TypeScript, bundling a frontend, go build, cargo build, or mvn package. Build in a first stage with the full toolchain, then COPY --from=build only the output into a slim runtime stage. The final image ships without compilers, dev dependencies, or intermediate artifacts — routinely cutting hundreds of megabytes." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>Docker Image Optimizer</h1>
+            <p>Paste a Dockerfile and get line-by-line advice to shrink the image and speed up builds &mdash; slim bases, layer caching, cleanup, multi-stage builds. Entirely in your browser.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+            <label for="dockerfileInput" style="display:block;font-weight:600;margin:0 0 0.5rem;">Paste your Dockerfile:</label>
+            <textarea id="dockerfileInput" class="do-input" placeholder="FROM node:latest&#10;WORKDIR /app&#10;COPY . .&#10;RUN npm install&#10;..." spellcheck="false" autocomplete="off"></textarea>
+            <div class="do-uploadbar">
+                <label for="fileInput" class="do-uploadbtn">&#128228; Upload a Dockerfile</label>
+                <span class="do-uploadnote">&hellip; or drag &amp; drop it onto the box above &mdash; read in your browser, never uploaded.</span>
+            </div>
+            <input type="file" id="fileInput" hidden>
+
+            <div class="do-advisornote">
+                <span aria-hidden="true">&#9432;</span>
+                <span><strong>Static advisor, not a builder.</strong> This tool only reads the text you paste &mdash; it never builds, pulls, or runs an image. Findings are based on the instructions themselves; sizes quoted are typical published image sizes, not a measurement of your build.</span>
+            </div>
+
+            <div class="button-group do-buttons">
+                <button id="analyzeBtn" class="btn btn-primary" aria-label="Analyze the pasted Dockerfile">Analyze</button>
+                <button id="sampleBtn" class="btn btn-secondary" aria-label="Fill an example Dockerfile">Try an example</button>
+                <button id="copyBtn" class="btn btn-secondary" aria-label="Copy the report">Copy report</button>
+                <button id="downloadBtn" class="btn btn-secondary" aria-label="Download the report">Download</button>
+                <button id="clearBtn" class="btn btn-secondary" aria-label="Clear the input">Clear</button>
+            </div>
+
+            <div id="doResultsWrap" style="display:none;">
+                <p id="doSummary" class="do-summary" aria-live="polite"></p>
+                <ul id="doFindings" class="do-findings"></ul>
+            </div>
+        </section>
+
+        <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:2rem 0 0;">
+            <p style="margin:0;font-weight:600;">Quick answer</p>
+            <p style="margin:0.5rem 0 0;">The Docker Image Optimizer statically analyzes a pasted Dockerfile and reports what's making the image bigger or builds slower &mdash; unpinned/bloated base images, cache-busting <code>COPY</code> order, apt/apk caches left in layers, missing multi-stage builds, baked-in secrets &mdash; each with the exact fix. <strong>It's an advisor, not a builder, and everything runs in your browser: your Dockerfile is never uploaded.</strong></p>
+        </div>
+
+        <section class="info-section">
+            <h3 style="margin-top:0;">Key takeaways</h3>
+            <ul>
+                <li><strong>Base image is the biggest lever</strong> &mdash; <code>node:latest</code> is ~430&nbsp;MB before your code; <code>-slim</code>/<code>-alpine</code> variants cut most of it.</li>
+                <li><strong>Layers are additive</strong> &mdash; cleanup only shrinks the image when it happens in the <em>same</em> <code>RUN</code> that made the mess.</li>
+                <li><strong>Copy manifests before source</strong> &mdash; <code>COPY package*.json ./</code> &rarr; install &rarr; <code>COPY . .</code> keeps dependency layers cached across code changes.</li>
+                <li><strong>Multi-stage builds ship only the output</strong> &mdash; compile with the full toolchain, run on a slim base.</li>
+                <li><strong>100% private</strong> &mdash; pure client-side static analysis; nothing you paste leaves your browser.</li>
+            </ul>
+
+            <h2>What does it check?</h2>
+            <div class="table-container" style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <thead>
+                        <tr style="background:var(--light-bg);">
+                            <th style="padding:9px 12px;border:1px solid var(--border-color);text-align:left;">Check</th>
+                            <th style="padding:9px 12px;border:1px solid var(--border-color);text-align:left;">Why it matters</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Unpinned / <code>:latest</code> base image</td><td style="padding:9px 12px;border:1px solid var(--border-color);">Non-reproducible builds; surprise upstream changes</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Bloated base (full <code>node</code>/<code>python</code>/<code>openjdk</code>&hellip;)</td><td style="padding:9px 12px;border:1px solid var(--border-color);">Hundreds of MB a <code>-slim</code>/<code>-alpine</code>/JRE variant avoids</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);"><code>COPY . .</code> before dependency install</td><td style="padding:9px 12px;border:1px solid var(--border-color);">Every code change reinstalls all dependencies (cache bust)</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);"><code>apt-get</code>/<code>apk</code> without same-layer cleanup</td><td style="padding:9px 12px;border:1px solid var(--border-color);">Package caches baked permanently into the layer</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Build step without multi-stage</td><td style="padding:9px 12px;border:1px solid var(--border-color);">Compilers and dev deps ship in the production image</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);"><code>npm install</code> / <code>pip install</code> flags</td><td style="padding:9px 12px;border:1px solid var(--border-color);"><code>npm ci --omit=dev</code>, <code>--no-cache-dir</code> — smaller and reproducible</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Secrets in <code>ENV</code>/<code>ARG</code></td><td style="padding:9px 12px;border:1px solid var(--border-color);">Readable by anyone who pulls the image (<code>docker history</code>)</td></tr>
+                        <tr><td style="padding:9px 12px;border:1px solid var(--border-color);">Missing <code>USER</code>, <code>ADD</code> vs <code>COPY</code>, <code>cd</code> vs <code>WORKDIR</code>, layer count, <code>.dockerignore</code></td><td style="padding:9px 12px;border:1px solid var(--border-color);">Security and maintainability hygiene</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2>How does it work?</h2>
+            <p>The pasted Dockerfile is parsed into instructions (handling <code>\</code> line continuations, comments, and multi-stage <code>FROM &hellip; AS</code> boundaries), then a set of static rules runs over the instruction list. Rules are stage-aware &mdash; a fat <code>golang</code> image in a <em>build</em> stage of a multi-stage file is correct and won't be flagged, while the same image as the <em>final</em> stage will be. Every finding is anchored to the line that caused it and paired with the concrete replacement, and the whole report can be copied or downloaded as text for a PR description or team chat.</p>
+
+            <h2>Is it private?</h2>
+            <p>Yes. The analysis is plain JavaScript running in your browser tab &mdash; <strong>the Dockerfile you paste is never uploaded or sent to a server</strong>. Dockerfiles routinely reveal internal registry hostnames, service structure, and occasionally real secrets in <code>ENV</code> lines, so a Dockerfile analyzer that uploaded your file would be its own security problem. If a finding shows a baked-in secret, rotate it &mdash; and scrub any build logs you share with the <a href="log-redactor.html">Log Redactor</a>.</p>
+
+            <h2>What it is not</h2>
+            <p>This is a <strong>static advisor</strong>: it reads text and applies rules. It doesn't build the image, measure real layer sizes, scan for CVEs, or execute anything. Quoted image sizes are typical published sizes for the official images, meant for orientation &mdash; your exact numbers depend on version and architecture. For measuring an already-built image layer by layer, pair it with local tools like <code>docker history</code> or <code>dive</code>.</p>
+            <p><strong>Known limitation:</strong> BuildKit heredoc blocks (<code>RUN &lt;&lt;EOF &hellip; EOF</code>) aren't parsed &mdash; commands inside a heredoc body are skipped rather than analyzed, so an <code>apt-get install</code> inside one won't be checked. No false findings are produced; the block is simply not inspected.</p>
+
+            <p style="margin-top:1rem;">Hitting Docker <em>errors</em> rather than size problems? The error reference covers the common ones: <a href="errors/docker-no-space-left-on-device.html">no space left on device</a> (often caused by exactly the image bloat this tool flags), <a href="errors/docker-container-exited-code-137-oomkilled.html">exited with code 137 (OOMKilled)</a>, <a href="errors/docker-exec-format-error.html">exec format error</a> (wrong-architecture base image), and <a href="errors/docker-cannot-connect-to-daemon.html">Cannot connect to the Docker daemon</a>.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>What does the Docker Image Optimizer do?</summary>
+                <p>Paste a Dockerfile and it statically analyzes the instructions, then reports line-anchored findings with concrete fixes: an unpinned or bloated base image, <code>COPY</code> ordering that breaks layer caching, apt/apk installs without same-layer cleanup, a missing multi-stage build, <code>npm install</code> instead of <code>npm ci</code>, pip without <code>--no-cache-dir</code>, secrets baked into <code>ENV</code>/<code>ARG</code>, running as root, and a <code>.dockerignore</code> reminder. Each finding explains why it costs image size or build time and shows the exact change to make.</p>
+            </details>
+            <details>
+                <summary>Does it build or run my image?</summary>
+                <p>No — it is an <strong>advisor, not a builder</strong>. It only reads the Dockerfile text you paste and applies static-analysis rules to it. Nothing is built, pulled, or executed, so the advice is based on the instructions themselves, not on measuring a real image. For actual layer-by-layer size measurement of a built image, use a local tool like <code>docker history</code> or <code>dive</code> alongside it.</p>
+            </details>
+            <details>
+                <summary>Is my Dockerfile uploaded anywhere?</summary>
+                <p>No. The analysis is plain JavaScript running in your browser — the Dockerfile you paste is never uploaded or transmitted. Dockerfiles frequently reveal internal registry names, service layout, and sometimes accidentally-committed secrets, so keeping the analysis fully client-side is the point.</p>
+            </details>
+            <details>
+                <summary>Why is my Docker image so large?</summary>
+                <p>The usual causes, in order of impact: a full base image where a <code>-slim</code> or <code>-alpine</code> variant exists (often 300+ MB of difference), no multi-stage build so compilers and dev dependencies ship in the final image, package-manager caches left in layers (apt lists, pip wheels, npm cache), and <code>COPY . .</code> dragging <code>node_modules</code>, <code>.git</code> and build output into the image because there is no <code>.dockerignore</code>. This tool flags each of these from the Dockerfile text.</p>
+            </details>
+            <details>
+                <summary>What is the COPY ordering / layer caching issue?</summary>
+                <p>Docker caches each instruction as a layer and reuses it only if nothing above it changed. If you <code>COPY . .</code> before running <code>npm ci</code> or <code>pip install</code>, then any source-file change invalidates the COPY layer and everything after it — so dependencies reinstall from scratch on every build. The fix is to copy only the dependency manifest first (<code>package*.json</code>, <code>requirements.txt</code>, <code>go.mod</code>), install, and copy the rest of the source afterwards.</p>
+            </details>
+            <details>
+                <summary>Why does deleting files in a later RUN not shrink the image?</summary>
+                <p>Image layers are additive: a file created in one layer is stored in that layer forever, and a later <code>rm</code> only hides it. That is why cleanup must happen inside the <em>same</em> RUN instruction that created the files — <code>apt-get install -y pkg &amp;&amp; rm -rf /var/lib/apt/lists/*</code> in one command shrinks the layer, while a separate <code>RUN rm</code> afterwards does not.</p>
+            </details>
+            <details>
+                <summary>When should I use a multi-stage build?</summary>
+                <p>Whenever the image needs tools to <em>build</em> that it does not need to <em>run</em>: compiling TypeScript, bundling a frontend, <code>go build</code>, <code>cargo build</code>, or <code>mvn package</code>. Build in a first stage with the full toolchain, then <code>COPY --from=build</code> only the output into a slim runtime stage. The final image ships without compilers, dev dependencies, or intermediate artifacts — routinely cutting hundreds of megabytes.</p>
+            </details>
+        </section>
+
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: July 2026</p>
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="errors/docker-no-space-left-on-device.html">Docker: no space left on device</a> &mdash; bloated images and build cache are the usual culprits</li>
+                <li><a href="errors/docker-container-exited-code-137-oomkilled.html">Docker: container exited with code 137 (OOMKilled)</a></li>
+                <li><a href="errors/docker-exec-format-error.html">Docker: exec format error</a> &mdash; wrong-architecture base image</li>
+                <li><a href="errors/docker-cannot-connect-to-daemon.html">Docker: Cannot connect to the Docker daemon</a></li>
+                <li><a href="errors.html">All error references</a></li>
+            </ul>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="log-redactor.html">Log Redactor</a> &mdash; scrub secrets from build logs before sharing</li>
+                <li><a href="error-log-analyzer.html">Error Log Analyzer</a></li>
+                <li><a href="json-to-yaml.html">JSON to YAML Converter</a> &mdash; for compose files and Kubernetes manifests</li>
+                <li><a href="cron.html">CRON Expression Generator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/docker-image-optimizer-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>
