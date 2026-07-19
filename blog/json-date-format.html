@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="JSON has no native date type. Learn the right way to store dates in JSON using ISO 8601, how JavaScript serializes Date objects, timezone handling, and the seconds-vs-milliseconds Unix timestamp gotcha.">
-    <meta name="keywords" content="json date format, iso 8601 json, how to store dates in json, javascript date to json, json timestamp, json date string, json datetime">
+    <meta name="description" content="JSON has no date type. The right way to store dates using ISO 8601 — with JavaScript and Python examples, timezone handling, and the Unix-timestamp gotcha.">
+    <meta name="keywords" content="json date format, json datetime format, iso 8601 json, how to store dates in json, javascript date to json, python json datetime, json timestamp, json date string, correct date format for json">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jsondevtools.org/blog/json-date-format.html">
@@ -44,7 +44,7 @@
       "description": "Why ISO 8601 is the right format for dates in JSON, how JavaScript serializes Date objects, and the common timezone and Unix-timestamp mistakes that break APIs.",
       "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
       "datePublished": "2026-05-16",
-      "dateModified": "2026-05-16",
+      "dateModified": "2026-07-19",
       "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
     }
     </script>
@@ -72,6 +72,21 @@
           "@type": "Question",
           "name": "How do I store a date without a time in JSON?",
           "acceptedAnswer": { "@type": "Answer", "text": "Use the ISO 8601 date-only format: 'YYYY-MM-DD' (for example '2026-05-16'). This is the unambiguous standard for calendar dates without a time component. Avoid locale formats like '05/16/2026' (US) or '16/05/2026' (most of the rest of the world) &mdash; they look identical for 1&ndash;12 of the month and produce silent bugs the rest of the time." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between Z and +00:00 in an ISO 8601 string?",
+          "acceptedAnswer": { "@type": "Answer", "text": "They mean the same thing — UTC, zero offset. Z stands for 'Zulu time' (military / aviation shorthand for UTC) and is shorter, so most JSON producers and consumers prefer it. Both are valid per the ISO 8601 spec and every standard parser accepts either." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the correct date format for JSON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "There is no format built into JSON itself — JSON has no date type — so the de facto standard is an ISO 8601 string: 'YYYY-MM-DDTHH:mm:ssZ' for a datetime, or 'YYYY-MM-DD' for a plain calendar date. It's unambiguous, sorts correctly as plain text, includes the timezone, and is parseable by every modern language. Avoid locale formats and undocumented Unix timestamps." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I format a datetime as JSON in Python?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Python's json module can't serialize a datetime directly — json.dumps({'d': datetime.now()}) raises 'Object of type datetime is not JSON serializable'. Convert it to an ISO 8601 string first with .isoformat() (attach timezone.utc so the offset is included), and read it back with datetime.fromisoformat(). For a global fix across datetime, Decimal, set and other types, pass a default= function to json.dumps." }
         }
       ]
     }
@@ -127,7 +142,7 @@
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre>2026-05-16T14:30:00.123Z
-&#x2514;&#x2500;date&#x2500;&#x2500;â”˜ &#x2514;&#x2500;time&#x2500;&#x2500;&#x2500;&#x2500;â”˜ &#x2514;timezone</pre>
+&#x2514;&#x2500;date&#x2500;&#x2500;&#x2518; &#x2514;&#x2500;time&#x2500;&#x2500;&#x2500;&#x2500;&#x2518; &#x2514;timezone</pre>
             </div>
 
             <table>
@@ -194,6 +209,39 @@ const event = JSON.parse(jsonString, (key, value) => {
   return value;
 });</pre>
             </div>
+
+            <h2>Dates in JSON in Python</h2>
+            <p>The ISO 8601 convention is language-agnostic, but every language needs an explicit step to turn its native date type into a JSON string &mdash; and Python's is the one developers trip over most, because the <code>json</code> module refuses to do it for you:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import json
+from datetime import datetime
+
+json.dumps({"createdAt": datetime.now()})
+# TypeError: Object of type datetime is not JSON serializable</pre>
+            </div>
+            <p>Unlike JavaScript, Python's <code>json.dumps()</code> has no built-in date handling. Convert the <code>datetime</code> to an ISO 8601 string yourself with <code>.isoformat()</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>from datetime import datetime, timezone
+
+now = datetime.now(timezone.utc)
+json.dumps({"createdAt": now.isoformat()})
+# '{"createdAt": "2026-05-16T14:30:00.123456+00:00"}'
+
+# reading it back into a real datetime:
+data = json.loads('{"createdAt": "2026-05-16T14:30:00+00:00"}')
+datetime.fromisoformat(data["createdAt"])   # datetime.datetime(2026, 5, 16, 14, 30, tzinfo=...)</pre>
+            </div>
+            <p>Always attach <code>timezone.utc</code> before serializing &mdash; a naive <code>datetime.now()</code> produces an ISO string with no timezone, which is the same silent-bug trap covered below. For a project-wide fix (and for <code>Decimal</code>, <code>set</code>, UUID, and NumPy types that hit the same wall), see the full reference on <a href="../errors/object-not-json-serializable.html">Object of type datetime is not JSON serializable</a>.</p>
+
+            <h3>Other languages, same convention</h3>
+            <p>The pattern is identical everywhere &mdash; serialize to an ISO 8601 string, parse from one:</p>
+            <ul>
+                <li><strong>Java</strong> &mdash; Jackson serializes <code>java.time.Instant</code>/<code>OffsetDateTime</code> to ISO 8601 out of the box (register <code>JavaTimeModule</code>); avoid the legacy <code>Date</code>, which defaults to a numeric timestamp.</li>
+                <li><strong>C# / .NET</strong> &mdash; <code>System.Text.Json</code> writes <code>DateTime</code>/<code>DateTimeOffset</code> as ISO 8601 automatically. Prefer <code>DateTimeOffset</code> so the offset is preserved.</li>
+                <li><strong>Go</strong> &mdash; <code>time.Time</code> marshals to RFC 3339 (an ISO 8601 profile) by default via <code>encoding/json</code>.</li>
+            </ul>
 
             <h2>The Unix timestamp alternative &mdash; and its biggest pitfall</h2>
             <p>If your API is performance-sensitive or works with time-series data, you may prefer Unix timestamps (seconds or milliseconds since 1970-01-01 UTC):</p>
@@ -347,6 +395,16 @@ time();  // 1747405800  (10 digits, seconds)</pre>
                 <details>
                     <summary>What is the difference between Z and +00:00 in an ISO 8601 string?</summary>
                     <p>They mean the same thing &mdash; UTC, zero offset. <code>Z</code> stands for "Zulu time" (military / aviation shorthand for UTC) and is shorter, so most JSON producers and consumers prefer it. Both are valid per the ISO 8601 spec and every standard parser accepts either.</p>
+                </details>
+
+                <details>
+                    <summary>What is the correct date format for JSON?</summary>
+                    <p>There is no format built into JSON itself &mdash; JSON has no date type &mdash; so the de facto standard is an ISO 8601 string: <code>"YYYY-MM-DDTHH:mm:ssZ"</code> for a datetime, or <code>"YYYY-MM-DD"</code> for a plain calendar date. It's unambiguous, sorts correctly as plain text, includes the timezone, and is parseable by every modern language. Avoid locale formats and undocumented Unix timestamps.</p>
+                </details>
+
+                <details>
+                    <summary>How do I format a datetime as JSON in Python?</summary>
+                    <p>Python's <code>json</code> module can't serialize a <code>datetime</code> directly &mdash; <code>json.dumps({'d': datetime.now()})</code> raises <a href="../errors/object-not-json-serializable.html">Object of type datetime is not JSON serializable</a>. Convert it to an ISO 8601 string first with <code>.isoformat()</code> (attach <code>timezone.utc</code> so the offset is included), and read it back with <code>datetime.fromisoformat()</code>. For a global fix across <code>datetime</code>, <code>Decimal</code>, <code>set</code> and other types, pass a <code>default=</code> function to <code>json.dumps</code>.</p>
                 </details>
 
             </section>

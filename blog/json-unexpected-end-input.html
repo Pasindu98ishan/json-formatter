@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="'Unexpected end of JSON input' means your JSON is truncated or has unclosed brackets. Learn the exact causes and how to find and fix the problem fast.">
-    <meta name="keywords" content="unexpected end of json input, json parse error truncated, unclosed bracket json, json incomplete, fix json end of input">
+    <meta name="description" content="'Unexpected end of JSON input' means your JSON is truncated or has unclosed brackets. The exact causes and fixes — in JavaScript, fetch(), and Python (JSONDecodeError).">
+    <meta name="keywords" content="unexpected end of json input, syntaxerror unexpected end of json input, unexpected end of json input meaning, python unexpected end of json input, json parse error truncated, unclosed bracket json, fix json end of input">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jsondevtools.org/blog/json-unexpected-end-input.html">
@@ -44,7 +44,7 @@
       "description": "Truncated responses, unclosed brackets, and partial file writes all cause this error. Learn how to find and fix the missing piece.",
       "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
       "datePublished": "2026-05-04",
-      "dateModified": "2026-05-04",
+      "dateModified": "2026-07-19",
       "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
     }
     </script>
@@ -53,6 +53,11 @@
       "@context": "https://schema.org",
       "@type": "FAQPage",
       "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does 'Unexpected end of JSON input' mean?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It means the JSON parser reached the end of the text before the document was complete — the JSON is cut off. Every open brace and bracket must be closed, and the last value must finish, before the string ends. When the parser runs out of characters while still expecting more, it throws this error. It is almost always truncated or incomplete data, not a syntax typo in the middle of the document." }
+        },
         {
           "@type": "Question",
           "name": "What causes 'Unexpected end of JSON input'?",
@@ -174,6 +179,26 @@ countBrackets('{"name": "Alice", "scores": [1, 2');
 // { unclosedBraces: 1, unclosedBrackets: 1 }</pre>
             </div>
 
+            <h2>The same error in Python</h2>
+            <p>&ldquo;Unexpected end of JSON input&rdquo; is the JavaScript/Node wording. Python's <code>json</code> module raises the same underlying problem &mdash; a JSON document that ends too soon &mdash; but with a different message depending on <em>where</em> it was cut off:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre>import json
+
+# empty or whitespace-only body:
+json.loads("")
+# json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+# truncated mid-structure:
+json.loads('{"users": [{"id": 1}')
+# json.decoder.JSONDecodeError: Expecting ',' delimiter: line 1 column 20 (char 19)
+
+# cut off inside a string:
+json.loads('{"name": "Ali')
+# json.decoder.JSONDecodeError: Unterminated string starting at: line 1 column 10 (char 9)</pre>
+            </div>
+            <p>So the fix is identical &mdash; find where the JSON was truncated &mdash; but the message you search for differs. If you're on Python, the two you'll hit most are <a href="../errors/jsondecodeerror-expecting-value.html">Expecting value: line 1 column 1 (char 0)</a> (usually an empty response) and <a href="../errors/jsondecodeerror-unterminated-string.html">Unterminated string starting at</a> (a response cut off mid-value). Guard the same way: check the body is non-empty before calling <code>json.loads()</code>.</p>
+
             <h2>Validating before parsing</h2>
             <p>Use the <a href="../json-validator.html">JSON Validator</a> to check any JSON before you parse it in production. The validator reports the exact line and character position of the error, which is far more useful than the generic "unexpected end of input" message from most runtimes.</p>
 
@@ -197,7 +222,27 @@ countBrackets('{"name": "Alice", "scores": [1, 2');
 }</pre>
             </div>
 
-                    <section class="related-tools">
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Unexpected end of JSON input' mean?</summary>
+                    <p>It means the JSON parser reached the end of the text before the document was complete &mdash; the JSON is cut off. Every open brace and bracket must be closed, and the last value must finish, before the string ends. When the parser runs out of characters while still expecting more, it throws this error. It is almost always truncated or incomplete data, not a syntax typo in the middle of the document.</p>
+                </details>
+                <details>
+                    <summary>What causes 'Unexpected end of JSON input'?</summary>
+                    <p>The JSON parser ran out of characters before finding a complete, valid JSON document. Common causes are: a truncated API response (network timeout or size limit), an unclosed bracket or brace in hand-written JSON, a partial file write that was interrupted, or copy-pasting only part of a JSON blob.</p>
+                </details>
+                <details>
+                    <summary>How do I find the unclosed bracket in JSON?</summary>
+                    <p>Paste the JSON into a JSON formatter with a tree view. The tree view renders each nested object and array as an expandable node, making it immediately obvious where a structure is left open. Alternatively, count the opening and closing braces &mdash; in valid JSON they must be equal for <code>{ }</code> pairs and <code>[ ]</code> pairs.</p>
+                </details>
+                <details>
+                    <summary>Can an empty string cause 'Unexpected end of JSON input'?</summary>
+                    <p>Yes. Calling <code>JSON.parse('')</code> throws "Unexpected end of JSON input" because an empty string is not valid JSON. This happens when an API returns an empty body (for example, a 204 No Content response) and your code tries to parse it. Always check that the response body is non-empty before parsing.</p>
+                </details>
+            </section>
+
+            <section class="related-tools">
             <h2>Related Tools</h2>
             <ul>
                                 <li><a href="../json-validator.html">JSON Validator</a></li>
