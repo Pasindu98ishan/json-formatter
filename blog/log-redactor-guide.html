@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="API keys, JWTs, and passwords leak into logs constantly. What a log redactor actually catches, what it can't, and a safe workflow before you paste a log into a bug report, Slack, or an AI chat &mdash; entirely in your browser.">
+    <meta name="keywords" content="redact secrets from logs, remove api keys from logs, sanitize logs before sharing, strip secrets from log file, log redactor, scrub credentials from logs">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/log-redactor-guide.html">
+    <meta property="og:title" content="How to Redact Secrets From Logs Before Sharing Them">
+    <meta property="og:description" content="What actually leaks into logs, what a redactor can and can't catch, and a safe workflow before you paste a log anywhere &mdash; all processed in your browser.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/log-redactor-guide.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>How to Redact Secrets From Logs Before Sharing Them | Log Redactor Guide</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Log Redactor Guide", "item": "https://jsondevtools.org/blog/log-redactor-guide.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "How to Redact Secrets From Logs Before Sharing Them",
+      "description": "What actually leaks into logs, what a secrets redactor can and can't catch, and a safe workflow before pasting a log into a bug report, Slack, or an AI chat.",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+      "datePublished": "2026-07-19",
+      "dateModified": "2026-07-19",
+      "url": "https://jsondevtools.org/blog/log-redactor-guide.html"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why do secrets end up in logs in the first place?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Most leaks aren't intentional logging of secrets — they're side effects. A request-logging middleware dumps all headers, including Authorization. A crash handler prints the full config object, including a database URL with embedded credentials. A startup script echoes environment variables for debugging and never removes the line. Each of these is reasonable in isolation, but the combined effect is that credentials end up in plain text in a log file." }
+        },
+        {
+          "@type": "Question",
+          "name": "What kinds of secrets can be detected automatically in a log?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Anything with a recognizable shape: vendor-prefixed API keys (AWS access keys starting AKIA, GitHub tokens starting ghp_, Stripe keys starting sk_live_), JWTs (three base64 segments separated by dots, starting with eyJ), Bearer and Basic authorization headers, password= or api_key: style key-value pairs, user:password@ credentials inside connection strings, and PEM-formatted private key blocks. Anything with a distinctive prefix or structural pattern is detectable; a bare random string with no surrounding context is not." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can a log redactor miss a secret?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Pattern-based detection can only catch what looks like a secret. An internally generated token with no recognizable prefix and no descriptive key name next to it (e.g. a bare 32-character hex string used as a session ID) can be indistinguishable from a request ID or hash. Treat automated redaction as a strong first pass, not a guarantee — skim the output before sharing, especially for custom internal token formats." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why not just use find-and-replace in a text editor?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Find-and-replace requires you to already know the exact secret value and its exact position, which defeats the purpose when you're scanning an unfamiliar log for anything sensitive. A pattern-based redactor instead recognizes the *shape* of a secret (an AWS key format, a JWT structure, a password= pattern) without you needing to spot it manually first, which is both faster and less error-prone for logs longer than a few lines." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it safe to paste a log into an AI chat assistant?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Only after removing anything sensitive from it first. Logs pasted into an AI assistant are typically sent to that provider's servers and may be retained depending on its data policy. Treat it the same as pasting into any third-party service: redact API keys, tokens, passwords, and PII before sending, using a browser-only redactor so the unredacted log never has to leave your machine in the process." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>Log Redactor Guide</span>
+            </nav>
+            <h1>How to Redact Secrets From Logs Before Sharing Them</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; 6 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede"><strong>Logs leak secrets constantly, and almost never on purpose.</strong> A request-logging middleware that dumps every header. A crash report that prints the full config object. A debug line that echoes environment variables and never gets removed. None of these are written with the intent to expose a credential &mdash; but the moment that log is pasted into a GitHub issue, a Slack channel, or an AI chat, whatever secret it contains should be treated as compromised.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:center;">
+                <p style="margin:0 0 0.75rem;"><strong>About to share a log?</strong></p>
+                <a href="../log-redactor.html" class="btn btn-primary" style="display:inline-block;">Open Log Redactor &rarr;</a>
+            </div>
+
+            <h2>How secrets actually end up in logs</h2>
+            <p>Rarely does anyone deliberately write <code>console.log(apiKey)</code> and ship it. The real sources are more indirect:</p>
+            <ul>
+                <li><strong>Request/response dumps</strong> &mdash; middleware or a <code>curl -v</code> that logs full headers, including <code>Authorization: Bearer ...</code></li>
+                <li><strong>Config or environment dumps</strong> &mdash; a crash handler that prints the entire process environment or config object for "debugging context"</li>
+                <li><strong>Connection strings</strong> &mdash; a database URL like <code>postgres://user:password@host/db</code> logged as-is when a connection fails</li>
+                <li><strong>Startup scripts</strong> &mdash; a one-off <code>echo $API_KEY</code> added while debugging deployment, left in place afterward</li>
+            </ul>
+            <p>Each of these is a small, individually reasonable decision. The aggregate effect, over the lifetime of a codebase, is that logs quietly accumulate more sensitive material than anyone intended.</p>
+
+            <h2>Why this matters the moment a log leaves your machine</h2>
+            <p>A secret sitting in a local log file on your own laptop is low-risk. The risk appears the instant that log is pasted somewhere else: a GitHub issue (public or private, indexed and cached regardless), a Slack message (retained per your workspace's policy), or an AI chat (sent to a third-party provider). Most security teams treat any credential that touched a third-party service as compromised and require rotation &mdash; regardless of whether anyone actually misused it. Redacting first costs a few seconds. Rotating a leaked production key afterward costs a lot more.</p>
+
+            <h2>What a pattern-based redactor actually catches</h2>
+            <p>The <a href="../log-redactor.html">Log Redactor</a> works by recognizing the <em>shape</em> of a secret, not by knowing your secret in advance. That splits into two styles of detection:</p>
+            <ul>
+                <li><strong>Format-based</strong> &mdash; values with a distinctive, recognizable prefix or structure: AWS keys (<code>AKIA...</code>), GitHub/Slack/Stripe/npm tokens, <code>sk-</code> style API keys, JWTs (three base64 segments joined by dots, starting <code>eyJ</code>), and PEM private-key blocks.</li>
+                <li><strong>Context-based</strong> &mdash; values that only look like secrets because of what's next to them: <code>password=</code>, <code>api_key:</code>, <code>user:pass@</code> inside a connection string, or a <code>Bearer</code>/<code>Basic</code> auth header. Here the key name is kept (it's useful context) and only the value is replaced.</li>
+            </ul>
+            <p>Card-like numbers get an extra check: a 13&ndash;19 digit sequence only gets redacted if it passes the Luhn checksum real card numbers satisfy, so order IDs and timestamps aren't falsely flagged. Everything else is grouped into six toggleable categories &mdash; vendor keys, tokens/auth headers, passwords, emails, network addresses, card numbers &mdash; so you can leave a category alone if, say, internal IPs are fine to share in your context.</p>
+
+            <h2>What it can't catch &mdash; and why that's an inherent limit, not a bug</h2>
+            <p>Detection depends on a secret having some recognizable shape. A vendor-prefixed key or a JWT structure stands out; a bare internally-generated token with no prefix and no descriptive key name next to it does not &mdash; it's indistinguishable from a request ID, a hash, or a session identifier. This is true of <em>any</em> pattern-based redactor, not a specific shortcoming of one implementation. Treat the output as a strong first pass: it catches the categories that account for the overwhelming majority of accidental leaks, but you should still skim the result before sharing, particularly for custom internal token formats your own systems invented.</p>
+
+            <h2>A safe workflow before you share a log</h2>
+            <ol>
+                <li>Redact first, every time &mdash; make it a habit rather than a judgment call made under pressure while debugging.</li>
+                <li>Skim the redacted output for anything that looks secret-shaped but wasn't caught &mdash; internal token formats are the most common gap.</li>
+                <li>Keep the original unredacted log somewhere private if you'll need the actual values again later &mdash; redaction here is one-way by design.</li>
+                <li>If the log contains an error you're actually trying to debug, run the <em>original</em> through <a href="error-log-analyzer-guide.html">the Error Log Analyzer</a> first to get routed to the fix, then redact before you share it with anyone else.</li>
+            </ol>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>Why do secrets end up in logs in the first place?</summary>
+                    <p>Most leaks aren't intentional logging of secrets &mdash; they're side effects. A request-logging middleware dumps all headers, including Authorization. A crash handler prints the full config object, including a database URL with embedded credentials. A startup script echoes environment variables for debugging and never removes the line. Each of these is reasonable in isolation, but the combined effect is that credentials end up in plain text in a log file.</p>
+                </details>
+
+                <details>
+                    <summary>What kinds of secrets can be detected automatically in a log?</summary>
+                    <p>Anything with a recognizable shape: vendor-prefixed API keys (AWS access keys starting AKIA, GitHub tokens starting ghp_, Stripe keys starting sk_live_), JWTs (three base64 segments separated by dots, starting with eyJ), Bearer and Basic authorization headers, password= or api_key: style key-value pairs, user:password@ credentials inside connection strings, and PEM-formatted private key blocks. Anything with a distinctive prefix or structural pattern is detectable; a bare random string with no surrounding context is not.</p>
+                </details>
+
+                <details>
+                    <summary>Can a log redactor miss a secret?</summary>
+                    <p>Yes. Pattern-based detection can only catch what looks like a secret. An internally generated token with no recognizable prefix and no descriptive key name next to it (e.g. a bare 32-character hex string used as a session ID) can be indistinguishable from a request ID or hash. Treat automated redaction as a strong first pass, not a guarantee &mdash; skim the output before sharing, especially for custom internal token formats.</p>
+                </details>
+
+                <details>
+                    <summary>Why not just use find-and-replace in a text editor?</summary>
+                    <p>Find-and-replace requires you to already know the exact secret value and its exact position, which defeats the purpose when you're scanning an unfamiliar log for anything sensitive. A pattern-based redactor instead recognizes the shape of a secret (an AWS key format, a JWT structure, a password= pattern) without you needing to spot it manually first, which is both faster and less error-prone for logs longer than a few lines.</p>
+                </details>
+
+                <details>
+                    <summary>Is it safe to paste a log into an AI chat assistant?</summary>
+                    <p>Only after removing anything sensitive from it first. Logs pasted into an AI assistant are typically sent to that provider's servers and may be retained depending on its data policy. Treat it the same as pasting into any third-party service: redact API keys, tokens, passwords, and PII before sending, using a browser-only redactor so the unredacted log never has to leave your machine in the process.</p>
+                </details>
+            </section>
+
+            <div class="article-cta">
+                <p>Paste your log and get a safe-to-share version back instantly.</p>
+                <a href="../log-redactor.html" class="btn btn-primary">Open Log Redactor &rarr;</a>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../log-redactor.html">Log Redactor</a> &mdash; strip secrets from logs before sharing</li>
+                <li><a href="../jwt-decoder.html">JWT Decoder</a> &mdash; inspect a token's claims before deciding what to redact</li>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a></li>
+            </ul>
+        </section>
+
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="error-log-analyzer-guide.html">How to Debug Any Error by Pasting It</a></li>
+                <li><a href="docker-image-optimizer-guide.html">How to Shrink a Docker Image (and Get an A-F Grade)</a></li>
+                <li><a href="privacy-first-json-tools.html">Privacy-First JSON Tools That Never Upload Your Data</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
