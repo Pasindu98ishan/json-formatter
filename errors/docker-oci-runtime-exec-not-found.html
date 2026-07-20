@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="OCI runtime create failed: executable file not found in $PATH — the five real causes (typo, not installed, no shell, not executable, CRLF) and how to fix each.">
+    <meta name="keywords" content="OCI runtime create failed, executable file not found in $PATH, docker exec not found, container_linux.go starting container process caused, docker command not found alpine, docker entrypoint not executable">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-oci-runtime-exec-not-found.html">
+    <meta property="og:title" content="Docker: executable file not found in $PATH — Cause &amp; Fix">
+    <meta property="og:description" content="Docker found your image but not the program you asked it to run. Work through the five real causes: a typo, the binary isn't installed, no shell in the image, the file isn't executable, or CRLF line endings.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-oci-runtime-exec-not-found.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker: executable file not found in $PATH — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "executable file not found in $PATH", "item": "https://jsondevtools.org/errors/docker-oci-runtime-exec-not-found.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: OCI runtime create failed — executable file not found in $PATH",
+  "description": "Docker started the container but the runtime could not find the program you asked it to run. This reference covers the five real causes — a typo in the command, the binary not installed in the image, no shell for shell-form CMD, a script that isn't executable, and CRLF line endings — with the fix for each.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-19",
+  "dateModified": "2026-07-19",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://jsondevtools.org/errors/docker-oci-runtime-exec-not-found.html" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'executable file not found in $PATH' mean in Docker?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The image was pulled and the container was created, but the OCI runtime could not find the program you told it to run. It searched every directory in the container's PATH and found no matching executable. This is about the command, not the image: the image exists and is fine, the binary named in your CMD, ENTRYPOINT, or docker run argument does not exist inside it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I check what's actually inside the image?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open a shell in the image and look: docker run --rm -it myimage sh. Then use 'which <command>' or 'ls -l /path/to/binary' to see whether it exists and where. If even sh fails with the same error, the image has no shell at all — that's the distroless/scratch case, and it points at a different fix."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it happen on alpine images specifically?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Alpine ships BusyBox with /bin/sh but no bash. A Dockerfile that specifies bash — CMD [\"/bin/bash\", \"script.sh\"] — fails on alpine because /bin/bash doesn't exist. Either use /bin/sh instead, or install bash explicitly with apk add --no-cache bash. The same applies to other GNU tools alpine replaces with BusyBox versions."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between exec form and shell form for CMD?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Exec form — CMD [\"node\", \"app.js\"] — runs the binary directly with no shell involved, so shell features like variable expansion, pipes and && do not work. Shell form — CMD node app.js — wraps the command in /bin/sh -c, which needs a shell to exist in the image. On a distroless or scratch image there is no shell, so shell form fails with this error while exec form works."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "My entrypoint script exists but still isn't found — why?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Two common reasons. First, the file isn't executable: add RUN chmod +x /entrypoint.sh in the Dockerfile, since the execute bit isn't always preserved through COPY. Second, the script has Windows CRLF line endings, so the shebang reads as '/bin/sh\\r' and the loader looks for an interpreter that doesn't exist. Convert it to LF with dos2unix or a .gitattributes rule."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from 'exec format error'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are adjacent but distinct. 'Executable file not found in $PATH' means the file could not be located at all. 'Exec format error' means the file was found but the kernel cannot run it — usually an architecture mismatch (an amd64 binary on arm64) or a script with no shebang. Not-found points at the path or the image contents; format error points at the binary itself."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does docker exec say executable file not found, when the container is already running?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The same cause, a different command: docker exec -it mycontainer bash fails with 'OCI runtime exec failed: exec failed: unable to start container process: exec: \"bash\": executable file not found in $PATH' when bash doesn't exist inside that image — most commonly on alpine, which ships only /bin/sh. Try docker exec -it mycontainer sh instead, or install bash in the image if you need it specifically."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a relative command like ./app fail with this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A relative path such as CMD [\"./app\"] or ENTRYPOINT [\"./entrypoint.sh\"] is resolved against the container's current working directory, which is set by WORKDIR — not by wherever COPY happened to place the file. If WORKDIR is missing, set to the wrong directory, or declared after the CMD/ENTRYPOINT line, the relative path won't resolve and Docker reports the file as not found even though it exists on disk. Set WORKDIR to the directory containing the file, or use an absolute path instead."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>executable file not found in $PATH</span>
+            </nav>
+            <h1>Docker: OCI runtime create failed &mdash; executable file not found in $PATH</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The image is fine &mdash; Docker just can't find the <em>program</em> you asked it to run. Match your case:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Typo, or the binary isn't installed in the image &mdash; check with <code>docker run --rm -it myimage sh</code>.</li>
+                    <li>Alpine image asking for <code>bash</code> &mdash; alpine only has <code>/bin/sh</code>.</li>
+                    <li>Distroless/scratch image with shell-form <code>CMD</code> &mdash; there's no shell; use exec form.</li>
+                    <li>Your entrypoint script isn't executable &mdash; <code>RUN chmod +x</code>.</li>
+                    <li>Script saved on Windows &mdash; CRLF breaks the shebang.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker: Error response from daemon: failed to create task for container:
+failed to create shim task: OCI runtime create failed: runc create failed:
+unable to start container process: exec: "myapp": executable file not found in $PATH: unknown
+
+# older Docker wording, same meaning:
+# oci runtime error: container_linux.go:349: starting container process caused
+# "exec: \"myapp\": executable file not found in $PATH"</code></pre>
+            </div>
+
+            <p>The wall of runtime jargon obscures a simple message. Everything up to the last part is plumbing &mdash; containerd's shim, then <code>runc</code>, reporting that it failed to start the container process. The part that matters is at the very end: <code>exec: "myapp": executable file not found in $PATH</code>. Docker successfully pulled the image, created the container, and then tried to launch <code>myapp</code> inside it &mdash; and there is no such executable anywhere on the container's <code>PATH</code>.</p>
+
+            <h2>Which cause is yours?</h2>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 660 330" role="img" aria-label="Decision tree for executable file not found. First open a shell in the image with docker run sh. If the shell itself fails, the image has no shell — it is distroless or scratch — so use exec-form CMD. If the shell opens, check whether the command exists with which. If it does not exist, either it is a typo or the binary was never installed. If it exists but still will not run, check that it is executable with chmod, and check for Windows CRLF line endings breaking the shebang.">
+                    <defs>
+                        <marker id="oci-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="oci-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+                    <rect class="dg-box" x="175" y="6" width="310" height="40" rx="8"/>
+                    <text class="dg-m" x="330" y="30" text-anchor="middle">docker run --rm -it myimage sh</text>
+                    <path class="dg-ln" d="M330,46 L330,66 L40,66"/>
+                    <line class="dg-ln" x1="40" y1="66" x2="40" y2="300"/>
+
+                    <line class="dg-ln" x1="40" y1="106" x2="70" y2="106" marker-end="url(#oci-a)"/>
+                    <rect class="dg-box" x="70" y="86" width="230" height="40" rx="6"/>
+                    <text class="dg-m" x="185" y="110" text-anchor="middle">sh itself fails too</text>
+                    <line class="dg-ln" x1="300" y1="106" x2="355" y2="106" marker-end="url(#oci-a)"/>
+                    <rect class="dg-box-ok" x="355" y="86" width="270" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="490" y="110" text-anchor="middle">No shell &rarr; use exec form (Fix 3)</text>
+
+                    <line class="dg-ln" x1="40" y1="172" x2="70" y2="172" marker-end="url(#oci-a)"/>
+                    <rect class="dg-box" x="70" y="140" width="230" height="64" rx="6"/>
+                    <text class="dg-m" x="185" y="166" text-anchor="middle">shell opens, but</text>
+                    <text class="dg-m" x="185" y="184" text-anchor="middle">`which myapp` = nothing</text>
+                    <line class="dg-ln" x1="300" y1="172" x2="355" y2="172" marker-end="url(#oci-a)"/>
+                    <rect class="dg-box-ok" x="355" y="140" width="270" height="64" rx="6"/>
+                    <text class="dg-m dg-ok" x="490" y="166" text-anchor="middle">Typo &rarr; Fix 1</text>
+                    <text class="dg-m dg-ok" x="490" y="184" text-anchor="middle">Not installed &rarr; Fix 2</text>
+
+                    <line class="dg-ln" x1="40" y1="238" x2="70" y2="238" marker-end="url(#oci-a)"/>
+                    <rect class="dg-box" x="70" y="218" width="230" height="40" rx="6"/>
+                    <text class="dg-m" x="185" y="242" text-anchor="middle">file exists, won't run</text>
+                    <line class="dg-ln" x1="300" y1="238" x2="355" y2="238" marker-end="url(#oci-a)"/>
+                    <rect class="dg-box-ok" x="355" y="218" width="270" height="40" rx="6"/>
+                    <text class="dg-m dg-ok" x="490" y="242" text-anchor="middle">chmod +x &rarr; Fix 4</text>
+
+                    <line class="dg-ln" x1="40" y1="300" x2="70" y2="300" marker-end="url(#oci-a)"/>
+                    <rect class="dg-box" x="70" y="280" width="230" height="40" rx="6"/>
+                    <text class="dg-m" x="185" y="304" text-anchor="middle">script edited on Windows</text>
+                    <line class="dg-ln-bad" x1="300" y1="300" x2="355" y2="300" marker-end="url(#oci-bad)"/>
+                    <rect class="dg-box-bad" x="355" y="280" width="270" height="40" rx="6"/>
+                    <text class="dg-m dg-bad" x="490" y="304" text-anchor="middle">CRLF breaks shebang &rarr; Fix 5</text>
+                </svg>
+                <p class="dg-cap">Start by trying to open a shell in the image &mdash; whether that succeeds already splits the causes in half.</p>
+            </div>
+
+            <h2>Fix 1: a typo in the command</h2>
+            <p>The most common cause, and the easiest to dismiss too quickly. The name in your <code>CMD</code>, <code>ENTRYPOINT</code>, or <code>docker run</code> argument must match the executable exactly &mdash; Linux is case-sensitive, and a stray character is enough. These fail:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># "pyton" — typo
+docker run myimage pyton app.py
+
+# capital N — Linux is case-sensitive
+docker run myimage Node app.js</code></pre>
+            </div>
+            <p>Corrected:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker run myimage python app.py
+docker run myimage node app.js</code></pre>
+            </div>
+
+            <h2>Fix 2: the binary isn't in the image</h2>
+            <p>Slim base images are deliberately minimal, and tools you assume are everywhere often aren't there. <code>curl</code>, <code>git</code>, <code>ps</code>, <code>bash</code> and <code>make</code> are all commonly absent. Verify by opening a shell in the image:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker run --rm -it myimage sh
+/ # which curl
+/ #                       ← no output: curl is not installed
+/ # echo $PATH            ← see exactly which directories were searched</code></pre>
+            </div>
+            <p>If it's genuinely missing, install it in the Dockerfile:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Debian/Ubuntu-based images
+RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends curl \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+
+# Alpine
+RUN apk add --no-cache curl</code></pre>
+            </div>
+            <p>Note the same-layer cleanup &mdash; installing packages without it silently inflates the image, which the <a href="../docker-image-optimizer.html">Docker Image Optimizer</a> flags along with the other size and caching issues in a Dockerfile.</p>
+
+            <h2>Fix 3: the image has no shell (distroless / scratch)</h2>
+            <p>This is the cause that confuses people most, because the command looks obviously correct. Docker's <code>CMD</code> and <code>ENTRYPOINT</code> have two syntaxes, and they behave very differently:</p>
+            <table>
+                <thead><tr><th>Form</th><th>Written as</th><th>How it runs</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Exec form</strong></td><td><code>CMD ["node", "app.js"]</code></td><td>Runs the binary <em>directly</em>. No shell involved.</td></tr>
+                    <tr><td><strong>Shell form</strong></td><td><code>CMD node app.js</code></td><td>Wrapped as <code>/bin/sh -c "node app.js"</code> &mdash; <strong>requires a shell</strong>.</td></tr>
+                </tbody>
+            </table>
+            <p>On a <code>distroless</code> or <code>scratch</code> base there is no <code>/bin/sh</code> at all, so shell form fails immediately &mdash; and the error names your program, not the shell, which is what makes it misleading. This fails, because shell form needs <code>/bin/sh</code>, which doesn't exist here:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>FROM gcr.io/distroless/nodejs20
+COPY . /app
+CMD node /app/server.js</code></pre>
+            </div>
+            <p>This works, because exec form runs the binary directly with no shell involved:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>FROM gcr.io/distroless/nodejs20
+COPY . /app
+CMD ["node", "/app/server.js"]</code></pre>
+            </div>
+            <p>The trade-off: exec form gives you no shell features. Variable expansion (<code>$PORT</code>), pipes, <code>&amp;&amp;</code> chains and globbing all stop working, because there's no shell to interpret them. If you need those <em>and</em> a minimal image, either move the logic into an entrypoint script (and keep a shell in the image) or resolve the values at build time.</p>
+
+            <h2>Fix 4: the file exists but isn't executable</h2>
+            <p>If <code>ls</code> shows your script but it still won't run, check the permission bits. <code>COPY</code> does not reliably preserve the execute bit &mdash; especially when the file came from a Windows checkout:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>/ # ls -l /entrypoint.sh
+-rw-r--r--    1 root  root   214 Jul 19 09:00 /entrypoint.sh
+#  ↑ no `x` anywhere — it is not executable</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># fix it in the Dockerfile so it's baked into the image
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+
+# or set the bit at copy time (BuildKit)
+COPY --chmod=755 entrypoint.sh /entrypoint.sh</code></pre>
+            </div>
+            <p>The <code>--chmod</code> flag requires BuildKit (the default builder in current Docker, but not universal in older CI images or `DOCKER_BUILDKIT=0` setups) &mdash; on the legacy builder it is silently ignored rather than erroring, so the file ends up with the same permissions as before and the fix appears not to have worked. If you're not certain which builder is active, the <code>RUN chmod +x</code> form above works on both.</p>
+            <p>Also make sure you're using an absolute path, or that the script's directory is actually on <code>PATH</code>. A bare <code>ENTRYPOINT ["entrypoint.sh"]</code> only works if that directory is on the search path; <code>["/entrypoint.sh"]</code> or <code>["./entrypoint.sh"]</code> with a matching <code>WORKDIR</code> is unambiguous &mdash; see the <code>WORKDIR</code> pitfall below, which is more common than it sounds.</p>
+
+            <h2>Fix 5: CRLF line endings from Windows</h2>
+            <p>A script written or checked out on Windows has <code>\r\n</code> line endings. The shebang then reads as <code>#!/bin/sh\r</code>, and Linux dutifully looks for an interpreter literally named <code>sh\r</code> &mdash; which doesn't exist, producing a not-found error that points at a path looking perfectly correct:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># confirm: a trailing ^M or \r on every line means CRLF
+cat -A entrypoint.sh | head -1
+# #!/bin/sh^M$
+
+dos2unix entrypoint.sh                    # convert to LF
+
+# stop git from reintroducing it — .gitattributes:
+*.sh text eol=lf</code></pre>
+            </div>
+            <p>The <code>.gitattributes</code> rule is the durable fix; converting the file once only helps until the next checkout on a Windows machine. This same CRLF trap also produces <a href="docker-exec-format-error.html">exec format error</a> depending on how the file is invoked, so it's worth ruling out whenever a script-based entrypoint misbehaves.</p>
+
+            <h2>Fix 6: a relative path with no matching WORKDIR</h2>
+            <p>More common than the CRLF case above, and easy to miss because the file clearly exists. A relative command &mdash; <code>CMD ["./app"]</code> or <code>ENTRYPOINT ["./entrypoint.sh"]</code> &mdash; is resolved against the container's current working directory, which comes from <code>WORKDIR</code>, not from wherever <code>COPY</code> happened to place the file. If <code>WORKDIR</code> is missing entirely, points somewhere else, or is declared <em>after</em> the <code>CMD</code>/<code>ENTRYPOINT</code> line, the relative path resolves against the wrong directory (often <code>/</code>) and the file isn't there:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># fails — no WORKDIR set, so "./app" resolves against / , not /app
+FROM golang:1.22
+COPY app /app/app
+CMD ["./app"]</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># works — WORKDIR makes the relative path resolve where the binary actually is
+FROM golang:1.22
+COPY app /app/app
+WORKDIR /app
+CMD ["./app"]</code></pre>
+            </div>
+            <p>When in doubt, skip the ambiguity and use an absolute path instead &mdash; <code>CMD ["/app/app"]</code> works regardless of what <code>WORKDIR</code> is set to.</p>
+
+            <h2>Fix 7: docker exec into a running container</h2>
+            <p>Everything above assumes you're starting a new container. A large share of this error also shows up on a container that's already running, via <code>docker exec</code>, and it's worth calling out separately because the wording differs slightly:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker exec -it mycontainer bash
+OCI runtime exec failed: exec failed: unable to start container process:
+exec: "bash": executable file not found in $PATH: unknown</code></pre>
+            </div>
+            <p>Note <code>exec failed</code> rather than <code>create failed</code> &mdash; the container already exists, you're just failing to start a new process inside it. The overwhelmingly common cause is trying to <code>exec</code> into an alpine-based container with <code>bash</code>, which alpine doesn't ship:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker exec -it mycontainer sh              # works on alpine — use sh instead of bash
+docker exec -it mycontainer which bash      # confirms whether bash exists at all</code></pre>
+            </div>
+            <p>If you specifically need <code>bash</code> for a debugging session, install it in the image (<code>apk add --no-cache bash</code>) rather than assuming it's there &mdash; the same fix as the alpine case above, just triggered via <code>exec</code> instead of <code>run</code>.</p>
+
+            <h2>Not to be confused with: exec format error</h2>
+            <p>These two are neighbours and easy to mix up:</p>
+            <table>
+                <thead><tr><th>Message</th><th>Meaning</th><th>Usual cause</th></tr></thead>
+                <tbody>
+                    <tr><td><code>executable file not found in $PATH</code></td><td>The file could not be <em>located</em></td><td>Typo, not installed, no shell, wrong path</td></tr>
+                    <tr><td><a href="docker-exec-format-error.html"><code>exec format error</code></a></td><td>The file was found but <em>can't be run</em></td><td>Architecture mismatch (amd64 vs arm64), missing shebang</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read past the runc/shim noise &mdash; the real message is the final <code>exec: "..."</code> part</li>
+                <li>&#10003; <code>docker run --rm -it myimage sh</code> &mdash; can you even get a shell?</li>
+                <li>&#10003; No shell &rarr; distroless/scratch: switch <code>CMD</code>/<code>ENTRYPOINT</code> to exec form</li>
+                <li>&#10003; Shell works &rarr; <code>which &lt;cmd&gt;</code> and <code>echo $PATH</code> inside it</li>
+                <li>&#10003; Missing &rarr; typo, or install it (<code>apt-get</code>/<code>apk add</code>) in the Dockerfile</li>
+                <li>&#10003; Alpine asking for <code>bash</code>? Use <code>/bin/sh</code> or <code>apk add --no-cache bash</code></li>
+                <li>&#10003; Script present but not running &rarr; <code>ls -l</code> for the <code>x</code> bit; <code>RUN chmod +x</code></li>
+                <li>&#10003; <code>cat -A</code> the script &mdash; a trailing <code>^M</code> means CRLF; convert to LF</li>
+                <li>&#10003; Using a relative command like <code>./app</code>? Check <code>WORKDIR</code> is set, correct, and comes <em>before</em> <code>CMD</code>/<code>ENTRYPOINT</code></li>
+                <li>&#10003; Error came from <code>docker exec</code>, not <code>docker run</code>? Try <code>sh</code> instead of <code>bash</code> &mdash; alpine has no <code>bash</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'executable file not found in $PATH' mean in Docker?</summary>
+                    <p>The image was pulled and the container was created, but the OCI runtime could not find the program you told it to run. It searched every directory in the container's <code>PATH</code> and found no matching executable. This is about the command, not the image: the image exists and is fine, the binary named in your <code>CMD</code>, <code>ENTRYPOINT</code>, or <code>docker run</code> argument does not exist inside it.</p>
+                </details>
+                <details>
+                    <summary>How do I check what's actually inside the image?</summary>
+                    <p>Open a shell in the image and look: <code>docker run --rm -it myimage sh</code>. Then use <code>which &lt;command&gt;</code> or <code>ls -l /path/to/binary</code> to see whether it exists and where. If even <code>sh</code> fails with the same error, the image has no shell at all &mdash; that's the distroless/scratch case, and it points at a different fix.</p>
+                </details>
+                <details>
+                    <summary>Why does it happen on alpine images specifically?</summary>
+                    <p>Alpine ships BusyBox with <code>/bin/sh</code> but no <code>bash</code>. A Dockerfile that specifies bash &mdash; <code>CMD ["/bin/bash", "script.sh"]</code> &mdash; fails on alpine because <code>/bin/bash</code> doesn't exist. Either use <code>/bin/sh</code> instead, or install bash explicitly with <code>apk add --no-cache bash</code>. The same applies to other GNU tools alpine replaces with BusyBox versions.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between exec form and shell form for CMD?</summary>
+                    <p>Exec form &mdash; <code>CMD ["node", "app.js"]</code> &mdash; runs the binary directly with no shell involved, so shell features like variable expansion, pipes and <code>&amp;&amp;</code> do not work. Shell form &mdash; <code>CMD node app.js</code> &mdash; wraps the command in <code>/bin/sh -c</code>, which needs a shell to exist in the image. On a distroless or scratch image there is no shell, so shell form fails with this error while exec form works.</p>
+                </details>
+                <details>
+                    <summary>My entrypoint script exists but still isn't found — why?</summary>
+                    <p>Two common reasons. First, the file isn't executable: add <code>RUN chmod +x /entrypoint.sh</code> in the Dockerfile, since the execute bit isn't always preserved through <code>COPY</code>. Second, the script has Windows CRLF line endings, so the shebang reads as <code>/bin/sh\r</code> and the loader looks for an interpreter that doesn't exist. Convert it to LF with <code>dos2unix</code> or a <code>.gitattributes</code> rule.</p>
+                </details>
+                <details>
+                    <summary>How is this different from 'exec format error'?</summary>
+                    <p>They are adjacent but distinct. &lsquo;Executable file not found in $PATH&rsquo; means the file could not be located at all. &lsquo;Exec format error&rsquo; means the file was found but the kernel cannot run it &mdash; usually an architecture mismatch (an amd64 binary on arm64) or a script with no shebang. Not-found points at the path or the image contents; format error points at the binary itself.</p>
+                </details>
+                <details>
+                    <summary>Why does docker exec say executable file not found, when the container is already running?</summary>
+                    <p>The same cause, a different command: <code>docker exec -it mycontainer bash</code> fails with <code>OCI runtime exec failed: exec failed: unable to start container process: exec: "bash": executable file not found in $PATH</code> when <code>bash</code> doesn't exist inside that image &mdash; most commonly on alpine, which ships only <code>/bin/sh</code>. Try <code>docker exec -it mycontainer sh</code> instead, or install <code>bash</code> in the image if you need it specifically.</p>
+                </details>
+                <details>
+                    <summary>Why does a relative command like ./app fail with this error?</summary>
+                    <p>A relative path such as <code>CMD ["./app"]</code> or <code>ENTRYPOINT ["./entrypoint.sh"]</code> is resolved against the container's current working directory, which is set by <code>WORKDIR</code> &mdash; not by wherever <code>COPY</code> happened to place the file. If <code>WORKDIR</code> is missing, set to the wrong directory, or declared after the <code>CMD</code>/<code>ENTRYPOINT</code> line, the relative path won't resolve and Docker reports the file as not found even though it exists on disk. Set <code>WORKDIR</code> to the directory containing the file, or use an absolute path instead.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Docker &amp; backend errors</h3>
+                <p>Browse the full reference, or paste your Dockerfile for size and correctness advice.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="docker-exec-format-error.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker: exec format error</a>
+                    <a href="../docker-image-optimizer.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Docker Image Optimizer</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-exec-format-error.html">Docker: exec format error</a> &mdash; the file was found but can't be run</li>
+                <li><a href="docker-container-name-already-in-use.html">Docker: container name is already in use</a></li>
+                <li><a href="docker-cannot-connect-to-daemon.html">Docker: Cannot connect to the Docker daemon</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../docker-image-optimizer.html">Docker Image Optimizer</a> &mdash; catches missing-package and CMD-form issues in a Dockerfile</li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Go: declared and not used — why an unused variable is a compile error, not a warning, and the right fixes (use it, delete it, or the blank identifier _).">
+    <meta name="keywords" content="declared and not used, go declared and not used, golang unused variable error, go blank identifier, go unused variable compile error, declared but not used go">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-declared-and-not-used.html">
+    <meta property="og:title" content="Go: declared and not used — Why It's an Error, Not a Warning">
+    <meta property="og:description" content="Go refuses to compile a function with an unused local variable. Here's why that's deliberate, the three legitimate fixes, and the err-shadowing trap that causes it most often.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-declared-and-not-used.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Go: declared and not used — Why It's an Error, Not a Warning</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Go: declared and not used", "item": "https://jsondevtools.org/errors/go-declared-and-not-used.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Go: declared and not used — Cause and Fix",
+  "description": "Go treats an unused local variable as a compile error rather than a warning. This reference explains the deliberate design reason, the three correct fixes (use it, remove it, or assign to the blank identifier), why it only applies to locals, and the err-shadowing and loop-variable cases that trigger it most often.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-19",
+  "dateModified": "2026-07-19",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://jsondevtools.org/errors/go-declared-and-not-used.html" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why is an unused variable an error in Go and not a warning?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It's a deliberate language design decision. An unused variable is almost always either dead code left behind by an edit, or a genuine bug where you assigned to the wrong name. Go's authors chose to make it impossible to ignore rather than emit a warning developers would learn to skip. The same reasoning makes an unused import an error too. The upshot is that Go code in the wild has essentially no unused-variable rot."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'declared and not used'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Pick whichever matches your intent: actually use the variable, delete the declaration if it's leftover, or assign to the blank identifier _ if you must call the function for its side effect but genuinely don't need the value. Don't create a fake use like _ = x scattered through real code — that silences the compiler while leaving the dead code in place."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the blank identifier _ in Go?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "_ is a write-only placeholder that discards whatever is assigned to it. Assigning to _ satisfies the compiler's use requirement without creating a variable, so it's the idiomatic way to ignore a return value you don't need — for example value, _ := strconv.Atoi(s) when you don't care about the error, or for _, v := range items when you don't need the index."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why don't unused package-level variables cause this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The rule applies only to variables declared inside a function. A package-level variable can legitimately be used by another file in the same package, or exported and used by an entirely different package, so the compiler can't conclude it's unused from one file. Function-local variables have no such ambiguity — their scope is fully visible — so the compiler can prove they're never read."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get it after adding an if err != nil check?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Usually variable shadowing. Inside a block, using := creates new variables rather than assigning to the outer ones, so an inner err (or an inner result) is a different variable from the one outside. If the outer variable is then never read, it's declared and not used. Either use = instead of := to assign to the existing variables, or restructure so there's only one declaration."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does an assigned-but-never-read variable count as used?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Go requires the variable to be read, not merely written. Declaring x, then assigning x = 5 and never reading x, still fails to compile — the assignment doesn't count as a use. That is precisely the point: a value you compute and store but never consult is dead work, and Go makes you either use it or remove it."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Go: declared and not used</span>
+            </nav>
+            <h1>Go: declared and not used</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">You declared a local variable and never <em>read</em> it. In Go that's a compile error, not a warning &mdash; by design. Pick the fix that matches your intent:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>You meant to use it &mdash; use it (this often reveals the real bug).</li>
+                    <li>It's leftover from an edit &mdash; delete the declaration.</li>
+                    <li>You need the call but not the value &mdash; assign to the blank identifier <code>_</code>.</li>
+                    <li>Appeared after an <code>if err != nil</code>? It's almost certainly <code>:=</code> shadowing.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>package main
+
+import "fmt"
+
+func main() {
+    count := 42
+    fmt.Println("hello")
+}
+
+// ./main.go:6:2: declared and not used: count
+//
+// older Go toolchains phrased it as:
+// ./main.go:6:2: count declared but not used</code></pre>
+            </div>
+
+            <p>Both wordings mean the same thing, and the message names the variable and the exact line where it was declared. Note the emphasis: <strong>not used</strong> means never <em>read</em>. Writing to a variable does not count &mdash; more on that below, because it surprises people coming from almost any other language.</p>
+
+            <h2>Why Go makes this an error</h2>
+            <p>Most languages emit a warning here, or say nothing at all. Go's authors deliberately made it fatal, for the same reason <a href="go-imported-and-not-used.html">an unused import is also a hard error</a>: an unused variable is nearly always one of two things, and both are worth stopping for.</p>
+            <p>The first is <strong>dead code</strong> &mdash; a leftover from an edit, a variable whose consumer you deleted, a half-finished refactor. Left alone it accumulates: every reader afterwards has to work out whether it matters. The second, and more valuable to catch, is a <strong>genuine bug</strong>: you computed something and then used the wrong name, so the value you carefully derived is silently thrown away while some other variable is read instead.</p>
+            <p>Warnings don't solve this, because in practice developers learn to ignore warnings once there are more than a handful. Making it an error means the condition can never accumulate &mdash; which is why you essentially never encounter unused-variable rot in real Go codebases. The cost is that it interrupts you mid-experiment; the payoff is that the interruption sometimes reveals a real defect.</p>
+
+            <h2>Fix 1: actually use it</h2>
+            <p>Before reaching for a way to silence the compiler, check whether the error is telling you something. If you declared the variable, you presumably intended to use it &mdash; so where did the use go?</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ total is computed, then ignored — the real bug is on the Println line
+func main() {
+    total := price * quantity
+    fmt.Println("Order total:", price)   // ← reading `price`, not `total`
+}
+
+// ✅
+func main() {
+    total := price * quantity
+    fmt.Println("Order total:", total)
+}</code></pre>
+            </div>
+            <p>This is the case that justifies the whole rule. In a language that merely warned, that program would compile and print a wrong number to a customer.</p>
+
+            <h2>Fix 2: delete it</h2>
+            <p>If the variable really is leftover, remove the declaration. Your editor almost certainly does this for you &mdash; <code>gopls</code> (the Go language server) offers a quick-fix, and <code>gofmt</code>'s companion <code>goimports</code> handles the equivalent cleanup for imports automatically on save.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>func main() {
+    count := 42          // ← just delete this line
+    fmt.Println("hello")
+}</code></pre>
+            </div>
+
+            <h2>Fix 3: the blank identifier <code>_</code></h2>
+            <p>Sometimes you must call a function &mdash; for its side effect, or because it returns multiple values &mdash; but genuinely don't need one of the results. That's what Go's blank identifier is for. <code>_</code> is a write-only placeholder: anything assigned to it is discarded, and because it isn't a variable, there's nothing for the compiler to consider unused.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ignore the error from a conversion you know is safe
+value, _ := strconv.Atoi("42")
+
+// ignore the index in a range loop
+for _, item := range items {
+    fmt.Println(item)
+}
+
+// ignore the value, keep the index
+for i, _ := range items { ... }
+for i := range items { ... }        // ✅ idiomatic — the _ is unnecessary here</code></pre>
+            </div>
+            <p>Use it honestly, though. <code>_ = someVariable</code> sprinkled through real code to quiet the compiler is worse than the original problem: it keeps the dead code <em>and</em> hides the signal. Reserve <code>_</code> for values you're deliberately discarding, not as a way to postpone a decision. (Ignoring an <code>error</code> with <code>_</code> deserves particular care &mdash; that's how a failure becomes invisible and later surfaces as a <a href="go-nil-pointer-dereference.html">nil pointer dereference</a> further down the call stack.)</p>
+
+            <h2>The most common trigger: <code>:=</code> shadowing</h2>
+            <p>If this error appeared right after you added error handling, shadowing is almost certainly why. The short variable declaration <code>:=</code> creates a <em>new</em> variable whenever the name doesn't already exist in the current block &mdash; and an <code>if</code> or <code>for</code> body is its own block, so <code>:=</code> there shadows an outer variable of the same name instead of assigning to it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>package main
+
+func load(useCache bool) error {
+    var err error
+
+    if useCache {
+        _, err := readCache()   // := creates a NEW inner err — shadows the outer one
+        if err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+// ./main.go:4:6: declared and not used: err</code></pre>
+            </div>
+            <p>The inner <code>err</code> declared inside the <code>if</code> block is a completely different variable from the outer one &mdash; it's read by the <code>if err != nil</code> check right below it, so <em>it</em> compiles fine. But the outer <code>err</code>, declared at the top for the express purpose of holding this result, is never touched again: nothing ever assigns to it after the <code>var</code> line, and nothing ever reads it, because <code>return nil</code> ignores it entirely. That outer variable is what the compiler flags. Use <code>=</code> instead of <code>:=</code> so the assignment lands on the existing outer variable rather than creating a new one:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>func load(useCache bool) error {
+    var err error
+
+    if useCache {
+        _, err = readCache()   // = assigns to the OUTER err — no shadow, no new variable
+        if err != nil {
+            return err
+        }
+    }
+
+    return err
+}</code></pre>
+            </div>
+            <p>Note the trade-off this reveals: the buggy version above only fails to <em>compile</em> because the outer <code>err</code> happened to end up completely unused. Change the last line from <code>return nil</code> to <code>return err</code> and the outer variable becomes "used" again (its permanent zero value gets read) &mdash; the code compiles, but now silently swallows every cache-read failure. Shadowing bugs are dangerous precisely because whether they surface as a compile error or a silent runtime bug depends on details like this, not on whether the underlying mistake is present.</p>
+            <p>This bug class is common enough that Go ships a detector: <code>go vet -vettool=$(which shadow)</code>, or run <code>go vet ./...</code> with the shadow analyzer enabled. It's worth wiring into CI, because the shadowed-variable version often compiles fine (when the outer variable happens to be read elsewhere) and then misbehaves at runtime.</p>
+
+            <h2>Why package-level variables are exempt</h2>
+            <p>The rule applies only inside functions. This compiles without complaint:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>package main
+
+var unusedConfig = "never read anywhere"   // ✅ no error
+
+func main() {}</code></pre>
+            </div>
+            <p>The reason is provability, not inconsistency. A package-level variable might be read by another file in the same package, or &mdash; if exported &mdash; by a completely different package the compiler isn't looking at right now. It can't prove the variable is unused. A function-local variable's entire scope is visible in one place, so the compiler <em>can</em> prove nothing ever reads it. Go only enforces the rule where it can be certain.</p>
+            <p>The same logic explains why unused function <em>parameters</em> are fine: the signature is part of the function's contract, often required to satisfy an interface, so an unused parameter is legitimate.</p>
+
+            <h2>Assignment is not use</h2>
+            <p>One more nuance that catches people: the variable must be <em>read</em>. Writing to it &mdash; even repeatedly &mdash; doesn't satisfy the compiler:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>package main
+
+func main() {
+    x := 1
+    x = 2        // still only ever written
+    x = 3
+}
+// ./main.go:4:2: declared and not used: x</code></pre>
+            </div>
+            <p>Which is exactly right: computing and storing a value nothing ever consults is dead work regardless of how many times you store it.</p>
+
+            <h2>Quick reference</h2>
+            <table>
+                <thead><tr><th>Situation</th><th>Error?</th><th>Fix</th></tr></thead>
+                <tbody>
+                    <tr><td>Local variable never read</td><td>Yes</td><td>Use it, delete it, or <code>_</code></td></tr>
+                    <tr><td>Local written but never read</td><td>Yes</td><td>Same &mdash; assignment isn't use</td></tr>
+                    <tr><td>Package-level variable unused</td><td>No</td><td>&mdash; (can't be proven unused)</td></tr>
+                    <tr><td>Unused function parameter</td><td>No</td><td>&mdash; (part of the signature)</td></tr>
+                    <tr><td>Unused import</td><td>Yes</td><td>See <a href="go-imported-and-not-used.html">imported and not used</a></td></tr>
+                    <tr><td>Value assigned to <code>_</code></td><td>No</td><td>&mdash; (blank identifier isn't a variable)</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the message &mdash; it names the variable and its declaration line</li>
+                <li>&#10003; First ask: did I mean to use this and read the wrong name instead?</li>
+                <li>&#10003; Leftover from an edit &rarr; delete the declaration (your editor can do it)</li>
+                <li>&#10003; Genuinely don't need the value &rarr; assign to <code>_</code></li>
+                <li>&#10003; Appeared after adding <code>if err != nil</code> &rarr; check for <code>:=</code> shadowing; use <code>=</code></li>
+                <li>&#10003; Remember: writing to a variable is not using it &mdash; it must be read</li>
+                <li>&#10003; Package-level and parameters are exempt &mdash; only function locals are checked</li>
+                <li>&#10003; Wire <code>go vet</code> (with the shadow analyzer) into CI to catch the shadowing class early</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Why is an unused variable an error in Go and not a warning?</summary>
+                    <p>It's a deliberate language design decision. An unused variable is almost always either dead code left behind by an edit, or a genuine bug where you assigned to the wrong name. Go's authors chose to make it impossible to ignore rather than emit a warning developers would learn to skip. The same reasoning makes an unused import an error too. The upshot is that Go code in the wild has essentially no unused-variable rot.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'declared and not used'?</summary>
+                    <p>Pick whichever matches your intent: actually use the variable, delete the declaration if it's leftover, or assign to the blank identifier <code>_</code> if you must call the function for its side effect but genuinely don't need the value. Don't create a fake use like <code>_ = x</code> scattered through real code &mdash; that silences the compiler while leaving the dead code in place.</p>
+                </details>
+                <details>
+                    <summary>What is the blank identifier _ in Go?</summary>
+                    <p><code>_</code> is a write-only placeholder that discards whatever is assigned to it. Assigning to <code>_</code> satisfies the compiler's use requirement without creating a variable, so it's the idiomatic way to ignore a return value you don't need &mdash; for example <code>value, _ := strconv.Atoi(s)</code> when you don't care about the error, or <code>for _, v := range items</code> when you don't need the index.</p>
+                </details>
+                <details>
+                    <summary>Why don't unused package-level variables cause this error?</summary>
+                    <p>The rule applies only to variables declared inside a function. A package-level variable can legitimately be used by another file in the same package, or exported and used by an entirely different package, so the compiler can't conclude it's unused from one file. Function-local variables have no such ambiguity &mdash; their scope is fully visible &mdash; so the compiler can prove they're never read.</p>
+                </details>
+                <details>
+                    <summary>Why do I get it after adding an if err != nil check?</summary>
+                    <p>Usually variable shadowing. Inside a block, using <code>:=</code> creates new variables rather than assigning to the outer ones, so an inner <code>err</code> (or an inner result) is a different variable from the one outside. If the outer variable is then never read, it's declared and not used. Either use <code>=</code> instead of <code>:=</code> to assign to the existing variables, or restructure so there's only one declaration.</p>
+                </details>
+                <details>
+                    <summary>Does an assigned-but-never-read variable count as used?</summary>
+                    <p>No. Go requires the variable to be read, not merely written. Declaring <code>x</code>, then assigning <code>x = 5</code> and never reading <code>x</code>, still fails to compile &mdash; the assignment doesn't count as a use. That is precisely the point: a value you compute and store but never consult is dead work, and Go makes you either use it or remove it.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go &amp; backend errors</h3>
+                <p>Browse the full reference for Go, Rust, and Java errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="go-imported-and-not-used.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: imported and not used</a>
+                    <a href="go-undefined-x.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Go: undefined: X</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-imported-and-not-used.html">Go: imported and not used</a> &mdash; the same rule applied to imports</li>
+                <li><a href="go-undefined-x.html">Go: undefined: X</a> &mdash; the opposite problem: a name with no declaration</li>
+                <li><a href="go-nil-pointer-dereference.html">Go: nil pointer dereference</a> &mdash; what ignoring an error with <code>_</code> can lead to</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

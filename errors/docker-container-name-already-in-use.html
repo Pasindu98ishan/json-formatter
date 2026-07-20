@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Conflict. The container name is already in use — why a stopped container still holds its name, how to remove or reuse it, and how to stop it recurring in CI.">
+    <meta name="keywords" content="container name is already in use, docker conflict container name already in use, docker name already in use, remove or rename that container, docker rm container, docker compose name conflict">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-container-name-already-in-use.html">
+    <meta property="og:title" content="Docker: Container Name Is Already in Use — Fix It in One Command">
+    <meta property="og:description" content="A stopped container still owns its name until you remove it. Remove it, reuse it, or use --rm so it never happens again — plus the idempotent pattern for CI.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-container-name-already-in-use.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker: Container Name Is Already in Use — Fix It in One Command</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Conflict. The container name is already in use", "item": "https://jsondevtools.org/errors/docker-container-name-already-in-use.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: Conflict. The container name is already in use — Cause and Fix",
+  "description": "Docker container names must be unique per daemon, and a stopped container keeps its name until it is removed. This reference shows how to remove or reuse the existing container, why docker ps hides it, and the --rm and idempotent CI patterns that stop the conflict recurring.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-19",
+  "dateModified": "2026-07-19",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://jsondevtools.org/errors/docker-container-name-already-in-use.html" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Conflict. The container name is already in use' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Container names are unique per Docker daemon, and a container keeps its name for its entire lifetime — including after it stops. The error means a container with that name still exists on this machine, so the name isn't free. It does not mean the container is running; a container that exited days ago still owns its name until you remove it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix it in one command?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Remove the existing container and re-run: docker rm -f <name>. The -f flag also stops it first if it happens to be running, so the one command covers both cases. If you actually wanted the container that already exists — with its data and state intact — start it instead with docker start <name> rather than removing it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why doesn't docker ps show the conflicting container?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "docker ps only lists running containers. A stopped or exited container is invisible to it but still exists and still holds its name. Use docker ps -a (the -a means all) to see stopped containers too — that is where you'll find the one causing the conflict."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I stop this from happening every time?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Add --rm to docker run so the container is deleted automatically the moment it exits: docker run --rm --name myapp myimage. This is ideal for short-lived, throwaway, and CI containers. Don't use it for containers whose filesystem you need to inspect after they exit, because --rm discards the container and its writable layer as soon as it stops."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How should I handle this in a CI pipeline or script?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Make the cleanup idempotent so a re-run never fails on a leftover container: run 'docker rm -f myapp || true' before docker run, so the command succeeds whether or not the container exists. Better still, add --rm to the run itself. Both patterns make the job safe to retry after a cancelled or crashed previous run."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Docker Compose hit this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It usually happens when a service sets an explicit container_name and a container from a previous project or a differently-named compose stack still holds it, or when containers were left behind because the stack was stopped rather than removed. Run docker compose down to remove the stack's containers (not just stop them), and consider dropping the explicit container_name so Compose generates unique names per project."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Conflict. The container name is already in use</span>
+            </nav>
+            <h1>Docker: Conflict. The container name "/X" is already in use</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A container with that name already exists on this machine &mdash; it does <em>not</em> have to be running. Pick one:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Don't need the old one? <code>docker rm -f &lt;name&gt;</code>, then re-run.</li>
+                    <li><em>Do</em> want the old one (with its data)? <code>docker start &lt;name&gt;</code>.</li>
+                    <li>Never want this again? Add <code>--rm</code> to <code>docker run</code>.</li>
+                    <li>In CI? Use <code>docker rm -f &lt;name&gt; || true</code> before the run.</li>
+                </ul>
+            </div>
+
+            <p><strong>Why it happens, in short:</strong> Docker container names are unique per daemon and stay claimed for the container's entire lifetime, not just while it's running — so a container that exited days ago still owns the name until you remove it. The full explanation is further down the page.</p>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker run --name myapp myimage
+docker: Error response from daemon: Conflict. The container name "/myapp" is
+already in use by container "a1b2c3d4e5f6...". You have to remove (or rename)
+that container to be able to reuse that name.</code></pre>
+            </div>
+            <p>Docker Desktop and Podman phrase the same conflict slightly differently — Podman's CLI says <code>Error: creating container storage: the container name "myapp" is already in use by ...</code> — but the cause and every fix below are identical. One difference worth knowing: Podman's <code>docker run</code> supports a <code>--replace</code> flag that atomically removes any existing container with the same name before creating the new one; the Docker CLI has no equivalent, which is why <code>docker rm -f</code> first is the standard two-step pattern here.</p>
+
+            <h2>Fastest fix</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker rm -f myapp        # remove the existing container (stops it first if running)
+docker run --name myapp myimage   # now the name is free</code></pre>
+            </div>
+            <p>That resolves it in the large majority of cases. But read the 30-second triage below before running it &mdash; <code>docker rm</code> is destructive, and occasionally the container in your way is one you actually want.</p>
+
+            <h2>30-second triage: is that container disposable?</h2>
+            <p>The leading <code>/</code> in <code>"/myapp"</code> is just Docker's internal naming prefix, not part of a path &mdash; ignore it. What matters is what that container is:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker ps -a --filter "name=myapp"
+# CONTAINER ID   IMAGE     STATUS                     NAMES
+# a1b2c3d4e5f6   myimage   Exited (0) 2 days ago      myapp</code></pre>
+            </div>
+            <table>
+                <thead><tr><th>STATUS in docker ps -a</th><th>What it means</th><th>What to do</th></tr></thead>
+                <tbody>
+                    <tr><td>Exited, throwaway (build step, test run, scratch container)</td><td>Safe to remove</td><td>Fix 1 — <code>docker rm -f</code></td></tr>
+                    <tr><td>Exited, but held state you care about (data written to its writable layer, not a volume)</td><td>Do <strong>not</strong> remove it</td><td>Fix 2 — <code>docker start</code></td></tr>
+                    <tr><td>Up (still running)</td><td>Something else is actively using that name</td><td>Confirm it's not a service you need, then rename yours or remove the old one deliberately</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Fix 1: remove the old container</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker rm myapp       # works if the container is stopped
+myapp
+$ docker rm -f myapp    # force: stops it first, then removes it
+myapp</code></pre>
+            </div>
+            <p>Both commands echo back the container name on success — that's the confirmation, not an error, so don't be thrown by the terse output. If the container is stopped, plain <code>docker rm</code> is enough. If it's running, <code>docker rm</code> refuses and you need <code>-f</code>, which sends a kill signal to stop it first and then removes it in the same step. Because <code>-f</code> handles both cases, it's the one to reach for when you already know the container is disposable.</p>
+            <p>If you're cleaning up a whole pile of these rather than one, <code>docker container prune</code> removes <em>every</em> stopped container at once (after a confirmation prompt) — faster than naming them individually, but broader: run <code>docker ps -a</code> first to see what it's about to take.</p>
+            <p>Note what removal deletes: the container and its writable layer. It does <strong>not</strong> delete the image, and it does not delete named volumes attached to it &mdash; so a database using a proper named volume keeps its data across a <code>docker rm</code>. That's exactly why volumes exist, and it's also why <a href="docker-no-space-left-on-device.html">pruning with <code>--volumes</code></a> is the dangerous operation while removing a container is usually not.</p>
+
+            <h2>Fix 2: reuse the existing container instead</h2>
+            <p>If the conflict is telling you "this thing already exists," sometimes the right answer is to use it rather than replace it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker start myapp            # start it in the background
+docker start -ai myapp        # start it attached, with an interactive terminal
+docker logs myapp             # see what it did on its previous run</code></pre>
+            </div>
+            <p>This preserves the container's filesystem and any state written inside it. It's the correct move when the container <em>is</em> your environment &mdash; a long-lived dev database, a configured sandbox &mdash; rather than a fresh instance you were about to recreate anyway.</p>
+
+            <h2>Fix 3: rename, so both can coexist</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># give the NEW container a different name
+docker run --name myapp-v2 myimage
+
+# or rename the OLD one and free up the original name
+docker rename myapp myapp-old
+docker run --name myapp myimage</code></pre>
+            </div>
+            <p><code>docker rename</code> works on stopped and running containers alike and is completely non-destructive &mdash; useful when you want to keep the old container around for comparison or debugging while a new one takes over the canonical name.</p>
+
+            <h2>Fix 4: stop it recurring &mdash; <code>--rm</code></h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker run --rm --name myapp myimage</code></pre>
+            </div>
+            <p>With <code>--rm</code>, Docker deletes the container the instant it exits, so the name is always free for the next run. This is the right default for anything short-lived: test runs, one-off scripts, CI jobs, <code>docker run</code> commands you type by hand while iterating.</p>
+            <p>The trade-off is real, though: once the container exits, it's gone &mdash; you can't <code>docker logs</code> it, you can't <code>docker inspect</code> it, and you can't copy files out of it. If you're debugging <em>why</em> a container exits (for example chasing an <a href="docker-container-exited-code-137-oomkilled.html">exit code 137 / OOMKilled</a>), drop <code>--rm</code> temporarily so the corpse sticks around for the post-mortem.</p>
+
+            <h2>Fix 5: the idempotent pattern for CI and scripts</h2>
+            <p>In automation the conflict usually appears after a cancelled or crashed previous run left a container behind. Make cleanup unconditional so a retry can never fail on it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># safe whether or not the container exists — `|| true` swallows the "No such container" error
+docker rm -f myapp || true
+docker run --name myapp myimage
+
+# or, in one step, if the container is disposable:
+docker run --rm --name myapp myimage</code></pre>
+            </div>
+            <p>Without the <code>|| true</code>, <code>docker rm</code> exits non-zero when the container doesn't exist, which fails the pipeline step on the <em>first</em> (clean) run &mdash; the opposite of what you want.</p>
+
+            <h2>Fix 6: Docker Compose</h2>
+            <p>Compose hits this in two distinct situations, and they have different fixes:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># the stack was stopped, not removed — containers still exist and hold their names
+docker compose down          # removes containers (and networks); `stop` does not
+docker compose up</code></pre>
+            </div>
+            <p>The second situation is an explicit <code>container_name:</code> in your compose file. That opts out of Compose's automatic per-project naming, which is precisely what makes the name collide across projects or branches:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>services:
+  api:
+    image: myimage
+    container_name: myapp   # forces a fixed global name; collides easily</code></pre>
+            </div>
+            <p>Unless you have a specific reason to pin the name (a hardcoded reference from outside the stack), leave <code>container_name</code> out entirely. Without it, Compose derives the name from the project folder, the service name, and an instance number instead &mdash; a project named <code>billing</code> with a service named <code>api</code> gets <code>billing-api-1</code>, unique per project. That's also what lets you run the same stack for two branches simultaneously by varying the project name with <code>-p</code>.</p>
+
+            <h2>Why it happens: names are unique and outlive the process</h2>
+            <p>Docker keeps a single flat namespace of container names per daemon, and a name is claimed for the container's entire lifetime &mdash; from creation until removal, not until it stops. A container that exited months ago is still a real object in the daemon's state, still has its writable layer on disk, and still owns its name.</p>
+            <p>That's the whole reason the error is so surprising: <code>docker ps</code> shows nothing, so the name <em>looks</em> free. But <code>docker ps</code> deliberately lists only running containers. The stopped one holding your name is only visible with <code>-a</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker ps            # running only — the conflicting container is invisible here
+docker ps -a         # ALL containers, including exited ones — the name shows up</code></pre>
+            </div>
+            <p>Internally the name maps to a container ID (the long hash in the error message), which is why the daemon can tell you exactly which container is in the way. You can always act on that ID directly if the name is awkward to type: <code>docker rm -f a1b2c3d4e5f6</code>.</p>
+
+            <h2>Common mistakes</h2>
+            <ul>
+                <li><strong>Assuming <code>docker stop</code> frees the name.</strong> It doesn't &mdash; stopping just changes the container's status; the name stays claimed until the container is actually removed.</li>
+                <li><strong>Trusting <code>docker ps</code> shows "nothing's using this name."</strong> It only lists running containers. The one holding your name is almost always sitting stopped, invisible until you add <code>-a</code>.</li>
+                <li><strong>Running <code>docker compose stop</code>, then <code>up</code>, and hitting the same conflict again.</strong> <code>stop</code> leaves the containers in place; only <code>docker compose down</code> removes them.</li>
+                <li><strong>Manually stopping a container before removing it</strong>, out of habit, when <code>docker rm -f</code> already does both in one step.</li>
+                <li><strong>Reaching for a broad prune</strong> (<code>docker system prune</code>) to solve a single-container conflict, when the specific container is one targeted <code>docker rm -f &lt;name&gt;</code> away.</li>
+            </ul>
+
+            <h2>Verify the fix</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>docker ps -a --filter "name=myapp"
+# no rows → the name is free; docker run will succeed</code></pre>
+            </div>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>docker ps -a --filter "name=&lt;name&gt;"</code> &mdash; find the container actually holding the name</li>
+                <li>&#10003; Decide first: is it disposable, or does it hold state you need?</li>
+                <li>&#10003; Disposable &rarr; <code>docker rm -f &lt;name&gt;</code>; wanted &rarr; <code>docker start &lt;name&gt;</code></li>
+                <li>&#10003; Want both? <code>docker rename &lt;old&gt; &lt;new&gt;</code> &mdash; non-destructive</li>
+                <li>&#10003; Short-lived container? Add <code>--rm</code> so the name frees itself</li>
+                <li>&#10003; CI/script? <code>docker rm -f &lt;name&gt; || true</code> before the run</li>
+                <li>&#10003; Compose? <code>docker compose down</code> (not <code>stop</code>), and reconsider <code>container_name:</code></li>
+                <li>&#10003; Remember: <code>docker ps</code> hides stopped containers &mdash; always check with <code>-a</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Conflict. The container name is already in use' mean?</summary>
+                    <p>Container names are unique per Docker daemon, and a container keeps its name for its entire lifetime &mdash; including after it stops. The error means a container with that name still exists on this machine, so the name isn't free. It does not mean the container is running; a container that exited days ago still owns its name until you remove it.</p>
+                </details>
+                <details>
+                    <summary>How do I fix it in one command?</summary>
+                    <p>Remove the existing container and re-run: <code>docker rm -f &lt;name&gt;</code>. The <code>-f</code> flag also stops it first if it happens to be running, so the one command covers both cases. If you actually wanted the container that already exists &mdash; with its data and state intact &mdash; start it instead with <code>docker start &lt;name&gt;</code> rather than removing it.</p>
+                </details>
+                <details>
+                    <summary>Why doesn't docker ps show the conflicting container?</summary>
+                    <p><code>docker ps</code> only lists running containers. A stopped or exited container is invisible to it but still exists and still holds its name. Use <code>docker ps -a</code> (the <code>-a</code> means all) to see stopped containers too &mdash; that is where you'll find the one causing the conflict.</p>
+                </details>
+                <details>
+                    <summary>How do I stop this from happening every time?</summary>
+                    <p>Add <code>--rm</code> to <code>docker run</code> so the container is deleted automatically the moment it exits: <code>docker run --rm --name myapp myimage</code>. This is ideal for short-lived, throwaway, and CI containers. Don't use it for containers whose filesystem you need to inspect after they exit, because <code>--rm</code> discards the container and its writable layer as soon as it stops.</p>
+                </details>
+                <details>
+                    <summary>How should I handle this in a CI pipeline or script?</summary>
+                    <p>Make the cleanup idempotent so a re-run never fails on a leftover container: run <code>docker rm -f myapp || true</code> before <code>docker run</code>, so the command succeeds whether or not the container exists. Better still, add <code>--rm</code> to the run itself. Both patterns make the job safe to retry after a cancelled or crashed previous run.</p>
+                </details>
+                <details>
+                    <summary>Why does Docker Compose hit this error?</summary>
+                    <p>It usually happens when a service sets an explicit <code>container_name</code> and a container from a previous project or a differently-named compose stack still holds it, or when containers were left behind because the stack was stopped rather than removed. Run <code>docker compose down</code> to remove the stack's containers (not just stop them), and consider dropping the explicit <code>container_name</code> so Compose generates unique names per project.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Docker &amp; backend errors</h3>
+                <p>Browse the full reference for Docker, Node.js, Python, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="docker-port-is-already-allocated.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker: port is already allocated</a>
+                    <a href="../docker-image-optimizer.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Docker Image Optimizer</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-port-is-already-allocated.html">Docker: port is already allocated</a> &mdash; the other "something is already using that" conflict</li>
+                <li><a href="docker-container-exited-code-137-oomkilled.html">Docker: Container exited with code 137 (OOMKilled)</a> &mdash; why the old container exited in the first place</li>
+                <li><a href="docker-no-space-left-on-device.html">Docker: no space left on device</a> &mdash; leftover containers add up</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../docker-image-optimizer.html">Docker Image Optimizer</a> &mdash; shrink the image the container runs</li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

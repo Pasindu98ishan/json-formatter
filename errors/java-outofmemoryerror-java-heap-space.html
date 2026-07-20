@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="java.lang.OutOfMemoryError: Java heap space — how to tell a real memory leak from an undersized heap, read a heap dump, and size -Xmx correctly in containers.">
+    <meta name="keywords" content="java.lang.OutOfMemoryError Java heap space, java out of memory error, java heap space error, -Xmx, MaxRAMPercentage, java heap dump analysis, java memory leak, OutOfMemoryError GC overhead limit exceeded">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/java-outofmemoryerror-java-heap-space.html">
+    <meta property="og:title" content="Java OutOfMemoryError: Java Heap Space — Leak or Just Too Small?">
+    <meta property="og:description" content="The first question isn't how to raise -Xmx, it's whether you should. Learn to tell a genuine leak from an undersized heap, capture and read a heap dump, and size the heap correctly inside a container.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/java-outofmemoryerror-java-heap-space.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Java OutOfMemoryError: Java Heap Space — Leak or Just Too Small?</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "java.lang.OutOfMemoryError: Java heap space", "item": "https://jsondevtools.org/errors/java-outofmemoryerror-java-heap-space.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "java.lang.OutOfMemoryError: Java heap space — Cause and Fix",
+  "description": "The JVM could not allocate an object because the heap is full and garbage collection could not free enough. This reference shows how to distinguish a genuine memory leak from a merely undersized heap, capture and analyse a heap dump, size -Xmx and MaxRAMPercentage correctly inside containers, and handle the one-huge-allocation case.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-19",
+  "dateModified": "2026-07-19",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does java.lang.OutOfMemoryError: Java heap space mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The JVM tried to allocate an object, the heap had no room, and the garbage collector could not free enough space to satisfy the request. It is not a crash in your code so much as a resource exhaustion: either the application genuinely needs more heap than it was given, or it is holding on to objects it should have released — a memory leak."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just increase -Xmx?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only after you know which problem you have. If memory usage rises to a stable plateau and the workload genuinely needs more room, raising -Xmx is the correct fix. If usage climbs steadily until it hits whatever ceiling you set, that is a leak — a bigger heap only postpones the same crash and makes the eventual garbage-collection pauses worse. Check the trend before changing the flag."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I tell a memory leak from an undersized heap?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Watch heap usage after full garbage collections over time. If the post-GC baseline stays flat, the heap is merely too small for peak load. If the post-GC baseline creeps steadily upward — never returning to its earlier level — objects are being retained and you have a leak. Enable GC logging with -Xlog:gc*, or watch live in a profiler, and compare the low points rather than the peaks."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I capture and read a heap dump?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Add -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp so the JVM writes a dump automatically when it fails, or take one on demand with jmap -dump:live,format=b,file=heap.hprof <pid>. Open the .hprof file in Eclipse MAT or VisualVM and run a leak-suspects report — it ranks which objects dominate the heap and, more usefully, shows the reference chain keeping them alive."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my Java container get killed instead of throwing OutOfMemoryError?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Those are two different failures. OutOfMemoryError means the JVM hit its own heap ceiling and threw. Being killed with exit code 137 means the kernel's OOM killer terminated the whole process for exceeding the container's memory limit — no Java exception is thrown at all. That usually means -Xmx was set too close to the container limit, leaving no headroom for thread stacks, metaspace and native buffers, which live outside the heap."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What are the most common causes of a Java heap leak?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An unbounded collection used as a cache with no eviction is the classic — a static Map that only ever grows. Others include listeners or callbacks registered but never removed, ThreadLocal values not cleared on pooled threads, unclosed resources holding buffers, and objects held alive by long-lived static references. A heap dump's dominator tree points at whichever applies, because it shows what is actually retaining the memory."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from 'GC overhead limit exceeded'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are two symptoms of the same underlying condition. 'Java heap space' means an allocation outright failed. 'GC overhead limit exceeded' means the JVM is spending over 98% of its time collecting and recovering less than 2% of the heap — it gave up before allocation failed outright. Both indicate the heap is effectively exhausted, and both are diagnosed the same way. In practice you're more likely to see it on Parallel GC (where the check originates); G1, the default collector since JDK 9, typically throws plain 'Java heap space' instead of this variant."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>java.lang.OutOfMemoryError: Java heap space</span>
+            </nav>
+            <h1>java.lang.OutOfMemoryError: Java heap space</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The heap filled up and GC couldn't free enough to satisfy an allocation. <strong>Don't raise <code>-Xmx</code> yet</strong> &mdash; first find out which problem you have:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Post-GC memory returns to a <strong>flat baseline</strong> &rarr; heap is just too small; raise <code>-Xmx</code>.</li>
+                    <li>Post-GC baseline <strong>creeps upward forever</strong> &rarr; memory leak; a bigger heap only delays the crash.</li>
+                    <li>One giant allocation (a huge file/query) &rarr; stream it instead of loading it whole.</li>
+                    <li>In a container? Use <code>-XX:MaxRAMPercentage</code>, not a hardcoded <code>-Xmx</code>.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
+        at java.base/java.util.Arrays.copyOf(Arrays.java:3512)
+        at java.base/java.lang.AbstractStringBuilder.ensureCapacity(AbstractStringBuilder.java:239)
+        at com.example.ReportBuilder.build(ReportBuilder.java:88)
+        at com.example.Main.main(Main.java:24)</code></pre>
+            </div>
+
+            <p>An important thing to understand up front: <strong>the stack trace shows where memory ran out, not what caused it.</strong> The frame at the top is simply the unlucky allocation that happened to be the last straw &mdash; often something innocuous like growing a <code>StringBuilder</code> or copying an array. The objects actually filling the heap were usually allocated somewhere else entirely, possibly minutes earlier. Chasing the line in the stack trace is the single most common wasted afternoon with this error.</p>
+
+            <h2>Step 1: leak, or just too small?</h2>
+            <p>Everything downstream depends on this one question, and it has a precise answer. Watch what happens to heap usage <em>after</em> each full garbage collection &mdash; the low points, not the peaks:</p>
+            <div class="dg-wrap">
+                <svg viewBox="0 0 660 300" role="img" aria-label="Two heap usage patterns over time. In the healthy pattern, usage sawtooths up and down but the post-garbage-collection baseline stays flat, meaning the heap is merely undersized and raising -Xmx is the correct fix. In the leak pattern, the post-garbage-collection baseline creeps steadily upward until it reaches the ceiling and throws OutOfMemoryError, meaning objects are being retained and a larger heap only delays the crash.">
+                    <defs>
+                        <marker id="oom-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                    </defs>
+
+                    <text class="dg-m dg-ok" x="20" y="18">Healthy — heap just too small</text>
+                    <line class="dg-ln" x1="20" y1="110" x2="300" y2="110"/>
+                    <line class="dg-ln" x1="20" y1="30" x2="20" y2="110"/>
+                    <path class="dg-ln-ok" d="M25,100 L60,45 L62,95 L100,42 L102,98 L140,44 L142,96 L180,43 L182,97 L220,45 L222,95 L260,44"/>
+                    <line class="dg-ln-dash" x1="25" y1="97" x2="285" y2="97"/>
+                    <text class="dg-s dg-ok" x="290" y="100" text-anchor="start">flat</text>
+                    <text class="dg-s" x="160" y="126" text-anchor="middle">post-GC baseline stays level</text>
+                    <text class="dg-m dg-ok" x="160" y="146" text-anchor="middle">→ raise -Xmx (Fix 1)</text>
+
+                    <text class="dg-m dg-bad" x="360" y="18">Leak — retention grows</text>
+                    <line class="dg-ln" x1="360" y1="110" x2="640" y2="110"/>
+                    <line class="dg-ln" x1="360" y1="30" x2="360" y2="110"/>
+                    <line class="dg-ln-bad" x1="360" y1="36" x2="640" y2="36"/>
+                    <text class="dg-s dg-bad" x="638" y="32" text-anchor="end">-Xmx ceiling</text>
+                    <path class="dg-ln-bad" d="M365,100 L400,52 L402,92 L440,48 L442,84 L480,45 L482,74 L520,42 L522,63 L560,39 L562,52 L600,37"/>
+                    <line class="dg-ln-dash" x1="365" y1="100" x2="600" y2="45"/>
+                    <text class="dg-s dg-bad" x="500" y="126" text-anchor="middle">post-GC baseline climbs → OOM</text>
+                    <text class="dg-m dg-bad" x="500" y="146" text-anchor="middle">→ find the leak (Fix 2)</text>
+
+                    <rect class="dg-box" x="90" y="182" width="480" height="38" rx="8"/>
+                    <text class="dg-m" x="330" y="206" text-anchor="middle">Compare the LOW points, not the peaks</text>
+                    <line class="dg-ln" x1="330" y1="220" x2="330" y2="242" marker-end="url(#oom-a)"/>
+                    <rect class="dg-box-ok" x="120" y="244" width="420" height="42" rx="8"/>
+                    <text class="dg-m dg-ok" x="330" y="264" text-anchor="middle">-Xlog:gc* — or a profiler — shows the baseline</text>
+                    <text class="dg-s dg-ok" x="330" y="279" text-anchor="middle">flat = size problem · rising = retention problem</text>
+                </svg>
+                <p class="dg-cap">Peaks always look alarming in both cases. Only the post-GC baseline distinguishes a heap that's too small from one that's leaking.</p>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># log every GC with heap before/after — the cheapest way to see the baseline
+java -Xlog:gc* -jar app.jar
+
+# JDK 8 equivalent
+java -XX:+PrintGCDetails -XX:+PrintGCDateStamps -jar app.jar
+
+# live view of a running process
+jcmd &lt;pid&gt; GC.heap_info
+jstat -gcutil &lt;pid&gt; 5s</code></pre>
+            </div>
+
+            <h2>Fix 1: the heap is genuinely too small</h2>
+            <p>If the baseline is flat and the application simply needs more room at peak load, raising the maximum heap is the right and complete fix:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>java -Xms1g -Xmx2g -jar app.jar</code></pre>
+            </div>
+            <p>Setting <code>-Xms</code> (initial) equal to <code>-Xmx</code> (maximum) is common for servers: it avoids the cost of growing the heap incrementally and makes memory behaviour predictable from the first request. The trade-off is that the process reserves that much up front.</p>
+            <p>Be aware that a bigger heap is not free. Full-GC pauses scale with heap size, so a very large heap can turn a memory problem into a latency problem. If you're pushing past a few gigabytes, it's usually worth switching collectors (G1 is the default on modern JDKs; ZGC or Shenandoah for low-pause requirements) rather than just growing the number.</p>
+
+            <h2>Fix 2: it's a leak &mdash; find what's retaining memory</h2>
+            <p>If the baseline climbs, no <code>-Xmx</code> value will save you; it just moves the crash later. Capture a heap dump and find what's holding the objects alive:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># write a dump automatically when it fails — set this in production ahead of time
+java -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp -jar app.jar
+
+# or take one on demand from a running process (live = after a full GC)
+jmap -dump:live,format=b,file=heap.hprof &lt;pid&gt;</code></pre>
+            </div>
+            <p>Open the <code>.hprof</code> in <strong>Eclipse MAT</strong> (the standard tool) or VisualVM and run the <em>Leak Suspects</em> report. The critical view is the <strong>dominator tree</strong>: it doesn't just show which objects are biggest, it shows the reference chain keeping them alive &mdash; which is the actual answer to "why isn't this being collected?"</p>
+            <p>The recurring culprits, roughly in order of how often they turn up:</p>
+            <table>
+                <thead><tr><th>Pattern</th><th>Why it retains</th><th>Fix</th></tr></thead>
+                <tbody>
+                    <tr><td>Unbounded cache (a <code>static Map</code> that only grows)</td><td>Nothing ever evicts entries</td><td>Use Caffeine/Guava with a size or TTL bound</td></tr>
+                    <tr><td>Listeners / callbacks registered, never removed</td><td>The registry holds a strong reference forever</td><td>Deregister in a <code>close()</code>/lifecycle hook</td></tr>
+                    <tr><td><code>ThreadLocal</code> not cleared on pooled threads</td><td>The thread outlives the request, so the value does too</td><td><code>remove()</code> in a <code>finally</code> block</td></tr>
+                    <tr><td>Long-lived <code>static</code> collections</td><td>Class-level roots are never collected</td><td>Scope to a bean/instance, or bound the size</td></tr>
+                    <tr><td>Unclosed streams/connections</td><td>Native and buffer memory pinned</td><td>try-with-resources</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Fix 3: one huge allocation &mdash; stream instead of loading</h2>
+            <p>Sometimes there's no leak and the heap isn't unreasonably small: a single operation just tries to materialise something enormous. Reading a large file, or a query with no <code>LIMIT</code>, into a list is the usual shape:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ entire file in memory at once
+List&lt;String&gt; lines = Files.readAllLines(Path.of("huge.log"));
+
+// ✅ stream it — one line in memory at a time
+try (Stream&lt;String&gt; lines = Files.lines(Path.of("huge.log"))) {
+    lines.filter(l -&gt; l.contains("ERROR")).forEach(this::handle);
+}
+
+// ❌ unbounded result set — the whole table lands in a List in memory
+List&lt;Row&gt; all = jdbc.query("SELECT * FROM events", rowMapper);
+
+// ✅ page with LIMIT/OFFSET (or a keyset), or stream with a real server-side cursor
+jdbc.setFetchSize(1000);</code></pre>
+            </div>
+            <p><code>setFetchSize</code> is a hint, not a guarantee &mdash; most drivers happily ignore it and buffer the full result set anyway unless additional conditions are met. On PostgreSQL it only takes effect with auto-commit off (<code>connection.setAutoCommit(false)</code>); on MySQL the driver requires <code>useCursorFetch=true</code> in the connection URL, or a MySQL-specific streaming mode via <code>Statement.setFetchSize(Integer.MIN_VALUE)</code>, which has its own restrictions (e.g. you must read the whole result set before issuing another query on that connection). Check your driver's own documentation before assuming <code>setFetchSize</code> alone keeps a large query off the heap &mdash; the safer bet for genuinely huge result sets is explicit paging (<code>LIMIT</code>/<code>OFFSET</code> or a keyset) at the query level.</p>
+            <p>The same trap applies to parsing a large JSON document with a tree-based parser: the whole object graph lands on the heap at once. Streaming parsers (Jackson's <code>JsonParser</code>, or Gson's <code>JsonReader</code>) process it incrementally instead. If you're working out the shape of a large payload before deciding how to parse it, our <a href="../formatter.html">JSON Formatter</a> is a quick way to inspect its structure without writing throwaway code &mdash; and <a href="go-json-cannot-unmarshal.html">the equivalent decode problems in Go</a> follow the same "decode into a typed target, don't hold it all" principle.</p>
+
+            <h2>Fix 4: sizing the heap inside a container</h2>
+            <p>This deserves its own treatment, because the failure mode is different and confusing. In Docker or Kubernetes there are two ceilings: the JVM's <code>-Xmx</code>, and the container's memory limit enforced by the kernel. Which one you hit determines what you see:</p>
+            <table>
+                <thead><tr><th>What happens</th><th>Which ceiling</th><th>Symptom</th></tr></thead>
+                <tbody>
+                    <tr><td>JVM heap exhausted</td><td><code>-Xmx</code></td><td><code>OutOfMemoryError: Java heap space</code> (this page) &mdash; the JVM throws, stack trace available</td></tr>
+                    <tr><td>Process exceeds container limit</td><td>cgroup limit</td><td><a href="docker-container-exited-code-137-oomkilled.html">Killed with exit code 137 (OOMKilled)</a> &mdash; no Java exception at all</td></tr>
+                </tbody>
+            </table>
+            <p>The second case surprises people because there's no Java error to read &mdash; the process simply vanishes. It happens when <code>-Xmx</code> is set close to the container limit, leaving no headroom for everything that lives <em>outside</em> the heap: thread stacks, metaspace, the JIT code cache, GC structures, and native/direct buffers. Those can easily add several hundred megabytes.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ container limit 512m, heap allowed 512m — no room for non-heap memory
+docker run -m 512m myapp java -Xmx512m -jar app.jar
+
+# ✅ let the JVM size itself from the container limit, with headroom
+docker run -m 512m myapp java -XX:MaxRAMPercentage=75.0 -jar app.jar</code></pre>
+            </div>
+            <p>Modern JDKs (10+) are container-aware by default &mdash; <code>UseContainerSupport</code> is on, so the JVM reads the cgroup limit rather than the host's total RAM. <code>-XX:MaxRAMPercentage</code> is therefore the better flag in containers: it scales automatically when you change the limit, instead of silently becoming wrong the next time someone edits the deployment.</p>
+
+            <h2>Related OutOfMemoryError variants</h2>
+            <p>The message after <code>OutOfMemoryError:</code> tells you which region ran out, and they have different fixes:</p>
+            <table>
+                <thead><tr><th>Message</th><th>Meaning</th></tr></thead>
+                <tbody>
+                    <tr><td><code>Java heap space</code></td><td>The object heap is full &mdash; this page</td></tr>
+                    <tr><td><code>GC overhead limit exceeded</code></td><td>&gt;98% of time in GC recovering &lt;2% &mdash; effectively the same condition, caught earlier. Mostly seen with Parallel GC; G1, the default collector since JDK 9, typically throws plain <code>Java heap space</code> instead</td></tr>
+                    <tr><td><code>Metaspace</code></td><td>Class metadata, not objects &mdash; usually classloader leaks (frequent redeploys)</td></tr>
+                    <tr><td><code>Requested array size exceeds VM limit</code></td><td>A single array larger than the JVM allows &mdash; almost always a bug in a size calculation</td></tr>
+                    <tr><td><code>unable to create new native thread</code></td><td>OS thread limit, not heap &mdash; usually an unbounded thread pool</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Ignore the stack trace's top frame &mdash; it's the last straw, not the cause</li>
+                <li>&#10003; Enable <code>-Xlog:gc*</code> and compare post-GC <em>low points</em> over time</li>
+                <li>&#10003; Flat baseline &rarr; undersized heap; raise <code>-Xmx</code> (Fix 1)</li>
+                <li>&#10003; Rising baseline &rarr; leak; take a heap dump and read the dominator tree (Fix 2)</li>
+                <li>&#10003; Set <code>-XX:+HeapDumpOnOutOfMemoryError</code> in production <em>before</em> you need it</li>
+                <li>&#10003; Loading a whole file/result set? Stream it instead (Fix 3)</li>
+                <li>&#10003; In a container? Use <code>-XX:MaxRAMPercentage=75</code>, never <code>-Xmx</code> == container limit</li>
+                <li>&#10003; Process vanished with no Java error? That's <a href="docker-container-exited-code-137-oomkilled.html">exit 137</a>, not this error</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does java.lang.OutOfMemoryError: Java heap space mean?</summary>
+                    <p>The JVM tried to allocate an object, the heap had no room, and the garbage collector could not free enough space to satisfy the request. It is not a crash in your code so much as a resource exhaustion: either the application genuinely needs more heap than it was given, or it is holding on to objects it should have released &mdash; a memory leak.</p>
+                </details>
+                <details>
+                    <summary>Should I just increase -Xmx?</summary>
+                    <p>Only after you know which problem you have. If memory usage rises to a stable plateau and the workload genuinely needs more room, raising <code>-Xmx</code> is the correct fix. If usage climbs steadily until it hits whatever ceiling you set, that is a leak &mdash; a bigger heap only postpones the same crash and makes the eventual garbage-collection pauses worse. Check the trend before changing the flag.</p>
+                </details>
+                <details>
+                    <summary>How do I tell a memory leak from an undersized heap?</summary>
+                    <p>Watch heap usage after full garbage collections over time. If the post-GC baseline stays flat, the heap is merely too small for peak load. If the post-GC baseline creeps steadily upward &mdash; never returning to its earlier level &mdash; objects are being retained and you have a leak. Enable GC logging with <code>-Xlog:gc*</code>, or watch live in a profiler, and compare the low points rather than the peaks.</p>
+                </details>
+                <details>
+                    <summary>How do I capture and read a heap dump?</summary>
+                    <p>Add <code>-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp</code> so the JVM writes a dump automatically when it fails, or take one on demand with <code>jmap -dump:live,format=b,file=heap.hprof &lt;pid&gt;</code>. Open the <code>.hprof</code> file in Eclipse MAT or VisualVM and run a leak-suspects report &mdash; it ranks which objects dominate the heap and, more usefully, shows the reference chain keeping them alive.</p>
+                </details>
+                <details>
+                    <summary>Why does my Java container get killed instead of throwing OutOfMemoryError?</summary>
+                    <p>Those are two different failures. <code>OutOfMemoryError</code> means the JVM hit its own heap ceiling and threw. Being killed with exit code 137 means the kernel's OOM killer terminated the whole process for exceeding the container's memory limit &mdash; no Java exception is thrown at all. That usually means <code>-Xmx</code> was set too close to the container limit, leaving no headroom for thread stacks, metaspace and native buffers, which live outside the heap.</p>
+                </details>
+                <details>
+                    <summary>What are the most common causes of a Java heap leak?</summary>
+                    <p>An unbounded collection used as a cache with no eviction is the classic &mdash; a <code>static Map</code> that only ever grows. Others include listeners or callbacks registered but never removed, <code>ThreadLocal</code> values not cleared on pooled threads, unclosed resources holding buffers, and objects held alive by long-lived static references. A heap dump's dominator tree points at whichever applies, because it shows what is actually retaining the memory.</p>
+                </details>
+                <details>
+                    <summary>How is this different from 'GC overhead limit exceeded'?</summary>
+                    <p>They are two symptoms of the same underlying condition. &lsquo;Java heap space&rsquo; means an allocation outright failed. &lsquo;GC overhead limit exceeded&rsquo; means the JVM is spending over 98% of its time collecting and recovering less than 2% of the heap &mdash; it gave up before allocation failed outright. Both indicate the heap is effectively exhausted, and both are diagnosed the same way. In practice you're more likely to see it on Parallel GC (where the check originates); G1, the default collector since JDK 9, typically throws plain &lsquo;Java heap space&rsquo; instead of this variant.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Java &amp; memory errors</h3>
+                <p>Browse the full reference for Java, Go, and Rust errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="docker-container-exited-code-137-oomkilled.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker: exit code 137 (OOMKilled)</a>
+                    <a href="javascript-heap-out-of-memory.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Node: JS heap out of memory</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-container-exited-code-137-oomkilled.html">Docker: Container exited with code 137 (OOMKilled)</a> &mdash; when the container dies instead of the JVM throwing</li>
+                <li><a href="javascript-heap-out-of-memory.html">FATAL ERROR: JavaScript heap out of memory</a> &mdash; the Node.js equivalent</li>
+                <li><a href="java-nullpointerexception.html">Java NullPointerException</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../docker-image-optimizer.html">Docker Image Optimizer</a> &mdash; right-size the image your JVM runs in</li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

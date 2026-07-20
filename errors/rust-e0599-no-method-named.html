@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Rust error[E0599]: no method named X found — the trait-not-in-scope trap, missing trait bounds, typos, and receiver mismatches, with the fix for each.">
+    <meta name="keywords" content="E0599, no method named found for type, rust no method named, rust trait not in scope, use std io Read, rust method not found, items from traits can only be used if the trait is in scope">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-e0599-no-method-named.html">
+    <meta property="og:title" content="Rust E0599: No Method Named X Found — Cause &amp; Fix">
+    <meta property="og:description" content="The method usually exists — Rust just can't see it. Learn the trait-not-in-scope trap, missing generic bounds, typos, and receiver mismatches, and how to read the compiler's hint.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0599-no-method-named.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Rust E0599: No Method Named X Found — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Rust E0599: no method named X found", "item": "https://jsondevtools.org/errors/rust-e0599-no-method-named.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Rust error[E0599]: no method named X found for type Y — Cause and Fix",
+  "description": "Rust raises E0599 when a method call can't be resolved on a type. This reference covers the four real causes — a trait that isn't in scope, a missing trait bound on a generic, a typo or wrong method name, and a receiver mismatch — plus how to read the compiler's 'items from traits' hint.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-19",
+  "dateModified": "2026-07-19",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does error[E0599]: no method named X found mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Rust could not resolve the method you called on that type. It does not necessarily mean the method doesn't exist — the most common cause is that the method comes from a trait that isn't in scope, so the compiler refuses to consider it. Other causes are a missing trait bound on a generic parameter, a simple typo, or calling the method on the wrong receiver type such as a reference or an Option wrapper."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I need to import a trait to call its method?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Rust only considers trait methods when the trait is in scope. This prevents two traits that define the same method name from silently colliding, and keeps method resolution predictable and explicit. So even though a type implements the trait, you must bring the trait into scope with a use statement — for example use std::io::Read; before calling .read_to_string() on a File."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does 'items from traits can only be used if the trait is in scope' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It's the compiler telling you it found a method with that name on a trait the type implements, but the trait isn't imported so it can't be used. This note is the single most useful line in the error — it usually comes with a suggested 'use' statement. Adding that import is the whole fix."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does E0599 appear inside a generic function?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Inside a generic function, Rust only knows about the capabilities you declared through trait bounds. If T has no bounds, T has no methods at all as far as the compiler is concerned, even if every concrete type you plan to pass has the method. Add the bound — fn show<T: Display>(x: T) — or a where clause, so the method becomes available for every T."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is E0599 different from E0277?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "E0599 means the method could not be found at all for that type. E0277 means a trait bound is not satisfied — the compiler found the right method or operation but the type doesn't implement the required trait. In practice a missing trait bound on a generic can surface as either, depending on where the compiler notices the gap, and the fix is often the same: add the bound or implement the trait."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the method exist but not on my Option or Result?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because the method belongs to the value inside, not to the wrapper. Option<String> has Option's methods, not String's — calling .len() on it fails with E0599. Unwrap the inner value first with a match, if let, or a combinator such as .map(|s| s.len()), or use .as_deref() to get at the inner type. The same applies to Result."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Rust E0599: no method named X found</span>
+            </nav>
+            <h1>Rust: error[E0599]: no method named `X` found for type `Y`</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The method usually <em>does</em> exist &mdash; Rust just can't see it. In order of likelihood:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>The method comes from a <strong>trait that isn't in scope</strong> &mdash; add the <code>use</code> (most common by far).</li>
+                    <li>You're in a <strong>generic function</strong> with no trait bound &mdash; add <code>&lt;T: Trait&gt;</code>.</li>
+                    <li>A <strong>typo</strong> or the method has a different name &mdash; the compiler suggests the closest match.</li>
+                    <li>Wrong <strong>receiver</strong> &mdash; you're calling it on an <code>Option</code>/<code>Result</code> instead of the value inside.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>use std::fs::File;
+
+fn main() {
+    let mut f = File::open("data.json").unwrap();
+    let mut s = String::new();
+    f.read_to_string(&amp;mut s).unwrap();
+}
+
+// error[E0599]: no method named `read_to_string` found for struct `File` in the current scope
+//   --&gt; src/main.rs:6:7
+//    |
+// 6  |     f.read_to_string(&amp;mut s).unwrap();
+//    |       ^^^^^^^^^^^^^^ method not found in `File`
+//    |
+//    = help: items from traits can only be used if the trait is in scope
+// help: trait `Read` which provides `read_to_string` is implemented but not in scope
+//    |
+// 1  + use std::io::Read;
+//    |</code></pre>
+            </div>
+
+            <p>Read past the first line. <code>method not found in File</code> is technically accurate but misleading &mdash; <code>File</code> absolutely does have <code>read_to_string</code>. The line that actually matters is the <code>help:</code> note near the bottom: <strong>items from traits can only be used if the trait is in scope</strong>. Modern rustc even prints the exact <code>use</code> statement to add. Whenever you see that note, the fix is a one-line import and nothing more.</p>
+
+            <h2>Fix 1: bring the trait into scope</h2>
+            <p>Rust deliberately only considers trait methods when the trait is imported. Adding the <code>use</code> makes the method resolvable:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>use std::fs::File;
+use std::io::Read;          // ✅ now File::read_to_string resolves
+
+fn main() {
+    let mut f = File::open("data.json").unwrap();
+    let mut s = String::new();
+    f.read_to_string(&amp;mut s).unwrap();
+}</code></pre>
+            </div>
+            <p>This is not the compiler being pedantic. Two different traits can define a method with the same name, and both can be implemented for the same type. If trait methods resolved without an import, adding a dependency could silently change which method your code calls. Requiring the trait in scope makes resolution explicit and stable.</p>
+            <p>The traits that most often trip people up:</p>
+            <table>
+                <thead><tr><th>Missing import</th><th>Methods it unlocks</th></tr></thead>
+                <tbody>
+                    <tr><td><code>use std::io::Read;</code></td><td><code>read_to_string</code>, <code>read_to_end</code>, <code>read_exact</code></td></tr>
+                    <tr><td><code>use std::io::Write;</code></td><td><code>write_all</code>, <code>write_fmt</code>, <code>flush</code></td></tr>
+                    <tr><td><code>use std::io::BufRead;</code></td><td><code>lines()</code>, <code>read_line</code></td></tr>
+                    <tr><td><code>use std::str::FromStr;</code></td><td><code>T::from_str(s)</code> (not <code>.parse()</code> &mdash; see note)</td></tr>
+                    <tr><td><code>use std::fmt::Write;</code></td><td><code>write!</code> into a <code>String</code> (collides with <code>io::Write</code> &mdash; see note)</td></tr>
+                    <tr><td><code>use itertools::Itertools;</code></td><td><code>unique()</code>, <code>chunks()</code>, <code>join()</code> and friends</td></tr>
+                    <tr><td><code>use rand::Rng;</code></td><td><code>random()</code>, <code>random_range()</code> (renamed from <code>gen()</code>/<code>gen_range()</code> in rand 0.9)</td></tr>
+                </tbody>
+            </table>
+            <p>Two rows need a caveat. <code>.parse::&lt;T&gt;()</code> is an <em>inherent</em> method on <code>str</code> and needs no import at all &mdash; it calls <code>FromStr::from_str</code> internally for you; the <code>FromStr</code> import only matters if you write <code>T::from_str(s)</code> directly. And <code>std::fmt::Write</code> and <code>std::io::Write</code> both define a <code>write_fmt</code>-shaped method the compiler can resolve to either one &mdash; importing both in the same module is a genuine collision, not a clean drop-in fix, and needs an alias such as <code>use std::fmt::Write as FmtWrite;</code> to disambiguate.</p>
+            <p>Many crates ship a <em>prelude</em> module that imports their common traits in one line &mdash; <code>use anyhow::Context;</code>, <code>use rayon::prelude::*;</code>, <code>use diesel::prelude::*;</code>. If a crate's docs mention a prelude, importing it usually resolves a whole family of E0599s at once.</p>
+            <p>None of this is limited to the standard library or third-party crates &mdash; it applies just as much to a trait <em>you</em> wrote in another module:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>trait Printable {
+    fn print(&amp;self);
+}
+
+struct User;
+
+impl Printable for User {
+    fn print(&amp;self) {
+        println!("User");
+    }
+}
+
+fn main() {
+    let user = User;
+    user.print();
+}
+// error[E0599]: no method named `print` found for struct `User` in the current scope
+//    = help: items from traits can only be used if the trait is in scope
+// help: trait `Printable` which provides `print` is implemented but not in scope
+//    |
+// 1  + use crate::Printable;
+//    |</code></pre>
+            </div>
+            <p>Same fix, same reasoning: add <code>use crate::Printable;</code> (or wherever the trait actually lives). It's worth internalizing that this is just as likely to hit you on a trait you defined yourself as on one from the standard library.</p>
+
+            <h2>Fix 2: add the missing trait bound on a generic</h2>
+            <p>Inside a generic function, the compiler knows nothing about <code>T</code> beyond the bounds you declared. With no bounds, <code>T</code> has no methods at all &mdash; regardless of what you intend to pass in:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ T has no bounds, so T has no methods
+fn print_all&lt;T&gt;(items: Vec&lt;T&gt;) {
+    for item in items {
+        println!("{}", item.to_string());
+    }
+}
+// error[E0599]: no method named `to_string` found for type parameter `T`
+
+// ✅ declare the capability you rely on
+fn print_all&lt;T: ToString&gt;(items: Vec&lt;T&gt;) {
+    for item in items {
+        println!("{}", item.to_string());
+    }
+}
+
+// equivalent, and clearer with several bounds:
+fn print_all&lt;T&gt;(items: Vec&lt;T&gt;)
+where
+    T: ToString + Clone,
+{ /* ... */ }</code></pre>
+            </div>
+            <p>This is generics working as designed: the bound is a contract stated up front, so the function body is checked once and every caller is verified against it. It's also where E0599 and <a href="rust-e0277-trait-bound-not-satisfied.html">E0277 (the trait bound is not satisfied)</a> blur together &mdash; a missing bound can surface as either depending on where rustc notices the gap, and adding the bound fixes both.</p>
+
+            <h2>Fix 3: a typo or a differently-named method</h2>
+            <p>When the compiler can find a similarly-named method it says so, and that suggestion is almost always right:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let v = vec![1, 2, 3];
+let n = v.length();
+// error[E0599]: no method named `length` found for struct `Vec&lt;i32&gt;`
+//    = help: there is a method `len` with a similar name
+
+let n = v.len();     // ✅</code></pre>
+            </div>
+            <p>Rust's naming often differs from other languages in small ways that produce exactly this error &mdash; <code>len()</code> not <code>length()</code>, <code>push()</code> not <code>append()</code> for a single element, <code>contains()</code> not <code>includes()</code>, <code>to_string()</code> not <code>toString()</code>. When there's no suggestion at all, check the type's docs: the method may live on a different type in the chain than you assumed.</p>
+
+            <h2>Fix 4: the wrong receiver &mdash; <code>Option</code>, <code>Result</code>, and references</h2>
+            <p>This one is easy to misread because the method genuinely exists &mdash; just not on the type you're calling it on. A wrapper has the wrapper's methods, not the inner value's:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let name: Option&lt;String&gt; = Some("Alice".to_string());
+let n = name.len();
+// error[E0599]: no method named `len` found for enum `Option&lt;String&gt;`
+
+// ✅ operate on the inner value
+let n = name.map(|s| s.len());          // Option&lt;usize&gt;
+let n = name.as_deref().map(str::len);  // avoids moving the String
+
+if let Some(s) = &amp;name {
+    println!("{}", s.len());            // ✅ s is &amp;String here
+}</code></pre>
+            </div>
+            <p>The same shape appears with <code>Result</code>. The error is really telling you to handle the wrapper first &mdash; which is Rust doing its job, since the value might be absent. If you find yourself reaching for <code>.unwrap()</code> to get past it, read <a href="rust-unwrap-on-none-value.html">called <code>Option::unwrap()</code> on a <code>None</code> value</a> first: the combinator forms above are usually the better ending.</p>
+            <p>A related receiver issue is mutability &mdash; and a heads-up before the example: Rust actually files this specific case as <strong>E0596</strong>, not E0599. It's a different error code, but the same family of "the receiver doesn't support this call" mistake, and worth knowing here. A method taking <code>&amp;mut self</code> can't be called through an immutable binding:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let v = vec![1, 2, 3];
+v.push(4);            // ❌ E0596: push takes &amp;mut self, not E0599
+let mut v = vec![1, 2, 3];
+v.push(4);            // ✅</code></pre>
+            </div>
+            <p>The mental fix is the same either way: check what the method needs from its receiver &mdash; <code>self</code>, <code>&amp;self</code>, or <code>&amp;mut self</code>.</p>
+
+            <h2>How to read the error efficiently</h2>
+            <ol>
+                <li>Look for <code>items from traits can only be used if the trait is in scope</code> &mdash; if present, add the suggested <code>use</code> and you're done.</li>
+                <li>Look for <code>there is a method &lt;name&gt; with a similar name</code> &mdash; if present, it's a typo.</li>
+                <li>If the receiver is a type parameter (<code>for type parameter T</code>), it's a missing trait bound.</li>
+                <li>If the receiver is <code>Option&lt;...&gt;</code> or <code>Result&lt;...&gt;</code>, you're calling the method on the wrapper.</li>
+                <li>Otherwise, check the type's documentation &mdash; the method may be on a different type in the chain.</li>
+            </ol>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <code>help:</code> lines, not just the first line &mdash; rustc usually names the fix</li>
+                <li>&#10003; &ldquo;trait is in scope&rdquo; note? Add the <code>use</code> it suggests (<code>std::io::Read</code>/<code>Write</code> most often)</li>
+                <li>&#10003; Crate method missing? Check whether the crate has a <code>prelude</code> to import</li>
+                <li>&#10003; Error mentions <code>type parameter T</code>? Add the trait bound or a <code>where</code> clause</li>
+                <li>&#10003; &ldquo;similar name&rdquo; suggestion? It's a typo &mdash; take the suggestion</li>
+                <li>&#10003; Receiver is <code>Option</code>/<code>Result</code>? Unwrap the inner value with <code>map</code>/<code>if let</code></li>
+                <li>&#10003; Method needs <code>&amp;mut self</code>? Make the binding <code>mut</code></li>
+                <li>&#10003; Working through a <code>Box&lt;dyn Trait&gt;</code> or <code>&amp;dyn Trait</code>? Method resolution goes through the trait's own methods, not the concrete type's &mdash; check the trait definition, not the struct behind it</li>
+                <li>&#10003; Still stuck? <code>cargo doc --open</code> or hover the call in your editor (rust-analyzer) to see the type's real method list</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does error[E0599]: no method named X found mean?</summary>
+                    <p>Rust could not resolve the method you called on that type. It does not necessarily mean the method doesn't exist &mdash; the most common cause is that the method comes from a trait that isn't in scope, so the compiler refuses to consider it. Other causes are a missing trait bound on a generic parameter, a simple typo, or calling the method on the wrong receiver type such as a reference or an <code>Option</code> wrapper.</p>
+                </details>
+                <details>
+                    <summary>Why do I need to import a trait to call its method?</summary>
+                    <p>Rust only considers trait methods when the trait is in scope. This prevents two traits that define the same method name from silently colliding, and keeps method resolution predictable and explicit. So even though a type implements the trait, you must bring the trait into scope with a <code>use</code> statement &mdash; for example <code>use std::io::Read;</code> before calling <code>.read_to_string()</code> on a <code>File</code>.</p>
+                </details>
+                <details>
+                    <summary>What does 'items from traits can only be used if the trait is in scope' mean?</summary>
+                    <p>It's the compiler telling you it found a method with that name on a trait the type implements, but the trait isn't imported so it can't be used. This note is the single most useful line in the error &mdash; it usually comes with a suggested <code>use</code> statement. Adding that import is the whole fix.</p>
+                </details>
+                <details>
+                    <summary>Why does E0599 appear inside a generic function?</summary>
+                    <p>Inside a generic function, Rust only knows about the capabilities you declared through trait bounds. If <code>T</code> has no bounds, <code>T</code> has no methods at all as far as the compiler is concerned, even if every concrete type you plan to pass has the method. Add the bound &mdash; <code>fn show&lt;T: Display&gt;(x: T)</code> &mdash; or a <code>where</code> clause, so the method becomes available for every <code>T</code>.</p>
+                </details>
+                <details>
+                    <summary>How is E0599 different from E0277?</summary>
+                    <p>E0599 means the method could not be found at all for that type. E0277 means a trait bound is not satisfied &mdash; the compiler found the right method or operation but the type doesn't implement the required trait. In practice a missing trait bound on a generic can surface as either, depending on where the compiler notices the gap, and the fix is often the same: add the bound or implement the trait.</p>
+                </details>
+                <details>
+                    <summary>Why does the method exist but not on my Option or Result?</summary>
+                    <p>Because the method belongs to the value inside, not to the wrapper. <code>Option&lt;String&gt;</code> has <code>Option</code>'s methods, not <code>String</code>'s &mdash; calling <code>.len()</code> on it fails with E0599. Unwrap the inner value first with a <code>match</code>, <code>if let</code>, or a combinator such as <code>.map(|s| s.len())</code>, or use <code>.as_deref()</code> to get at the inner type. The same applies to <code>Result</code>.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Rust &amp; backend errors</h3>
+                <p>Browse the full reference for Rust, Go, and Java errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-e0277-trait-bound-not-satisfied.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Rust E0277: trait bound not satisfied</a>
+                    <a href="rust-e0308-mismatched-types.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Rust E0308: mismatched types</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-e0277-trait-bound-not-satisfied.html">Rust E0277: the trait bound is not satisfied</a> &mdash; the closely-related bound error</li>
+                <li><a href="rust-e0308-mismatched-types.html">Rust E0308: mismatched types</a></li>
+                <li><a href="rust-unwrap-on-none-value.html">Rust: called <code>Option::unwrap()</code> on a <code>None</code> value</a> &mdash; the safe way past an <code>Option</code> receiver</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

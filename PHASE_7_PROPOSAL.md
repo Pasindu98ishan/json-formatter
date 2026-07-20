@@ -1,7 +1,7 @@
 # Phase 7 — Reference-Cluster Expansion + Monetization Experiments
 
 **Status**: In progress (implementation started 2026-06-10)
-**Last Updated**: 2026-07-01
+**Last Updated**: 2026-07-09
 
 **Goal**: ~**5,000 cumulative GSC impressions during June** by scaling the only niche this low-authority domain can rank in — verbatim developer **error/reference** content — supported by an authority comparison cluster, a links/engagement game, and one AI tool.
 
@@ -60,17 +60,17 @@ Same page contract as Batch 1 (clone `http-status/404.html`: exact string in H1 
 - [x] `ReferenceError: require is not defined in ES module scope` → `errors/require-is-not-defined-es-module-scope.html` (mirror of the above; pair cross-linked)
 - [x] `FATAL ERROR: Reached heap limit — JavaScript heap out of memory` → `errors/javascript-heap-out-of-memory.html`
 - [x] `Error: error:0308010C:digital envelope routines::unsupported` (Node 17+ OpenSSL vs old webpack) → `errors/digital-envelope-routines-unsupported.html` (cross-links Hash Generator)
-- [ ] `ECONNRESET` / `socket hang up` (Node) — network cluster w/ Batch 1 `net::ERR_CONNECTION_REFUSED`. *Verify:* SO `econnreset socket hang up`
-- [ ] `npm ERR! code EACCES: permission denied` (pairs with Batch 1 ERESOLVE). *Verify:* SO `npm EACCES`
-- [ ] `gyp ERR! build error` (node-gyp native compile, Windows/Mac). *Verify:* SO `gyp ERR build error`
-- [ ] `Module not found: Can't resolve 'fs'` (Next.js/webpack server-only import client-side). *Verify:* SO `can't resolve fs nextjs`
-- [ ] `504 (Outdated Optimize Dep)` (Vite) — low volume, near-zero competition. *Verify:* SO `vite outdated optimize dep`
+- [x] `ECONNRESET` / `socket hang up` (Node) → `errors/econnreset-socket-hang-up.html` (built 2026-07-01; **new fix-first playbook structure** — fastest-fix card, 30-sec triage, ranked fixes, why-after, verify box; cross-links ERR_CONNECTION_REFUSED)
+- [x] `npm ERR! code EACCES: permission denied` → `errors/npm-eacces-permission-denied.html` (built 2026-07-01; no-sudo fix, nvm/prefix/chown, by-platform table)
+- [x] `gyp ERR! build error` → `errors/gyp-err-build-error.html` (built 2026-07-01; toolchain per OS, Python, ABI rebuild, prebuilt binaries)
+- [x] `Module not found: Can't resolve 'fs'` → `errors/module-not-found-cant-resolve-fs.html` (built 2026-07-01; Next.js/webpack/Vite server-client boundary, import-trace reading)
+- [x] `504 (Outdated Optimize Dep)` (Vite) → `errors/vite-504-outdated-optimize-dep.html` (built 2026-07-01; optimize cache clear, optimizeDeps.include, dev-only)
 
 **Tier C — Python runtime (evergreen; competition is only old SO threads):**
 - [x] `error: externally-managed-environment` (pip / PEP 668, 2023+) → `errors/externally-managed-environment.html` (built 2026-07-01; venv/pipx/distro fixes, "what NOT to do" break-system-packages, decision table)
 - [x] `TypeError: 'NoneType' object is not subscriptable` → `errors/nonetype-not-subscriptable.html` (built 2026-07-01; → JSON Formatter; 30-sec diagnose, cross-links `nonetype-no-attribute`)
 - [x] `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff` (CSV/file-reading) → `errors/unicodedecodeerror-utf-8-codec.html` (cross-links CSV→JSON + Base64)
-- [ ] `ssl.SSLCertVerificationError: certificate verify failed` (Python requests; corporate-proxy/macOS variants). *Verify:* SO `certificate verify failed python`
+- [x] `ssl.SSLCertVerificationError: certificate verify failed` → `errors/ssl-certificate-verify-failed-python.html` (built 2026-07-01; certifi/macOS certs, corporate-proxy CA, missing intermediate; never verify=False)
 
 #### Batch 3 — JSON/encoding moat expansion (built 2026-06-25 → 06-26; from `json-error-cluster-briefs.md`)
 Net-new `/errors/` pages that thicken the JSON serialize/parse + encoding sub-cluster the domain has the strongest claim to. Each ships the page contract **plus** the VS Code code-highlighting beta, and each links a **distinct tool beyond Formatter/Validator** (the standing "link a new tool" rule).
@@ -147,6 +147,115 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 > **Batch 4 progress (2026-06-27):** Tier 2 JSON-mishandling + Tier 4 Go unmarshal (5 pages) and the full Tier 5 DB/SQL + Docker cluster (5 pages) are **built**. New hub categories added for the DB/Docker cluster: **Database** and **Docker**. Remaining: Tier 1 TypeScript codes, Tier 3 JS/Node runtime, Tier 4 Rust/Java, and the two skipped Python runtime entries (`nonetype-no-attribute`, `indentationerror-unexpected-indent`).
 
 > **Batch 4 progress (2026-07-01) — Batch 4 COMPLETE:** Built the final 10 pages — Tier 4 Go (nil pointer, index out of range, goroutine deadlock), Rust (E0382 moved value, E0499 mutable borrow), Java (NullPointerException), plus the remaining Python runtime entries (`nonetype-no-attribute`, `nonetype-not-subscriptable`, `indentationerror-unexpected-indent`) and the pip `externally-managed-environment` opportunity page. New hub category **Go / Rust / Java** added (chip + `.err-lang` tag + 6 table rows + static `#lang-errors` section); 4 Python rows added to the existing Python category; CollectionPage ItemList extended to 11 categories. All 10 registered in `sitemap.xml` (lastmod 2026-07-01). Every Batch 4 tier is now `[x]`.
+
+#### Batch 5 — authority build: every subcategory to ≥15 pages (proposed 2026-07-05; full plan in `.claude/plans/golden-inventing-wind.md`)
+**Goal:** the cluster is 74 pages but lopsided — JSON 16 / Python 15 / Node 15 are deep, six categories are thin. Bring **every** subcategory to **≥15** so each reads as an authoritative mini-hub. **62 net-new pages**, all deduped against the current 74. **No new subcategories** (all map to existing hub tags). **No new tools** (a DB Connection String Parser was considered and declined to keep scope on the pages).
+**Template:** best-fit per page and **deliberately mixed** within each category (~70/30, never monolithic — avoids a programmatic footprint). Fix-first playbook (`econnreset`, `gyp-err` refs) for ops/config; diagnosis page (`go-nil-pointer`, `ts2322` refs) for semantic/type. Keep the standing plumbing: exact string in H1+body, **Breadcrumb + Article + FAQPage** (no HowTo), FAQ↔FAQPage 1:1, VS Code highlighting.
+**Linking (HARD):** every `.tool-cta` = **All Error References** + a **relevant tool** + **HTTP Status Codes** (`../http-status.html`), plus a deep `../http-status/<code>.html` link (403/429/500/502/503) when a code is directly implicated. Docker/DB lean on the HTTP-status reference as their primary tie-in (no strong JSON-tool fit).
+**Build order — highest-traffic first (~7 batches of 8–10):** (1) JS Runtime family → (2) rest of Runtime + Network → (3) Network + Database → (4) Database + Docker → (5) Docker → (6) Docker + TypeScript → (7) Go/Rust/Java.
+
+> **Batch 1 progress (2026-07-05):** Built the first 10 pages — Tier R items 1–10 (Cannot read properties of undefined, X is not a function, X is not defined, Assignment to constant variable, TDZ, Cannot set properties of undefined, Cannot convert undefined or null to object, X.map is not a function, Failed to construct URL, Invalid array length). Mixed template on purpose: 8 diagnosis-style + 2 fix-first playbooks (`cannot-convert-undefined-or-null-to-object`, `x-map-is-not-a-function`). All 10 registered in the `err-runtime` table rows + `#js-runtime-errors` static section + `sitemap.xml` (lastmod 2026-07-05). Runtime category now **14/15** — 1 item (`process is not defined`) deliberately deferred to merge with the Network batch per the build order. No new subcategories, no new tools; every page's `.tool-cta` links Errors hub + a relevant tool + HTTP Status Codes.
+
+> **Batch progress (2026-07-13):** Built 3 pages — Tier TS (`TS2307: Cannot find module`) and 2 from Tier DK (`Cannot connect to the Docker daemon`, `Container exited with code 137 / OOMKilled`). All 3 exceed the 1300-word bar (1594–1999 words). Registered in `errors.html` (table rows + `#docker-errors`/`#typescript-errors` static sections), `sitemap.xml` (lastmod 2026-07-13), and `data/error-signatures.json` (HARD rule — signature count now tracks the `errors/*.html` count 1:1 at 95). Reciprocal links added from `ts7016-could-not-find-declaration-file.html` and the 2 existing Docker pages back to the new ones. Docker is now 4/15, TypeScript is now 8/15.
+
+> **Batch 2 progress (2026-07-05):** Built the next 10 pages — the deferred Tier R item (`process is not defined`) plus all 9 Tier N Network items. New word-count bar applied to this batch: every page exceeds 1300 words (range 1577–2139, verified via script), written with senior-engineer depth — deeper mechanism sections (webpack polyfill history, TLS trust-chain walk, TCP handshake/backlog internals, OS connectivity-state heuristics, CORS preflight semantics), more causes per page, richer comparison tables, and FAQs expanded to 6–7. Template mix: 6 fix-first playbooks (`referenceerror-process-is-not-defined`, `net-err-cert-authority-invalid`, `net-err-ssl-protocol-error`, `net-err-too-many-redirects`, `net-err-connection-timed-out`, `net-err-internet-disconnected`, `net-err-blocked-by-client` — 7 total) + 3 diagnosis pages (`cors-preflight-does-not-pass-access-control-check`, `cors-request-header-not-allowed-preflight`, `mixed-content-insecure-resource-blocked`). All 10 registered in `err-runtime`/`err-network` table rows + `#js-runtime-errors`/`#network-errors` static sections + `sitemap.xml` (lastmod 2026-07-05). **Runtime is now 15/15, Network is now 15/15.** No new subcategories, no new tools; every page's `.tool-cta` links Errors hub + a relevant tool + HTTP Status Codes.
+
+**Tier R — JS Runtime (`err-runtime`, 4→15, +11):**
+- [x] `TypeError: Cannot read properties of undefined (reading 'X')` → `errors/cannot-read-properties-of-undefined.html` (built 2026-07-05; diagnosis; the *undefined* sibling of the existing *null* page, reciprocal link added to both)
+- [x] `Uncaught TypeError: X is not a function` → `errors/uncaught-typeerror-x-is-not-a-function.html` (built 2026-07-05; diagnosis; import/typo/shadowing causes)
+- [x] `Uncaught ReferenceError: X is not defined` → `errors/uncaught-referenceerror-x-is-not-defined.html` (built 2026-07-05; diagnosis; script-order, Node-globals-in-browser, module scope)
+- [x] `TypeError: Assignment to constant variable` → `errors/assignment-to-constant-variable.html` (built 2026-07-05; diagnosis; reassignment vs mutation)
+- [x] `ReferenceError: Cannot access 'X' before initialization` (TDZ) → `errors/cannot-access-before-initialization-tdz.html` (built 2026-07-05; diagnosis; temporal dead zone explained)
+- [x] `TypeError: Cannot set properties of undefined (setting 'X')` → `errors/cannot-set-properties-of-undefined.html` (built 2026-07-05; diagnosis; write-side sibling of the read errors)
+- [x] `TypeError: Cannot convert undefined or null to object` → `errors/cannot-convert-undefined-or-null-to-object.html` (built 2026-07-05; **fix-first playbook**; Object.keys/values/entries/assign)
+- [x] `TypeError: X.map is not a function` → `errors/x-map-is-not-a-function.html` (built 2026-07-05; **fix-first playbook**; paginated/envelope API responses, Array.isArray guard)
+- [x] `TypeError: Failed to construct 'URL': Invalid URL` → `errors/failed-to-construct-url-invalid-url.html` (built 2026-07-05; diagnosis; → URL Encoder tool)
+- [x] `RangeError: Invalid array length` → `errors/rangeerror-invalid-array-length.html` (built 2026-07-05; diagnosis)
+- [x] `ReferenceError: process is not defined` → `errors/referenceerror-process-is-not-defined.html` (built 2026-07-05; **fix-first playbook**; Vite/webpack/CRA env-var shimming, webpack 4→5 polyfill-removal history; 1914 words)
+
+**Tier N — Network (`err-network`, 6→15, +9):**
+- [x] `net::ERR_CERT_AUTHORITY_INVALID` (+ `CERT_COMMON_NAME_INVALID` variant) → `errors/net-err-cert-authority-invalid.html` (built 2026-07-05; **fix-first playbook**; mkcert, corporate TLS-inspecting proxies, missing intermediate cert, TLS trust-chain mechanism)
+- [x] `net::ERR_SSL_PROTOCOL_ERROR` → `errors/net-err-ssl-protocol-error.html` (built 2026-07-05; **fix-first playbook**; HTTP/HTTPS port confusion, wrong server constructor, legacy TLS versions; 1899 words)
+- [x] `net::ERR_TOO_MANY_REDIRECTS` → `errors/net-err-too-many-redirects.html` (built 2026-07-05; **fix-first playbook**; Cloudflare Flexible-SSL loop, cookie-state loop, auth middleware self-redirect, WordPress siteurl mismatch)
+- [x] `net::ERR_CONNECTION_TIMED_OUT` → `errors/net-err-connection-timed-out.html` (built 2026-07-05; **fix-first playbook**; security-group silent drop, stale DNS, accept-queue overload, dead keep-alive)
+- [x] `net::ERR_INTERNET_DISCONNECTED` → `errors/net-err-internet-disconnected.html` (built 2026-07-05; **fix-first playbook**; stale OS connectivity cache, captive portal, VPN routing table, IPv6-not-routed)
+- [x] `net::ERR_BLOCKED_BY_CLIENT` (ad blocker) → `errors/net-err-blocked-by-client.html` (built 2026-07-05; **fix-first playbook**; filter-list false positives, extension isolation, corporate content filters, endpoint renaming)
+- [x] `Response to preflight request doesn't pass access control check` (CORS preflight) → `errors/cors-preflight-does-not-pass-access-control-check.html` (built 2026-07-05; diagnosis; missing OPTIONS handler, incomplete allow headers, wildcard+credentials, proxy stripping)
+- [x] `Request header field X is not allowed by Access-Control-Allow-Headers in preflight` → `errors/cors-request-header-not-allowed-preflight.html` (built 2026-07-05; diagnosis; missing allow-list entry, config drift, credentialed wildcard limits, conditional headers)
+- [x] `Mixed Content: … requested an insecure resource` (blocked) → `errors/mixed-content-insecure-resource-blocked.html` (built 2026-07-05; diagnosis; hardcoded HTTP URLs, stale CMS content, third-party embeds, CSP upgrade-insecure-requests)
+
+**Tier DB — Database (`err-db`, 3→15, +12; spread Postgres/MySQL/Mongo):**
+- [ ] PG `relation "X" does not exist`
+- [ ] PG `column "X" does not exist`
+- [ ] PG `password authentication failed for user "X"`
+- [ ] PG `syntax error at or near "X"`
+- [ ] PG `null value in column "X" violates not-null constraint`
+- [ ] PG `current transaction is aborted, commands ignored until end of transaction block`
+- [ ] MySQL `ERROR 1045 (28000): Access denied for user`
+- [ ] MySQL `ERROR 1062 (23000): Duplicate entry 'X' for key`
+- [ ] MySQL `ERROR 1146: Table 'X' doesn't exist`
+- [ ] MySQL `ERROR 2002 (HY000): Can't connect to local MySQL server through socket`
+- [ ] MongoDB `E11000 duplicate key error collection`
+- [ ] Mongo `MongooseServerSelectionError` / `connect ECONNREFUSED`
+
+**Tier DK — Docker (`err-docker`, 2→15, +13):**
+- [x] `Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?` → `errors/docker-cannot-connect-to-daemon.html` (built 2026-07-13; diagnosis; daemon-not-started, wrong/stale context, stale DOCKER_HOST, WSL2 integration, permission-denied lookalike, CI DooD/DinD; 1594 words)
+- [x] `Container exited with code 137` (OOMKilled) → `errors/docker-container-exited-code-137-oomkilled.html` (built 2026-07-13; diagnosis; OOMKilled flag confirmation via `docker inspect`, container-vs-host scope, Java/Node heap sizing inside a cgroup limit, real-leak vs needs-more-memory, Kubernetes OOMKilled vs Evicted, non-memory 137 causes; 1641 words)
+- [ ] `pull access denied for X, repository does not exist or may require 'docker login'`
+- [x] `no space left on device` → `errors/docker-no-space-left-on-device.html` (built 2026-07-14; **fix-first**, SVG where-did-space-go diagram; `docker system df` → prune ladder; `--volumes` data-loss warning, Docker Desktop VM disk, inode exhaustion; 1333 words)
+- [x] `OCI runtime create failed: … executable file not found in $PATH` → `errors/docker-oci-runtime-exec-not-found.html` (built 2026-07-19; diagnosis + SVG decision-tree diagram — shell fails vs shell opens+which fails vs file exists but won't run vs CRLF; typo, not-installed, exec-vs-shell-form CMD, distroless/scratch, chmod +x / COPY --chmod, CRLF/dos2unix; comparison table vs `docker-exec-format-error.html`; ~1613 words)
+- [x] `Conflict. The container name "/X" is already in use` → `errors/docker-container-name-already-in-use.html` (built 2026-07-19; **fix-first playbook**; 30-second disposable/wanted/running triage, `docker rm -f`, `docker start` reuse, `docker rename`, `--rm`, idempotent CI pattern, Compose `container_name`/`down` vs `stop`; ~1747 words)
+- [ ] `manifest for X not found` / `manifest unknown`
+- [ ] `denied: requested access to the resource is denied` (push)
+- [ ] `Container exited with code 137` (OOMKilled)
+- [x] `Got permission denied while trying to connect to the Docker daemon socket` → `errors/docker-permission-denied-daemon-socket.html` (built 2026-07-14; diagnosis; docker-group fix vs sudo, new-session requirement, root-equivalent security note, rootless Docker; cross-linked with `docker-cannot-connect-to-daemon.html` as the lookalike; 1331 words)
+- [ ] `failed to compute cache key: … not found` (COPY path)
+- [ ] `driver failed programming external connectivity on endpoint`
+- [ ] `unauthorized: incorrect username or password` (docker login)
+- [ ] `dockerfile parse error` / `unknown instruction`
+
+**Tier TS — TypeScript (`err-ts`, 7→15, +8; → JSON-to-TS tool):**
+- [x] `TS2307: Cannot find module 'X' or its corresponding type declarations` → `errors/ts2307-cannot-find-module-or-type-declarations.html` (built 2026-07-13; diagnosis; missing install, missing @types/ambient declaration, wrong/case-mismatched path, unmirrored alias, moduleResolution vs package exports map, non-JS asset imports, monorepo build-order worked example; distinguished from TS7016; 1999 words)
+- [x] `TS2304: Cannot find name 'X'` → `errors/ts2304-cannot-find-name.html` (built 2026-07-14; diagnosis; missing import, Node globals/@types/node, DOM lib, typo/TS2552, test-runner globals; 1446 words)
+- [x] `TS7006: Parameter 'x' implicitly has an 'any' type` → `errors/ts7006-parameter-implicitly-has-an-any-type.html` (built 2026-07-14; diagnosis; noImplicitAny, annotate vs type-the-source, JSON.parse→any cascade → JSON-to-TS tie-in, event handlers, destructuring/TS7031, don't-disable-the-flag; 1366 words)
+- [x] `TS2769: No overload matches this call` → `errors/ts2769-no-overload-matches-this-call.html` (built 2026-07-14; diagnosis + SVG overload-resolution flow; read the per-overload sub-error, narrow union args, options-object property, arg count; distinguished from TS2345; 1397 words)
+- [ ] `TS2739: Type 'X' is missing the following properties from type 'Y'`
+- [ ] `TS2366: Function lacks ending return statement and return type does not include 'undefined'`
+- [ ] `TS18048: 'X' is possibly 'undefined'`
+- [ ] `TS2571: Object is of type 'unknown'`
+
+**Tier L — Go/Rust/Java (`err-lang`, 6→15→30, +9 then +15; 3→5→10 per language):**
+- [x] Go `undefined: X` (compile) → `errors/go-undefined-x.html` (built 2026-07-09; diagnosis; typo/missing import/unexported identifier/build-tag exclusion)
+- [x] Go `imported and not used: "X"` → `errors/go-imported-and-not-used.html` (built 2026-07-09; diagnosis; blank-identifier side-effect imports, goimports)
+- [x] Go `cannot find module providing package X` → `errors/go-cannot-find-module-providing-package.html` (built 2026-07-09; diagnosis + SVG module-resolution-walk diagram; go.mod → cache → network)
+- [x] Rust `error[E0308]: mismatched types` → `errors/rust-e0308-mismatched-types.html` (built 2026-07-09; diagnosis; integer coercion, &T vs T, Option/Result, String vs &str, if/match branches)
+- [x] Rust `error[E0277]: the trait bound 'X' is not satisfied` → `errors/rust-e0277-trait-bound-not-satisfied.html` (built 2026-07-09; diagnosis; nominal vs structural typing, #[derive], operator traits)
+- [x] Rust `error[E0597]: 'X' does not live long enough` → `errors/rust-e0597-does-not-live-long-enough.html` (built 2026-07-09; diagnosis + SVG scope-vs-lifetime diagram)
+- [x] Java `Exception in thread "main" java.lang.ArrayIndexOutOfBoundsException` → `errors/java-arrayindexoutofboundsexception.html` (built 2026-07-09; diagnosis; off-by-one loop bounds, stale cached index after resize)
+- [x] Java `java.lang.ClassNotFoundException` / `NoClassDefFoundError` → `errors/java-classnotfoundexception-noclassdeffounderror.html` (built 2026-07-09; diagnosis + SVG two-phase classloading diagram; explicit vs implicit load)
+- [x] Java `error: cannot find symbol` (javac) → `errors/java-cannot-find-symbol.html` (built 2026-07-09; diagnosis; symbol/location pair, scope, overload resolution, missing import)
+
+> **Tier L extension (planned 2026-07-14, full brief in `.claude/plans/do-a-deep-rearch-joyful-penguin.md`):** +15 pages (5 Go + 5 Rust + 5 Java), taking Tier L from 15 → 30 and making it the deepest non-JSON mini-hub. Web-verified against 2026 frequency/volume signals (JetBrains RustRover telemetry for Rust, current SO/blog activity for Go/Java) and deduped against all 96 live `errors/*.html` pages — no intent overlap. Registration confirmed against the live `errors.html` hub pattern: each page needs a `#errTable` row **and** a `#lang-errors` static-section `<li>`, plus a `data/error-signatures.json` record (slug/language/label/pattern — HARD 1:1 rule, currently exactly 95:95) and a `sitemap.xml` `<url>` entry (`changefreq monthly`, `priority 0.70`). Not yet built — `[ ]` below.
+
+- [x] Go `declared and not used: x` → `errors/go-declared-and-not-used.html` (built 2026-07-19; diagnosis; sibling of `go-imported-and-not-used.html`, reciprocal link both ways; design-rationale for why it's an error not a warning, use/delete/blank-identifier `_` fixes, `:=` shadowing trap, package-level-var exemption, "assignment is not use" nuance; ~1815 words)
+- [ ] Go `cannot use x (variable of type T) as type U in assignment/argument` (planned: `errors/go-cannot-use-as-type.html`; diagnosis; no implicit conversion — int/int64, string/[]byte, concrete vs interface, named types)
+- [ ] Go `missing go.sum entry for module providing package X` (planned: `errors/go-missing-go-sum-entry.html`; **fix-first playbook**, `go mod tidy` first; go.sum vs go.mod mechanism, CI read-only module cache; cross-links `go-cannot-find-module-providing-package.html`)
+- [ ] Go `go: go.mod file not found in current directory or any parent; see 'go help modules'` (planned: `errors/go-go-mod-file-not-found.html`; **fix-first playbook**, `go mod init` first; GOPATH→modules history, GO111MODULE)
+- [x] Go `panic: interface conversion: interface {} is string, not int` → `errors/go-panic-interface-conversion.html` (built 2026-07-14; diagnosis + SVG type-assertion flow; **JSON-moat tie-in** — `map[string]interface{}` after `json.Unmarshal`, JSON→Go type table, numbers are float64, comma-ok, type switch, struct-decode fix, nil-interface edge, generics; cross-links `go-json-cannot-unmarshal.html` both ways + JSON Formatter; 1417 words)
+- [ ] Rust `error[E0425]: cannot find value 'x' in this scope` (planned: `errors/rust-e0425-cannot-find-value-in-scope.html`; diagnosis; typos, scope/declaration-order, shadowing, missing `self.`, cfg-gated items)
+- [ ] Rust `error[E0433]: failed to resolve: use of undeclared crate or module` (planned: `errors/rust-e0433-failed-to-resolve.html`; diagnosis; missing `use`, crate not in Cargo.toml, undeclared `mod`, 2018-edition path rules; covers E0432 in-body)
+- [ ] Rust `error[E0502]: cannot borrow X as mutable because it is also borrowed as immutable` (planned: `errors/rust-e0502-cannot-borrow-mutable-immutable.html`; diagnosis; completes the borrow-checker trio — E0499/E0597 pages already name E0502 as a comparison)
+- [x] Rust `error[E0599]: no method named X found for type Y in the current scope` → `errors/rust-e0599-no-method-named.html` (built 2026-07-19; diagnosis; trait-not-in-scope trap (`use std::io::Read;` + common-missing-trait table), missing generic trait bound, typo/compiler suggestion, wrong receiver (`Option<String>.len()`) + `&mut self` mutability note; cross-links `rust-e0277-trait-bound-not-satisfied.html` both ways; ~1721 words)
+- [x] Rust `thread 'main' panicked at 'called Option::unwrap() on a None value'` → `errors/rust-unwrap-on-none-value.html` (built 2026-07-14; **fix-first playbook** + SVG unwrap-ladder diagram; first Rust *runtime*-panic page — unwrap_or/unwrap_or_else/unwrap_or_default, match/if let, `?`, expect, map/and_then/filter combinators, ok_or→Result, RUST_BACKTRACE; 1394 words)
+- [ ] Java `Error: Could not find or load main class X` (planned: `errors/java-could-not-find-or-load-main-class.html`; **fix-first playbook**; classpath vs package, wrong run directory, jar manifest Main-Class; cross-links `java-classnotfoundexception-noclassdeffounderror.html`)
+- [x] Java `java.lang.OutOfMemoryError: Java heap space` → `errors/java-outofmemoryerror-java-heap-space.html` (built 2026-07-19; diagnosis + SVG healthy-vs-leak post-GC sawtooth comparison; leak-vs-undersized triage, `-Xmx`/`-Xms` raise, heap dump + Eclipse MAT dominator tree + leak-pattern table, streaming instead of full-load, container sizing `-XX:MaxRAMPercentage` vs hardcoded `-Xmx`; cross-links `docker-container-exited-code-137-oomkilled.html` + `javascript-heap-out-of-memory.html` both ways; 7 FAQ Q&A; ~1905 words)
+- [ ] Java `java.lang.UnsupportedClassVersionError: … (class file version 65.0)` (planned: `errors/java-unsupportedclassversionerror.html`; **fix-first playbook**; class-file-version→JDK table, JAVA_HOME/PATH mismatch, `--release`)
+- [x] Java `java.util.ConcurrentModificationException` → `errors/java-concurrentmodificationexception.html` (built 2026-07-14; diagnosis + SVG modCount fail-fast timeline; "concurrent" ≠ threads, for-each desugaring, set() is non-structural, Iterator.remove IllegalStateException rules, removeIf/ListIterator, Map entrySet, Stream, List.of immutability trap, Collections.synchronizedList trap, best-effort caveat; 1997 words)
+- [ ] Java `java.lang.NumberFormatException: For input string: "X"` (planned: `errors/java-numberformatexception-for-input-string.html`; diagnosis; JSON/API-adjacent — hidden whitespace/BOM/locale commas, empty-string variant)
+
+> **Batch progress (2026-07-19):** 5 more pages built — 2 from the Tier DK Docker backlog (`docker-oci-runtime-exec-not-found.html`, `docker-container-name-already-in-use.html`) and 3 from the Tier L extension (`go-declared-and-not-used.html`, `rust-e0599-no-method-named.html`, `java-outofmemoryerror-java-heap-space.html`). All exceed 1300 words, all registered in `errors.html` (table row + static category `<li>`), `sitemap.xml`, and `data/error-signatures.json` (HARD 1:1 rule — verified 108 signatures for 108 live pages), and all have reciprocal "Related Errors" links added on their named sibling pages (`docker-port-is-already-allocated.html`, `docker-exec-format-error.html`, `go-imported-and-not-used.html`, `rust-e0277-trait-bound-not-satisfied.html`, `docker-container-exited-code-137-oomkilled.html`, `javascript-heap-out-of-memory.html`).
+
+> **Cut candidates (considered, not selected):** Go `fatal error: concurrent map writes`, Go `assignment mismatch: N variables but M values`, Rust `E0106 missing lifetime specifier`, Rust `linker 'cc' not found`, Java `ClassCastException`, Java `StackOverflowError`.
 
 > **Recommended build order (moat-first, then highest-ROI):** (1) Python JSON-mishandling + Go `cannot unmarshal` (`string-indices`, `json-object-must-be-str-bytes`, `keyerror-python`, `go-json-cannot-unmarshal`) — reinforce the JSON moat and cross-link tools; (2) DB/SQL + Docker cluster — best traffic/competition ratio, ship together; (3) top TS codes (TS2322/2339/2532, cross-link JSON→TS); (4) remaining JS/Node + TS; (5) Go/Rust/Java flagships. **Off-moat pages (Go/Rust/Java/DB/Docker) may have no JSON-tool tie-in — link the errors hub + a relevant guide instead; "link a tool" stays best-effort.**
 
