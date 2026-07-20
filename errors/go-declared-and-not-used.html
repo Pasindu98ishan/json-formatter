@@ -249,7 +249,16 @@ func load(useCache bool) error {
 }</code></pre>
             </div>
             <p>Note the trade-off this reveals: the buggy version above only fails to <em>compile</em> because the outer <code>err</code> happened to end up completely unused. Change the last line from <code>return nil</code> to <code>return err</code> and the outer variable becomes "used" again (its permanent zero value gets read) &mdash; the code compiles, but now silently swallows every cache-read failure. Shadowing bugs are dangerous precisely because whether they surface as a compile error or a silent runtime bug depends on details like this, not on whether the underlying mistake is present.</p>
-            <p>This bug class is common enough that Go ships a detector: <code>go vet -vettool=$(which shadow)</code>, or run <code>go vet ./...</code> with the shadow analyzer enabled. It's worth wiring into CI, because the shadowed-variable version often compiles fine (when the outer variable happens to be read elsewhere) and then misbehaves at runtime.</p>
+            <p>This bug class is common enough that there's a dedicated detector for it &mdash; but note it is <strong>not</strong> part of the default toolchain, so you have to install it first. Skipping the install is why <code>go vet -vettool=$(which shadow)</code> so often fails with a confusing message: <code>which shadow</code> finds nothing, expands to an empty string, and <code>go vet</code> is left with a <code>-vettool=</code> flag pointing at nothing:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
+go vet -vettool=$(which shadow) ./...
+
+# reports:
+# ./main.go:6:10: declaration of "err" shadows declaration at line 4</code></pre>
+            </div>
+            <p>It's worth wiring into CI, because the shadowed-variable version often compiles fine (when the outer variable happens to be read elsewhere) and then misbehaves at runtime. Be aware the analyzer is deliberately conservative and reports only shadowing it considers likely to be a mistake, so it catches the common cases rather than every possible shadow.</p>
 
             <h2>Why package-level variables are exempt</h2>
             <p>The rule applies only inside functions. This compiles without complaint:</p>
