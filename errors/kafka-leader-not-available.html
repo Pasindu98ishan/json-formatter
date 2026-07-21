@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kafka LEADER_NOT_AVAILABLE: a partition has no elected leader. Usually benign after topic creation, or an advertised.listeners misconfiguration in Docker.">
+    <meta name="keywords" content="kafka leader_not_available, error while fetching metadata with correlation id, kafka leadernotavailableexception, advertised.listeners, kafka docker leader not available, kafka client can't connect, kafka producer hangs, kafka metadata fetch failed, kafka producer retries forever, kafka kubernetes advertised listeners">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/kafka-leader-not-available.html">
+    <meta property="og:title" content="Kafka: LEADER_NOT_AVAILABLE — Cause and Fix">
+    <meta property="og:description" content="The client asked to read or write a partition with no elected leader. Usually harmless right after topic creation — but if it repeats, it's almost always advertised.listeners.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/kafka-leader-not-available.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Kafka: LEADER_NOT_AVAILABLE — Cause and Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Kafka: LEADER_NOT_AVAILABLE", "item": "https://jsondevtools.org/errors/kafka-leader-not-available.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Kafka LEADER_NOT_AVAILABLE: Error while fetching metadata — Cause and Fix",
+  "description": "LEADER_NOT_AVAILABLE means a Kafka client asked to produce to or fetch from a partition that currently has no elected leader. This reference covers the benign case right after topic creation and the persistent case caused by an advertised.listeners misconfiguration, especially in Docker and Kubernetes.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-20",
+  "dateModified": "2026-07-22",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does LEADER_NOT_AVAILABLE mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Every Kafka partition has exactly one leader replica that handles all reads and writes for it. LEADER_NOT_AVAILABLE means the client asked to produce to or fetch from a partition that currently has no elected leader, so the request cannot be served until a leader election completes." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is LEADER_NOT_AVAILABLE always a real problem?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No — right after a topic is created, leadership assignment and propagation take a brief moment, and a request that arrives in that window will see this warning and then succeed automatically on retry a second or two later. Kafka clients retry it by default. If it appears once around topic creation and then stops, it's expected behaviour, not a bug." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this error repeat forever instead of resolving itself?",
+      "acceptedAnswer": { "@type": "Answer", "text": "In containerized setups this is almost always advertised.listeners. The initial bootstrap connection succeeds, but the broker then tells the client which address to use for the actual partition leader — and if that advertised address is an internal Docker hostname the client can't resolve, every subsequent request fails the same way, indefinitely, because the client keeps being pointed at an address it can never reach." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is advertised.listeners and why does it matter?",
+      "acceptedAnswer": { "@type": "Answer", "text": "listeners is the address the broker binds to internally; advertised.listeners is the address the broker tells clients to use when connecting. Inside a Docker network the broker might bind to 0.0.0.0:9092 while advertising kafka:9092 — a hostname that only resolves inside that same Docker network. A client running on the host machine or a different network can reach the bootstrap port but then fails on every subsequent request that relies on the advertised address." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I configure Kafka in Docker so external clients can connect?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Define two listeners — one for traffic inside the Docker network and one for traffic from the host or outside — and advertise a different, correctly resolvable address on each. The internal listener advertises the container's Docker network hostname; the external listener advertises localhost or the host's real address, mapped through the corresponding exposed port." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can too few in-sync replicas cause LEADER_NOT_AVAILABLE?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. If all replicas for a partition are on brokers that are down, or unclean leader election is disabled and no in-sync replica remains eligible, no leader can be elected and requests to that partition return LEADER_NOT_AVAILABLE until enough replicas recover. This is distinct from the listener misconfiguration case and points at genuine broker or cluster health rather than client configuration." }
+    },
+    {
+      "@type": "Question",
+      "name": "What does correlation id mean in a Kafka error message?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The correlation id is just a sequence number the Kafka wire protocol uses to match a response to the request that triggered it. It has no bearing on the cause of the error — the part that matters is the topic name listed in braces alongside it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can LEADER_NOT_AVAILABLE happen even if I never created the topic myself?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. If auto.create.topics.enable is true, producing to a topic that doesn't exist yet creates it implicitly, and the very first request can race that just-in-time leader election the same way an explicit kafka-topics.sh --create would. It's mechanically the same benign case, just triggered without an explicit create step." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does LEADER_NOT_AVAILABLE happen in Kubernetes even with correct Docker-style listener config?",
+      "acceptedAnswer": { "@type": "Answer", "text": "In a StatefulSet behind a headless service, each broker pod needs its own advertised.listeners value derived from its own stable pod hostname (e.g. kafka-0.kafka-headless.default.svc.cluster.local). A single shared advertised address can't work across a StatefulSet, since clients need to reach each pod individually. If you also expose Kafka outside the cluster via a LoadBalancer, NodePort, or Ingress, the external listener must advertise that externally reachable address instead." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Kafka: LEADER_NOT_AVAILABLE</span>
+            </nav>
+            <h1>Kafka: Error while fetching metadata &mdash; LEADER_NOT_AVAILABLE</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A partition currently has no elected leader, so the request can't be served yet.</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Just created the topic? Wait a second or two &mdash; this is expected and resolves on its own.</li>
+                    <li>Repeats forever, especially in Docker/Kubernetes? It's almost certainly <code>advertised.listeners</code>.</li>
+                    <li>Persists with a stable cluster that isn't containerized? Check whether the partition's replicas are actually all down.</li>
+                </ul>
+            </div>
+
+            <h2 id="symptoms">Common symptoms</h2>
+            <p>You may never see the exact string <code>LEADER_NOT_AVAILABLE</code> in your own logs and still have this exact problem &mdash; it often surfaces as one of these instead:</p>
+            <ul>
+                <li>Producer <code>send()</code> calls never complete, or retry forever without erroring out</li>
+                <li>Consumers subscribe without error but never receive any records</li>
+                <li>Client logs show repeated metadata refreshes that never make progress</li>
+                <li>The initial connection succeeds, but every actual produce or fetch request hangs or times out</li>
+                <li>A Kafka UI (Kafka UI, Conduktor, AKHQ) reports every broker as healthy while clients still can't send or receive</li>
+            </ul>
+
+            <h2 id="exact-error">The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>WARN [Consumer clientId=consumer-1, groupId=orders] Error while fetching metadata
+with correlation id 7 : {orders=LEADER_NOT_AVAILABLE}</code></pre>
+            </div>
+            <p>Every partition has exactly one leader replica; all reads and writes for that partition go through it. This message means the broker responded to a metadata request saying the <code>orders</code> topic's partition has no leader right now. It's a <code>WARN</code>, not a fatal exception, because Kafka clients automatically refresh metadata and retry on <code>LEADER_NOT_AVAILABLE</code> &mdash; leader elections are an expected, routine part of normal cluster operation, not evidence that something is broken by default. Whether that retry ever succeeds is what determines whether you have a real problem.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:0.75rem 1.25rem;margin:0 0 1.5rem;">
+                <p style="margin:0;"><strong>What's <code>correlation id 7</code>?</strong> Just a request/response sequence number the Kafka wire protocol uses to match a response to the request that triggered it. It isn't the cause of anything &mdash; ignore the number and look at the topic name in braces instead. If braces list more than one topic, that points toward a cluster-wide cause (a genuine leadership gap) rather than one misbehaving topic.</p>
+            </div>
+
+            <h2 id="benign-case">The benign case: right after topic creation</h2>
+            <p>Creating a topic and electing a leader for each of its partitions are not instantaneous, and there's a small window between the topic existing and its leadership being fully propagated across the cluster. A produce or fetch request that lands in that window sees <code>LEADER_NOT_AVAILABLE</code>, and the client's built-in retry logic succeeds moments later once election finishes:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kafka-topics.sh --bootstrap-server localhost:9092 --create --topic orders --partitions 3
+
+# a client sending immediately afterward may log ONE instance of:
+# WARN ... Error while fetching metadata with correlation id 7 : {orders=LEADER_NOT_AVAILABLE}
+#
+# followed within a second or two by successful sends — no action needed</code></pre>
+            </div>
+            <p>The signature that tells you this is the benign case: it appears once (or a handful of times) immediately after topic creation, then stops. If that's what you're seeing, there is nothing to fix.</p>
+            <p>This same race can show up even if you never ran <code>--create</code> yourself: with <code>auto.create.topics.enable=true</code> (the broker default in many setups), producing to a topic that doesn't exist yet creates it on the fly, and the very first request can land in the same just-in-time election window. It's mechanically identical to the case above &mdash; it just reads as "I never created a topic and got this error" instead.</p>
+            <p>If this window is a nuisance on a slow-electing cluster, the client-side <code>metadata.max.age.ms</code> setting controls how often the client proactively refreshes its metadata; lowering it shortens how long the client can keep using stale metadata before it learns a leader now exists.</p>
+
+            <h2 id="fix-1-advertised-listeners">Fix 1: if it repeats forever, check advertised.listeners</h2>
+            <p>This is the dominant cause when the warning never resolves &mdash; especially in Docker or Kubernetes. The mechanism is subtle enough to be worth walking through carefully, because the symptom (bootstrap succeeds, everything after fails) is genuinely confusing the first time you hit it.</p>
+            <p>A Kafka client's connection has two steps. First it connects to a bootstrap address to ask "who is the leader for this partition?" That connection can succeed. The broker then replies with an address for the client to use for the <em>actual</em> partition leader &mdash; and that's the <code>advertised.listeners</code> value. If that address is a hostname that only resolves inside the Docker network the broker lives in, an external client can complete step one and then fail every subsequent request, because it's being told to connect somewhere it fundamentally cannot reach.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Client                            Broker (bootstrap: localhost:9092)
+  |----- 1. bootstrap connect -------->|
+  |<---- "leader for orders-0 is       |
+  |       advertised at kafka:9092" ---|
+  |
+  |----- 2. connect to kafka:9092 ---->  X   unresolvable outside
+  |                                          the Docker network
+  |
+  '--> LEADER_NOT_AVAILABLE — repeats forever, every request</code></pre>
+            </div>
+            <p>Step 1 succeeds because it uses the address you gave the client directly. Step 2 fails silently from the client's point of view &mdash; it just can't reach <code>kafka:9092</code> &mdash; and every retry repeats the same doomed handoff, which is why the symptom looks like "connects fine, then nothing ever works."</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ broker only advertises its internal Docker hostname
+KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092
+KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+# a client on the host machine can reach the bootstrap port,
+# but "kafka" doesn't resolve outside the Docker network —
+# every request after the first fails the same way, forever
+
+# ✅ two listeners: one for other containers, one for the host
+KAFKA_LISTENERS=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
+KAFKA_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://localhost:9093
+KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
+
+# docker-compose.yml — expose the external port to the host:
+#   ports:
+#     - "9093:9093"</code></pre>
+            </div>
+            <p>Other containers on the same Docker network connect via <code>kafka:9092</code> (the internal listener); anything outside that network &mdash; your host machine, a local script, a different compose project &mdash; connects via <code>localhost:9093</code> (the external listener). Each listener advertises an address that's actually reachable from where its clients run. This is the single most common Kafka Docker misconfiguration, and it produces exactly the confusing "connects, then fails on everything" pattern this error describes.</p>
+
+            <h3>Kubernetes: a related but distinct cause</h3>
+            <p>In Kubernetes the same failure mode shows up for a different reason. A Kafka StatefulSet behind a headless service needs <em>each broker pod to advertise its own address</em>, not one value shared across the whole set:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># pod kafka-0 advertises its own stable headless-service hostname:
+KAFKA_ADVERTISED_LISTENERS=INTERNAL://kafka-0.kafka-headless.default.svc.cluster.local:9092
+
+# pod kafka-1 advertises a different one, derived from its own ordinal:
+KAFKA_ADVERTISED_LISTENERS=INTERNAL://kafka-1.kafka-headless.default.svc.cluster.local:9092
+
+# ❌ every pod advertising the same hardcoded hostname (or the
+# StatefulSet's service name instead of each pod's own identity)
+# routes clients to a leader address only some pods can reach</code></pre>
+            </div>
+            <p>If Kafka is also exposed outside the cluster &mdash; via a <code>LoadBalancer</code>, <code>NodePort</code>, or Ingress &mdash; the same rule applies one layer further out: that external listener has to advertise the address external clients actually connect through (the load balancer hostname, or the node's external IP and mapped port), not the pod's internal cluster-local address.</p>
+
+            <h2 id="fix-2-leadership-gap">Fix 2: confirm it isn't a genuine leadership gap</h2>
+            <p>Outside of Docker listener issues, this can also mean a partition genuinely has no eligible leader &mdash; every replica is on a broker that's down, or unclean leader election is disabled and no in-sync replica remains:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic orders
+
+# a healthy partition shows a real leader id:
+#   Partition: 0  Leader: 1  Replicas: 1,2,3  Isr: 1,2,3
+#
+# a partition close to losing its leader shows a shrunk ISR:
+#   Partition: 0  Leader: none  Replicas: 1,2,3  Isr: 2
+#                                                       ^ only one in-sync replica left,
+#                                                         and if that broker is also down,
+#                                                         no leader can be elected
+#
+# the worse case — no in-sync replicas left at all:
+#   Partition: 0  Leader: none  Replicas: 1,2,3  Isr:
+#                                                     ^ every replica has fallen out of sync;
+#                                                       recovery means either restarting one
+#                                                       back into the ISR, or accepting data
+#                                                       loss via unclean leader election</code></pre>
+            </div>
+            <p>If <code>Leader</code> genuinely shows <code>none</code>, this is a cluster health problem, not a client configuration problem: check which brokers in <code>Replicas</code> are actually up, and whether <code>unclean.leader.election.enable</code> is deliberately set to <code>false</code> (the safer default, since enabling it can elect a leader with an incomplete log and lose acknowledged data). Bringing enough replicas back online resolves it; forcing unclean election is a data-loss trade-off, not a first response.</p>
+
+            <h2 id="which-problem">How to tell which problem you have</h2>
+            <table>
+                <thead><tr><th></th><th>Benign / listener misconfiguration</th><th>Genuine leadership gap</th></tr></thead>
+                <tbody>
+                    <tr><td><code>--describe</code> shows</td><td>A real leader ID (the warning is stale or a client-reachability issue)</td><td><code>Leader: none</code></td></tr>
+                    <tr><td>Pattern</td><td>Either stops after topic creation, or repeats forever from one specific client environment (Docker, another host)</td><td>Repeats from every client, everywhere</td></tr>
+                    <tr><td>Fix</td><td><code>advertised.listeners</code>, or just wait it out</td><td>Broker/replica health &mdash; bring brokers back up</td></tr>
+                </tbody>
+            </table>
+
+            <h2 id="verify-fix">Verifying the fix worked</h2>
+            <p>Don't just redeploy and hope the retries stop &mdash; prove it from the client's actual network, not from inside the broker's own container:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># run this from wherever the CLIENT actually runs, not the broker host:
+kafka-broker-api-versions.sh --bootstrap-server &lt;external-address&gt;:9093
+
+# kcat (kafkacat) is often quicker to reach for:
+kcat -b &lt;external-address&gt;:9093 -L
+
+# if the brokers it lists are addressed by something you can't resolve
+# or reach from here (e.g. "kafka:9092" from outside Docker),
+# advertised.listeners is still wrong — the config change didn't take</code></pre>
+            </div>
+            <p>Both commands fail fast and clearly when an advertised address isn't reachable, instead of leaving you to infer it from another round of confusing client retries.</p>
+
+            <h2 id="debugging-checklist">Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Did the topic get created moments before the warning (explicitly, or implicitly via <code>auto.create.topics.enable</code>)? It likely resolves on its own within seconds</li>
+                <li>&#10003; Run <code>kafka-topics.sh --describe</code> &mdash; is <code>Leader</code> a real broker ID, or literally <code>none</code>?</li>
+                <li>&#10003; If a real leader exists but the client still fails: check <code>advertised.listeners</code> against where the client actually runs</li>
+                <li>&#10003; Running in Docker? Confirm you have a separate internal and external listener, each advertising a reachable address</li>
+                <li>&#10003; Running in Kubernetes? Confirm each pod advertises its own headless-service hostname, and any external listener advertises the LoadBalancer/NodePort/Ingress address</li>
+                <li>&#10003; Does the error list one topic in braces, or several? Several points toward a cluster-wide cause rather than one misbehaving topic</li>
+                <li>&#10003; If <code>Leader: none</code> genuinely, check which replica brokers are down and whether they can be restarted</li>
+                <li>&#10003; Only consider <code>unclean.leader.election.enable=true</code> as a last resort &mdash; it can elect a leader with data loss</li>
+                <li>&#10003; After changing <code>advertised.listeners</code>, confirm it with <code>kafka-broker-api-versions.sh</code> or <code>kcat -L</code> from the client's own network before assuming it's fixed</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does LEADER_NOT_AVAILABLE mean?</summary>
+                    <p>Every Kafka partition has exactly one leader replica that handles all reads and writes for it. <code>LEADER_NOT_AVAILABLE</code> means the client asked to produce to or fetch from a partition that currently has no elected leader, so the request cannot be served until a leader election completes.</p>
+                </details>
+                <details>
+                    <summary>Is LEADER_NOT_AVAILABLE always a real problem?</summary>
+                    <p>No &mdash; right after a topic is created, leadership assignment and propagation take a brief moment, and a request that arrives in that window will see this warning and then succeed automatically on retry a second or two later. Kafka clients retry it by default. If it appears once around topic creation and then stops, it's expected behaviour, not a bug.</p>
+                </details>
+                <details>
+                    <summary>Why does this error repeat forever instead of resolving itself?</summary>
+                    <p>In containerized setups this is almost always <code>advertised.listeners</code>. The initial bootstrap connection succeeds, but the broker then tells the client which address to use for the actual partition leader &mdash; and if that advertised address is an internal Docker hostname the client can't resolve, every subsequent request fails the same way, indefinitely, because the client keeps being pointed at an address it can never reach.</p>
+                </details>
+                <details>
+                    <summary>What is advertised.listeners and why does it matter?</summary>
+                    <p><code>listeners</code> is the address the broker binds to internally; <code>advertised.listeners</code> is the address the broker tells clients to use when connecting. Inside a Docker network the broker might bind to <code>0.0.0.0:9092</code> while advertising <code>kafka:9092</code> &mdash; a hostname that only resolves inside that same Docker network. A client running on the host machine or a different network can reach the bootstrap port but then fails on every subsequent request that relies on the advertised address.</p>
+                </details>
+                <details>
+                    <summary>How do I configure Kafka in Docker so external clients can connect?</summary>
+                    <p>Define two listeners &mdash; one for traffic inside the Docker network and one for traffic from the host or outside &mdash; and advertise a different, correctly resolvable address on each. The internal listener advertises the container's Docker network hostname; the external listener advertises <code>localhost</code> or the host's real address, mapped through the corresponding exposed port.</p>
+                </details>
+                <details>
+                    <summary>Can too few in-sync replicas cause LEADER_NOT_AVAILABLE?</summary>
+                    <p>Yes. If all replicas for a partition are on brokers that are down, or unclean leader election is disabled and no in-sync replica remains eligible, no leader can be elected and requests to that partition return <code>LEADER_NOT_AVAILABLE</code> until enough replicas recover. This is distinct from the listener misconfiguration case and points at genuine broker or cluster health rather than client configuration.</p>
+                </details>
+                <details>
+                    <summary>What does correlation id mean in a Kafka error message?</summary>
+                    <p>The correlation id is just a sequence number the Kafka wire protocol uses to match a response to the request that triggered it. It has no bearing on the cause of the error &mdash; the part that matters is the topic name listed in braces alongside it.</p>
+                </details>
+                <details>
+                    <summary>Can LEADER_NOT_AVAILABLE happen even if I never created the topic myself?</summary>
+                    <p>Yes. If <code>auto.create.topics.enable</code> is true, producing to a topic that doesn't exist yet creates it implicitly, and the very first request can race that just-in-time leader election the same way an explicit <code>kafka-topics.sh --create</code> would. It's mechanically the same benign case, just triggered without an explicit create step.</p>
+                </details>
+                <details>
+                    <summary>Why does LEADER_NOT_AVAILABLE happen in Kubernetes even with correct Docker-style listener config?</summary>
+                    <p>In a StatefulSet behind a headless service, each broker pod needs its own <code>advertised.listeners</code> value derived from its own stable pod hostname (e.g. <code>kafka-0.kafka-headless.default.svc.cluster.local</code>). A single shared advertised address can't work across a StatefulSet, since clients need to reach each pod individually. If you also expose Kafka outside the cluster via a <code>LoadBalancer</code>, <code>NodePort</code>, or Ingress, the external listener must advertise that externally reachable address instead.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Kafka errors &amp; guides</h3>
+                <p>Browse the full error reference, or read the Kafka theory guides that explain the mechanisms behind these failures.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../blog/how-kafka-works.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">How Kafka Works</a>
+                    <a href="../log-redactor.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Log Redactor</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="kafka-timeout-expiring-records.html">Kafka: TimeoutException: Expiring N record(s)</a> &mdash; the producer-side symptom of the same connectivity gap</li>
+                <li><a href="docker-cannot-connect-to-daemon.html">Docker: Cannot connect to the Docker daemon</a></li>
+                <li><a href="kafka-commitfailedexception.html">Kafka: CommitFailedException</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/how-kafka-works.html">How Kafka Works</a></li>
+                <li><a href="../blog/kafka-common-problems.html">Real-World Kafka Problems and How to Fix Them</a></li>
+                <li><a href="../log-redactor.html">Log Redactor</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

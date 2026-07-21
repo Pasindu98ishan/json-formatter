@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="How Apache Kafka actually works: the commit log, topics and partitions, message keys, offsets, consumer groups and rebalancing, and retention vs compaction.">
+    <meta name="keywords" content="how kafka works, kafka partitions explained, kafka consumer group, kafka offset explained, kafka topic vs partition, kafka message key, kafka log compaction, kafka rebalancing">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/how-kafka-works.html">
+    <meta property="og:title" content="How Kafka Works: Partitions, Offsets and Consumer Groups Explained">
+    <meta property="og:description" content="Kafka is a log, not a queue — and almost every confusing thing about it follows from that. A developer's guide to partitions, keys, offsets, and consumer groups.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/how-kafka-works.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>How Kafka Works: Partitions, Offsets and Consumer Groups Explained | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "How Kafka Works", "item": "https://jsondevtools.org/blog/how-kafka-works.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "How Kafka Works: Partitions, Offsets and Consumer Groups Explained",
+      "description": "How Apache Kafka actually works: the commit log, topics and partitions, message keys, offsets, consumer groups and rebalancing, and retention vs compaction.",
+      "image": "https://jsondevtools.org/og-image.png",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-07-20",
+      "dateModified": "2026-07-20",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the difference between a Kafka topic and a partition?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A topic is the logical name you publish to; a partition is the physical append-only log that actually stores the records. A topic is made of one or more partitions, and each partition lives on a broker with its own independent sequence of offsets starting at zero. This distinction matters because Kafka guarantees ordering within a partition, never across a whole topic." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Kafka guarantee message order?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Only within a single partition. Records appended to one partition are read back in exactly the order they were written. Across partitions there is no ordering guarantee at all, because they are separate logs written and read independently. If you need two records to stay in order relative to each other, they must be given the same message key so the partitioner sends them to the same partition." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does a Kafka message key actually do?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The key decides which partition a record goes to. The default partitioner hashes the key and takes the result modulo the partition count, so identical keys always land on the same partition and therefore stay in order. Records with no key are spread across partitions in batches. The key is not an identifier or a primary key — its only routing job is choosing the partition, though log compaction also uses it to decide which records to retain." }
+        },
+        {
+          "@type": "Question",
+          "name": "Are Kafka messages deleted after they are consumed?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Unlike a traditional queue, reading does not remove anything. A consumer just advances its own offset pointer, and the record stays in the log for every other consumer to read. Records are removed only when the retention policy decides to remove them — after a time or size limit, or when log compaction supersedes them with a newer record for the same key." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is one of my consumers idle and receiving nothing?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Within a consumer group each partition is assigned to exactly one consumer, so the partition count is a hard ceiling on useful parallelism. If a topic has four partitions and you run five consumers in the same group, four get one partition each and the fifth sits idle. The fix is to increase the partition count, not the consumer count — and note that you can add partitions to a topic but never remove them." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between retention and log compaction?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Time or size retention deletes whole segments of old records once they pass a limit such as retention.ms, regardless of content. Log compaction instead keeps the most recent record for every distinct key forever, discarding older records with that same key. Retention suits event streams where old events stop mattering; compaction suits changelog topics where you want the current state of every key to survive indefinitely." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>How Kafka Works</span>
+            </nav>
+            <h1>How Kafka Works: Partitions, Offsets and Consumer Groups Explained</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; 12 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">Most confusion about Kafka comes from one wrong assumption: that it is a message queue. It isn't. Kafka is a distributed, append-only <em>log</em>, and nearly every behaviour that surprises newcomers &mdash; why messages aren't deleted when you read them, why ordering breaks, why an extra consumer sits idle doing nothing &mdash; follows directly from that one design choice. This guide builds the model from the ground up.</p>
+
+            <h2>Kafka is a log, not a queue</h2>
+            <p>In a traditional queue (RabbitMQ, SQS, ActiveMQ), a message is a unit of work. A consumer takes it, the broker hands it out, and once acknowledged it is <strong>removed</strong>. The queue is a to-do list that shrinks as work gets done.</p>
+            <p>Kafka works nothing like that. A Kafka topic is an append-only file. Producers append records to the end. Consumers read from wherever they choose and simply remember how far they got. Reading changes nothing about the log itself.</p>
+            <p>That single difference produces the properties Kafka is known for:</p>
+            <ul>
+                <li><strong>Many independent consumers.</strong> Ten different services can all read the same record, because reading is not consumption. Your analytics pipeline, your audit logger, and your email service each keep their own position.</li>
+                <li><strong>Replay.</strong> Since records aren't destroyed, you can rewind and reprocess. Deploy a bug fix, reset your position to yesterday, and run the corrected code over the same data.</li>
+                <li><strong>Enormous throughput.</strong> Appending to the end of a file and reading sequentially are the two operations disks and page caches are best at. There is no per-message bookkeeping to update.</li>
+            </ul>
+            <p>Hold on to the mental image of a file you append to and read from at your own pace. Everything below is a refinement of it.</p>
+
+            <h2>Topics and partitions</h2>
+            <p>A <strong>topic</strong> is the name you publish to &mdash; <code>orders</code>, <code>page-views</code>, <code>user-signups</code>. It is a logical label, not a physical thing.</p>
+            <p>The physical thing is the <strong>partition</strong>. Each topic is split into one or more partitions, and each partition is an independent append-only log stored on a broker. When you create a topic with three partitions, you are creating three separate logs that happen to share a name.</p>
+            <p>Every record in a partition gets a sequential ID called its <strong>offset</strong>, starting at 0 and incrementing forever. Offsets are per-partition: partition 0 and partition 1 both have a record at offset 0, and they are entirely unrelated records.</p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 220" role="img" aria-label="A topic named orders split into three partitions. Each partition is a separate horizontal row of record boxes numbered from offset zero upward, with new records appended at the right-hand end. Partition zero holds offsets zero through five, partition one holds offsets zero through three, and partition two holds offsets zero through six, showing that partitions fill independently and at different rates.">
+                    <text x="300" y="16" text-anchor="middle" class="dg-t">Topic: orders (3 partitions)</text>
+
+                    <text x="6" y="60" class="dg-s">P0</text>
+                    <rect x="38" y="44" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="59" y="60" text-anchor="middle" class="dg-m">0</text>
+                    <rect x="84" y="44" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="105" y="60" text-anchor="middle" class="dg-m">1</text>
+                    <rect x="130" y="44" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="151" y="60" text-anchor="middle" class="dg-m">2</text>
+                    <rect x="176" y="44" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="197" y="60" text-anchor="middle" class="dg-m">3</text>
+                    <rect x="222" y="44" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="243" y="60" text-anchor="middle" class="dg-m">4</text>
+                    <rect x="268" y="44" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="289" y="60" text-anchor="middle" class="dg-m">5</text>
+                    <path d="M316 56 L392 56" class="dg-ln" marker-end="url(#kw-arrow)"/>
+
+                    <text x="6" y="112" class="dg-s">P1</text>
+                    <rect x="38" y="96" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="59" y="112" text-anchor="middle" class="dg-m">0</text>
+                    <rect x="84" y="96" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="105" y="112" text-anchor="middle" class="dg-m">1</text>
+                    <rect x="130" y="96" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="151" y="112" text-anchor="middle" class="dg-m">2</text>
+                    <rect x="176" y="96" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="197" y="112" text-anchor="middle" class="dg-m">3</text>
+                    <path d="M224 108 L392 108" class="dg-ln" marker-end="url(#kw-arrow)"/>
+
+                    <text x="6" y="164" class="dg-s">P2</text>
+                    <rect x="38" y="148" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="59" y="164" text-anchor="middle" class="dg-m">0</text>
+                    <rect x="84" y="148" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="105" y="164" text-anchor="middle" class="dg-m">1</text>
+                    <rect x="130" y="148" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="151" y="164" text-anchor="middle" class="dg-m">2</text>
+                    <rect x="176" y="148" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="197" y="164" text-anchor="middle" class="dg-m">3</text>
+                    <rect x="222" y="148" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="243" y="164" text-anchor="middle" class="dg-m">4</text>
+                    <rect x="268" y="148" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="289" y="164" text-anchor="middle" class="dg-m">5</text>
+                    <rect x="314" y="148" width="42" height="24" rx="3" class="dg-box"/>
+                    <text x="335" y="164" text-anchor="middle" class="dg-m">6</text>
+                    <path d="M362 160 L392 160" class="dg-ln" marker-end="url(#kw-arrow)"/>
+
+                    <text x="452" y="112" text-anchor="middle" class="dg-s">new records</text>
+                    <text x="452" y="128" text-anchor="middle" class="dg-s">appended here</text>
+
+                    <text x="300" y="200" text-anchor="middle" class="dg-s">offsets are per-partition &mdash; P0 offset 3 and P1 offset 3 are unrelated records</text>
+
+                    <defs>
+                        <marker id="kw-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--dg-line)"/>
+                        </marker>
+                    </defs>
+                </svg>
+                <p class="dg-cap">Each partition is its own log with its own offset sequence. They fill independently and at different rates.</p>
+            </div>
+
+            <p>Partitions exist for one reason: <strong>parallelism</strong>. A single log can only be written and read so fast, and it must fit on one machine. Splitting a topic into partitions spreads it across brokers and lets many consumers work simultaneously.</p>
+            <p>The cost of that parallelism is the single most important rule in Kafka:</p>
+            <blockquote><p><strong>Kafka guarantees ordering within a partition. It guarantees nothing across partitions.</strong></p></blockquote>
+            <p>Records in partition 0 come back in exactly the order they were written. But a record written to partition 0 and a record written to partition 1 have no defined order relative to each other &mdash; they are separate files being read by separate threads. If you publish <code>OrderCreated</code> and <code>OrderCancelled</code> for the same order and they land in different partitions, a consumer can genuinely see the cancellation first.</p>
+            <p>This trips up almost everyone once. "Kafka preserves order" is true, but only at partition scope. Which brings us to the mechanism that decides partition placement.</p>
+
+            <h2>Producers and message keys</h2>
+            <p>When a producer sends a record, something has to choose its partition. That choice is driven by the record's <strong>key</strong>.</p>
+            <p>A Kafka record is essentially a key, a value, a timestamp, and some optional headers. The value is your payload &mdash; typically JSON, Avro, or Protobuf. The key is optional, and its primary job is routing:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// key present: hash the key, mod the partition count
+partition = hash(key) % numberOfPartitions
+
+// key null: records are batched onto partitions
+// (the "sticky partitioner" fills one batch, then switches)
+partition = stickyBatchTarget()</code></pre>
+            </div>
+            <p>Two consequences follow, and they are the whole reason keys matter:</p>
+            <ol>
+                <li><strong>The same key always routes to the same partition</strong>, so all records for that key stay strictly ordered relative to each other. Key your order events by <code>order_id</code> and every event for order 12345 lands in one partition, in order, forever.</li>
+                <li><strong>Key choice determines load distribution.</strong> Because placement is a hash of the key, a poorly chosen key concentrates traffic. Keying by <code>country</code> when 80% of your users are in one country sends 80% of your traffic to one partition &mdash; a "hot partition" that becomes the bottleneck for the entire topic while its siblings idle.</li>
+            </ol>
+            <p>The practical rule: choose the narrowest key that still gives you the ordering you actually need. <code>order_id</code> over <code>customer_id</code>, <code>customer_id</code> over <code>region</code>. And if you genuinely don't need ordering, leave the key null and let Kafka spread the load evenly.</p>
+            <p>One caveat worth knowing before you go to production: <strong>adding partitions to an existing keyed topic changes future routing for existing keys</strong>. Records already written don't move &mdash; they stay in whatever partition they were originally placed in, forever. But since placement is <code>hash(key) % partitionCount</code>, a larger partition count means new records for the same key can land in a <em>different</em> partition than the old ones did. The ordering guarantee holds within each partition as always; what breaks is the assumption that "same key" still means "same partition" across that resize boundary. Size your partition count with room to grow, so you resize rarely.</p>
+            <p>When you pull a record off a topic to inspect it, the value is usually a deeply nested JSON blob printed as one unreadable line. Paste it into the <a href="../formatter.html">JSON Formatter</a> to pretty-print it, or the <a href="../json-viewer.html">JSON Viewer</a> to expand and collapse the structure while you hunt for the field you care about &mdash; both run entirely in your browser, so payloads never leave your machine.</p>
+
+            <h2>Offsets: the part people get wrong</h2>
+            <p>An offset is just a position in a partition. But there are three distinct numbers that people routinely conflate, and telling them apart is what makes lag and replay make sense:</p>
+            <table>
+                <thead><tr><th>Term</th><th>What it means</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Log-end offset</strong></td><td>Where the producer has written up to &mdash; the end of the partition</td></tr>
+                    <tr><td><strong>Current position</strong></td><td>Where this consumer has read up to, in memory, right now</td></tr>
+                    <tr><td><strong>Committed offset</strong></td><td>The position this consumer group has durably saved as "done"</td></tr>
+                </tbody>
+            </table>
+            <p><strong>Consumer lag</strong> is the gap between the log-end offset and the committed offset &mdash; how far behind you are. It is the single most important number to alert on for any Kafka consumer.</p>
+            <p>The committed offset is the interesting one. Kafka stores it in an internal topic called <code>__consumer_offsets</code>, keyed by group, topic, and partition. Note what that means: <strong>the position belongs to the consumer group, not to the consumer process.</strong> Restart your service, deploy a new version, scale from two pods to ten &mdash; the group's position survives, because it was never held in your application's memory.</p>
+            <p>This is also why "reprocess from yesterday" is a routine operation rather than a data-recovery exercise. You are not restoring anything; you are just writing a smaller number into <code>__consumer_offsets</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># how far behind is each partition? (LAG is the column that matters)
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group order-processor
+
+# TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+# orders  0          15234           15240           6
+# orders  1          15100           15980           880
+# orders  2          15877           15880           3
+
+# rewind the whole group to a point in time (consumers must be stopped)
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --group order-processor --topic orders \
+  --reset-offsets --to-datetime 2026-07-19T00:00:00.000 --execute</code></pre>
+            </div>
+            <p>Notice partition 1 in that output: lag of 880 while its siblings sit at single digits. That asymmetry is the signature of a hot partition &mdash; a key-choice problem, not a consumer problem.</p>
+            <p>Every Kafka record also carries a timestamp, exposed as milliseconds since the Unix epoch. When you are correlating a lagging offset against your application logs, or working out what <code>--to-datetime</code> value to pass, a raw value like <code>1784505600000</code> is hard to reason about &mdash; drop it into the <a href="../timestamp.html">Timestamp Converter</a> to turn it into a readable date (and mind the milliseconds-vs-seconds distinction, which is a classic source of "my reset went to 1970" confusion).</p>
+
+            <h2>Consumer groups and rebalancing</h2>
+            <p>A <strong>consumer group</strong> is a set of consumers that cooperate to read a topic. The rule that governs them is short:</p>
+            <blockquote><p>Within a group, each partition is assigned to <strong>exactly one</strong> consumer. A consumer may hold several partitions.</p></blockquote>
+            <p>So the partition count is a hard ceiling on parallelism inside a group. Four partitions and two consumers means two partitions each. Four partitions and four consumers means one each. Four partitions and five consumers means one consumer <strong>sits idle</strong>, receiving nothing at all &mdash; and this is the answer to one of the most common Kafka support questions.</p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 250" role="img" aria-label="A topic with four partitions consumed by a group at three different scales. With two consumers, each consumer is assigned two partitions. With four consumers, each is assigned exactly one partition, which is the optimal balance. With five consumers, four are assigned one partition each and the fifth consumer is left idle with no partition, because a partition can only be assigned to one consumer within a group.">
+                    <text x="300" y="16" text-anchor="middle" class="dg-t">Topic with 4 partitions &mdash; same group, three scales</text>
+
+                    <text x="80" y="46" text-anchor="middle" class="dg-s">2 consumers</text>
+                    <rect x="20" y="56" width="54" height="26" rx="3" class="dg-box"/>
+                    <text x="47" y="73" text-anchor="middle" class="dg-m">C1</text>
+                    <rect x="86" y="56" width="54" height="26" rx="3" class="dg-box"/>
+                    <text x="113" y="73" text-anchor="middle" class="dg-m">C2</text>
+                    <text x="80" y="102" text-anchor="middle" class="dg-s">P0,P1 &middot; P2,P3</text>
+                    <text x="80" y="120" text-anchor="middle" class="dg-s">2 each</text>
+
+                    <text x="300" y="46" text-anchor="middle" class="dg-s">4 consumers</text>
+                    <rect x="212" y="56" width="40" height="26" rx="3" class="dg-box-ok"/>
+                    <text x="232" y="73" text-anchor="middle" class="dg-m">C1</text>
+                    <rect x="256" y="56" width="40" height="26" rx="3" class="dg-box-ok"/>
+                    <text x="276" y="73" text-anchor="middle" class="dg-m">C2</text>
+                    <rect x="300" y="56" width="40" height="26" rx="3" class="dg-box-ok"/>
+                    <text x="320" y="73" text-anchor="middle" class="dg-m">C3</text>
+                    <rect x="344" y="56" width="40" height="26" rx="3" class="dg-box-ok"/>
+                    <text x="364" y="73" text-anchor="middle" class="dg-m">C4</text>
+                    <text x="300" y="102" text-anchor="middle" class="dg-s">P0 &middot; P1 &middot; P2 &middot; P3</text>
+                    <text x="300" y="120" text-anchor="middle" class="dg-ok" style="font-size:11px">optimal &mdash; 1 each</text>
+
+                    <text x="500" y="46" text-anchor="middle" class="dg-s">5 consumers</text>
+                    <rect x="412" y="56" width="34" height="26" rx="3" class="dg-box"/>
+                    <text x="429" y="73" text-anchor="middle" class="dg-m">C1</text>
+                    <rect x="450" y="56" width="34" height="26" rx="3" class="dg-box"/>
+                    <text x="467" y="73" text-anchor="middle" class="dg-m">C2</text>
+                    <rect x="488" y="56" width="34" height="26" rx="3" class="dg-box"/>
+                    <text x="505" y="73" text-anchor="middle" class="dg-m">C3</text>
+                    <rect x="526" y="56" width="34" height="26" rx="3" class="dg-box"/>
+                    <text x="543" y="73" text-anchor="middle" class="dg-m">C4</text>
+                    <rect x="564" y="56" width="34" height="26" rx="3" class="dg-box-bad"/>
+                    <text x="581" y="73" text-anchor="middle" class="dg-m">C5</text>
+                    <text x="500" y="102" text-anchor="middle" class="dg-s">P0 &middot; P1 &middot; P2 &middot; P3 &middot; &mdash;</text>
+                    <text x="500" y="120" text-anchor="middle" class="dg-bad" style="font-size:11px">C5 idle &mdash; no partition left</text>
+
+                    <line x1="20" y1="146" x2="580" y2="146" class="dg-ln-dash"/>
+
+                    <text x="300" y="172" text-anchor="middle" class="dg-t">Different groups are independent</text>
+                    <rect x="150" y="186" width="130" height="28" rx="3" class="dg-box-muted"/>
+                    <text x="215" y="204" text-anchor="middle" class="dg-m">group: analytics</text>
+                    <rect x="320" y="186" width="130" height="28" rx="3" class="dg-box-muted"/>
+                    <text x="385" y="204" text-anchor="middle" class="dg-m">group: billing</text>
+                    <text x="300" y="234" text-anchor="middle" class="dg-s">both read all 4 partitions, each with its own offsets</text>
+                </svg>
+                <p class="dg-cap">Partition count caps parallelism inside a group. Adding consumers beyond the partition count does nothing.</p>
+            </div>
+
+            <p>Crucially, this limit applies <em>within</em> a group. Different groups are completely independent &mdash; the <code>analytics</code> group and the <code>billing</code> group both receive every record and track their own offsets. That is how Kafka does publish/subscribe: one group per subscriber.</p>
+            <p>When group membership changes &mdash; a consumer joins, crashes, or is deemed dead &mdash; Kafka triggers a <strong>rebalance</strong> to reassign partitions. Historically this was "eager": every consumer stopped, gave up all partitions, and waited for a fresh assignment, producing a brief total pause often called a stop-the-world rebalance.</p>
+            <p>Cooperative (incremental) rebalancing improves on this by moving only the partitions that actually need to change hands, letting everything else keep processing. It is worth knowing exactly what is on by default, because this is widely misreported: the default <code>partition.assignment.strategy</code> is <code>[RangeAssignor, CooperativeStickyAssignor]</code>. <strong><code>RangeAssignor</code> &mdash; eager &mdash; is what actually runs by default;</strong> <code>CooperativeStickyAssignor</code> is present in the list only so you can migrate to it via a rolling restart without downtime. If you want cooperative rebalancing you must configure it explicitly.</p>
+            <p>Apache Kafka 4.0 (released March 2025) also introduced a redesigned, broker-coordinated consumer group protocol that removes much of the client-side rebalance dance entirely. If you are on 4.x it is worth reading up on; on 3.x the assignor configuration above is what governs your behaviour.</p>
+
+            <h2>Retention and compaction</h2>
+            <p>Since consuming doesn't delete anything, something else has to. Kafka offers two policies, set per topic via <code>cleanup.policy</code>.</p>
+            <p><strong>Delete (the default)</strong> discards records once they age out or the partition grows too large:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># keep 7 days of data (the default), regardless of content
+cleanup.policy=delete
+retention.ms=604800000
+retention.bytes=-1        # -1 = no size limit, time is the only trigger</code></pre>
+            </div>
+            <p>Retention is the reason "replay from the beginning" has a floor: you can only rewind as far back as your retention window still holds data. It is also why a consumer that has been down longer than the retention period comes back to find its committed offset no longer exists in the log &mdash; a situation that surfaces as an <code>OffsetOutOfRange</code> condition.</p>
+            <p>Those retention values are configured in milliseconds, which makes them easy to misread by an order of magnitude &mdash; <code>604800000</code> is seven days but <code>60480000</code> is under a day, and the two differ by one digit. The <a href="../timestamp.html">Timestamp Converter</a> is a quick sanity check when you are reading a duration or a record timestamp out of a config or a log line.</p>
+            <p><strong>Compact</strong> takes a completely different approach: instead of deleting by age, it keeps the <em>most recent record for every distinct key</em>, indefinitely:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>cleanup.policy=compact
+
+# before compaction:
+#   user-1 -> {"plan":"free"}
+#   user-2 -> {"plan":"pro"}
+#   user-1 -> {"plan":"pro"}      <-- newer value for user-1
+#
+# after compaction:
+#   user-2 -> {"plan":"pro"}
+#   user-1 -> {"plan":"pro"}      <-- only the latest survives</code></pre>
+            </div>
+            <p>A compacted topic is a changelog: the current state of every key, durable forever. It is how Kafka Streams backs its state stores, and how <code>__consumer_offsets</code> itself works. Sending a record with a key and a <code>null</code> value writes a <em>tombstone</em>, which marks that key for deletion.</p>
+            <p>Compaction is the clearest case where the message key is doing real work beyond routing &mdash; on a compacted topic, the key defines record identity.</p>
+
+            <h2>Brokers, replicas and leaders</h2>
+            <p>A <strong>broker</strong> is one Kafka server; a cluster is several. Partitions are distributed across brokers, and each partition is replicated according to the topic's replication factor (3 is the common production choice).</p>
+            <p>For each partition, one replica is the <strong>leader</strong> and the rest are <strong>followers</strong>. All reads and writes for that partition go through its leader; followers continuously copy from it. If a leader's broker dies, one of the followers is promoted and clients transparently reconnect to the new leader.</p>
+            <p>The set of replicas currently caught up with the leader is the <strong>in-sync replica set (ISR)</strong>. The ISR is what determines whether a write is considered durable, and it is central to Kafka's delivery guarantees &mdash; along with producer acknowledgements, idempotence, and the honest limits of "exactly-once". That is a big enough topic to deserve its own treatment, which is why it has one: <a href="kafka-delivery-guarantees.html">Kafka Delivery Guarantees</a> picks up exactly here.</p>
+            <p>One piece of version context worth carrying: Kafka historically depended on ZooKeeper for cluster metadata. KRaft mode, which moves that responsibility into Kafka itself, became production-ready in 3.3 and <strong>ZooKeeper was removed entirely in Kafka 4.0</strong>. If you are reading older tutorials that walk you through starting a ZooKeeper process, they predate 4.0.</p>
+
+            <h2>Where schemas fit in</h2>
+            <p>Everything so far treats a record's value as opaque bytes &mdash; Kafka genuinely does not care what is inside. That flexibility becomes a liability the moment more than one team is involved, because nothing stops a producer from changing the shape of its payload and silently breaking every downstream consumer.</p>
+            <p>That is the problem a schema registry solves: producers and consumers agree on a contract, and the registry enforces that new versions of it stay compatible. If you are running JSON on your topics today, the same compatibility questions apply even without Avro &mdash; adding a required field is a breaking change whatever your serialization format.</p>
+            <p>Our companion guide covers this in depth: <a href="kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a> walks through schema evolution, the backward/forward/full compatibility modes, and which changes are safe versus which will break your consumers at deserialization time.</p>
+
+            <h2>Putting the model together</h2>
+            <p>If you remember five things from this guide, make them these:</p>
+            <ol>
+                <li>Kafka is an append-only log. Reading doesn't delete; consumers just track a position.</li>
+                <li>A topic is a logical name; partitions are the real logs. Ordering is guaranteed <em>per partition only</em>.</li>
+                <li>The message key picks the partition &mdash; so it controls both ordering and load balance.</li>
+                <li>Within a group, one partition goes to exactly one consumer. Partition count caps your parallelism.</li>
+                <li>Retention deletes by age or size; compaction keeps the latest record per key forever.</li>
+            </ol>
+            <p>Almost every Kafka question that starts with "why is it doing that?" resolves to one of those five.</p>
+
+            <div class="tool-cta">
+                <h3>Working with Kafka payloads</h3>
+                <p>Inspect, format, and compare the JSON flowing through your topics &mdash; entirely in your browser, nothing uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../timestamp.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Timestamp Converter</a>
+                    <a href="../json-diff.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">JSON Diff</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What is the difference between a Kafka topic and a partition?</summary>
+                    <p>A topic is the logical name you publish to; a partition is the physical append-only log that actually stores the records. A topic is made of one or more partitions, and each partition lives on a broker with its own independent sequence of offsets starting at zero. This distinction matters because Kafka guarantees ordering within a partition, never across a whole topic.</p>
+                </details>
+                <details>
+                    <summary>Does Kafka guarantee message order?</summary>
+                    <p>Only within a single partition. Records appended to one partition are read back in exactly the order they were written. Across partitions there is no ordering guarantee at all, because they are separate logs written and read independently. If you need two records to stay in order relative to each other, they must be given the same message key so the partitioner sends them to the same partition.</p>
+                </details>
+                <details>
+                    <summary>What does a Kafka message key actually do?</summary>
+                    <p>The key decides which partition a record goes to. The default partitioner hashes the key and takes the result modulo the partition count, so identical keys always land on the same partition and therefore stay in order. Records with no key are spread across partitions in batches. The key is not an identifier or a primary key &mdash; its only routing job is choosing the partition, though log compaction also uses it to decide which records to retain.</p>
+                </details>
+                <details>
+                    <summary>Are Kafka messages deleted after they are consumed?</summary>
+                    <p>No. Unlike a traditional queue, reading does not remove anything. A consumer just advances its own offset pointer, and the record stays in the log for every other consumer to read. Records are removed only when the retention policy decides to remove them &mdash; after a time or size limit, or when log compaction supersedes them with a newer record for the same key.</p>
+                </details>
+                <details>
+                    <summary>Why is one of my consumers idle and receiving nothing?</summary>
+                    <p>Within a consumer group each partition is assigned to exactly one consumer, so the partition count is a hard ceiling on useful parallelism. If a topic has four partitions and you run five consumers in the same group, four get one partition each and the fifth sits idle. The fix is to increase the partition count, not the consumer count &mdash; and note that you can add partitions to a topic but never remove them.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between retention and log compaction?</summary>
+                    <p>Time or size retention deletes whole segments of old records once they pass a limit such as <code>retention.ms</code>, regardless of content. Log compaction instead keeps the most recent record for every distinct key forever, discarding older records with that same key. Retention suits event streams where old events stop mattering; compaction suits changelog topics where you want the current state of every key to survive indefinitely.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; pretty-print a message payload pulled off a topic</li>
+                <li><a href="../json-viewer.html">JSON Viewer</a> &mdash; expand and collapse deeply nested records</li>
+                <li><a href="../timestamp.html">Timestamp Converter</a> &mdash; read Kafka record timestamps and <code>retention.ms</code> values</li>
+                <li><a href="../json-diff.html">JSON Diff</a> &mdash; compare two versions of a config or payload</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="kafka-delivery-guarantees.html">Kafka Delivery Guarantees: acks, ISR and Exactly-Once Explained</a></li>
+                <li><a href="kafka-common-problems.html">Real-World Kafka Problems and How to Fix Them</a></li>
+                <li><a href="kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a></li>
+                <li><a href="json-vs-jsonl.html">JSON vs JSONL &mdash; Line-Delimited JSON Explained</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

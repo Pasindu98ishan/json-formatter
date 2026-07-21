@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kafka SerializationException: Unknown magic byte! — why the Confluent wire format check fails, and the fix when a producer and consumer disagree on serializer.">
+    <meta name="keywords" content="unknown magic byte, kafka serializationexception, unknown magic byte kafka, kafkaavrodeserializer error, schema registry unknown magic byte, kafka deserialization error, spring kafka unknown magic byte, spring boot kafka serializationexception, kafkajs schema registry, confluent-kafka python avro">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/kafka-unknown-magic-byte.html">
+    <meta property="og:title" content="Kafka: SerializationException: Unknown magic byte! — Cause and Fix">
+    <meta property="og:description" content="The consumer's Schema Registry deserializer checked the first byte of the record and it wasn't zero. Here's what wrote it instead, and how to fix either side.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/kafka-unknown-magic-byte.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Kafka: SerializationException: Unknown magic byte! — Cause and Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Kafka: SerializationException: Unknown magic byte!", "item": "https://jsondevtools.org/errors/kafka-unknown-magic-byte.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Kafka SerializationException: Unknown magic byte! — Cause and Fix",
+  "description": "A Kafka consumer using a Schema Registry deserializer throws Unknown magic byte! when the record wasn't written with a matching serializer. This reference explains the Confluent wire format, why the check fails, and how to fix either the producer or the consumer.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-20",
+  "dateModified": "2026-07-22",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Unknown magic byte!' mean in Kafka?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It means a Schema Registry deserializer (Avro, Protobuf, or JSON Schema) read the first byte of a record expecting it to be zero, and it wasn't. That leading byte is part of the Confluent wire format the deserializer requires, not part of your actual data. If it's missing, the record was written by something other than a matching Schema Registry serializer." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the Confluent wire format magic byte?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It's a one-byte marker, always 0x0, that a Schema Registry serializer writes before every record, followed by a 4-byte big-endian schema ID and then the actual serialized payload. The deserializer reads byte zero first specifically to confirm the record is in this format before it tries to look up the schema ID that follows." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this error appear on some records but not others?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Usually a mixed-producer topic: an older service, a manual test message, or a differently-configured client wrote a record without the Schema Registry serializer, alongside records from a producer that did use it. It can also appear if a topic was populated before the Schema Registry was introduced, leaving legacy records with no magic byte at all." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I tell if my producer is using the Schema Registry serializer?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Check its value.serializer (or key.serializer) config. It needs to be KafkaAvroSerializer, KafkaProtobufSerializer, or KafkaJsonSchemaSerializer — not StringSerializer, ByteArraySerializer, or a hand-rolled JSON serializer. If your producer sends plain JSON without going through the registry, a consumer expecting Avro will fail on every single record, not intermittently." }
+    },
+    {
+      "@type": "Question",
+      "name": "How can I find out what's actually on the topic without crashing my consumer?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Read a few records with the plain console consumer, which doesn't attempt schema deserialization, and pipe the output through a hex dump tool like xxd rather than eyeballing it in a terminal — raw binary and null bytes don't display reliably as plain text. Checking whether the first byte of the payload is 0x00 in the hex output tells you immediately whether it's in Schema Registry format at all, before you spend time debugging the wrong side." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I fix this without changing the producer?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only if the mismatch is genuinely on the consumer side — for example it's using an Avro deserializer against a topic that was always plain JSON. If the topic is meant to carry Schema Registry-encoded Avro and some records simply don't have the magic byte, those specific records cannot be recovered by changing the consumer; the fix has to happen where they're produced, or those records need to be skipped." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Kafka: SerializationException: Unknown magic byte!</span>
+            </nav>
+            <h1>Kafka: SerializationException: Unknown magic byte!</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Your consumer is using a Schema Registry deserializer, but the record wasn't written by a matching serializer &mdash; so the leading format byte it expects isn't there.</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Producer sending plain JSON/String while consumer reads Avro/Protobuf? &rarr; fix the producer's <code>value.serializer</code>.</li>
+                    <li>One legacy or manual test record on an otherwise-correct topic? &rarr; find and remove/skip it.</li>
+                    <li>Not sure which side is wrong? Read the raw bytes first &mdash; see below.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>org.apache.kafka.common.errors.SerializationException: Error deserializing key/value
+for partition orders-0 at offset 481: Error deserializing Avro message for id -1
+Caused by: org.apache.kafka.common.errors.SerializationException: Unknown magic byte!</code></pre>
+            </div>
+            <p>This is a wire-format problem, not a schema problem: the deserializer never gets far enough to look at a schema at all. A Confluent Schema Registry serializer prefixes every record with a single byte that must be <code>0x0</code>, followed by a 4-byte schema ID, followed by the actual serialized payload. The deserializer's very first step is checking that leading byte. If it isn't zero, it throws immediately &mdash; before touching your data.</p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 600 220" role="img" aria-label="Comparison of two record layouts. The correct layout, written by a Schema Registry serializer, starts with a magic byte of zero, followed by a four byte schema ID, followed by the Avro payload — this is what the deserializer expects and accepts. The mismatched layout, written by a plain String or JSON serializer, starts directly with the payload bytes, such as an opening curly brace for JSON, which is not zero — the deserializer rejects this immediately with Unknown magic byte.">
+                    <text x="300" y="18" text-anchor="middle" class="dg-t">Record layout on the wire</text>
+
+                    <text x="10" y="55" class="dg-s">Schema Registry serializer wrote this:</text>
+                    <rect x="10" y="64" width="46" height="30" rx="3" class="dg-box-ok"/>
+                    <text x="33" y="83" text-anchor="middle" class="dg-m">0x00</text>
+                    <rect x="60" y="64" width="90" height="30" rx="3" class="dg-box"/>
+                    <text x="105" y="83" text-anchor="middle" class="dg-m">schema ID</text>
+                    <rect x="154" y="64" width="140" height="30" rx="3" class="dg-box"/>
+                    <text x="224" y="83" text-anchor="middle" class="dg-m">Avro payload</text>
+                    <text x="150" y="112" text-anchor="middle" class="dg-ok" style="font-size:11px">magic byte = 0x00 &rarr; accepted</text>
+
+                    <text x="10" y="148" class="dg-s">Plain String/JSON serializer wrote this:</text>
+                    <rect x="10" y="157" width="46" height="30" rx="3" class="dg-box-bad"/>
+                    <text x="33" y="176" text-anchor="middle" class="dg-m">0x7B</text>
+                    <rect x="60" y="157" width="234" height="30" rx="3" class="dg-box"/>
+                    <text x="177" y="176" text-anchor="middle" class="dg-m">{"id":1001,"status":"created"}</text>
+                    <text x="150" y="202" text-anchor="middle" class="dg-bad" style="font-size:11px">first byte = 0x7B ('{') &rarr; Unknown magic byte!</text>
+                </svg>
+                <p class="dg-cap">A plain JSON payload starts with <code>{</code> (0x7B in hex), which is never 0x00 &mdash; the mismatch is detected on the very first byte.</p>
+            </div>
+
+            <h2>Fix 1: confirm which side is actually wrong</h2>
+            <p>Before changing anything, read the raw bytes off the topic without going through any schema deserializer. Don't just eyeball the console consumer's plain output, though &mdash; a terminal can mangle or hide a null byte, so "does this look like readable JSON" isn't a reliable way to confirm what the actual first byte is. Pipe it through a hex dump instead, so you can read the byte value directly:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+  --topic orders --partition 0 --offset 481 --max-messages 1 \
+  --property print.value=true | head -c 16 | xxd
+
+# a Schema Registry / Avro record — first byte is the magic byte:
+# 00000000: 0000 0007 7b22 6964 223a 3130 30312c    ....{"id":1001,
+#           ^^ 0x00 magic byte, then 00 00 00 07 = schema ID 7
+
+# a plain JSON record — no magic byte at all:
+# 00000000: 7b22 6964 223a 3130 30312c 2273 7461    {"id":1001,"sta
+#           ^^ 0x7b = '{' — this is exactly where Unknown magic byte! comes from</code></pre>
+            </div>
+            <p>If byte zero is <code>7b</code> (or any value that isn't <code>00</code>), the producer never used the Schema Registry serializer for that record &mdash; go to Fix 2. If byte zero really is <code>00</code>, the record is correctly encoded and the problem is on the consumer's configuration &mdash; go to Fix 3.</p>
+
+            <h2>Fix 2: the producer isn't using the Schema Registry serializer</h2>
+            <p>This is the dominant cause. Check the producer's serializer configuration:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ plain JSON, no schema registry involvement at all
+props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+producer.send(new ProducerRecord&lt;&gt;("orders", key, objectMapper.writeValueAsString(order)));
+
+# ✅ Avro via the Schema Registry — writes the magic byte + schema ID automatically
+props.put("value.serializer", "io.confluent.kafka.serializers.KafkaAvroSerializer");
+props.put("schema.registry.url", "http://localhost:8081");
+producer.send(new ProducerRecord&lt;&gt;("orders", key, avroOrderRecord));</code></pre>
+            </div>
+            <p>Once the producer uses <code>KafkaAvroSerializer</code> (or the Protobuf/JSON Schema equivalents), every new record it writes gets the magic byte and schema ID automatically &mdash; there's nothing else to configure on the wire-format side. Verify with the same hex dump from Fix 1: byte zero should now read <code>00</code> instead of <code>7b</code>.</p>
+            <p>If you're working out what the Avro schema for <code>orders</code> should even look like, or reconciling it against a JSON sample from the old producer, see <a href="../blog/kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a> for schema structure and evolution rules.</p>
+
+            <h2>Fix 3: the consumer is misconfigured, not the producer</h2>
+            <p>If Fix 1's hex dump showed byte zero really is <code>00</code> &mdash; genuinely Schema-Registry-shaped data &mdash; the issue is on your consumer instead. Two common causes:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ Consumer pointed at the wrong Schema Registry URL — schema ID lookups
+# fail even though the magic byte itself was present
+props.put("schema.registry.url", "http://staging-registry:8081");   // wrong environment
+
+# ✅ point at the registry the producer actually registered against
+props.put("schema.registry.url", "http://prod-registry:8081");</code></pre>
+            </div>
+            <p>A wrong registry URL more commonly surfaces as a schema-ID-not-found error rather than this one, but it's worth ruling out first since it's a one-line fix. The other consumer-side cause is simpler: the deserializer class itself doesn't match what the producer used &mdash; an <code>KafkaJsonSchemaDeserializer</code> reading a topic that was actually written with <code>KafkaProtobufSerializer</code>, for instance. Confirm both sides agree on the same registry-aware format, not just "Avro" in general.</p>
+
+            <h2>Fix 4: one bad record on an otherwise-correct topic</h2>
+            <p>If the topic is overwhelmingly correct and only a handful of records at specific offsets fail, you likely have leftover data from before the Schema Registry was adopted, or a one-off manual test message sent with a plain producer. Isolate the exact offset from the exception (<code>at offset 481</code> in the message above) and inspect just that record with the console consumer as in Fix 1.</p>
+            <p>There is no way to retroactively fix an already-written record's bytes. Your realistic options are: skip past it (accepting the gap), or write consumer logic that catches the deserialization exception per-record and logs/routes it to a dead-letter topic instead of stopping the whole consumer. A single malformed record should not be allowed to halt processing of everything after it &mdash; wrap the per-record deserialize call, not just the poll loop.</p>
+
+            <h2>Spring Boot / Spring Kafka</h2>
+            <p>Spring Kafka configures serializers through <code>application.yml</code> instead of a raw <code>Properties</code> object, but it's the identical mismatch &mdash; a plain <code>value-serializer</code> on the producer against an Avro <code>value-deserializer</code> on the consumer:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ producer writes plain JSON, consumer expects Avro — mismatch
+spring:
+  kafka:
+    producer:
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      properties:
+        schema.registry.url: http://localhost:8081
+
+# ✅ both sides agree on the Schema Registry format
+spring:
+  kafka:
+    producer:
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      properties:
+        schema.registry.url: http://localhost:8081
+    consumer:
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      properties:
+        schema.registry.url: http://localhost:8081
+        specific.avro.reader: true</code></pre>
+            </div>
+            <p>In a Spring Boot app this usually surfaces inside a <code>@KafkaListener</code> method, wrapped as a <code>ListenerExecutionFailedException</code> with this <code>SerializationException</code> as its cause. The fix is the same as Fix 2 and Fix 3 above &mdash; match <code>value-serializer</code> to <code>value-deserializer</code>, both pointed at the same <code>schema.registry.url</code>.</p>
+
+            <h2>Not just Java: Python and Node.js producers cause this too</h2>
+            <p>The wire format isn't Java-specific, and neither is the mistake. Any client that writes plain-encoded bytes to a topic a Java/Avro consumer expects to be Schema-Registry-encoded triggers the identical failure:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Python, plain JSON — no magic byte:
+producer.send('orders', value=json.dumps(order).encode('utf-8'))
+# first byte is '{' (0x7b) — a Java consumer using KafkaAvroDeserializer
+# throws "Unknown magic byte!" on this record
+
+# fix: encode through confluent-kafka's Schema Registry-aware serializer
+# so the wire format matches what the Java consumer expects:
+from confluent_kafka.schema_registry.avro import AvroSerializer
+value_serializer = AvroSerializer(schema_registry_client, schema_str)</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Node.js (kafkajs), plain JSON Buffer — same problem:
+await producer.send({
+  topic: 'orders',
+  messages: [{ value: Buffer.from(JSON.stringify(order)) }],
+});
+
+// fix: encode with @kafkajs/confluent-schema-registry before sending,
+// so the magic byte and schema ID get written the same way:
+const { SchemaRegistry } = require('@kafkajs/confluent-schema-registry');
+const registry = new SchemaRegistry({ host: 'http://localhost:8081' });
+const encodedValue = await registry.encode(schemaId, order);</code></pre>
+            </div>
+            <p>Any client library with real Schema Registry support &mdash; Python's <code>confluent-kafka</code>, Node's <code>kafkajs</code> paired with <code>@kafkajs/confluent-schema-registry</code> &mdash; writes the same magic byte and schema ID prefix, so a consumer in any language can read records a completely different language produced, as long as both sides go through a registry-aware (de)serializer rather than a plain one.</p>
+
+            <h2>Why the wire format exists at all</h2>
+            <p>It might look like unnecessary overhead &mdash; five bytes of prefix before your actual payload &mdash; but it solves a real problem. Kafka records are just bytes; nothing about the protocol tells a consumer what schema produced them. The magic byte plus schema ID lets a single deserializer instance handle records written against <em>different schema versions</em> correctly: it reads the ID, asks the registry (or its local cache) which schema that ID corresponds to, and decodes accordingly. Without it, every consumer would need out-of-band knowledge of exactly which schema version is current at any given moment, which breaks the moment producers and consumers deploy independently.</p>
+            <p>The cost of that flexibility is exactly this failure mode: anything that writes to the topic without going through a registry-aware serializer produces bytes the deserializer cannot make sense of, and it fails loudly rather than silently misinterpreting your data.</p>
+
+            <h2>Comparison: this vs a schema-compatibility error</h2>
+            <table>
+                <thead><tr><th></th><th>Unknown magic byte!</th><th>Schema compatibility rejected</th></tr></thead>
+                <tbody>
+                    <tr><td>Where it fails</td><td>Wire-format check, before any schema lookup</td><td>Schema Registry's compatibility check on <em>registration</em></td></tr>
+                    <tr><td>Typical cause</td><td>Producer never used a Schema Registry serializer</td><td>New schema breaks backward/forward compatibility rules</td></tr>
+                    <tr><td>Fixed by</td><td>Matching the producer's serializer to the consumer's deserializer</td><td>Changing the schema change itself &mdash; see <a href="../blog/kafka-avro-schema.html">Avro schema evolution</a></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the raw record and pipe it through a hex dump &mdash; byte zero being anything other than <code>00</code> means no registry serializer was used</li>
+                <li>&#10003; Check the producer's <code>value.serializer</code>/<code>key.serializer</code> &mdash; must be a <code>Kafka*Serializer</code>, not <code>StringSerializer</code></li>
+                <li>&#10003; If bytes genuinely look like Schema Registry format, check the consumer's <code>schema.registry.url</code> matches the producer's environment</li>
+                <li>&#10003; Confirm both sides use the <em>same</em> format &mdash; Avro deserializer against a Protobuf-written topic fails the same way</li>
+                <li>&#10003; Isolated bad offsets? Wrap per-record deserialization so one bad record doesn't halt the whole consumer</li>
+                <li>&#10003; Legacy records predating the registry can't be fixed retroactively &mdash; only skipped or dead-lettered</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Unknown magic byte!' mean in Kafka?</summary>
+                    <p>It means a Schema Registry deserializer (Avro, Protobuf, or JSON Schema) read the first byte of a record expecting it to be zero, and it wasn't. That leading byte is part of the Confluent wire format the deserializer requires, not part of your actual data. If it's missing, the record was written by something other than a matching Schema Registry serializer.</p>
+                </details>
+                <details>
+                    <summary>What is the Confluent wire format magic byte?</summary>
+                    <p>It's a one-byte marker, always <code>0x0</code>, that a Schema Registry serializer writes before every record, followed by a 4-byte big-endian schema ID and then the actual serialized payload. The deserializer reads byte zero first specifically to confirm the record is in this format before it tries to look up the schema ID that follows.</p>
+                </details>
+                <details>
+                    <summary>Why does this error appear on some records but not others?</summary>
+                    <p>Usually a mixed-producer topic: an older service, a manual test message, or a differently-configured client wrote a record without the Schema Registry serializer, alongside records from a producer that did use it. It can also appear if a topic was populated before the Schema Registry was introduced, leaving legacy records with no magic byte at all.</p>
+                </details>
+                <details>
+                    <summary>How do I tell if my producer is using the Schema Registry serializer?</summary>
+                    <p>Check its <code>value.serializer</code> (or <code>key.serializer</code>) config. It needs to be <code>KafkaAvroSerializer</code>, <code>KafkaProtobufSerializer</code>, or <code>KafkaJsonSchemaSerializer</code> &mdash; not <code>StringSerializer</code>, <code>ByteArraySerializer</code>, or a hand-rolled JSON serializer. If your producer sends plain JSON without going through the registry, a consumer expecting Avro will fail on every single record, not intermittently.</p>
+                </details>
+                <details>
+                    <summary>How can I find out what's actually on the topic without crashing my consumer?</summary>
+                    <p>Read a few records with the plain console consumer, which doesn't attempt schema deserialization, and pipe the output through a hex dump tool like <code>xxd</code> rather than eyeballing it in a terminal &mdash; raw binary and null bytes don't display reliably as plain text. Checking whether the first byte of the payload is <code>0x00</code> in the hex output tells you immediately whether it's in Schema Registry format at all, before you spend time debugging the wrong side.</p>
+                </details>
+                <details>
+                    <summary>Can I fix this without changing the producer?</summary>
+                    <p>Only if the mismatch is genuinely on the consumer side &mdash; for example it's using an Avro deserializer against a topic that was always plain JSON. If the topic is meant to carry Schema Registry-encoded Avro and some records simply don't have the magic byte, those specific records cannot be recovered by changing the consumer; the fix has to happen where they're produced, or those records need to be skipped.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Kafka errors &amp; guides</h3>
+                <p>Browse the full error reference, or read the Kafka theory guides that explain the mechanisms behind these failures.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../blog/kafka-avro-schema.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Kafka Avro Schema Guide</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">JSON Formatter</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="kafka-commitfailedexception.html">Kafka: CommitFailedException</a> &mdash; the other everyday consumer failure</li>
+                <li><a href="kafka-offsetoutofrange.html">Kafka: OffsetOutOfRangeException</a> &mdash; a different consumer-side deserialization prerequisite</li>
+                <li><a href="jsondecodeerror-expecting-value.html">Python: json.decoder.JSONDecodeError: Expecting value</a> &mdash; the JSON equivalent of decoding the wrong format</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a></li>
+                <li><a href="../blog/how-kafka-works.html">How Kafka Works</a></li>
+                <li><a href="../blog/kafka-common-problems.html">Real-World Kafka Problems and How to Fix Them</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kafka OffsetOutOfRangeException: Fetch offset is out of range for partition — why the committed offset no longer exists, and what auto.offset.reset decides next.">
+    <meta name="keywords" content="offsetoutofrangeexception, fetch offset is out of range for partition, kafka auto.offset.reset, kafka offset out of range, kafka consumer resetting offset, kafka committed offset deleted">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/kafka-offsetoutofrange.html">
+    <meta property="og:title" content="Kafka: OffsetOutOfRangeException — Cause and Fix">
+    <meta property="og:description" content="The offset your consumer asked for no longer exists in the log — usually because retention deleted it while the consumer was down. Here's what auto.offset.reset does next.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/kafka-offsetoutofrange.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Kafka: OffsetOutOfRangeException — Cause and Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Kafka: OffsetOutOfRangeException", "item": "https://jsondevtools.org/errors/kafka-offsetoutofrange.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Kafka OffsetOutOfRangeException: Fetch offset is out of range for partition — Cause and Fix",
+  "description": "A Kafka consumer's committed offset can stop existing in the log — deleted by retention or superseded by compaction. This reference explains why, what auto.offset.reset decides next, and how to choose between skipping and reprocessing the gap.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-20",
+  "dateModified": "2026-07-22",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Fetch offset is out of range for partition' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It means the specific offset your consumer asked for no longer exists in that partition's log. Either the offset is older than anything currently retained, because retention or compaction removed it, or it's higher than the current log-end offset, which usually indicates the committed offset metadata is stale relative to a topic that was recreated or truncated." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen after my consumer has been down for a while?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because Kafka's retention policy runs on a timer independent of whether any consumer is reading. If a consumer's committed offset points at a record that retention.ms has since deleted, that specific position simply no longer exists when the consumer comes back. The longer the downtime relative to your retention window, the more likely this becomes." }
+    },
+    {
+      "@type": "Question",
+      "name": "What does auto.offset.reset actually control?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It decides what a consumer does when it has no valid offset to resume from — either because none was ever committed, or because the committed one is now out of range. latest jumps to the end of the partition, silently skipping everything already there. earliest jumps to the oldest retained record, reprocessing everything still available. none instead throws an exception and does nothing automatically, which is the safest choice if silent data skipping or duplication would be worse than a visible failure." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did a brand-new consumer group skip all the existing data on a topic?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because a new consumer group has no committed offset at all, which triggers the exact same auto.offset.reset decision as an out-of-range offset. With the default latest, a first-time consumer starts at the current end of the log and reads nothing that was already there — which is often mistaken for the topic being empty when it genuinely has data." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I recover the specific records that were skipped?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only if they still exist somewhere. If retention has already deleted them, they are permanently gone and no consumer configuration can retrieve them. This is why systems that must never silently lose a gap either extend retention.ms well beyond any expected downtime, or route through a compacted changelog topic where the latest state per key survives indefinitely rather than aging out." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is log compaction a cause of this error too?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Not directly, and this is a common misconception. Pure compaction (cleanup.policy=compact) never deletes whole segments — it only removes superseded records for a key during background cleaning, and Kafka offsets are never reassigned, so fetching a compacted-away offset simply returns the next surviving record instead of throwing an exception. A genuine OffsetOutOfRangeException on a compacted topic only happens if it also has cleanup.policy=compact,delete, or an old segment ages out via retention.ms/retention.bytes in the ordinary way — at that point it's really the same segment-deletion mechanism as the time-based case, not compaction itself." }
+    },
+    {
+      "@type": "Question",
+      "name": "Which exception does auto.offset.reset=none throw?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It depends on why there's no valid offset. An existing committed offset that's since gone invalid throws OffsetOutOfRangeException. A partition with no committed offset at all, such as a brand-new consumer group, throws a different exception: NoOffsetForPartitionException. Both extend the common parent InvalidOffsetException, so code that doesn't need to distinguish the two cases can just catch that parent class." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my consumer group show negative lag after a topic was recreated?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Deleting a topic and creating a new one with the same name resets it to offset 0, but Kafka does not clear a consumer group's old committed offsets when this happens. The group's committed position from the old topic can end up far higher than the new topic's log-end-offset, which is what produces a nonsensical negative lag figure and this exception on the next fetch. Reset the group's offsets explicitly with kafka-consumer-groups.sh --reset-offsets right after recreating the topic, rather than waiting for it to surface as an incident." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Kafka: OffsetOutOfRangeException</span>
+            </nav>
+            <h1>Kafka: OffsetOutOfRangeException &mdash; Fetch offset is out of range for partition</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The offset your consumer committed no longer exists in the partition &mdash; almost always because retention (or compaction) removed it while the consumer was away.</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Decide what happens automatically: check <code>auto.offset.reset</code> &mdash; <code>latest</code> skips the gap, <code>earliest</code> reprocesses everything still there.</li>
+                    <li>Skipped records are only recoverable if retention hasn't deleted them yet.</li>
+                    <li>New consumer group reading nothing? Same setting, different trigger &mdash; see below.</li>
+                </ul>
+            </div>
+
+            <h2 id="symptoms">Common symptoms</h2>
+            <p>You may not see the exact exception name first &mdash; it often shows up as one of these instead:</p>
+            <ul>
+                <li>An exception, or the "resetting offset" WARN, fires right after a consumer restarts following downtime, with no code change to explain it</li>
+                <li>A large chunk of messages appears to vanish with no error at all &mdash; a silent skip under the default <code>auto.offset.reset=latest</code></li>
+                <li>A brand-new consumer group reports zero lag immediately, as if the topic had no data</li>
+                <li>A consumer suddenly reprocesses a huge volume of records it already handled &mdash; a symptom of <code>earliest</code>, not <code>latest</code></li>
+                <li><code>kafka-consumer-groups.sh --describe</code> shows <code>CURRENT-OFFSET</code> jump to equal <code>LOG-END-OFFSET</code> right after a restart, with no obvious cause</li>
+            </ul>
+
+            <h2 id="exact-error">The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Fetch offset 15234 is out of range for partition orders-0, resetting offset
+org.apache.kafka.clients.consumer.OffsetOutOfRangeException</code></pre>
+            </div>
+            <p>This means offset <strong>15234</strong> is no longer a valid position to read from in this partition. Either it's below the earliest offset the broker still retains, or above the current log-end offset. In practice the first case &mdash; retention or compaction having removed it &mdash; is by far the more common one.</p>
+
+            <h2 id="why-offset-stopped-existing">Why the offset stopped existing</h2>
+            <p>A committed offset is just a number stored in <code>__consumer_offsets</code>; nothing about committing it reserves or protects the record it points at. The record ages out (or gets compacted away) on exactly the same schedule as everything else in the partition, regardless of whether any consumer's position still refers to it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>partition orders-0, offsets increasing left → right
+
+  ...          14000    15000   15234   16000   17000   ← log-end-offset
+   |------------|--------|--------|--------|--------|
+                                     ^
+                             consumer committed here (15234)
+
+  retention.ms elapses while the consumer is down; segments
+  holding offsets up through ~15900 get deleted:
+
+   (deleted, through ~15900)                16000   17000
+   X--------------------------------------- |--------|
+                    ^
+            offset 15234 no longer exists anywhere
+
+  consumer restarts, asks for offset 15234:
+  → Fetch offset 15234 is out of range for partition orders-0</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>cleanup.policy=delete
+retention.ms=604800000     # 7 days — the default
+
+# consumer group "order-processor" commits offset 15234, then goes down
+# for 8 days. retention.ms elapses while it's away and deletes the
+# segment containing offset 15234 — regardless of any committed position.
+#
+# consumer restarts, asks for offset 15234:
+# -> Fetch offset 15234 is out of range for partition orders-0, resetting offset</code></pre>
+            </div>
+            <p>The rule of thumb: if a consumer can plausibly be down longer than your retention window, this error is not a bug, it's the retention policy working as designed. The fix is either a longer retention window, faster incident response, or accepting that a long-enough outage costs you the gap.</p>
+
+            <h2 id="auto-offset-reset">What happens next: auto.offset.reset</h2>
+            <p>Once the committed offset is invalid, one setting decides the consumer's fate &mdash; and it's worth reading all three options before assuming the default is what you want:</p>
+            <table>
+                <thead><tr><th><code>auto.offset.reset</code></th><th>Behaviour</th><th>Trade-off</th></tr></thead>
+                <tbody>
+                    <tr><td><code>latest</code> (default)</td><td>Jump to the current end of the partition</td><td>The entire gap &mdash; everything since the last valid commit &mdash; is <strong>silently skipped</strong></td></tr>
+                    <tr><td><code>earliest</code></td><td>Jump to the oldest offset still retained</td><td>Everything still available is <strong>reprocessed</strong>, which can mean a lot of duplicate work</td></tr>
+                    <tr><td><code>none</code></td><td>Throw an exception instead of resetting automatically</td><td>Nothing happens silently &mdash; you decide, but you must handle the exception yourself</td></tr>
+                </tbody>
+            </table>
+            <p><code>latest</code> is the default, and it's the option most likely to surprise you: unless you're actively watching for this exception in your logs, a silent skip produces no error, no crash, no visible symptom &mdash; consumption just resumes at the current end, and the gap is gone without a trace.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># if silently skipping data is unacceptable for this consumer, prefer:
+auto.offset.reset=none
+
+// then handle it explicitly in code, so the gap is visible and logged
+try {
+    ConsumerRecords&lt;String, String&gt; records = consumer.poll(Duration.ofMillis(500));
+} catch (org.apache.kafka.clients.consumer.OffsetOutOfRangeException e) {
+    log.error("Offset out of range for {} — data gap detected, alerting", e.partitions());
+    // decide deliberately: seekToBeginning(), seekToEnd(), or page a human
+}</code></pre>
+            </div>
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:0.75rem 1.25rem;margin:1rem 0 0;">
+                <p style="margin:0;"><strong>Which exception fires depends on why there's no valid offset.</strong> An existing committed offset that's since gone invalid &mdash; this page's main scenario &mdash; throws <code>OffsetOutOfRangeException</code>, as above. A partition with <em>no</em> committed offset at all &mdash; a brand-new consumer group, covered next &mdash; throws a different one under <code>auto.offset.reset=none</code>: <code>org.apache.kafka.clients.consumer.NoOffsetForPartitionException</code>. Both extend <code>InvalidOffsetException</code>, so catching that common parent covers either case if your code doesn't need to tell them apart.</p>
+            </div>
+
+            <h2 id="new-consumer-group">Why a brand-new consumer group reads nothing</h2>
+            <p>This is the same setting causing a different, more common source of confusion. A consumer group that has never committed an offset for a partition is in an equivalent position to one whose offset is out of range &mdash; there's no valid position to resume from, so <code>auto.offset.reset</code> applies identically:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># topic "orders" has 50,000 existing records
+# a brand-new consumer group "new-analytics-job" starts consuming it
+# with the default auto.offset.reset=latest:
+
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group new-analytics-job
+
+# TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+# orders  0          50000           50000           0     <-- starts at the END
+
+# the 50,000 existing records are never read by this group —
+# not because the topic is empty, but because latest was chosen</code></pre>
+            </div>
+            <p>If a new consumer group is meant to process everything already on the topic &mdash; a common requirement for a newly added analytics or audit consumer &mdash; set <code>auto.offset.reset=earliest</code> for that group, or explicitly seek to the beginning on startup rather than relying on the default.</p>
+
+            <h2 id="topic-recreated">The other common trigger: a topic deleted and recreated with the same name</h2>
+            <p>This is the second most frequent real-world cause, and it's easy to miss because nothing about the setup looks wrong. Deleting a topic and creating a new one with the same name gives you a completely fresh partition, starting again from offset 0. Kafka does not reset a consumer group's committed offsets when this happens &mdash; <code>__consumer_offsets</code> still holds whatever was committed against the old topic, because as far as that internal topic is concerned nothing told it to forget:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># old topic "orders" reaches offset 90,000 before being deleted:
+kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic orders
+
+# new topic "orders" is created fresh — starts again at offset 0:
+kafka-topics.sh --bootstrap-server localhost:9092 --create --topic orders --partitions 3
+
+# consumer group "order-processor" still has a committed offset from
+# the OLD topic sitting in __consumer_offsets, e.g. 89500 — but the
+# new topic's log-end-offset might only be 200 so far:
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group order-processor
+
+# TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+# orders  0          89500           200             -89300   ← negative lag, nonsensical
+
+# → Fetch offset 89500 is out of range for partition orders-0, resetting offset</code></pre>
+            </div>
+            <p>The tell here is different from the retention case: instead of a plausible small gap, the committed offset is now <em>vastly higher</em> than the log-end-offset, and lag briefly reports a nonsensical negative number. That combination is the signature of a delete-and-recreate, not an expired retention window. The fix is to reset the group's offsets explicitly once, immediately after recreating the topic, rather than letting the mismatch surface as a production incident:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --group order-processor --topic orders \
+  --reset-offsets --to-earliest --execute</code></pre>
+            </div>
+            <p>If topics get recreated as part of a routine process (a test harness, a CI pipeline, an environment reset script), build this reset into that same process rather than relying on someone remembering it during an incident later.</p>
+
+            <h2 id="log-compaction">Log compaction: related, but it doesn't cause this exception by itself</h2>
+            <p>Compaction gets blamed for this error more often than it deserves. Two things are worth correcting. First, compaction isn't instant: the log cleaner reclaims space in the background on a schedule governed by <code>min.cleanable.dirty.ratio</code> and <code>min.compaction.lag.ms</code>, and it never touches the active segment currently being written to. A newer record superseding an older one for the same key doesn't delete the old one on the spot &mdash; it only marks it eligible for removal whenever the cleaner next processes that segment.</p>
+            <p>Second, and more importantly: fetching a compacted-away offset does not throw <code>OffsetOutOfRangeException</code>. Kafka offsets are never reassigned, so compaction leaves gaps in the sequence rather than invalid positions. Asking for a removed offset just returns the next surviving record at a higher offset, silently:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>cleanup.policy=compact
+# consumer's position is offset 200, an old value for key "user-42"
+# a newer record for "user-42" was written at offset 800; the cleaner
+# later removes offset 200's record from disk — no exception is thrown
+
+# the consumer's next fetch just returns whatever the next surviving
+# offset actually is (maybe 201, maybe 640) — reading continues,
+# it just silently skips the record that got compacted away</code></pre>
+            </div>
+            <p>What actually triggers <code>OffsetOutOfRangeException</code> is simpler than "compaction removed my record": the broker compares the requested offset against <code>log.start.offset</code> (the earliest offset still on disk) and the log-end offset, and rejects anything outside that range. Pure compaction rewrites segments in place without deleting them outright, so it doesn't advance <code>log.start.offset</code> by itself. That only happens when whole segments are deleted &mdash; a topic combining compaction with deletion (<code>cleanup.policy=compact,delete</code>), or an old segment aging out via <code>retention.ms</code>/<code>retention.bytes</code> in the ordinary way. So compaction alone produces silent key-level skips, not this exception; the exception itself is always a <code>log.start.offset</code> question, exactly like the time-based case above.</p>
+
+            <h2 id="recovering-the-gap">Recovering (or accepting) the gap</h2>
+            <p>Once records are actually deleted &mdash; by either mechanism &mdash; there is no configuration that retrieves them; they no longer exist anywhere in the cluster. Your realistic options are decided in advance, not after the fact:</p>
+            <ul>
+                <li><strong>Extend <code>retention.ms</code></strong> well beyond your worst realistic downtime, if the data's value justifies the storage cost.</li>
+                <li><strong>Use compaction for state you must never lose</strong> &mdash; a compacted topic keeps the latest value per key forever, sidestepping time-based expiry entirely. It still discards older values for a key once the cleaner runs, so it's a fit for "latest state per key," not for preserving full history.</li>
+                <li><strong>Accept the gap deliberately</strong>, with <code>auto.offset.reset=none</code> and explicit handling, so a real outage produces a loud, visible alert instead of a silent skip.</li>
+            </ul>
+            <p>Whichever you choose, decide it before the incident. The worst outcome is discovering your production <code>auto.offset.reset</code> default only when it's already skipped a week of data.</p>
+
+            <h2 id="diagnosing-the-gap">Diagnosing the gap</h2>
+            <h3>kafka-consumer-groups.sh: lag, or a skip?</h3>
+            <p>Comparing a group's <code>--describe</code> output before and after a restart tells you whether the consumer caught up normally or whether <code>latest</code> just erased a backlog:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group order-processor
+
+# before the restart — real lag, offset still valid:
+# TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+# orders  0          15234           17000           1766
+
+# right after a reset triggered by this error:
+# TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+# orders  0          17000           17000           0     ← jumped straight to the end</code></pre>
+            </div>
+            <p><code>CURRENT-OFFSET</code> below <code>LOG-END-OFFSET</code> is normal lag &mdash; the consumer is behind but its position is still valid. If <code>CURRENT-OFFSET</code> suddenly equals <code>LOG-END-OFFSET</code> immediately after a restart, with no corresponding burst of processing in your logs, that's the signature of an <code>auto.offset.reset=latest</code> skip, not the consumer catching up.</p>
+
+            <h3>kcat: is it the consumer, or the data?</h3>
+            <p>One command settles whether the records are actually gone or whether the problem is purely in the consumer's own offset handling:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kcat -b localhost:9092 -C -t orders -o beginning
+
+# if kcat successfully reads records starting from the earliest
+# available offset, the data isn't gone — the problem is on the
+# consumer side (auto.offset.reset, a bad seek, or a commit bug)
+#
+# if kcat's own earliest available offset is already past 15234,
+# the data has genuinely been deleted by retention or compaction —
+# no consumer-side configuration change recovers it</code></pre>
+            </div>
+            <p>This is the fastest way to separate "my consumer is misconfigured" from "the data is actually gone" &mdash; and that distinction changes what's actually worth fixing.</p>
+
+            <h2 id="debugging-checklist">Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Check <code>auto.offset.reset</code> for the affected consumer group &mdash; this decided what already happened</li>
+                <li>&#10003; Compare how long the consumer was down against <code>retention.ms</code> for the topic</li>
+                <li>&#10003; If it's a compacted topic, remember pure compaction skips keys silently &mdash; it doesn't throw this exception unless paired with <code>delete</code></li>
+                <li>&#10003; New consumer group reading nothing? Confirm whether it needs <code>earliest</code> instead of the default <code>latest</code></li>
+                <li>&#10003; Catching <code>auto.offset.reset=none</code> exceptions? Handle both <code>OffsetOutOfRangeException</code> and <code>NoOffsetForPartitionException</code>, or catch their shared parent <code>InvalidOffsetException</code></li>
+                <li>&#10003; Use <code>kcat -o beginning</code> to confirm whether the data is really gone, before assuming it's a consumer misconfiguration</li>
+                <li>&#10003; If silent skipping is unacceptable, switch to <code>auto.offset.reset=none</code> and handle the exception explicitly</li>
+                <li>&#10003; Deleted records cannot be recovered &mdash; plan retention and compaction policy for this in advance, not after</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Fetch offset is out of range for partition' mean?</summary>
+                    <p>It means the specific offset your consumer asked for no longer exists in that partition's log. Either the offset is older than anything currently retained, because retention or compaction removed it, or it's higher than the current log-end offset, which usually indicates the committed offset metadata is stale relative to a topic that was recreated or truncated.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen after my consumer has been down for a while?</summary>
+                    <p>Because Kafka's retention policy runs on a timer independent of whether any consumer is reading. If a consumer's committed offset points at a record that <code>retention.ms</code> has since deleted, that specific position simply no longer exists when the consumer comes back. The longer the downtime relative to your retention window, the more likely this becomes.</p>
+                </details>
+                <details>
+                    <summary>What does auto.offset.reset actually control?</summary>
+                    <p>It decides what a consumer does when it has no valid offset to resume from &mdash; either because none was ever committed, or because the committed one is now out of range. <code>latest</code> jumps to the end of the partition, silently skipping everything already there. <code>earliest</code> jumps to the oldest retained record, reprocessing everything still available. <code>none</code> instead throws an exception and does nothing automatically, which is the safest choice if silent data skipping or duplication would be worse than a visible failure.</p>
+                </details>
+                <details>
+                    <summary>Why did a brand-new consumer group skip all the existing data on a topic?</summary>
+                    <p>Because a new consumer group has no committed offset at all, which triggers the exact same <code>auto.offset.reset</code> decision as an out-of-range offset. With the default <code>latest</code>, a first-time consumer starts at the current end of the log and reads nothing that was already there &mdash; which is often mistaken for the topic being empty when it genuinely has data.</p>
+                </details>
+                <details>
+                    <summary>Can I recover the specific records that were skipped?</summary>
+                    <p>Only if they still exist somewhere. If retention has already deleted them, they are permanently gone and no consumer configuration can retrieve them. This is why systems that must never silently lose a gap either extend <code>retention.ms</code> well beyond any expected downtime, or route through a compacted changelog topic where the latest state per key survives indefinitely rather than aging out.</p>
+                </details>
+                <details>
+                    <summary>Is log compaction a cause of this error too?</summary>
+                    <p>Not directly, and this is a common misconception. Pure compaction (<code>cleanup.policy=compact</code>) never deletes whole segments &mdash; it only removes superseded records for a key during background cleaning, and Kafka offsets are never reassigned, so fetching a compacted-away offset simply returns the next surviving record instead of throwing an exception. A genuine <code>OffsetOutOfRangeException</code> on a compacted topic only happens if it also has <code>cleanup.policy=compact,delete</code>, or an old segment ages out via <code>retention.ms</code>/<code>retention.bytes</code> in the ordinary way &mdash; at that point it's really the same segment-deletion mechanism as the time-based case, not compaction itself.</p>
+                </details>
+                <details>
+                    <summary>Which exception does auto.offset.reset=none throw?</summary>
+                    <p>It depends on why there's no valid offset. An existing committed offset that's since gone invalid throws <code>OffsetOutOfRangeException</code>. A partition with no committed offset at all, such as a brand-new consumer group, throws a different exception: <code>NoOffsetForPartitionException</code>. Both extend the common parent <code>InvalidOffsetException</code>, so code that doesn't need to distinguish the two cases can just catch that parent class.</p>
+                </details>
+                <details>
+                    <summary>Why does my consumer group show negative lag after a topic was recreated?</summary>
+                    <p>Deleting a topic and creating a new one with the same name resets it to offset 0, but Kafka does not clear a consumer group's old committed offsets when this happens. The group's committed position from the old topic can end up far higher than the new topic's log-end-offset, which is what produces a nonsensical negative lag figure and this exception on the next fetch. Reset the group's offsets explicitly with <code>kafka-consumer-groups.sh --reset-offsets</code> right after recreating the topic, rather than waiting for it to surface as an incident.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Kafka errors &amp; guides</h3>
+                <p>Browse the full error reference, or read the Kafka theory guides that explain the mechanisms behind these failures.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../blog/how-kafka-works.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">How Kafka Works</a>
+                    <a href="../log-redactor.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Log Redactor</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="kafka-commitfailedexception.html">Kafka: CommitFailedException</a></li>
+                <li><a href="kafka-timeout-expiring-records.html">Kafka: TimeoutException: Expiring N record(s)</a></li>
+                <li><a href="kafka-unknown-magic-byte.html">Kafka: SerializationException: Unknown magic byte!</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/how-kafka-works.html">How Kafka Works</a></li>
+                <li><a href="../blog/kafka-common-problems.html">Real-World Kafka Problems and How to Fix Them</a></li>
+                <li><a href="../log-redactor.html">Log Redactor</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

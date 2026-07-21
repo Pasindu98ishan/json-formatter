@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kafka TimeoutException: Expiring N record(s) — the producer's batch sat in the buffer past delivery.timeout.ms without an ack. Causes and fixes, in priority order.">
+    <meta name="keywords" content="kafka timeoutexception expiring records, expiring n record(s), delivery.timeout.ms, kafka producer timeout, has passed since batch creation, kafka producer not sending messages">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/kafka-timeout-expiring-records.html">
+    <meta property="og:title" content="Kafka: TimeoutException: Expiring N Record(s) — Cause and Fix">
+    <meta property="og:description" content="Records sat in the producer's buffer longer than delivery.timeout.ms and were dropped before reaching a broker. Here's how to find out why, in the right order.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/kafka-timeout-expiring-records.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Kafka: TimeoutException: Expiring N Record(s) — Cause and Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Kafka: TimeoutException: Expiring N record(s)", "item": "https://jsondevtools.org/errors/kafka-timeout-expiring-records.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Kafka TimeoutException: Expiring N record(s) — Cause and Fix",
+  "description": "A Kafka producer's TimeoutException fires when a batch sits in the in-memory buffer past delivery.timeout.ms without a broker acknowledgement. This reference explains the three real causes — unreachable broker, missing metadata, and buffer saturation — and how to diagnose which one you have.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-20",
+  "dateModified": "2026-07-20",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Expiring N record(s)' mean in Kafka?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It means a batch of records sat in the producer's in-memory buffer without being successfully delivered and acknowledged within delivery.timeout.ms, and the producer gave up on the whole batch rather than waiting indefinitely. The N ms value in the message is delivery.timeout.ms itself, not some other clock — by default 120000, or two minutes." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this mean my records were lost?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, unless your producer explicitly checks the result of every send. Records that expire this way never reached any broker, so there is nothing on the topic to recover. If your application uses fire-and-forget producer.send(record) without inspecting the returned future or supplying a callback, expired batches disappear with only a log line, and your application has no way to know it happened." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the first thing to check when this happens?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Broker connectivity and topic metadata. Confirm the producer can actually reach every broker in bootstrap.servers, and confirm the target topic exists (or that auto-creation is enabled). A producer that can't resolve where the partition leader is will queue records that can never be sent, and they'll expire together once delivery.timeout.ms elapses for each." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix a saturated producer buffer?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Either slow down production to match what the network and brokers can actually absorb, or increase buffer.memory so more can queue up during a temporary slowdown without expiring — though that just delays the problem if the underlying throughput mismatch is persistent. Also check batch.size and linger.ms, since overly large values can make batches take longer to fill and send than expected." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just increase delivery.timeout.ms to make this go away?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only as a temporary measure while you diagnose the actual cause. Raising the timeout hides connectivity and capacity problems rather than fixing them — your producer will simply take longer to notice and report the same underlying issue, and your application's effective latency for detecting failures goes up correspondingly." }
+    },
+    {
+      "@type": "Question",
+      "name": "How is this different from a request timing out due to acks=all replication being slow?",
+      "acceptedAnswer": { "@type": "Answer", "text": "acks=all with a lagging in-sync replica set can genuinely slow down acknowledgement, contributing to delivery.timeout.ms being reached — but it's one contributing cause among several, not a separate error. If replication speed is the bottleneck, you'll typically also see rising produce latency metrics before you start seeing outright expirations, which helps distinguish it from a broker being fully unreachable." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between this and 'Failed to allocate memory within the configured max blocking time'?",
+      "acceptedAnswer": { "@type": "Answer", "text": "They're two different points of failure caused by the same underlying condition. 'Expiring N record(s)' means a batch was successfully buffered but couldn't get out to a broker within delivery.timeout.ms. 'Failed to allocate memory' (a BufferExhaustedException, governed by max.block.ms) fires earlier, directly from send() itself, when the producer's buffer.memory is already full and there's no room to buffer the record at all. Both usually mean the producer is generating faster than the network or brokers can absorb." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Kafka: TimeoutException: Expiring N record(s)</span>
+            </nav>
+            <h1>Kafka: TimeoutException: Expiring N record(s) for topic-partition</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A batch sat in the producer's buffer past <code>delivery.timeout.ms</code> (default 120000 ms) without an acknowledgement, and was dropped. Those records never reached a broker.</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>Check <strong>broker connectivity</strong> first &mdash; can the producer reach <code>bootstrap.servers</code> at all?</li>
+                    <li>Then check <strong>topic metadata</strong> &mdash; does the topic exist, or is it stuck resolving a leader?</li>
+                    <li>Only then look at <strong>buffer saturation</strong> &mdash; are you producing faster than the link can drain?</li>
+                    <li>Are you checking send results at all? Fire-and-forget sends hide this failure entirely.</li>
+                </ul>
+            </div>
+
+            <h2 id="symptoms">Common symptoms</h2>
+            <ul>
+                <li>Records your application clearly sent never appear on the topic, with no exception visible anywhere in your own logs</li>
+                <li>A downstream consumer reports gaps in a sequence that should be contiguous</li>
+                <li>Producer throughput degrades gradually before failures start, rather than failing immediately</li>
+                <li>The failure clusters around deploys, network blips, or broker maintenance windows</li>
+            </ul>
+
+            <h2 id="exact-error">The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>org.apache.kafka.common.errors.TimeoutException: Expiring 15 record(s) for
+orders-3:120000 ms has passed since batch creation</code></pre>
+            </div>
+            <p>Read the number in the message carefully &mdash; it's easy to misinterpret. <code>120000 ms</code> is not how long the specific failure took; it <em>is</em> the value of <code>delivery.timeout.ms</code>, the configured ceiling. The batch was created, sat in the buffer, and once that much time had passed with no successful acknowledgement, the producer gave up on every record in it.</p>
+            <p>A related but distinct producer failure is worth telling apart from this one, since the fix is different:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>org.apache.kafka.common.errors.TimeoutException: Failed to allocate memory within
+the configured max blocking time 60000 ms.
+org.apache.kafka.clients.producer.BufferExhaustedException</code></pre>
+            </div>
+            <p>This one fires from <code>send()</code> itself, before a batch is ever created &mdash; the producer's <code>buffer.memory</code> is already full and <code>max.block.ms</code> elapsed while waiting for space to free up. It means the buffer is saturated <em>right now</em>, whereas "Expiring N record(s)" means a batch that <em>did</em> get buffered still couldn't get out the door in time. Both point at the same underlying problem &mdash; the producer generating faster than the network or brokers can absorb &mdash; but this variant surfaces earlier and more abruptly. The buffer-saturation guidance below (Fix 3) applies to both.</p>
+
+            <h2 id="delivery-timeout-ms">What delivery.timeout.ms actually covers</h2>
+            <p>This single setting bounds the entire journey a record takes from your call to <code>send()</code> to a broker's acknowledgement: time waiting in the buffer for a batch to fill, time spent in-flight to the broker, and time spent on retries after a retriable failure. It does not reset on each retry &mdash; it is a hard ceiling on the record's total time in the producer, from creation to either success or expiry.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>delivery.timeout.ms=120000   # default: 2 minutes, total budget per record
+request.timeout.ms=30000     # default: per-request wait for a broker reply
+retries=2147483647            # default (with idempotence on): effectively unlimited
+
+# delivery.timeout.ms must be >= request.timeout.ms + linger.ms, and the
+# producer refuses to start otherwise</code></pre>
+            </div>
+            <p>That constraint matters when tuning: raising <code>request.timeout.ms</code> without also raising <code>delivery.timeout.ms</code> either fails validation or leaves less room for retries than you think.</p>
+
+            <h2 id="fix-1-broker-reachable">Fix 1: confirm the broker is reachable</h2>
+            <p>This is the most common cause and the fastest to rule out. Check whether the producer can connect to the addresses in <code>bootstrap.servers</code> at all:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kafka-broker-api-versions.sh --bootstrap-server broker1:9092,broker2:9092
+
+# a reachable broker prints its supported API versions:
+# broker1:9092 (id: 1 rack: null) -> (
+#   Produce(0): 0 to 9 [usable: 9],
+#   ...
+# )
+#
+# an unreachable one hangs, then prints a connection error instead</code></pre>
+            </div>
+            <p>If this fails, the fix is networking, not Kafka configuration: a firewall rule, a wrong hostname (especially in Docker/Kubernetes, where an internal name may not resolve from where the producer runs), or the broker process being down. This overlaps with the advertised-listener problem covered in <a href="kafka-leader-not-available.html">LEADER_NOT_AVAILABLE</a> &mdash; if the bootstrap connection succeeds but subsequent metadata points at an unreachable address, that page covers the specific fix.</p>
+
+            <h2 id="fix-2-topic-metadata">Fix 2: confirm the topic's metadata resolves</h2>
+            <p>Connectivity to the cluster can succeed while metadata for the specific topic still fails to resolve &mdash; a subtly different problem with the same symptom:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic orders
+
+# exists and healthy:
+# Topic: orders  PartitionCount: 3  ReplicationFactor: 3
+#     Partition: 0  Leader: 1  Replicas: 1,2,3  Isr: 1,2,3
+#
+# UnknownTopicOrPartitionException means it doesn't exist yet</code></pre>
+            </div>
+            <p>If the topic doesn't exist and <code>auto.create.topics.enable</code> is off on the broker (the increasingly common production default), every send for it queues, waits the full <code>delivery.timeout.ms</code>, and expires. Create the topic explicitly rather than relying on auto-creation, especially in any environment where you've deliberately disabled it.</p>
+
+            <h2 id="fix-3-buffer-saturation">Fix 3: check for buffer saturation</h2>
+            <p>If connectivity and metadata are both fine, the producer may simply be generating records faster than the network and brokers can absorb them. Records queue in <code>buffer.memory</code>, and if that queue backs up long enough, batches at the front expire before ever being sent:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># check producer-side metrics for saturation signals
+# (via JMX, or your client library's metrics() call)
+buffer-available-bytes    # trending toward 0 = queue backing up
+record-queue-time-avg     # rising = records waiting longer before being sent
+request-latency-avg       # rising = brokers or network are the bottleneck
+
+# mitigate:
+buffer.memory=67108864     # default 32MB — raise if bursts are legitimate and temporary
+batch.size=32768           # default 16KB — larger batches can improve throughput
+linger.ms=20                # small delay to let batches fill, reducing request count</code></pre>
+            </div>
+            <p>Raising <code>buffer.memory</code> buys time during a temporary burst, but if your sustained production rate genuinely exceeds what the brokers can absorb, it only delays the same expiry &mdash; the real fix in that case is more partitions, more broker capacity, or slowing down the producer to match reality.</p>
+
+            <h2 id="fix-4-fire-and-forget">Fix 4: stop treating sends as fire-and-forget</h2>
+            <p>The most consequential fix isn't about the timeout at all &mdash; it's about whether your application ever finds out this happened:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ fire-and-forget — an expired batch fails completely silently in your app
+producer.send(record);
+
+// ✅ callback — you actually learn about the failure and can act on it
+producer.send(record, (metadata, exception) -> {
+    if (exception != null) {
+        log.error("Failed to send record to {}: {}", record.topic(), exception.getMessage());
+        // e.g. write to a local retry queue, alert, or increment a metric
+    }
+});
+
+// ✅ or synchronously, if throughput allows it
+try {
+    producer.send(record).get();
+} catch (ExecutionException e) {
+    // e.getCause() is the actual TimeoutException
+}</code></pre>
+            </div>
+            <p>Without a callback or a checked future, an expired batch produces one log line from the client library and nothing else &mdash; no exception surfaces in your application code, no metric increments, nothing an on-call engineer would notice. If you've been debugging "missing records" without seeing this exception anywhere in your own logs, this is very likely why: the client saw it, your application never did.</p>
+
+            <h2 id="dont-raise-timeout">Don't just raise the timeout</h2>
+            <p>It's tempting to make the symptom disappear by increasing <code>delivery.timeout.ms</code>. Resist that as a first move &mdash; it doesn't fix connectivity, missing topics, or insufficient capacity; it just makes your producer wait longer before reporting the same underlying problem, and delays your own detection of it correspondingly. Use it only as a deliberate, temporary buffer while the real cause above is being fixed.</p>
+
+            <h2 id="debugging-checklist">Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Check broker reachability with <code>kafka-broker-api-versions.sh</code> before anything else</li>
+                <li>&#10003; Confirm the topic exists and has a leader with <code>kafka-topics.sh --describe</code></li>
+                <li>&#10003; If both are fine, check producer buffer metrics for saturation (<code>buffer-available-bytes</code>, <code>record-queue-time-avg</code>)</li>
+                <li>&#10003; Confirm your code actually inspects send results &mdash; add a callback if it doesn't</li>
+                <li>&#10003; Remember <code>delivery.timeout.ms</code> must be &ge; <code>request.timeout.ms + linger.ms</code></li>
+                <li>&#10003; Don't raise the timeout as a permanent fix &mdash; it hides the cause rather than resolving it</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Expiring N record(s)' mean in Kafka?</summary>
+                    <p>It means a batch of records sat in the producer's in-memory buffer without being successfully delivered and acknowledged within <code>delivery.timeout.ms</code>, and the producer gave up on the whole batch rather than waiting indefinitely. The N ms value in the message is <code>delivery.timeout.ms</code> itself, not some other clock &mdash; by default 120000, or two minutes.</p>
+                </details>
+                <details>
+                    <summary>Does this mean my records were lost?</summary>
+                    <p>Yes, unless your producer explicitly checks the result of every send. Records that expire this way never reached any broker, so there is nothing on the topic to recover. If your application uses fire-and-forget <code>producer.send(record)</code> without inspecting the returned future or supplying a callback, expired batches disappear with only a log line, and your application has no way to know it happened.</p>
+                </details>
+                <details>
+                    <summary>What is the first thing to check when this happens?</summary>
+                    <p>Broker connectivity and topic metadata. Confirm the producer can actually reach every broker in <code>bootstrap.servers</code>, and confirm the target topic exists (or that auto-creation is enabled). A producer that can't resolve where the partition leader is will queue records that can never be sent, and they'll expire together once <code>delivery.timeout.ms</code> elapses for each.</p>
+                </details>
+                <details>
+                    <summary>How do I fix a saturated producer buffer?</summary>
+                    <p>Either slow down production to match what the network and brokers can actually absorb, or increase <code>buffer.memory</code> so more can queue up during a temporary slowdown without expiring &mdash; though that just delays the problem if the underlying throughput mismatch is persistent. Also check <code>batch.size</code> and <code>linger.ms</code>, since overly large values can make batches take longer to fill and send than expected.</p>
+                </details>
+                <details>
+                    <summary>Should I just increase delivery.timeout.ms to make this go away?</summary>
+                    <p>Only as a temporary measure while you diagnose the actual cause. Raising the timeout hides connectivity and capacity problems rather than fixing them &mdash; your producer will simply take longer to notice and report the same underlying issue, and your application's effective latency for detecting failures goes up correspondingly.</p>
+                </details>
+                <details>
+                    <summary>How is this different from a request timing out due to acks=all replication being slow?</summary>
+                    <p><code>acks=all</code> with a lagging in-sync replica set can genuinely slow down acknowledgement, contributing to <code>delivery.timeout.ms</code> being reached &mdash; but it's one contributing cause among several, not a separate error. If replication speed is the bottleneck, you'll typically also see rising produce latency metrics before you start seeing outright expirations, which helps distinguish it from a broker being fully unreachable.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between this and 'Failed to allocate memory within the configured max blocking time'?</summary>
+                    <p>They're two different points of failure caused by the same underlying condition. "Expiring N record(s)" means a batch was successfully buffered but couldn't get out to a broker within <code>delivery.timeout.ms</code>. "Failed to allocate memory" (a <code>BufferExhaustedException</code>, governed by <code>max.block.ms</code>) fires earlier, directly from <code>send()</code> itself, when the producer's <code>buffer.memory</code> is already full and there's no room to buffer the record at all. Both usually mean the producer is generating faster than the network or brokers can absorb.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Kafka errors &amp; guides</h3>
+                <p>Browse the full error reference, or read the Kafka theory guides that explain the mechanisms behind these failures.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../blog/kafka-delivery-guarantees.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Kafka Delivery Guarantees</a>
+                    <a href="../log-redactor.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Log Redactor</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="kafka-leader-not-available.html">Kafka: LEADER_NOT_AVAILABLE</a> &mdash; a specific cause of unreachable metadata</li>
+                <li><a href="kafka-commitfailedexception.html">Kafka: CommitFailedException</a></li>
+                <li><a href="kafka-offsetoutofrange.html">Kafka: OffsetOutOfRangeException</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/kafka-delivery-guarantees.html">Kafka Delivery Guarantees</a></li>
+                <li><a href="../blog/kafka-common-problems.html">Real-World Kafka Problems and How to Fix Them</a></li>
+                <li><a href="../blog/how-kafka-works.html">How Kafka Works</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

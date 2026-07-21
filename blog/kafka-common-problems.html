@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="The Kafka problems that actually happen in production: rebalance loops, growing consumer lag, hot partitions, expiring records, and messages that vanish.">
+    <meta name="keywords" content="kafka troubleshooting, kafka consumer not consuming, kafka rebalance loop, kafka consumer lag, kafka hot partition, kafka unknown magic byte, CommitFailedException, kafka production issues">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/kafka-common-problems.html">
+    <meta property="og:title" content="Real-World Kafka Problems and How to Fix Them">
+    <meta property="og:description" content="Eight Kafka failures you will actually meet in production — what the symptom looks like, what is really causing it, and the fix. With the exact error strings.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/kafka-common-problems.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Real-World Kafka Problems and How to Fix Them | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Real-World Kafka Problems", "item": "https://jsondevtools.org/blog/kafka-common-problems.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Real-World Kafka Problems and How to Fix Them",
+      "description": "The Kafka problems that actually happen in production: rebalance loops, growing consumer lag, hot partitions, expiring records, and messages that vanish.",
+      "image": "https://jsondevtools.org/og-image.png",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-07-20",
+      "dateModified": "2026-07-20",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why does my Kafka consumer group rebalance constantly?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Almost always because processing a batch takes longer than max.poll.interval.ms, which defaults to five minutes. Heartbeats come from a background thread, so the group coordinator still thinks the consumer is alive while it is stuck processing, and only the missed poll reveals the stall. The coordinator evicts it, rebalances, the replacement inherits the same slow batch, and the loop repeats. Fix it by reducing max.poll.records so each batch is smaller, or by raising max.poll.interval.ms if the work genuinely takes that long." }
+        },
+        {
+          "@type": "Question",
+          "name": "What causes 'Unknown magic byte' in a Kafka consumer?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The consumer is using a Schema Registry deserializer, but the bytes on the topic were not written by the matching serializer. Confluent's wire format puts a zero magic byte followed by a four-byte schema ID in front of the payload, so when a plain JSON or String serializer produced the record, the deserializer reads the first byte, does not find zero, and throws. Either the producer must use the Avro serializer, or the consumer must stop expecting it." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is my Kafka consumer lag growing on only one partition?",
+          "acceptedAnswer": { "@type": "Answer", "text": "That is the signature of a hot partition, and it is a message key problem rather than a consumer problem. Partition placement is a hash of the key modulo the partition count, so a low-cardinality or skewed key such as country or tenant concentrates traffic onto one partition. The consumer owning it cannot keep up while its peers idle. Adding consumers will not help because a partition is only ever assigned to one consumer in a group; you need a higher-cardinality key." }
+        },
+        {
+          "@type": "Question",
+          "name": "Where did my Kafka messages go?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Usually one of three things. Retention expired them, because retention.ms elapsed and the segments were deleted. Log compaction removed them, because a newer record with the same key superseded them on a compacted topic. Or they were never lost at all and your consumer started from the wrong place, because auto.offset.reset=latest makes a brand new consumer group skip everything already in the log." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my Kafka client show LEADER_NOT_AVAILABLE in Docker or Kubernetes?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Almost always advertised.listeners pointing at an address only reachable inside the container network. The client's initial bootstrap connection succeeds, then the broker tells it to use an internal Docker hostname or a Kubernetes headless-service pod DNS name for the actual partition leader, and a client outside that network can never resolve it. Configure a separate listener that advertises an address reachable from where the client actually runs." }
+        },
+        {
+          "@type": "Question",
+          "name": "What causes a Kafka hot partition and how do I fix it?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A low-cardinality or skewed message key, since partition placement is a hash of the key modulo the partition count. A key like country or tenant_id concentrates most traffic onto one partition, and adding consumers or partitions does not fix it because existing records don't move and a partition is only ever assigned to one consumer. The fix is choosing a higher-cardinality key on the producer, such as order_id instead of customer_id or region." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my producer throw TimeoutException expiring records?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Records sat in the producer's in-memory buffer longer than delivery.timeout.ms and were dropped before ever reaching a broker. The common causes are the broker being unreachable, the producer being unable to fetch metadata for the topic, or the application producing faster than the network can drain the buffer. Check broker connectivity first, then whether batch.size and linger.ms are causing records to queue up behind a saturated link." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it safe to paste Kafka logs into a support ticket?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not without checking them first. Kafka client logs routinely contain internal broker hostnames and ports, consumer group and topic names that reveal your domain model, and in the case of SASL or SSL misconfiguration errors they can echo usernames and JAAS configuration fragments. Strip those before sharing anything publicly. Use a redaction tool that runs locally in the browser so the unredacted log never gets uploaded anywhere in the process." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>Real-World Kafka Problems</span>
+            </nav>
+            <h1>Real-World Kafka Problems and How to Fix Them</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; 11 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">Kafka is reliable in production and confusing in production, and those aren't contradictory. Most incidents aren't Kafka breaking &mdash; they're Kafka doing exactly what it was configured to do, in a way nobody expected. This guide walks through eight failures you will actually meet, what each symptom really means, and how to fix it. If the concepts feel shaky, <a href="how-kafka-works.html">How Kafka Works</a> builds the model these problems all sit on.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0 0 0.5rem;font-weight:600;">Jump to your symptom</p>
+                <ul style="margin:0;padding-left:1.25rem;columns:2;column-gap:1.5rem;">
+                    <li><a href="#rebalance-loop">Consumer group rebalances forever</a></li>
+                    <li><a href="#growing-lag">Consumer lag grows and never drains</a></li>
+                    <li><a href="#unknown-magic-byte">Deserialization breaks after a schema change</a></li>
+                    <li><a href="#timeout-expiring-records">Producer times out and drops records</a></li>
+                    <li><a href="#offset-out-of-range">Consumer skips or replays everything</a></li>
+                    <li><a href="#leader-not-available">Client can't reach the cluster</a></li>
+                    <li><a href="#hot-partition">One partition is hot</a></li>
+                    <li><a href="#messages-disappeared">Messages "disappeared"</a></li>
+                </ul>
+            </div>
+
+            <h2 id="rebalance-loop">1. The consumer group rebalances forever</h2>
+            <p><strong>Symptom:</strong> throughput collapses. Logs fill with revocation and reassignment messages, and periodically:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>org.apache.kafka.clients.consumer.CommitFailedException: Offset commit cannot be
+completed since the consumer is not part of an active group for auto partition
+assignment; it is likely that the consumer was kicked out of the group.</code></pre>
+            </div>
+            <p><strong>What's really happening:</strong> your consumer is taking too long between calls to <code>poll()</code>. Heartbeats run on a separate background thread and keep reassuring the coordinator the process is alive, so only the missed <code>poll()</code> itself exposes the stall &mdash; and <code>max.poll.interval.ms</code> (default 5 minutes) is what catches it. The full mechanism, including why <code>session.timeout.ms</code> doesn't catch this case, is covered in <a href="../errors/kafka-commitfailedexception.html">CommitFailedException: Offset commit cannot be completed</a>.</p>
+            <p>Then the loop closes on itself: the coordinator evicts the consumer and rebalances, the replacement picks up the same oversized batch, takes just as long, and gets evicted too. The group never stabilises.</p>
+            <p>Notice what this costs beyond the rebalance itself: the evicted consumer typically <em>did</em> finish processing that batch &mdash; it just never got to commit before eviction. The partition's new owner has no way to know that, so it re-fetches from the last committed offset and reprocesses those same records. That's ordinary at-least-once behaviour, not corruption, but it's only harmless if your processing is idempotent (see <a href="kafka-delivery-guarantees.html">Kafka Delivery Guarantees</a> for what that requires in practice).</p>
+            <p><strong>The fix</strong> is almost always to make each batch smaller rather than to extend the deadline:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># preferred: fewer records per poll, so each batch finishes well inside the window
+max.poll.records=100              # default is 500
+
+# only if the work genuinely takes this long (e.g. large batch DB writes)
+max.poll.interval.ms=600000       # 10 minutes</code></pre>
+            </div>
+            <p>Do the arithmetic before you pick a number: if one record takes 200 ms and you fetch 500 of them, that batch needs 100 seconds. Comfortably inside 5 minutes &mdash; until a slow dependency doubles your per-record time and it isn't. Size <code>max.poll.records</code> so the worst realistic batch still finishes with room to spare.</p>
+            <p>When a consumer misbehaves in one environment but not another, the cause is often a config that drifted rather than the code. Exporting both configs and running them through <a href="../json-diff.html">JSON Diff</a> shows you the changed keys immediately, which is faster than reading two long property files side by side.</p>
+
+            <h2 id="growing-lag">2. Consumer lag grows and never drains</h2>
+            <p><strong>Symptom:</strong> lag climbs steadily. The consumer is running and healthy, just permanently behind.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group order-processor
+
+# TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+# orders  0          15234           15240           6
+# orders  1          15100           98700           83600      <-- one partition
+# orders  2          15877           15880           3</code></pre>
+            </div>
+            <p>Partitions 0 and 2 are the same healthy numbers from the <code>describe</code> output in <a href="how-kafka-works.html">How Kafka Works</a> &mdash; single-digit lag, nothing to see. Partition 1 is the same partition, later, once the backlog behind it has actually piled up. This is what "hot partition" looks like once it's had time to compound.</p>
+            <p><strong>Read the shape of the lag before you touch anything</strong> &mdash; it tells you which of two completely different problems you have:</p>
+            <ul>
+                <li><strong>Lag spread evenly across all partitions</strong> &rarr; you are genuinely under-provisioned. Consumers cannot keep up with the incoming rate. Add consumers (up to the partition count), or make processing faster &mdash; the usual levers are moving slow work (a DB write, an external call) onto a separate async worker so <code>poll()</code> keeps cycling, batching those writes instead of doing one round-trip per record, and raising <code>fetch.min.bytes</code> so the consumer pulls fewer, larger batches instead of paying per-request overhead on every poll.</li>
+                <li><strong>Lag concentrated on one partition</strong> &rarr; a hot partition. Adding consumers will do <em>nothing</em>, because that partition is already assigned to exactly one consumer and no other consumer in the group is permitted to help. See <a href="#hot-partition">problem 7</a>.</li>
+            </ul>
+            <p>If lag is even and you want more parallelism, remember the ceiling: consumers beyond the partition count sit idle. Scaling from 3 consumers to 10 against a 3-partition topic adds seven idle processes and zero throughput.</p>
+            <p>When you are reconciling lag against your application logs to find when the backlog started, Kafka's record timestamps come through as epoch milliseconds. The <a href="../timestamp.html">Timestamp Converter</a> turns a value like <code>1784505600000</code> into a readable date &mdash; and catches the classic seconds-versus-milliseconds mix-up that otherwise puts your incident in 1970.</p>
+            <p>Everything in this list is reactive &mdash; found after someone notices something is slow. An alert on <code>records-lag-max</code> (or the equivalent from your monitoring stack) crossing a threshold would have caught most of the problems in this article before a person did, this one included.</p>
+
+            <h2 id="unknown-magic-byte">3. Deserialization breaks after a schema change</h2>
+            <p><strong>Symptom:</strong> consumers were fine, someone deployed a producer change, and now every record fails:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>org.apache.kafka.common.errors.SerializationException: Unknown magic byte!</code></pre>
+            </div>
+            <p><strong>What's really happening:</strong> this one is not about your schema being wrong &mdash; it is about the <em>byte layout</em>. A Schema Registry serializer doesn't just write your payload. It prefixes a magic byte of <code>0x0</code> followed by a four-byte schema ID:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>[0x00][4-byte schema ID][serialized payload]
+  ^
+  the "magic byte" the deserializer checks first</code></pre>
+            </div>
+            <p>The consumer's <code>KafkaAvroDeserializer</code> reads byte zero, expects <code>0x0</code>, finds something else, and throws immediately &mdash; before it ever looks at your data. The usual cause is a producer writing with <code>StringSerializer</code> or a plain JSON serializer while the consumer reads with an Avro deserializer. Sometimes it's a single legacy record written before the registry was introduced, poisoning an otherwise healthy topic.</p>
+            <p>Worth knowing: a plain JSON payload starts with <code>{</code>, which is <code>0x7B</code> &mdash; so the very common "we send JSON, we read Avro" mismatch produces this error every single time, not intermittently. Confirming which side is wrong costs one command: read the offending record with the plain <code>kafka-console-consumer</code> (no schema deserializer configured), the same technique used in problem 8 below. Readable JSON means the producer never used the registry; unreadable binary means the problem is on the consumer's configuration instead.</p>
+            <p>The full diagnosis, including how to confirm what is actually on the topic: <a href="../errors/kafka-unknown-magic-byte.html">SerializationException: Unknown magic byte!</a>. And if your problem turns out to be schema <em>compatibility</em> rather than wire format, <a href="kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a> covers which changes are safe.</p>
+
+            <h2 id="timeout-expiring-records">4. The producer times out and drops records</h2>
+            <p><strong>Symptom:</strong> the application looks healthy, but records never arrive:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>org.apache.kafka.common.errors.TimeoutException: Expiring 3 record(s) for
+orders-0:120000 ms has passed since batch creation</code></pre>
+            </div>
+            <p><strong>What's really happening:</strong> those records never left your process. The producer buffers records in memory and sends them in batches; if a batch cannot be delivered within <code>delivery.timeout.ms</code> (default 120000 ms &mdash; note that the number in the message <em>is</em> that timeout), it is expired and discarded.</p>
+            <p>Three causes, in the order worth checking:</p>
+            <ol>
+                <li><strong>The broker is unreachable</strong> &mdash; wrong <code>bootstrap.servers</code>, a firewall, or a broker that is genuinely down.</li>
+                <li><strong>Metadata can't be fetched</strong> &mdash; the topic doesn't exist and auto-creation is off, or advertised listeners are misconfigured so the client resolves an address it cannot reach (see problem 6).</li>
+                <li><strong>The buffer is saturated</strong> &mdash; you are producing faster than the link drains, and batches queue until they age out.</li>
+            </ol>
+            <p>A detail worth internalising: this is a <em>silent data loss</em> path unless you are checking the result of your sends. Fire-and-forget <code>producer.send(record)</code> without inspecting the returned future or supplying a callback means expired batches vanish with only a log line. Always handle the failure case.</p>
+            <p>Full walkthrough: <a href="../errors/kafka-timeout-expiring-records.html">TimeoutException: Expiring N record(s)</a>.</p>
+
+            <h2 id="offset-out-of-range">5. A consumer restarts and skips (or replays) everything</h2>
+            <p><strong>Symptom:</strong> after downtime, a consumer either jumps to the newest data and silently skips the backlog, or reprocesses far more than expected. Often accompanied by:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Fetch offset 15234 is out of range for partition orders-0, resetting offset
+org.apache.kafka.clients.consumer.OffsetOutOfRangeException</code></pre>
+            </div>
+            <p><strong>What's really happening:</strong> the committed offset no longer exists in the log. Your consumer was down longer than <code>retention.ms</code>, so the segments containing offset 15234 were deleted while it was away. The consumer asks for a position the broker no longer has.</p>
+            <p>What happens next is decided entirely by <code>auto.offset.reset</code>, and both options lose something:</p>
+            <table>
+                <thead><tr><th>Value</th><th>Behaviour when the offset is gone</th><th>Consequence</th></tr></thead>
+                <tbody>
+                    <tr><td><code>latest</code> (default)</td><td>Jump to the end of the partition</td><td>The backlog is <strong>skipped silently</strong></td></tr>
+                    <tr><td><code>earliest</code></td><td>Jump to the oldest available record</td><td>Everything still retained is <strong>reprocessed</strong></td></tr>
+                    <tr><td><code>none</code></td><td>Throw an exception</td><td>You decide &mdash; noisy, but nothing happens by accident</td></tr>
+                </tbody>
+            </table>
+            <p>The same setting explains a different puzzle: a brand-new consumer group started against an existing topic has no committed offset either, so with the default <code>latest</code> it reads nothing already in the log. Teams routinely conclude the topic is empty when in fact their consumer chose to start at the end.</p>
+            <p>A decision rule that saves relitigating this every time: if the data is financial, an audit trail, or anything where silently skipping <em>or</em> silently duplicating a record would be worse than a loud failure, set <code>auto.offset.reset=none</code> and handle the exception explicitly. Reserve <code>latest</code> and <code>earliest</code> for consumers where a small, understood gap or a burst of reprocessing is genuinely tolerable &mdash; metrics and analytics pipelines are the common case.</p>
+            <p>Details and recovery options: <a href="../errors/kafka-offsetoutofrange.html">OffsetOutOfRangeException: fetch position is out of range</a>.</p>
+
+            <h2 id="leader-not-available">6. The client cannot reach the cluster</h2>
+            <p><strong>Symptom:</strong> connection succeeds, then metadata warnings repeat forever and nothing is produced or consumed:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>WARN [Consumer clientId=consumer-1, groupId=orders] Error while fetching metadata
+with correlation id 7 : {orders=LEADER_NOT_AVAILABLE}</code></pre>
+            </div>
+            <p><strong>What's really happening:</strong> in Docker and Kubernetes this is nearly always <code>advertised.listeners</code>. The client connects to the bootstrap address successfully, and the broker replies with the address clients should <em>actually</em> use for the partition leader. If that advertised address is an internal container hostname, an external client cannot resolve it &mdash; so the initial connection works and everything afterwards fails, which is what makes the symptom so confusing.</p>
+            <p>Kubernetes has its own well-known variant of the same root cause. Kafka on Kubernetes is commonly deployed as a StatefulSet behind a headless service, which gives each broker pod a stable per-pod DNS name like <code>kafka-0.kafka-headless.kafka.svc.cluster.local</code> &mdash; and that's frequently what gets baked into <code>advertised.listeners</code>, because it survives pod rescheduling in a way a raw pod IP doesn't. The catch: that DNS name only resolves <em>inside</em> the cluster's DNS. A client running outside the Kubernetes cluster entirely can reach the bootstrap service, then fails identically to the Docker case the moment it's handed that internal name. The fix is the same shape as the Docker case: a separate listener advertising an address actually reachable from outside, such as a LoadBalancer or NodePort address, rather than the internal headless-service DNS name &mdash; the full working listener configuration is in <a href="../errors/kafka-leader-not-available.html">LEADER_NOT_AVAILABLE / Error while fetching metadata</a>.</p>
+            <p>The other benign case: the topic was just created (or auto-created on first use) and leader election hasn't finished. That version resolves itself within a second or two. If the warning repeats indefinitely, it is a listener configuration problem.</p>
+            <p>Full diagnosis including working Docker listener configuration: <a href="../errors/kafka-leader-not-available.html">LEADER_NOT_AVAILABLE / Error while fetching metadata</a>.</p>
+
+            <h2 id="hot-partition">7. One partition is hot and everything queues behind it</h2>
+            <p><strong>Symptom:</strong> the uneven lag from problem 2. One partition is buried; the rest are idle.</p>
+            <p><strong>What's really happening:</strong> your message key has poor distribution. Partition placement is <code>hash(key) % partitionCount</code>, so key cardinality directly determines balance:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># BAD — low cardinality, and real traffic is heavily skewed
+key = "US"                    # 80% of records land on one partition
+
+# BAD — one tenant dwarfs the others
+key = tenant_id               # your largest customer saturates its partition
+
+# GOOD — high cardinality, spreads evenly
+key = order_id                # still keeps all events for one order in order</code></pre>
+            </div>
+            <p>The tempting fix &mdash; add consumers &mdash; does nothing at all. A partition is assigned to exactly one consumer in a group, so the busy one cannot be helped by idle peers. Adding partitions doesn't retroactively fix it either: records already written stay exactly where they are, and a larger partition count only changes where <em>new</em> records for a given key route to going forward &mdash; it doesn't rebalance the backlog that's already piled up on the hot one.</p>
+            <p>The real fix is choosing a higher-cardinality key, which means a producer change. Pick the narrowest key that still preserves the ordering you actually require: <code>order_id</code> rather than <code>customer_id</code>, <code>customer_id</code> rather than <code>region</code>. If a record needs no ordering guarantee at all, send it with a null key and let Kafka distribute it evenly.</p>
+            <p>That's the durable fix, and it takes a deploy. If you're mid-incident and need a stopgap: there isn't a great one. Increasing that one consumer's <code>max.poll.records</code> and processing the batch concurrently with an internal worker pool can squeeze out some throughput, but you're still bottlenecked on a single partition being read by a single consumer &mdash; and processing out of order within that pool means accepting the ordering loss you were trying to avoid. Treat it as buying time, not a fix.</p>
+
+            <h2 id="messages-disappeared">8. Messages "disappeared"</h2>
+            <p><strong>Symptom:</strong> records that were definitely produced cannot be found.</p>
+            <p>Work through four possibilities in this order:</p>
+            <ol>
+                <li><strong>Retention expired them.</strong> Past <code>retention.ms</code> (default 7 days), segments are deleted regardless of whether anyone read them. Perfectly normal, frequently forgotten.</li>
+                <li><strong>Compaction superseded them.</strong> On a topic with <code>cleanup.policy=compact</code>, only the newest record per key survives. If you are looking for an older value for a key, it is gone by design. A record with a <code>null</code> value is a tombstone, marking that key for removal.</li>
+                <li><strong>Your consumer started at the end.</strong> The <code>auto.offset.reset=latest</code> case from problem 5 &mdash; the records exist, you just never asked for them.</li>
+                <li><strong>They were never written.</strong> The expired-batch case from problem 4. Records dropped in the producer buffer never existed on any broker.</li>
+            </ol>
+            <p>Confirm what is genuinely on the topic before theorising, by reading it directly from the beginning:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+  --topic orders --from-beginning --max-messages 5 \
+  --property print.key=true --property print.timestamp=true
+
+# CreateTime:1784505600000  order-1001  {"id":1001,"status":"created"}
+# CreateTime:1784505601000  order-1002  {"id":1002,"status":"created"}</code></pre>
+            </div>
+            <p>Those payloads arrive as a single dense line each. Paste one into the <a href="../formatter.html">JSON Formatter</a> to pretty-print it, or the <a href="../json-viewer.html">JSON Viewer</a> to expand a deeply nested record &mdash; useful when you need to confirm whether a field you expected is actually present, or whether the producer quietly stopped sending it.</p>
+
+            <h2>Before you share that log: redact it</h2>
+            <p>Every problem above ends with someone pasting a stack trace into a ticket, a Slack channel, or a Stack Overflow question. Kafka client logs are unusually leaky, and it is worth knowing exactly what you are handing over:</p>
+            <ul>
+                <li><strong>Internal broker hostnames and ports</strong> &mdash; every connection log line carries your cluster topology.</li>
+                <li><strong>Topic and consumer group names</strong> &mdash; these describe your domain model and often your customers.</li>
+                <li><strong>Credentials</strong> &mdash; SASL and SSL failures are the worst offenders, echoing usernames and fragments of JAAS configuration directly into the error message.</li>
+            </ul>
+            <p>Run the log through the <a href="../log-redactor.html">Log Redactor</a> before it leaves your machine. It strips hostnames, tokens, credentials, and other identifiers entirely in your browser &mdash; the unredacted text is never uploaded anywhere, which matters when the thing you are trying not to leak is in the text you would otherwise be uploading to some redaction service.</p>
+
+            <h2>A triage order that works</h2>
+            <p>When something is wrong and you don't yet know what, this sequence gets you to the answer fastest:</p>
+            <ol>
+                <li><strong>Check lag, and check its shape.</strong> <code>kafka-consumer-groups.sh --describe</code>. Even lag across partitions is a capacity problem; lag on one partition is a key problem.</li>
+                <li><strong>Read the consumer log for rebalances.</strong> Repeated revoke/assign cycles mean problem 1, not a slow database.</li>
+                <li><strong>Confirm records exist on the topic.</strong> <code>--from-beginning --max-messages 5</code>. This splits "not produced" from "not consumed" in one command.</li>
+                <li><strong>Check producer callbacks.</strong> If nobody inspects send results, expired batches are invisible.</li>
+                <li><strong>Compare configs across environments.</strong> Most "it works in staging" incidents are one drifted setting.</li>
+            </ol>
+            <p>Kafka rewards understanding the model over memorising fixes. Nearly every problem here is a consequence of three facts: partitions are independent logs, a partition belongs to exactly one consumer per group, and nothing is deleted on read. Hold those and the failures stop being mysterious.</p>
+
+            <div class="tool-cta">
+                <h3>Debugging a Kafka issue right now?</h3>
+                <p>Redact a log before sharing it, diff two configs, or decode a record timestamp &mdash; all client-side, nothing uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../log-redactor.html" class="btn btn-primary">Log Redactor</a>
+                    <a href="../json-diff.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Diff</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Why does my Kafka consumer group rebalance constantly?</summary>
+                    <p>Almost always because processing a batch takes longer than <code>max.poll.interval.ms</code>, which defaults to five minutes. Heartbeats come from a background thread, so the group coordinator still thinks the consumer is alive while it is stuck processing, and only the missed poll reveals the stall. The coordinator evicts it, rebalances, the replacement inherits the same slow batch, and the loop repeats. Fix it by reducing <code>max.poll.records</code> so each batch is smaller, or by raising <code>max.poll.interval.ms</code> if the work genuinely takes that long.</p>
+                </details>
+                <details>
+                    <summary>What causes 'Unknown magic byte' in a Kafka consumer?</summary>
+                    <p>The consumer is using a Schema Registry deserializer, but the bytes on the topic were not written by the matching serializer. Confluent's wire format puts a zero magic byte followed by a four-byte schema ID in front of the payload, so when a plain JSON or String serializer produced the record, the deserializer reads the first byte, does not find zero, and throws. Either the producer must use the Avro serializer, or the consumer must stop expecting it.</p>
+                </details>
+                <details>
+                    <summary>Why is my Kafka consumer lag growing on only one partition?</summary>
+                    <p>That is the signature of a hot partition, and it is a message key problem rather than a consumer problem. Partition placement is a hash of the key modulo the partition count, so a low-cardinality or skewed key such as country or tenant concentrates traffic onto one partition. The consumer owning it cannot keep up while its peers idle. Adding consumers will not help because a partition is only ever assigned to one consumer in a group; you need a higher-cardinality key.</p>
+                </details>
+                <details>
+                    <summary>Where did my Kafka messages go?</summary>
+                    <p>Usually one of three things. Retention expired them, because <code>retention.ms</code> elapsed and the segments were deleted. Log compaction removed them, because a newer record with the same key superseded them on a compacted topic. Or they were never lost at all and your consumer started from the wrong place, because <code>auto.offset.reset=latest</code> makes a brand new consumer group skip everything already in the log.</p>
+                </details>
+                <details>
+                    <summary>Why does my Kafka client show LEADER_NOT_AVAILABLE in Docker or Kubernetes?</summary>
+                    <p>Almost always <code>advertised.listeners</code> pointing at an address only reachable inside the container network. The client's initial bootstrap connection succeeds, then the broker tells it to use an internal Docker hostname or a Kubernetes headless-service pod DNS name for the actual partition leader, and a client outside that network can never resolve it. Configure a separate listener that advertises an address reachable from where the client actually runs.</p>
+                </details>
+                <details>
+                    <summary>What causes a Kafka hot partition and how do I fix it?</summary>
+                    <p>A low-cardinality or skewed message key, since partition placement is a hash of the key modulo the partition count. A key like <code>country</code> or <code>tenant_id</code> concentrates most traffic onto one partition, and adding consumers or partitions does not fix it because existing records don't move and a partition is only ever assigned to one consumer. The fix is choosing a higher-cardinality key on the producer, such as <code>order_id</code> instead of <code>customer_id</code> or <code>region</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does my producer throw TimeoutException expiring records?</summary>
+                    <p>Records sat in the producer's in-memory buffer longer than <code>delivery.timeout.ms</code> and were dropped before ever reaching a broker. The common causes are the broker being unreachable, the producer being unable to fetch metadata for the topic, or the application producing faster than the network can drain the buffer. Check broker connectivity first, then whether <code>batch.size</code> and <code>linger.ms</code> are causing records to queue up behind a saturated link.</p>
+                </details>
+                <details>
+                    <summary>Is it safe to paste Kafka logs into a support ticket?</summary>
+                    <p>Not without checking them first. Kafka client logs routinely contain internal broker hostnames and ports, consumer group and topic names that reveal your domain model, and in the case of SASL or SSL misconfiguration errors they can echo usernames and JAAS configuration fragments. Strip those before sharing anything publicly. Use a redaction tool that runs locally in the browser so the unredacted log never gets uploaded anywhere in the process.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../log-redactor.html">Log Redactor</a> &mdash; strip broker hosts and credentials before sharing a Kafka log</li>
+                <li><a href="../json-diff.html">JSON Diff</a> &mdash; compare a working config against a broken one</li>
+                <li><a href="../timestamp.html">Timestamp Converter</a> &mdash; decode Kafka record timestamps</li>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; pretty-print a record payload</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="how-kafka-works.html">How Kafka Works: Partitions, Offsets and Consumer Groups Explained</a></li>
+                <li><a href="kafka-delivery-guarantees.html">Kafka Delivery Guarantees: acks, ISR and Exactly-Once Explained</a></li>
+                <li><a href="kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a></li>
+                <li><a href="log-redactor-guide.html">How to Redact Sensitive Data from Logs</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kafka CommitFailedException: Offset commit cannot be completed since the group has already rebalanced — why slow polling triggers this, and how to fix the loop.">
+    <meta name="keywords" content="commitfailedexception, kafka offset commit cannot be completed, kafka consumer kicked out of group, max.poll.interval.ms, kafka rebalance loop, kafka consumer not part of active group">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/kafka-commitfailedexception.html">
+    <meta property="og:title" content="Kafka: CommitFailedException — Offset Commit Cannot Be Completed">
+    <meta property="og:description" content="Your consumer took longer between poll() calls than max.poll.interval.ms allows, got evicted, and its commit failed. Here's why, and how to stop the rebalance loop.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/kafka-commitfailedexception.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Kafka: CommitFailedException — Offset Commit Cannot Be Completed</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Kafka: CommitFailedException", "item": "https://jsondevtools.org/errors/kafka-commitfailedexception.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Kafka CommitFailedException: Offset commit cannot be completed — Cause and Fix",
+  "description": "CommitFailedException fires when a Kafka consumer's offset commit is rejected because the group has already rebalanced it out. This reference covers why slow poll loops trigger it, the max.poll.interval.ms vs session.timeout.ms distinction, and how to break the resulting rebalance loop.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-07-20",
+  "dateModified": "2026-07-20",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'Offset commit cannot be completed since the group has already rebalanced' mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It means the consumer group coordinator no longer considers your consumer a member of the group by the time it tried to commit. The consumer took too long between calls to poll(), the coordinator assumed it had died, removed it, and reassigned its partitions to someone else. The commit for a partition you no longer own is rejected." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen even though my consumer is clearly still running?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because heartbeats are sent from a separate background thread, independent of whether your application code is actually calling poll(). A consumer stuck processing a slow batch keeps heartbeating and looks alive to the coordinator right up until max.poll.interval.ms elapses without a new poll(). That single check is what evicts it, regardless of how healthy the process otherwise looks." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between session.timeout.ms and max.poll.interval.ms?",
+      "acceptedAnswer": { "@type": "Answer", "text": "session.timeout.ms (default 45 seconds since Kafka 3.0) governs heartbeats: if none arrive in that window, the consumer is considered dead, usually meaning the process crashed or is network-partitioned. max.poll.interval.ms (default 5 minutes) governs the gap between poll() calls: if it's exceeded, the consumer is alive but stuck, usually meaning processing is too slow. CommitFailedException from a rebalance is almost always the second one." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix a rebalance loop caused by slow processing?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Reduce max.poll.records so each batch is smaller and finishes comfortably within max.poll.interval.ms, which is the preferred fix. If the per-record work genuinely requires more time than that, raise max.poll.interval.ms instead. Moving slow work off the poll thread onto a separate executor, and calling poll() frequently with a short pause, is the more involved but most robust fix." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is CommitFailedException dangerous — does it mean data loss?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Not by itself. The records the evicted consumer had already processed but failed to commit will simply be redelivered to whichever consumer inherits that partition, which is normal at-least-once behavior. The real cost is the rebalance itself: while it's in progress the group pauses, and if the underlying slow-processing cause repeats every cycle, throughput collapses because the group can never stabilize." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the cooperative rebalancing protocol prevent this error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It reduces the blast radius but doesn't remove the underlying cause. Cooperative (incremental) rebalancing only moves the partitions that actually changed hands instead of stopping the whole group, so other consumers keep working during a rebalance. But the specific consumer that exceeded max.poll.interval.ms is still evicted and its commit still fails — cooperative rebalancing is not the default assignor and must be configured explicitly." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Kafka: CommitFailedException</span>
+            </nav>
+            <h1>Kafka: CommitFailedException: Offset commit cannot be completed since the group has already rebalanced</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Your consumer took longer than <code>max.poll.interval.ms</code> (default 5 min) between <code>poll()</code> calls, so the group evicted it before its commit arrived.</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>One-off slow batch? Reduce <code>max.poll.records</code> so batches finish faster.</li>
+                    <li>Work genuinely takes that long? Raise <code>max.poll.interval.ms</code> instead.</li>
+                    <li>Looping forever? The replacement consumer is inheriting the same oversized batch &mdash; see the diagram below.</li>
+                </ul>
+            </div>
+
+            <h2 id="symptoms">Common symptoms</h2>
+            <p>The exception name itself is only one way this surfaces. Watch for any of these too:</p>
+            <ul>
+                <li>Consumer throughput periodically collapses to near-zero, then partially recovers, in a repeating cycle</li>
+                <li>Logs fill with partition revoked / partition assigned messages with no corresponding deploy or crash</li>
+                <li>A downstream system sees the same batch of records processed more than once</li>
+                <li><code>kafka-consumer-groups.sh --describe</code> shows the group's member count changing between runs with no scaling event</li>
+            </ul>
+
+            <h2 id="exact-error">The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>org.apache.kafka.clients.consumer.CommitFailedException: Offset commit cannot be
+completed since the consumer is not part of an active group for auto partition
+assignment; it is likely that the consumer was kicked out of the group.
+
+# a differently-worded but equally common variant, seen across other client
+# versions and libraries, for the identical root cause:
+# Commit cannot be completed since the group has already rebalanced and
+# assigned the partitions to another member.</code></pre>
+            </div>
+            <p>Both wordings describe the same event: the consumer was removed from its group before this commit arrived, so the commit is rejected outright. This is nearly always a symptom of one specific cause: too much time passed between two consecutive calls to <code>poll()</code>.</p>
+
+            <h2 id="why-alive-doesnt-help">Why "the consumer is clearly alive" doesn't help</h2>
+            <p>The confusing part of this error is that the process looks completely healthy &mdash; no crash, no exception, no network partition. That's because two entirely separate checks decide whether a consumer is "alive" from the group coordinator's point of view, and only one of them is about crashing:</p>
+            <table>
+                <thead><tr><th>Setting</th><th>Default</th><th>What it actually detects</th></tr></thead>
+                <tbody>
+                    <tr><td><code>session.timeout.ms</code></td><td>45000 (45s, since Kafka 3.0 &mdash; was 10s before)</td><td>No <em>heartbeat</em> &mdash; the process crashed or is network-partitioned</td></tr>
+                    <tr><td><code>max.poll.interval.ms</code></td><td>300000 (5 min)</td><td>No <em>poll()</em> call &mdash; the process is alive but stuck</td></tr>
+                </tbody>
+            </table>
+            <p>Heartbeats are sent by a background thread that runs independently of your application code. A consumer stuck in a slow database write keeps heartbeating the entire time &mdash; the process is genuinely alive, and <code>session.timeout.ms</code> never fires. The only thing that catches a stuck consumer is the second check: has <code>poll()</code> been called again within <code>max.poll.interval.ms</code>? If not, the coordinator concludes processing has stalled, evicts the consumer, and triggers a rebalance &mdash; and that eviction is what makes the pending commit fail.</p>
+
+            <h2 id="rebalance-loop-forms">How the rebalance loop forms</h2>
+            <p>A single slow batch would just cause one eviction. What turns it into a recurring incident is that the replacement consumer typically inherits the exact same problem:</p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 620 300" role="img" aria-label="Timeline diagram showing a rebalance loop. Consumer 1: at 0:00 it polls 500 records; at 4:58 it is still processing; at 5:01 the max.poll.interval.ms limit of 5 minutes is exceeded and it is evicted; at 5:02 its commit fails with CommitFailedException. The group rebalances the partition to Consumer 2, which repeats the identical timeline — poll at 0:00, still processing at 4:58, evicted at 5:01, commit fails at 5:02 — because the batch size was never reduced. A dashed arrow loops from Consumer 2's poll step back to Consumer 1's poll step, showing the cycle repeats indefinitely with the same oversized batch.">
+                    <text x="310" y="16" text-anchor="middle" class="dg-t">The rebalance loop</text>
+                    <text x="165" y="34" text-anchor="middle" class="dg-s">Consumer 1</text>
+                    <text x="425" y="34" text-anchor="middle" class="dg-s">Consumer 2</text>
+
+                    <text x="64" y="61" text-anchor="end" class="dg-s">0:00</text>
+                    <rect x="70" y="42" width="190" height="30" rx="3" class="dg-box"/>
+                    <text x="165" y="61" text-anchor="middle" class="dg-m">poll(): 500 records</text>
+                    <path d="M165 72 L165 100" class="dg-ln" marker-end="url(#kc-arrow)"/>
+
+                    <text x="64" y="119" text-anchor="end" class="dg-s">4:58</text>
+                    <rect x="70" y="100" width="190" height="30" rx="3" class="dg-box-bad"/>
+                    <text x="165" y="119" text-anchor="middle" class="dg-m">processing (&gt;5 min)</text>
+                    <path d="M165 130 L165 158" class="dg-ln-bad" marker-end="url(#kc-arrow-bad)"/>
+
+                    <text x="64" y="170" text-anchor="end" class="dg-s">5:01</text>
+                    <text x="64" y="184" text-anchor="end" class="dg-s">5:02</text>
+                    <rect x="70" y="158" width="190" height="30" rx="3" class="dg-box-bad"/>
+                    <text x="165" y="177" text-anchor="middle" class="dg-m">evicted &mdash; commit fails</text>
+
+                    <text x="324" y="61" text-anchor="end" class="dg-s">0:00</text>
+                    <rect x="330" y="42" width="190" height="30" rx="3" class="dg-box"/>
+                    <text x="425" y="61" text-anchor="middle" class="dg-m">poll(): 500 records</text>
+                    <path d="M425 72 L425 100" class="dg-ln" marker-end="url(#kc-arrow)"/>
+
+                    <text x="324" y="119" text-anchor="end" class="dg-s">4:58</text>
+                    <rect x="330" y="100" width="190" height="30" rx="3" class="dg-box-bad"/>
+                    <text x="425" y="119" text-anchor="middle" class="dg-m">processing (&gt;5 min)</text>
+                    <path d="M425 130 L425 158" class="dg-ln-bad" marker-end="url(#kc-arrow-bad)"/>
+
+                    <text x="324" y="170" text-anchor="end" class="dg-s">5:01</text>
+                    <text x="324" y="184" text-anchor="end" class="dg-s">5:02</text>
+                    <rect x="330" y="158" width="190" height="30" rx="3" class="dg-box-bad"/>
+                    <text x="425" y="177" text-anchor="middle" class="dg-m">evicted &mdash; commit fails</text>
+
+                    <path d="M260 173 L280 173 L280 46 L330 46" class="dg-ln-bad" marker-end="url(#kc-arrow-bad)"/>
+
+                    <path d="M520 173 Q 560 173 560 240 L10 240 L10 57 L70 57" class="dg-ln-dash" marker-end="url(#kc-arrow)"/>
+                    <text x="310" y="214" text-anchor="middle" class="dg-s">same batch size</text>
+                    <text x="310" y="226" text-anchor="middle" class="dg-s">next consumer</text>
+
+                    <text x="310" y="260" text-anchor="middle" class="dg-bad" style="font-size:12px">throughput never recovers &mdash; batch size was never reduced</text>
+                    <text x="310" y="280" text-anchor="middle" class="dg-cap-inline dg-s">fix: shrink max.poll.records so each batch finishes well inside the limit</text>
+
+                    <defs>
+                        <marker id="kc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--dg-line)"/>
+                        </marker>
+                        <marker id="kc-arrow-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--dg-bad)"/>
+                        </marker>
+                    </defs>
+                </svg>
+                <p class="dg-cap">Each replacement consumer picks up the same oversized batch at 0:00 and hits the same 5-minute limit at 5:01. The group never stabilizes until the batch size itself changes.</p>
+            </div>
+
+            <h2 id="fix-1-shrink-batch">Fix 1: shrink the batch (preferred)</h2>
+            <p>The default <code>max.poll.records</code> is 500. If your per-record processing time is even modest, 500 records can easily exceed 5 minutes:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ default batch size, with per-record work that adds up
+props.put("max.poll.records", 500);   // 500 × 700ms/record = 350s > 300s limit
+
+// ✅ smaller batches finish comfortably inside the window
+props.put("max.poll.records", 100);   // 100 × 700ms/record = 70s — plenty of margin</code></pre>
+            </div>
+            <p>Do this arithmetic explicitly rather than guessing: measure your realistic worst-case per-record time (including occasional slow dependency calls, not just the happy path) and size <code>max.poll.records</code> so the total stays well under <code>max.poll.interval.ms</code> &mdash; leave real margin, not just enough to pass on a good day.</p>
+
+            <h2 id="fix-2-raise-interval">Fix 2: raise the interval, if the work genuinely needs it</h2>
+            <p>Sometimes each record really does require several minutes &mdash; a large batch write, a slow external call you can't avoid. In that case, extend the deadline rather than fighting it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>props.put("max.poll.interval.ms", 600000);   // 10 minutes</code></pre>
+            </div>
+            <p>This is a legitimate fix, not a workaround &mdash; but it comes with a real trade-off: it also lengthens how long a genuinely stuck or crashed consumer's partitions sit unprocessed before anyone notices, since eviction is the only mechanism that would catch it. Use it deliberately, not as a first reflex.</p>
+
+            <h2 id="fix-3-move-off-poll-loop">Fix 3: move slow work off the poll loop</h2>
+            <p>The most robust fix restructures the consumer so <code>poll()</code> keeps getting called frequently regardless of processing time, by handing records to a separate worker. Done naively, though, this trades one bug for two worse ones, so the sketch below is deliberately more than a bare hand-off:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// sketch — bounds memory and only commits work that actually finished.
+// wire the details (thread pool, tracking structure) to your framework.
+int inFlight = 0;
+Map&lt;TopicPartition, OffsetAndMetadata&gt; readyToCommit = new HashMap&lt;&gt;();
+
+while (running) {
+    if (inFlight &gt;= MAX_IN_FLIGHT) {
+        consumer.pause(consumer.assignment());   // stop pulling more until the queue drains
+    } else {
+        consumer.resume(consumer.assignment());
+    }
+
+    ConsumerRecords&lt;String, String&gt; records = consumer.poll(Duration.ofMillis(100));
+    for (ConsumerRecord&lt;String, String&gt; record : records) {
+        inFlight++;
+        workQueue.submit(() -&gt; {
+            process(record);
+            inFlight--;
+            // only mark this offset committable once the work is DONE —
+            // never commit ahead of completed processing
+            markReadyToCommit(readyToCommit, record);
+        });
+    }
+    consumer.commitAsync(drain(readyToCommit), null);
+}</code></pre>
+            </div>
+            <p>Two failure modes make the bare "just submit to a queue" version dangerous enough to avoid in production: an unbounded queue grows without limit if the workers can't keep up, eventually exhausting memory; and committing on the poll loop's own schedule &mdash; rather than after work actually completes &mdash; can commit an offset for a record that's still sitting in the queue, so a crash loses it silently instead of it being redelivered. <code>pause()</code>/<code>resume()</code> bound the first problem by refusing to pull more work while the backlog is full; tracking completion and only committing finished offsets fixes the second. This decouples "how often does the coordinator hear from me" from "how long does my business logic take" &mdash; but it's meaningfully more code than the config-only fixes above, and worth it only if per-record time is genuinely variable and hard to bound.</p>
+
+            <h2 id="fix-4-cooperative-rebalancing">Fix 4: cooperative rebalancing reduces the blast radius (but isn't the fix)</h2>
+            <p>It's worth knowing what cooperative rebalancing does and doesn't help with here. Eager rebalancing is what actually runs by default &mdash; see <a href="../blog/how-kafka-works.html">How Kafka Works</a> for why that's widely misreported and what the assignor list actually contains. To switch to cooperative:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>props.put("partition.assignment.strategy",
+    "org.apache.kafka.clients.consumer.CooperativeStickyAssignor");</code></pre>
+            </div>
+            <p>With eager rebalancing, <em>every</em> consumer in the group gives up all its partitions and stops during a rebalance, even the ones that were behaving fine. Cooperative rebalancing only reassigns the partitions that actually need to move, so the rest of the group keeps processing uninterrupted. That materially reduces the damage a rebalance does &mdash; but the specific consumer that exceeded <code>max.poll.interval.ms</code> is still evicted, and its commit still fails with this exact exception. Cooperative rebalancing limits the blast radius; it doesn't prevent the underlying cause.</p>
+            <p><code>group.instance.id</code> (static membership, KIP-345) is worth knowing about here, but it solves a neighbouring problem. Giving each consumer a stable ID means a restart within <code>session.timeout.ms</code> doesn't trigger a rebalance at all &mdash; the returning member reclaims its old partitions. That removes a lot of needless churn from rolling deploys, but it does nothing for slow polling: a consumer that blows past <code>max.poll.interval.ms</code> is still evicted and its commit still fails. Use it to reduce rebalance frequency, not to fix this error.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>props.put("group.instance.id", "order-processor-" + podOrdinal);  // stable per pod/instance
+props.put("session.timeout.ms", "45000");                          // window to reclaim on restart</code></pre>
+            </div>
+
+            <h2 id="is-this-dangerous">Is this actually dangerous?</h2>
+            <p>By itself, no. The records the evicted consumer processed but never got to commit will be redelivered to whichever consumer inherits the partition &mdash; standard at-least-once behavior, assuming your processing is idempotent (see <a href="../blog/kafka-delivery-guarantees.html">Kafka Delivery Guarantees</a> for what that actually requires). No data is lost.</p>
+            <p>The real damage is throughput: while a rebalance is in progress the group pauses, and if the slow-batch cause repeats on every cycle &mdash; as in the loop diagram above &mdash; the group can spend more time rebalancing than processing.</p>
+
+            <h2 id="debugging-checklist">Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Confirm it's a poll-interval issue, not a crash: check logs for repeated join/rebalance messages, not exceptions from your processing code</li>
+                <li>&#10003; Measure your realistic per-record processing time, including slow-path cases</li>
+                <li>&#10003; Reduce <code>max.poll.records</code> first &mdash; the lowest-risk fix</li>
+                <li>&#10003; Raise <code>max.poll.interval.ms</code> only if the work genuinely needs the extra time</li>
+                <li>&#10003; For variable/unbounded per-record time, move processing off the poll thread</li>
+                <li>&#10003; Consider <code>CooperativeStickyAssignor</code> to limit collateral impact on the rest of the group</li>
+                <li>&#10003; Verify: after the fix, <code>kafka-consumer-groups.sh --describe</code> shows a stable member count with no repeated rebalances</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'Offset commit cannot be completed since the group has already rebalanced' mean?</summary>
+                    <p>It means the consumer group coordinator no longer considers your consumer a member of the group by the time it tried to commit. The consumer took too long between calls to <code>poll()</code>, the coordinator assumed it had died, removed it, and reassigned its partitions to someone else. The commit for a partition you no longer own is rejected.</p>
+                </details>
+                <details>
+                    <summary>Why does this happen even though my consumer is clearly still running?</summary>
+                    <p>Because heartbeats are sent from a separate background thread, independent of whether your application code is actually calling <code>poll()</code>. A consumer stuck processing a slow batch keeps heartbeating and looks alive to the coordinator right up until <code>max.poll.interval.ms</code> elapses without a new poll. That single check is what evicts it, regardless of how healthy the process otherwise looks.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between session.timeout.ms and max.poll.interval.ms?</summary>
+                    <p><code>session.timeout.ms</code> (default 45 seconds since Kafka 3.0) governs heartbeats: if none arrive in that window, the consumer is considered dead, usually meaning the process crashed or is network-partitioned. <code>max.poll.interval.ms</code> (default 5 minutes) governs the gap between <code>poll()</code> calls: if it's exceeded, the consumer is alive but stuck, usually meaning processing is too slow. CommitFailedException from a rebalance is almost always the second one.</p>
+                </details>
+                <details>
+                    <summary>How do I fix a rebalance loop caused by slow processing?</summary>
+                    <p>Reduce <code>max.poll.records</code> so each batch is smaller and finishes comfortably within <code>max.poll.interval.ms</code>, which is the preferred fix. If the per-record work genuinely requires more time than that, raise <code>max.poll.interval.ms</code> instead. Moving slow work off the poll thread onto a separate executor, and calling <code>poll()</code> frequently with a short pause, is the more involved but most robust fix.</p>
+                </details>
+                <details>
+                    <summary>Is CommitFailedException dangerous — does it mean data loss?</summary>
+                    <p>Not by itself. The records the evicted consumer had already processed but failed to commit will simply be redelivered to whichever consumer inherits that partition, which is normal at-least-once behavior. The real cost is the rebalance itself: while it's in progress the group pauses, and if the underlying slow-processing cause repeats every cycle, throughput collapses because the group can never stabilize.</p>
+                </details>
+                <details>
+                    <summary>Does the cooperative rebalancing protocol prevent this error?</summary>
+                    <p>It reduces the blast radius but doesn't remove the underlying cause. Cooperative (incremental) rebalancing only moves the partitions that actually changed hands instead of stopping the whole group, so other consumers keep working during a rebalance. But the specific consumer that exceeded <code>max.poll.interval.ms</code> is still evicted and its commit still fails &mdash; cooperative rebalancing is not the default assignor and must be configured explicitly.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Kafka errors &amp; guides</h3>
+                <p>Browse the full error reference, or read the Kafka theory guides that explain the mechanisms behind these failures.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../blog/kafka-delivery-guarantees.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Kafka Delivery Guarantees</a>
+                    <a href="../json-diff.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">JSON Diff</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="kafka-offsetoutofrange.html">Kafka: OffsetOutOfRangeException</a> &mdash; another consumer-side offset problem</li>
+                <li><a href="kafka-leader-not-available.html">Kafka: LEADER_NOT_AVAILABLE</a></li>
+                <li><a href="kafka-unknown-magic-byte.html">Kafka: SerializationException: Unknown magic byte!</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/how-kafka-works.html">How Kafka Works</a></li>
+                <li><a href="../blog/kafka-delivery-guarantees.html">Kafka Delivery Guarantees</a></li>
+                <li><a href="../blog/kafka-common-problems.html">Real-World Kafka Problems and How to Fix Them</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kafka delivery guarantees explained: acks, replication and ISR, the idempotent producer, transactions, and why exactly-once has a boundary you must respect.">
+    <meta name="keywords" content="kafka exactly once, kafka acks explained, kafka at least once vs exactly once, kafka idempotent producer, min.insync.replicas, kafka ISR, kafka transactions, enable.idempotence">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/kafka-delivery-guarantees.html">
+    <meta property="og:title" content="Kafka Delivery Guarantees: acks, ISR and Exactly-Once Explained">
+    <meta property="og:description" content="What acks=all really promises, why min.insync.replicas=1 quietly cancels it, what the idempotent producer does and does not dedupe, and where exactly-once stops working.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/kafka-delivery-guarantees.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Kafka Delivery Guarantees: acks, ISR and Exactly-Once Explained | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Kafka Delivery Guarantees", "item": "https://jsondevtools.org/blog/kafka-delivery-guarantees.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Kafka Delivery Guarantees: acks, ISR and Exactly-Once Explained",
+      "description": "Kafka delivery guarantees explained: acks, replication and ISR, the idempotent producer, transactions, and why exactly-once has a boundary you must respect.",
+      "image": "https://jsondevtools.org/og-image.png",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-07-20",
+      "dateModified": "2026-07-20",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What does acks=all actually guarantee?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It means the leader waits until every replica currently in the in-sync replica set has copied the record before acknowledging it. Crucially it means every replica that is currently in sync, not every replica that exists. If replicas have fallen behind and dropped out of the ISR, acks=all is satisfied by whatever remains, which can be the leader alone. That is why acks=all must be paired with min.insync.replicas=2 to actually mean anything." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is min.insync.replicas=1 dangerous with acks=all?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because it silently reduces acks=all to acks=1 whenever replicas fall behind. min.insync.replicas sets the floor for how small the ISR may shrink before writes are rejected. With a floor of 1, the ISR is allowed to shrink to just the leader, and acks=all is then satisfied by a single copy. If that broker then fails, the acknowledged record is gone. The standard safe pairing is replication factor 3 with min.insync.replicas=2." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is the Kafka idempotent producer enabled by default?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, since Kafka 3.0 enable.idempotence defaults to true, which also implies acks=all and effectively unlimited retries. But it is only enabled if nothing conflicts with it. If you explicitly set acks=1, retries=0, or max.in.flight.requests.per.connection above 5 without also setting enable.idempotence, idempotence is silently switched off. If you set enable.idempotence=true and a conflicting value together, the client throws a ConfigException at startup instead." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does the idempotent producer actually deduplicate?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Only retries of the same send within one producer session. The producer is assigned a producer ID and attaches a sequence number per partition, so a broker can recognise and discard a record it has already written when a network timeout causes the client to retry. It does not deduplicate across producer restarts, because a restart gets a new producer ID, and it does not deduplicate your application deliberately calling send twice with the same data." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Kafka exactly-once work when writing to a database?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Kafka transactions are atomic across Kafka topics and consumer offsets only. A consume-transform-produce loop that reads from Kafka and writes back to Kafka can be exactly-once. The moment your consumer writes to Postgres, calls an external API, or sends an email, that side effect is outside the transaction and Kafka cannot roll it back. For those cases you need idempotent writes on your side, such as an upsert keyed by event ID." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is a Kafka consumer at-least-once or at-most-once by default?",
+          "acceptedAnswer": { "@type": "Answer", "text": "At-least-once in practice, but it depends on when you commit rather than on a single setting. The default enable.auto.commit=true commits periodically during poll, so a crash after processing but before the next commit causes those records to be redelivered. If you commit before processing instead, you get at-most-once and risk losing records on a crash. Processing first and committing after is the standard at-least-once pattern." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>Kafka Delivery Guarantees</span>
+            </nav>
+            <h1>Kafka Delivery Guarantees: acks, ISR and Exactly-Once Explained</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published July 2026 &middot; 11 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">"Exactly-once" is the most oversold phrase in streaming. Kafka does support it &mdash; genuinely, not as marketing &mdash; but only inside a boundary that most teams discover the hard way. This guide works through what each acknowledgement level actually promises, the replication setting that quietly cancels your durability guarantee, what the idempotent producer does and doesn't dedupe, and where exactly-once stops applying. It assumes you know what partitions and offsets are; if not, start with <a href="how-kafka-works.html">How Kafka Works</a>.</p>
+
+            <h2>Three guarantees, and which one you actually have</h2>
+            <p>Every messaging system lands somewhere among three delivery semantics:</p>
+            <table>
+                <thead><tr><th>Guarantee</th><th>Meaning</th><th>Failure mode</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>At-most-once</strong></td><td>Every record delivered zero or one times</td><td>Records can be <em>lost</em></td></tr>
+                    <tr><td><strong>At-least-once</strong></td><td>Every record delivered one or more times</td><td>Records can be <em>duplicated</em></td></tr>
+                    <tr><td><strong>Exactly-once</strong></td><td>Every record has effect exactly one time</td><td>Complexity, throughput cost, limited scope</td></tr>
+                </tbody>
+            </table>
+            <p>Most production Kafka systems run at-least-once and make duplicates harmless. That is not a compromise or a failure to configure things properly &mdash; it is usually the correct engineering decision, and the last section covers why.</p>
+            <p>Importantly, the guarantee isn't a single setting. It emerges from two independent halves: what the <strong>producer</strong> does to get a record durably into the log, and what the <strong>consumer</strong> does about committing its position. You can get either half wrong on its own.</p>
+
+            <h2>The producer half: acks</h2>
+            <p>The <code>acks</code> setting controls how much confirmation a producer waits for before considering a send successful.</p>
+            <table>
+                <thead><tr><th><code>acks</code></th><th>Producer waits for</th><th>Durability</th></tr></thead>
+                <tbody>
+                    <tr><td><code>0</code></td><td>Nothing &mdash; fire and forget</td><td>None. Records lost if the broker is down and you won't know</td></tr>
+                    <tr><td><code>1</code></td><td>The partition leader only</td><td>Lost if the leader fails before followers copy the record</td></tr>
+                    <tr><td><code>all</code></td><td>Every replica in the ISR</td><td>Survives broker loss &mdash; <em>if</em> configured correctly</td></tr>
+                </tbody>
+            </table>
+            <p><code>acks=0</code> has narrow legitimate uses &mdash; high-volume metrics or clickstream data where losing a fraction of a percent genuinely doesn't matter and throughput is everything. For anything you'd be unhappy to lose, it's the wrong choice.</p>
+            <p><code>acks=1</code> is the deceptive one. The leader confirms the write and your producer moves on, but the followers may not have copied it yet. If that broker dies in the window before replication, the record is gone &mdash; and the producer already reported success, so nothing in your application ever learns about it.</p>
+            <p><code>acks=all</code> is what you want for important data. But it comes with a large asterisk.</p>
+
+            <h2>The ISR trap: why acks=all can mean nothing</h2>
+            <p>Each partition has a leader and some followers. The set of replicas currently caught up with the leader is the <strong>in-sync replica set (ISR)</strong>. A follower that falls too far behind &mdash; slow disk, network trouble, a restart &mdash; is dropped from the ISR until it catches up.</p>
+            <p>Now read <code>acks=all</code> carefully. It means <em>every replica currently in the ISR</em>, not every replica that exists. And the ISR shrinks under exactly the conditions where you most need durability.</p>
+            <p>Picture a topic with replication factor 3. Two followers get slow and drop out of the ISR, which now contains only the leader. A producer with <code>acks=all</code> sends a record. The leader writes it, sees that every member of the ISR (itself) has the record, and acknowledges. Your producer is told the write is durable. It exists on <strong>one broker</strong>. That broker's disk fails, and the record is gone &mdash; despite <code>acks=all</code>.</p>
+            <p>The setting that prevents this is <code>min.insync.replicas</code>, configured on the broker or topic. It sets the floor: if the ISR is smaller than this, writes with <code>acks=all</code> are <em>rejected</em> rather than silently accepted with weak durability.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># DANGEROUS — acks=all degrades to acks=1 whenever followers fall behind
+#   replication.factor=3
+#   min.insync.replicas=1        <-- ISR may shrink to the leader alone
+
+# SAFE — the standard production pairing
+replication.factor=3
+min.insync.replicas=2            # at least 2 copies, or the write is refused
+# producer:
+acks=all</code></pre>
+            </div>
+            <p>With <code>min.insync.replicas=2</code> and replication factor 3, you can lose one broker and keep accepting writes. Lose two and producers start receiving <code>NotEnoughReplicasException</code> &mdash; which is the system correctly refusing to accept data it cannot store safely. An error you can see and alert on beats silent data loss.</p>
+            <p>A related setting decides what happens if every in-sync replica is lost outright &mdash; not just below the <code>min.insync.replicas</code> floor, but gone entirely. <code>unclean.leader.election.enable</code> (default <code>false</code>) controls whether Kafka is allowed to elect a leader from an out-of-sync replica in that scenario. Leaving it off means the partition simply stays unavailable until an in-sync replica returns &mdash; the safe default. Turning it on trades availability for consistency: the partition comes back online sooner, but the newly elected leader may be missing records the old leader had already acknowledged. Treat it the same way as <code>min.insync.replicas=1</code> &mdash; a deliberate, rare exception for availability-over-durability workloads, not a default to flip during an incident.</p>
+            <p>Configuration drift between environments is a common way this goes wrong: staging is set up correctly, production was provisioned earlier with different defaults, and nobody notices until a broker dies. If you keep broker or topic configs as JSON, the <a href="../json-diff.html">JSON Diff</a> tool is a quick way to compare a known-good config against a suspect one and see exactly which keys differ.</p>
+
+            <h2>Where duplicates come from</h2>
+            <p>Set <code>acks=all</code> and <code>min.insync.replicas=2</code> and you have solved data <em>loss</em>. You have simultaneously created data <em>duplication</em>, and it's worth seeing why, because the mechanism is unavoidable rather than a bug.</p>
+            <p>A producer sends a record. The broker writes it successfully and sends an acknowledgement. The acknowledgement is lost on the network. The producer's request times out.</p>
+            <p>From the producer's point of view, the send failed. It has no way to distinguish "the broker never got it" from "the broker got it and the reply vanished." So it retries &mdash; and the record is written twice.</p>
+            <p>This is intrinsic to any at-least-once system: an acknowledgement that can be lost forces a choice between retrying (risking duplicates) and not retrying (risking loss). Kafka's answer is to retry, then eliminate the duplicate at the broker.</p>
+
+            <h2>The idempotent producer</h2>
+            <p>Idempotence solves precisely the retry-duplicate problem above. The producer is assigned a <strong>producer ID (PID)</strong>, and attaches a monotonically increasing <strong>sequence number</strong> per partition. The broker remembers the last sequence number it accepted for each PID and partition, so a retried record arrives with a sequence number it has already seen and is discarded rather than appended.</p>
+            <p><strong>Since Kafka 3.0, <code>enable.idempotence</code> defaults to <code>true</code></strong>, which in turn implies <code>acks=all</code> and effectively unlimited retries. On 3.0 and later you likely have it on without having asked for it.</p>
+            <p>There is an important subtlety in how that default interacts with your other settings:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Kafka 3.0+ — idempotence is ON by default, nothing to do
+# (implies acks=all, retries=Integer.MAX_VALUE, max.in.flight <= 5)
+
+# TRAP: setting a conflicting value WITHOUT naming enable.idempotence
+#   acks=1                       <-- idempotence is now silently DISABLED
+#
+# Setting both explicitly throws ConfigException at startup instead:
+#   enable.idempotence=true
+#   acks=1                       <-- ConfigException — this one you'll notice</code></pre>
+            </div>
+            <p>So the dangerous case is the quiet one: someone tunes <code>acks=1</code> for throughput, and idempotence silently switches off along with it. If you rely on idempotence, set <code>enable.idempotence=true</code> explicitly so that a conflicting change fails loudly instead of degrading in silence.</p>
+            <p>Now the limits, which matter more than the feature:</p>
+            <ul>
+                <li><strong>It only covers one producer session.</strong> A restarted producer gets a new PID, and the broker has no way to connect it to the old one. Records re-sent after a restart are new records.</li>
+                <li><strong>It only covers retries of the same send.</strong> If your application logic calls <code>send()</code> twice with the same payload, those are two legitimate records and both are written.</li>
+                <li><strong>It is per-partition.</strong> Sequence tracking is scoped to a PID and partition pair.</li>
+            </ul>
+            <p>Idempotence makes the producer safe against network flakiness. It does not make your pipeline exactly-once.</p>
+
+            <h2>Transactions and the real boundary of exactly-once</h2>
+            <p>Kafka transactions let a producer write to multiple partitions <em>and</em> commit consumer offsets as one atomic unit. That is what makes a consume-transform-produce loop exactly-once: reading an input record, writing an output record, and marking the input consumed either all happen or none do.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>props.put("transactional.id", "order-processor-1");   // required — initTransactions()
+                                                        // throws IllegalStateException without it
+producer.initTransactions();
+
+while (true) {
+    ConsumerRecords&lt;String, String&gt; records = consumer.poll(Duration.ofMillis(100));
+    producer.beginTransaction();
+    try {
+        for (ConsumerRecord&lt;String, String&gt; record : records) {
+            producer.send(new ProducerRecord&lt;&gt;("output-topic", transform(record)));
+        }
+        // committing offsets INSIDE the transaction is what makes this atomic
+        producer.sendOffsetsToTransaction(offsetsOf(records), consumer.groupMetadata());
+        producer.commitTransaction();
+    } catch (Exception e) {
+        producer.abortTransaction();
+    }
+}</code></pre>
+            </div>
+            <p><code>transactional.id</code> must be set for any of this to work at all &mdash; it's what lets the broker recognize the same producer instance across restarts and fence off a zombie if two instances with the same ID ever run at once. Give each producer instance a stable, unique ID (not a random one generated per run), or <code>initTransactions()</code> fails immediately.</p>
+            <p>Consumers must also set <code>isolation.level=read_committed</code>, otherwise they will read records from transactions that were later aborted. The default is <code>read_uncommitted</code>, so this is an easy step to miss.</p>
+            <p>And here is the boundary that catches teams out:</p>
+            <blockquote><p><strong>Kafka transactions are atomic across Kafka only.</strong> Topics and consumer offsets are inside the transaction. Your database, your HTTP calls, and your emails are not.</p></blockquote>
+            <p>If your consumer reads a record, inserts a row into Postgres, and commits the offset, no Kafka transaction can undo that insert when the commit fails. The row is already there. Kafka cannot roll back a system it doesn't control.</p>
+            <p>This is why "we'll just turn on exactly-once" rarely solves the problem people actually have. Exactly-once covers Kafka-to-Kafka stream processing &mdash; the domain Kafka Streams operates in, where enabling it is genuinely a config change. The moment your side effect leaves Kafka, the guarantee stops at the boundary and the responsibility becomes yours.</p>
+
+            <h2>The consumer half: when you commit</h2>
+            <p>Producer settings determine whether a record reaches the log. Consumer <em>commit timing</em> determines what happens when your application crashes mid-processing. There is no single setting for this &mdash; it is about ordering.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// AT-MOST-ONCE — commit first. A crash before processing loses the record.
+records = consumer.poll(timeout);
+consumer.commitSync();
+process(records);                 // crash here => records never processed
+
+// AT-LEAST-ONCE — process first. A crash before commit redelivers them.
+records = consumer.poll(timeout);
+process(records);
+consumer.commitSync();            // crash here => records processed again</code></pre>
+            </div>
+            <p>The default, <code>enable.auto.commit=true</code>, commits periodically (every <code>auto.commit.interval.ms</code>, default 5000) during calls to <code>poll()</code>. That yields at-least-once behaviour in practice, with a wrinkle: because commits happen on a timer rather than when your processing finishes, the redelivery window after a crash can span several seconds of already-processed records.</p>
+            <p>For anything where the redelivery set matters, turn auto-commit off and commit deliberately after processing.</p>
+            <p>Two timeouts govern whether the group thinks you are alive, and confusing them is a common source of mysterious rebalances:</p>
+            <table>
+                <thead><tr><th>Setting</th><th>Default</th><th>What it detects</th></tr></thead>
+                <tbody>
+                    <tr><td><code>session.timeout.ms</code></td><td>45000 (45s)</td><td>No <em>heartbeat</em> received &mdash; the process is dead or partitioned</td></tr>
+                    <tr><td><code>heartbeat.interval.ms</code></td><td>3000 (3s)</td><td>How often the background thread sends heartbeats</td></tr>
+                    <tr><td><code>max.poll.interval.ms</code></td><td>300000 (5m)</td><td>No <em>poll()</em> call &mdash; the process is alive but stuck processing</td></tr>
+                </tbody>
+            </table>
+            <p>Heartbeats come from a background thread independent of your processing code, so a consumer stuck in slow work keeps heartbeating while failing to poll &mdash; which is exactly what <code>max.poll.interval.ms</code> exists to catch. The full mechanism, and how it produces <code>CommitFailedException</code>, is covered in <a href="../errors/kafka-commitfailedexception.html">CommitFailedException: Offset commit cannot be completed</a>.</p>
+            <p>Note the version detail on the first row: <code>session.timeout.ms</code> defaulted to 10 seconds before Kafka 3.0 and was raised to 45 seconds by KIP-735, specifically to stop transient network blips from triggering needless rebalances. Older tutorials showing 10000 predate that change.</p>
+            <p>These values are all milliseconds, and a misplaced digit turns five minutes into thirty seconds. When you're reconciling a timeout against timestamps in a consumer log to work out what actually expired, the <a href="../timestamp.html">Timestamp Converter</a> is handy for turning epoch-millisecond log values into readable times.</p>
+
+            <h2>What to do in practice: idempotent consumers</h2>
+            <p>Given all that, here is the pattern most production systems settle on &mdash; and it deliberately does not use Kafka transactions:</p>
+            <ol>
+                <li>Configure the producer for durability: <code>acks=all</code>, <code>min.insync.replicas=2</code>, replication factor 3, idempotence explicitly on.</li>
+                <li>Accept at-least-once on the consumer: process first, commit after.</li>
+                <li><strong>Make processing idempotent</strong> so a duplicate is harmless.</li>
+            </ol>
+            <p>Step 3 is the one that does the work. If handling the same record twice produces the same result, duplicates stop being a correctness problem and become a minor efficiency one. Usually that means giving each event a stable ID and having your write ignore an ID it has already seen:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- upsert keyed by the event's own ID: replaying the record changes nothing
+INSERT INTO processed_orders (event_id, order_id, amount)
+VALUES ($1, $2, $3)
+ON CONFLICT (event_id) DO NOTHING;</code></pre>
+            </div>
+            <p>This is why so many mature Kafka systems never enable exactly-once. Idempotent writes are simpler to reason about, carry no transactional throughput penalty, and &mdash; unlike Kafka transactions &mdash; keep working when the write target is a database, a search index, or a third-party API. Effectively-once through idempotence covers the cases exactly-once cannot reach.</p>
+            <p>Reach for transactions when you are doing Kafka-to-Kafka stream processing and atomic multi-partition writes genuinely matter. For everything else, make the operation idempotent and sleep better.</p>
+
+            <h2>Summary</h2>
+            <ul>
+                <li><code>acks=all</code> alone is not durability &mdash; pair it with <code>min.insync.replicas=2</code> or the ISR can shrink to one.</li>
+                <li>Idempotence is on by default since Kafka 3.0, but a conflicting setting disables it silently. Set it explicitly.</li>
+                <li>The idempotent producer dedupes retries within one session &mdash; not restarts, not duplicate application logic.</li>
+                <li>Exactly-once is real, and bounded to Kafka topics plus offsets. It does not extend to your database.</li>
+                <li>At-least-once plus idempotent processing is the pragmatic default for most systems.</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>Compare and inspect your Kafka configs</h3>
+                <p>Diff a working config against a broken one, or decode the timestamps in a consumer log &mdash; all client-side, nothing uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-diff.html" class="btn btn-primary">JSON Diff</a>
+                    <a href="../timestamp.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Timestamp Converter</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">JSON Formatter</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does acks=all actually guarantee?</summary>
+                    <p>It means the leader waits until every replica currently in the in-sync replica set has copied the record before acknowledging it. Crucially it means every replica that is <em>currently in sync</em>, not every replica that exists. If replicas have fallen behind and dropped out of the ISR, <code>acks=all</code> is satisfied by whatever remains, which can be the leader alone. That is why <code>acks=all</code> must be paired with <code>min.insync.replicas=2</code> to actually mean anything.</p>
+                </details>
+                <details>
+                    <summary>Why is min.insync.replicas=1 dangerous with acks=all?</summary>
+                    <p>Because it silently reduces <code>acks=all</code> to <code>acks=1</code> whenever replicas fall behind. <code>min.insync.replicas</code> sets the floor for how small the ISR may shrink before writes are rejected. With a floor of 1, the ISR is allowed to shrink to just the leader, and <code>acks=all</code> is then satisfied by a single copy. If that broker then fails, the acknowledged record is gone. The standard safe pairing is replication factor 3 with <code>min.insync.replicas=2</code>.</p>
+                </details>
+                <details>
+                    <summary>Is the Kafka idempotent producer enabled by default?</summary>
+                    <p>Yes, since Kafka 3.0 <code>enable.idempotence</code> defaults to <code>true</code>, which also implies <code>acks=all</code> and effectively unlimited retries. But it is only enabled if nothing conflicts with it. If you explicitly set <code>acks=1</code>, <code>retries=0</code>, or <code>max.in.flight.requests.per.connection</code> above 5 without also setting <code>enable.idempotence</code>, idempotence is silently switched off. If you set <code>enable.idempotence=true</code> and a conflicting value together, the client throws a <code>ConfigException</code> at startup instead.</p>
+                </details>
+                <details>
+                    <summary>What does the idempotent producer actually deduplicate?</summary>
+                    <p>Only retries of the same send within one producer session. The producer is assigned a producer ID and attaches a sequence number per partition, so a broker can recognise and discard a record it has already written when a network timeout causes the client to retry. It does not deduplicate across producer restarts, because a restart gets a new producer ID, and it does not deduplicate your application deliberately calling <code>send()</code> twice with the same data.</p>
+                </details>
+                <details>
+                    <summary>Does Kafka exactly-once work when writing to a database?</summary>
+                    <p>No. Kafka transactions are atomic across Kafka topics and consumer offsets only. A consume-transform-produce loop that reads from Kafka and writes back to Kafka can be exactly-once. The moment your consumer writes to Postgres, calls an external API, or sends an email, that side effect is outside the transaction and Kafka cannot roll it back. For those cases you need idempotent writes on your side, such as an upsert keyed by event ID.</p>
+                </details>
+                <details>
+                    <summary>Is a Kafka consumer at-least-once or at-most-once by default?</summary>
+                    <p>At-least-once in practice, but it depends on when you commit rather than on a single setting. The default <code>enable.auto.commit=true</code> commits periodically during <code>poll()</code>, so a crash after processing but before the next commit causes those records to be redelivered. If you commit before processing instead, you get at-most-once and risk losing records on a crash. Processing first and committing after is the standard at-least-once pattern.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-diff.html">JSON Diff</a> &mdash; compare a working broker or producer config against a broken one</li>
+                <li><a href="../timestamp.html">Timestamp Converter</a> &mdash; decode epoch-millisecond values from consumer logs</li>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; pretty-print a record payload</li>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a> &mdash; paste a stack trace and jump to the matching fix</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="how-kafka-works.html">How Kafka Works: Partitions, Offsets and Consumer Groups Explained</a></li>
+                <li><a href="kafka-common-problems.html">Real-World Kafka Problems and How to Fix Them</a></li>
+                <li><a href="kafka-avro-schema.html">Kafka Avro Schema: Backward Compatibility Explained</a></li>
+                <li><a href="json-best-practices.html">JSON Best Practices for APIs</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
