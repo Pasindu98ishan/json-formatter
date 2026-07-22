@@ -75,6 +75,16 @@
           "@type": "Question",
           "name": "Does minifying JSON make it invalid?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. Minified JSON is always valid JSON as long as the input was valid. Whitespace is optional in the JSON specification — removing it does not affect parsers." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is minifying better than gzip for reducing size?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No — they do different jobs, and gzip does far more. Minifying only removes optional whitespace, usually saving 10 to 30 percent. Server-level gzip or brotli compression, which most web servers and CDNs enable, typically shrinks JSON by 70 to 90 percent because it also compresses repeated keys and values. The best result is to minify and enable gzip; once gzip is on, minification alone adds only a small extra saving over the wire." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can minifying change my numbers?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Slightly, in representation only, never in value. Because this tool parses then re-serializes, numbers are normalized to their canonical form — 1.0 becomes 1, 100.00 becomes 100, and 1E2 becomes 100. The numeric value is identical, but if you rely on the exact text of a number (for example a version string), store it as a JSON string instead." }
         }
       ]
     }
@@ -113,6 +123,11 @@
             <div id="errorContainer" class="error-container" style="display:none;"></div>
         </section>
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Minifying JSON removes every optional whitespace character — the spaces, tabs, and newlines between tokens — leaving valid JSON on a single line. <strong>The data, keys, order, and structure are untouched; only presentation changes. It runs entirely in your browser via <code>JSON.parse()</code> then <code>JSON.stringify()</code>, so nothing is uploaded.</strong> Paste JSON, click Minify, then copy or download.</p>
+            </div>
+
             <h2>How JSON Minification Works</h2>
             <ul>
                 <li>Your JSON is first parsed with <code>JSON.parse()</code> — if the input is invalid, minification fails and the error is shown so you can fix it first.</li>
@@ -128,6 +143,34 @@
                 <li>When storing JSON in a database column or cache key to reduce storage overhead.</li>
                 <li>When embedding JSON in JavaScript source files or HTML pages and bundle size matters.</li>
                 <li>When serving static JSON files over a CDN — minifying first, then enabling gzip compression at the server level gives the best results.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>The same object formatted and then minified — notice that only whitespace disappears:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input (formatted)</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{
+  "name": "Alice",
+  "roles": ["admin", "editor"],
+  "active": true
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Output (minified)</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{"name":"Alice","roles":["admin","editor"],"active":true}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li>Every newline and every space between tokens (after each <code>:</code> and <code>,</code>, and around brackets) was removed, collapsing the object onto one line.</li>
+                <li>The keys, the string <code>"Alice"</code>, the array items, and the boolean <code>true</code> are all unchanged — the space inside a value like <code>"New York"</code> would be kept, because it is not whitespace <em>between</em> tokens.</li>
+                <li>Here the formatted form is 71 bytes and the minified form is 57 bytes; the savings grow with deeper nesting and larger indentation.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Minifying is not compression.</strong> It only strips optional whitespace (typically 10–30% smaller). Server-side gzip or brotli shrinks JSON 70–90% by compressing repeated keys and values too — so minify <em>and</em> enable gzip; the latter does most of the work over the wire.</li>
+                <li><strong>Whitespace inside strings is preserved.</strong> Only whitespace between tokens is removed, so <code>"first name"</code> keeps its space. Nothing inside a quoted value is touched.</li>
+                <li><strong>Numbers are normalized.</strong> Parsing and re-serializing rewrites numbers to canonical form: <code>1.0</code> → <code>1</code>, <code>100.00</code> → <code>100</code>, <code>1E2</code> → <code>100</code>. The value is identical; only the text changes. Keep version-like values as strings if exact text matters.</li>
+                <li><strong>Key order is preserved</strong> for normal string keys, so a minified file diffs cleanly against a formatted one after re-formatting.</li>
+                <li><strong>Invalid input won't minify.</strong> Because it parses first, a trailing comma or unquoted key fails with an error rather than producing broken output — fix the JSON, then minify.</li>
             </ul>
         </section>
         <section class="faq-section">
@@ -151,6 +194,14 @@
             <details>
                 <summary>Does minifying JSON make it invalid?</summary>
                 <p>No. Minified JSON is always valid JSON as long as the input was valid. Whitespace between tokens is optional according to the JSON specification — removing it does not affect any parser.</p>
+            </details>
+            <details>
+                <summary>Is minifying better than gzip for reducing size?</summary>
+                <p>No — they do different jobs, and gzip does far more. Minifying only removes optional whitespace, usually saving 10–30%. Server-level gzip or brotli compression, which most web servers and CDNs enable, typically shrinks JSON by 70–90% because it also compresses repeated keys and values. The best result is to minify <em>and</em> enable gzip; once gzip is on, minification alone adds only a small extra saving over the wire.</p>
+            </details>
+            <details>
+                <summary>Can minifying change my numbers?</summary>
+                <p>Slightly, in representation only, never in value. Because this tool parses then re-serializes, numbers are normalized to their canonical form — <code>1.0</code> becomes <code>1</code>, <code>100.00</code> becomes <code>100</code>, and <code>1E2</code> becomes <code>100</code>. The numeric value is identical, but if you rely on the exact text of a number (for example a version string), store it as a JSON string instead.</p>
             </details>
         </section>
         <section class="related-tools">

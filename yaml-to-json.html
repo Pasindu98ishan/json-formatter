@@ -75,6 +75,16 @@
           "@type": "Question",
           "name": "Does multi-document YAML work?",
           "acceptedAnswer": { "@type": "Answer", "text": "This tool converts a single YAML document. Multi-document YAML files (separated by ---) should be split and each document converted separately." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does this tool turn yes/no/on/off into booleans?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. This converter uses the js-yaml 4 parser, which follows the YAML 1.2 core schema — only true and false are booleans, so yes, no, on, and off stay strings. Be aware that many other tools still use YAML 1.1, where those words do become booleans (the famous 'Norway problem', where the country code NO becomes false). If your downstream system uses a YAML 1.1 parser, quote those values to keep them as strings." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens to YAML comments?",
+          "acceptedAnswer": { "@type": "Answer", "text": "They are dropped. YAML comments start with # and carry no data, and JSON has no comment syntax, so there is nowhere for them to go. Only the actual keys, values, and structure survive the conversion." }
         }
       ]
     }
@@ -121,6 +131,11 @@ address:
         </section>
 
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A YAML-to-JSON converter parses YAML's indentation-based structure into a data tree and serializes it as JSON: mappings become objects, sequences become arrays, and scalars keep their types. <strong>This tool uses the js-yaml 4 parser (YAML 1.2 core schema) and outputs 2-space-indented JSON entirely in your browser — nothing is uploaded.</strong> Paste YAML, click Convert to JSON, then copy or download.</p>
+            </div>
+
             <h2>How This Tool Converts YAML to JSON</h2>
             <ul>
                 <li>YAML key-value pairs become JSON object properties — each <code>key: value</code> line maps directly to <code>"key": value</code> in the JSON output.</li>
@@ -138,6 +153,46 @@ address:
                 <li>When you want to inspect or query Kubernetes or Helm values with a JSON-aware tool like <a href="jsonpath.html">JSONPath Tester</a> or <code>jq</code>.</li>
                 <li>When a CI/CD pipeline outputs YAML and you need to extract specific values programmatically using a JSON parser.</li>
                 <li>When migrating infrastructure-as-code from YAML-based tooling to a JSON-accepting pipeline or configuration system.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>A small config that shows how each YAML type maps to JSON — and one value that's easy to get wrong:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input YAML</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>name: John Smith
+port: 8080
+enabled: true
+country: NO
+roles:
+  - admin
+  - editor</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Output JSON</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{
+  "name": "John Smith",
+  "port": 8080,
+  "enabled": true,
+  "country": "NO",
+  "roles": [
+    "admin",
+    "editor"
+  ]
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li>An unquoted string with spaces (<code>John Smith</code>) became a JSON string — YAML doesn't require quotes around most strings.</li>
+                <li><code>port: 8080</code> became the number <code>8080</code> and <code>enabled: true</code> became the boolean <code>true</code> — YAML scalar types map straight to JSON types.</li>
+                <li>The <code>roles</code> sequence became a JSON array, indentation replaced by brackets.</li>
+                <li><strong><code>country: NO</code> stayed the string <code>"NO"</code></strong> — because this tool's YAML 1.2 parser does not treat <code>NO</code> as a boolean. A YAML 1.1 parser would have turned it into <code>false</code> (see gotchas).</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Parser version changes the result.</strong> This tool uses js-yaml 4 (YAML 1.2 core schema), so <code>yes</code>, <code>no</code>, <code>on</code>, <code>off</code> stay strings. Under YAML 1.1 — still used by many tools — those become booleans (the "Norway problem", where <code>NO</code> becomes <code>false</code>). Don't assume your downstream system parses the same way; quote values you need to stay strings.</li>
+                <li><strong>Anchors and aliases are expanded.</strong> A value defined with <code>&amp;anchor</code> and reused via <code>*alias</code> is resolved to its full value in the JSON, so a value referenced three times appears as three copies — the reference itself is not preserved.</li>
+                <li><strong>Comments are dropped.</strong> YAML <code>#</code> comments carry no data and JSON has no comment syntax, so they disappear in the output.</li>
+                <li><strong>Only one document at a time.</strong> Multi-document YAML separated by <code>---</code> isn't supported here — split it and convert each document separately.</li>
+                <li><strong>Very large integers can lose precision.</strong> A number beyond JavaScript's safe integer range (about 9 quadrillion) may be rounded, because the value passes through a JS number on the way to JSON.</li>
             </ul>
         </section>
 
@@ -162,6 +217,14 @@ address:
             <details>
                 <summary>Does this tool handle multi-document YAML?</summary>
                 <p>This tool converts a single YAML document at a time. Multi-document YAML files that use <code>---</code> as a separator should be split into individual documents before converting each one separately.</p>
+            </details>
+            <details>
+                <summary>Does this tool turn yes/no/on/off into booleans?</summary>
+                <p>No. This converter uses the js-yaml 4 parser, which follows the YAML 1.2 core schema — only <code>true</code> and <code>false</code> are booleans, so <code>yes</code>, <code>no</code>, <code>on</code>, and <code>off</code> stay strings. Be aware that many other tools still use YAML 1.1, where those words <em>do</em> become booleans (the famous "Norway problem", where the country code <code>NO</code> becomes <code>false</code>). If your downstream system uses a YAML 1.1 parser, quote those values to keep them as strings.</p>
+            </details>
+            <details>
+                <summary>What happens to YAML comments?</summary>
+                <p>They are dropped. YAML comments start with <code>#</code> and carry no data, and JSON has no comment syntax, so there is nowhere for them to go. Only the actual keys, values, and structure survive the conversion.</p>
             </details>
         </section>
 

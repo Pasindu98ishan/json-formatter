@@ -63,8 +63,18 @@
         },
         {
           "@type": "Question",
+          "name": "What's the difference between rem and em?",
+          "acceptedAnswer": { "@type": "Answer", "text": "em is relative to the parent element's font size, while rem is relative to the root (html) element's font size. rem is more predictable because it has a single source of truth; em compounds when elements are nested, so a nested 1.2em can end up much larger than expected." }
+        },
+        {
+          "@type": "Question",
           "name": "Is my CSS sent to a server?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. All conversion happens in your browser. Your CSS never leaves your device." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does this work with Sass or SCSS?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Paste a Sass or SCSS block into the bulk converter — it operates on raw text and only touches numeric values immediately followed by px or rem. Variables, mixins, selectors, and comments are left untouched. Note that it converts every matching value, so a 1px border becomes 0.0625rem too; review the output if you want to keep some values in px." }
         }
       ]
     }
@@ -340,9 +350,14 @@
         </section>
 
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">To convert px to rem, divide the pixel value by the root font size — <code>rem = px ÷ 16</code> at the browser default. rem is preferred over px for font sizes and spacing because it scales with the user's browser font setting, which matters for accessibility. <strong>This tool does single values and whole CSS blocks in your browser, with a configurable root size — nothing is uploaded.</strong></p>
+            </div>
+
             <h2>How the Conversion Works</h2>
             <p>The formula for both directions:</p>
-            <pre><code>rem = px ÷ root_font_size
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>rem = px ÷ root_font_size
 px  = rem × root_font_size</code></pre>
             <p>The browser default root font size is 16px, so <strong>1rem = 16px</strong>. If your CSS sets <code>html { font-size: 62.5%; }</code>, the root becomes 10px and 1rem = 10px — change the root font size input above to match your project.</p>
 
@@ -356,6 +371,40 @@ px  = rem × root_font_size</code></pre>
 
             <h3>The 62.5% pattern</h3>
             <p>Setting <code>html { font-size: 62.5%; }</code> makes 1rem = 10px, so <code>1.6rem</code> = 16px and <code>2.4rem</code> = 24px — simpler mental math. If you use this pattern, set the body to <code>font-size: 1.6rem</code> so default text is still ~16px. Enter <code>10</code> in the root font size field above to use this pattern.</p>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>Paste a CSS rule into the bulk converter (root font size 16) and every <code>px</code> value is divided by 16:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input CSS</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>.card {
+  padding: 24px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Output CSS (px &rarr; rem)</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>.card {
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  border: 0.0625rem solid #ccc;
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li>Each value was divided by 16: <code>24 ÷ 16 = 1.5</code>, <code>16 ÷ 16 = 1</code>, <code>14 ÷ 16 = 0.875</code>.</li>
+                <li>The selector, the colour <code>#ccc</code>, and all non-<code>px</code> text were left untouched — only numbers followed by <code>px</code> changed.</li>
+                <li><strong>Note the <code>1px</code> border became <code>0.0625rem</code>.</strong> That's mathematically correct but usually not what you want — hairline borders are normally best left in <code>px</code> (see gotchas).</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Bulk conversion is blind to intent.</strong> It converts <em>every</em> <code>px</code>, including 1px borders, hairlines, and shadow offsets you probably want to keep pixel-perfect. Review the output and revert those.</li>
+                <li><strong>Set the root size to match your project.</strong> Conversion uses the root font size field. If your CSS sets <code>html { font-size: 62.5% }</code> (10px), leave the field at 16 and every value is wrong by 1.6&times; — set it to 10 first.</li>
+                <li><strong>rem is the root; em is the parent.</strong> <code>em</code> compounds through nesting, so a <code>1.2em</code> inside another <code>1.2em</code> is 1.44&times; the root. <code>rem</code> always refers to the single root size.</li>
+                <li><strong>Fractional rem is normal but noisy.</strong> <code>15px ÷ 16 = 0.9375rem</code>. Browsers handle the decimals fine; teams that dislike them adopt the 62.5% pattern for round numbers.</li>
+                <li><strong>Prefer <code>em</code> for media queries.</strong> For zoom-aware breakpoints, <code>em</code> is the most consistent unit across browsers; <code>px</code> breakpoints are common and fine, but ignore the user's font-size zoom.</li>
+            </ul>
         </section>
 
         <section class="faq-section">
@@ -377,8 +426,8 @@ px  = rem × root_font_size</code></pre>
                 <p>No. All conversion happens in your browser. Your CSS never leaves your device.</p>
             </details>
             <details>
-                <summary>Does this work with Sass / SCSS?</summary>
-                <p>Yes. Paste a Sass block into the bulk converter — it operates on raw text and only touches numeric values followed by <code>px</code> or <code>rem</code>. Variables, mixins, and selectors are preserved.</p>
+                <summary>Does this work with Sass or SCSS?</summary>
+                <p>Yes. Paste a Sass or SCSS block into the bulk converter — it operates on raw text and only touches numeric values immediately followed by <code>px</code> or <code>rem</code>. Variables, mixins, selectors, and comments are left untouched. Note that it converts every matching value, so a <code>1px</code> border becomes <code>0.0625rem</code> too; review the output if you want to keep some values in px.</p>
             </details>
         </section>
 

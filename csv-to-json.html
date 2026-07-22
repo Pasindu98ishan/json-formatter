@@ -81,6 +81,16 @@
           "@type": "Question",
           "name": "Are numbers and booleans detected automatically?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. All CSV values are treated as strings in the JSON output. CSV has no type system — a cell containing '42' becomes the string '42', not the number 42. Apply type casting in your target application after importing the JSON." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it support line breaks inside a quoted CSV field?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. This converter parses one physical line at a time, so a value that contains a real newline inside quotes — which the CSV spec technically allows — is split across two rows and produces broken output. Commas and escaped double quotes inside a quoted field are handled correctly; embedded newlines are not. If your data has multi-line cells, replace the newlines before converting." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens if two columns have the same header name?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON object keys must be unique, so if two CSV columns share a header, the second column overwrites the first in every object — the earlier value is lost. Rename duplicate headers before converting so each column maps to its own key." }
         }
       ]
     }
@@ -178,12 +188,57 @@
         </section>
 
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A CSV-to-JSON converter reads the first row as column headers and turns every following row into a JSON object keyed by those headers, collecting them into an array. <strong>This tool handles quoted fields with commas and escaped quotes, preserves empty cells as empty strings, and keeps every value as a string — all in your browser, nothing uploaded.</strong> Paste CSV, click Convert to JSON, then copy or download.</p>
+            </div>
+
             <h2>How This Tool Converts CSV to JSON</h2>
             <ul>
                 <li>The first row of your CSV is treated as the header row. Its column names become the keys for every JSON object in the output array.</li>
                 <li>Each subsequent data row becomes one JSON object. Column order is preserved and each value is mapped to the header key of its column.</li>
-                <li>Fields wrapped in double quotes are parsed correctly, including values that contain commas, line breaks, or escaped double quotes (<code>""</code>) inside them.</li>
+                <li>Fields wrapped in double quotes are parsed correctly, including values that contain commas or escaped double quotes (<code>""</code> &rarr; a literal <code>"</code>). Note that newlines <em>inside</em> a quoted field are not supported — each physical line is parsed on its own.</li>
                 <li>Empty cells are preserved as empty strings (<code>""</code>) in the JSON output. All CSV values are output as strings — type casting (numbers, booleans) must be applied in your target application.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>This CSV has a value with an embedded comma and escaped quotes, plus an empty trailing cell — the cases that most often trip up naive parsers:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input CSV</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>name,age,city,note
+Alice,30,New York,"Likes ""tea"", coffee"
+Bob,25,London,</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Output JSON</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>[
+  {
+    "name": "Alice",
+    "age": "30",
+    "city": "New York",
+    "note": "Likes \"tea\", coffee"
+  },
+  {
+    "name": "Bob",
+    "age": "25",
+    "city": "London",
+    "note": ""
+  }
+]</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li>The header row became the object keys; each data row became one object.</li>
+                <li><code>age</code> is <code>"30"</code> — a <strong>string</strong>, not the number <code>30</code>. CSV carries no types, so every value comes out as a string. This is the single most common surprise.</li>
+                <li>Alice's quoted <code>note</code> kept its internal comma, and each doubled quote <code>""</code> became a single <code>"</code> (shown escaped as <code>\"</code> in JSON).</li>
+                <li>Bob's trailing empty cell became <code>""</code> rather than being dropped.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Every value is a string.</strong> If your target needs real numbers or booleans, cast them after import (e.g. <code>Number(row.age)</code>, <code>row.active === "true"</code>). Nothing on the CSV side can infer types reliably.</li>
+                <li><strong>A header row is required.</strong> Without it, your first data row is consumed as keys and every real row shifts up by one. Add a header before converting.</li>
+                <li><strong>Newlines inside quoted fields break parsing.</strong> The parser works line by line, so a multi-line cell is split into two rows. Strip or replace embedded newlines first.</li>
+                <li><strong>Duplicate headers collide.</strong> Two columns named the same key produce one property — the rightmost wins and the other value is lost, because JSON keys are unique.</li>
+                <li><strong>Ragged rows are tolerated.</strong> Missing trailing values become <code>""</code>; any extra cells beyond the header count are ignored.</li>
             </ul>
         </section>
 
@@ -222,6 +277,14 @@
             <details>
                 <summary>Are numbers and booleans detected automatically?</summary>
                 <p>No. All CSV values are output as strings — a cell containing <code>42</code> becomes <code>"42"</code>, not the number <code>42</code>. CSV has no type system, so type casting must be applied in your target application after importing the JSON.</p>
+            </details>
+            <details>
+                <summary>Does it support line breaks inside a quoted CSV field?</summary>
+                <p>No. This converter parses one physical line at a time, so a value that contains a real newline inside quotes — which the CSV spec technically allows — is split across two rows and produces broken output. Commas and escaped double quotes inside a quoted field are handled correctly; embedded newlines are not. If your data has multi-line cells, replace the newlines before converting.</p>
+            </details>
+            <details>
+                <summary>What happens if two columns have the same header name?</summary>
+                <p>JSON object keys must be unique, so if two CSV columns share a header, the second column overwrites the first in every object — the earlier value is lost. Rename duplicate headers before converting so each column maps to its own key.</p>
             </details>
         </section>
 

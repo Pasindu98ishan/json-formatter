@@ -75,6 +75,16 @@
           "@type": "Question",
           "name": "What happens to null or missing values in JSON?",
           "acceptedAnswer": { "@type": "Answer", "text": "JSON null values become empty cells in the CSV. If an object is missing a key that other objects in the array have, that cell is also left empty." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does Excel show my accented characters or emoji as garbled text?",
+          "acceptedAnswer": { "@type": "Answer", "text": "That is an encoding issue on Excel's side, not a problem with the CSV. The file is written as UTF-8, but Excel on Windows assumes the legacy ANSI codepage when you double-click a .csv file, so multi-byte characters like accents and emoji appear as mojibake. The reliable fix is to import the file instead of double-clicking it: in Excel use Data → From Text/CSV and pick UTF-8 as the file origin, and the characters render correctly." }
+        },
+        {
+          "@type": "Question",
+          "name": "How are arrays of objects handled?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A plain array of primitives such as [\"admin\",\"editor\"] is joined into one cell with a pipe separator (admin | editor). An array that contains objects is different — each object is serialized back to a JSON string and those strings are joined with the pipe separator, so the cell holds raw JSON. If you need those nested objects as their own columns instead, flatten or extract them in your JSON before converting." }
         }
       ]
     }
@@ -134,12 +144,18 @@
 
         </section>
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A JSON-to-CSV converter turns a JSON array of objects into spreadsheet rows: each object becomes a row, and the union of every object's keys becomes the column headers. <strong>This tool flattens nested objects into dotted columns, joins arrays into a single cell, and quotes any value containing a comma — entirely in your browser, so your data is never uploaded.</strong> Paste JSON, click Convert to CSV, then copy or download the result.</p>
+            </div>
+
             <h2>How This Tool Converts JSON to CSV</h2>
             <ul>
                 <li>Accepts a JSON array of objects or a single object; each array element becomes one CSV row.</li>
                 <li>Column headers are collected from all unique keys across every object — if objects have different keys, missing cells are left empty.</li>
                 <li>Nested objects are flattened automatically using dot notation: <code>address.city</code> and <code>address.country</code> each become their own column.</li>
                 <li>Array values inside objects (e.g. <code>"roles": ["admin","editor"]</code>) are joined with <code> | </code> into a single cell value.</li>
+                <li>Any value containing a comma, double quote, or newline is wrapped in double quotes (and internal quotes are doubled), following the RFC 4180 CSV rules that Excel and Google Sheets expect.</li>
             </ul>
         </section>
         <section class="info-section">
@@ -149,6 +165,46 @@
                 <li>When preparing data for bulk import into a database, CRM, or data warehouse that expects CSV format.</li>
                 <li>When building a report and your data source is a JSON API response array.</li>
                 <li>When handing structured data to a non-technical stakeholder who prefers a spreadsheet view.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>Here is a realistic array that exposes the three things people most often get wrong — nested objects, arrays inside a record, and objects that don't all share the same keys:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input JSON</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>[
+  {
+    "id": 1,
+    "name": "Alice",
+    "address": { "city": "Boston", "zip": "02101" },
+    "roles": ["admin", "editor"]
+  },
+  {
+    "id": 2,
+    "name": "Bob, Jr.",
+    "address": { "city": "Denver" }
+  }
+]</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Output CSV</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>id,name,address.city,address.zip,roles
+1,Alice,Boston,02101,admin | editor
+2,"Bob, Jr.",Denver,,</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened, line by line</p>
+            <ul>
+                <li>The nested <code>address</code> object was flattened into two columns, <code>address.city</code> and <code>address.zip</code>.</li>
+                <li>The <code>roles</code> array was collapsed into one cell as <code>admin | editor</code> — a pipe-joined string, not two columns.</li>
+                <li>The headers are the <em>union</em> of both objects' keys. The second record has no <code>address.zip</code> and no <code>roles</code>, so those two trailing cells are left empty (note the two commas at the end of the last row).</li>
+                <li><code>"Bob, Jr."</code> contains a comma, so it was wrapped in double quotes to keep it in a single column.</li>
+                <li><code>02101</code> is preserved exactly as written in the CSV — but see the leading-zero gotcha below, because Excel may still mangle it on open.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Excel drops leading zeros.</strong> A ZIP code or ID like <code>02101</code> is correct in the CSV file, but Excel auto-detects it as a number and shows <code>2101</code>. To keep it, import via Data → From Text/CSV and set that column's type to Text rather than double-clicking the file.</li>
+                <li><strong>Excel and UTF-8.</strong> The download is UTF-8, but Excel on Windows assumes the legacy ANSI codepage on a double-click, so accents and emoji show as garbled text. Import with Data → From Text/CSV and choose UTF-8 as the file origin.</li>
+                <li><strong>Arrays of objects become raw JSON.</strong> Primitive arrays join cleanly (<code>admin | editor</code>), but an array of objects is serialized back to JSON strings inside the cell. Flatten or extract those before converting if you need real columns.</li>
+                <li><strong>Deeply inconsistent objects produce sparse rows.</strong> Because headers are the union of every key seen, a set of very different objects yields a wide table with many empty cells — expected, not a bug.</li>
+                <li><strong>Order follows first appearance.</strong> Columns appear in the order keys are first encountered across the array, so the first object effectively sets the leading column order.</li>
             </ul>
         </section>
         <section class="faq-section">
@@ -172,6 +228,14 @@
             <details>
                 <summary>What happens to null or missing values?</summary>
                 <p>JSON <code>null</code> values become empty cells in the CSV. If an object is missing a key that other objects in the array have, that cell is also left empty.</p>
+            </details>
+            <details>
+                <summary>Why does Excel show my accented characters or emoji as garbled text?</summary>
+                <p>That is an encoding issue on Excel's side, not a problem with the CSV. The file is written as UTF-8, but Excel on Windows assumes the legacy ANSI codepage when you double-click a <code>.csv</code> file, so multi-byte characters like accents and emoji appear as mojibake. The reliable fix is to import instead of double-clicking: in Excel use <strong>Data → From Text/CSV</strong> and pick UTF-8 as the file origin, and the characters render correctly.</p>
+            </details>
+            <details>
+                <summary>How are arrays of objects handled?</summary>
+                <p>A plain array of primitives such as <code>["admin","editor"]</code> is joined into one cell with a pipe separator (<code>admin | editor</code>). An array that contains objects is different — each object is serialized back to a JSON string and those strings are joined with the pipe separator, so the cell holds raw JSON. If you need those nested objects as their own columns, flatten or extract them in your JSON before converting.</p>
             </details>
         </section>
         <section class="related-tools">

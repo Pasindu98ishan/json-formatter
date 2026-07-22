@@ -76,6 +76,16 @@
           "@type": "Question",
           "name": "Are XML namespaces supported?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. This tool generates plain XML without namespace declarations. If you need namespace support, add the namespace attributes manually to the output." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the converter produce XML attributes?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. JSON has no concept of attributes, so every JSON key becomes a child element, never an attribute. Where XML could express data as either <user id=\"1\"> or <user><id>1</id></user>, this tool always produces the element form. If your target schema requires attributes, add them to the output by hand." }
+        },
+        {
+          "@type": "Question",
+          "name": "Are data types preserved in the XML output?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. XML element content is always text, so the number 30 and the string \"30\" both become <age>30</age>. The type information from JSON is lost — a consumer of the XML cannot tell a number from a string unless a schema (XSD) says so." }
         }
       ]
     }
@@ -114,6 +124,11 @@
         </section>
 
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A JSON-to-XML converter turns each JSON key into an element tag and each value into that element's text or nested children, wrapping everything in a root element. <strong>This tool uses 2-space indentation, expands arrays into repeated sibling elements, escapes special characters, and produces elements only (JSON has no attributes) — all in your browser, nothing uploaded.</strong> Paste JSON, click Convert to XML, then copy or download.</p>
+            </div>
+
             <h2>How This Tool Converts JSON to XML</h2>
             <ul>
                 <li>Each JSON key becomes an XML element tag; the value becomes the element's text content or nested child elements.</li>
@@ -129,6 +144,45 @@
                 <li>When generating RSS/Atom feeds or sitemap XML from a JSON data source.</li>
                 <li>When a config system (Maven <code>pom.xml</code>, Android manifest) requires XML and you are starting from a JSON template.</li>
                 <li>When exporting data to an XML-based reporting tool or BI platform.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>An object with a primitive, an array, and a nested object — the three cases that show how JSON structure maps onto XML:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input JSON</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{
+  "name": "John",
+  "age": 30,
+  "skills": ["JS", "Python"],
+  "address": { "city": "Boston" }
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Output XML</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;root&gt;
+  &lt;name&gt;John&lt;/name&gt;
+  &lt;age&gt;30&lt;/age&gt;
+  &lt;skills&gt;JS&lt;/skills&gt;
+  &lt;skills&gt;Python&lt;/skills&gt;
+  &lt;address&gt;
+    &lt;city&gt;Boston&lt;/city&gt;
+  &lt;/address&gt;
+&lt;/root&gt;</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li>Each key became an element; the whole document was wrapped in <code>&lt;root&gt;</code> with an XML declaration.</li>
+                <li>The <code>skills</code> array became <strong>two repeated <code>&lt;skills&gt;</code> elements</strong>, not a single wrapper containing a list — this is how JSON arrays map to XML.</li>
+                <li>The nested <code>address</code> object became a nested <code>&lt;address&gt;</code> element containing <code>&lt;city&gt;</code>.</li>
+                <li>Both <code>30</code> and <code>"John"</code> became plain element text — XML doesn't record which was a number.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Everything becomes an element, never an attribute.</strong> XML can express data as <code>&lt;user id="1"&gt;</code> or <code>&lt;user&gt;&lt;id&gt;1&lt;/id&gt;&lt;/user&gt;</code>; JSON has no attribute concept, so this tool always emits the element form. Add attributes by hand if your schema needs them.</li>
+                <li><strong>Arrays expand to repeated siblings.</strong> <code>"skills":["JS","Python"]</code> becomes two <code>&lt;skills&gt;</code> elements. If your target expects a wrapper (<code>&lt;skills&gt;&lt;item&gt;…</code>), nest the array under an extra key first.</li>
+                <li><strong>Types are lost.</strong> XML content is text, so <code>30</code> and <code>"30"</code> are indistinguishable in the output. Only an accompanying schema (XSD) can restore type meaning.</li>
+                <li><strong>Illegal tag characters are sanitized.</strong> XML element names can't contain spaces or start with a digit, so a key like <code>"first name"</code> becomes <code>first_name</code> and <code>"2fa"</code> becomes <code>_2fa</code>.</li>
+                <li><strong>Special characters are escaped.</strong> <code>&amp;</code>, <code>&lt;</code>, <code>&gt;</code>, <code>"</code>, and <code>'</code> in values are converted to XML entities so the output stays well-formed.</li>
             </ul>
         </section>
         <section class="faq-section">
@@ -152,6 +206,14 @@
             <details>
                 <summary>Are XML namespaces supported?</summary>
                 <p>No. This tool generates plain XML without namespace declarations. If your target system requires namespaces, add them manually to the output after converting.</p>
+            </details>
+            <details>
+                <summary>Does the converter produce XML attributes?</summary>
+                <p>No. JSON has no concept of attributes, so every JSON key becomes a child element, never an attribute. Where XML could express data as either <code>&lt;user id="1"&gt;</code> or <code>&lt;user&gt;&lt;id&gt;1&lt;/id&gt;&lt;/user&gt;</code>, this tool always produces the element form. If your target schema requires attributes, add them to the output by hand.</p>
+            </details>
+            <details>
+                <summary>Are data types preserved in the XML output?</summary>
+                <p>No. XML element content is always text, so the number <code>30</code> and the string <code>"30"</code> both become <code>&lt;age&gt;30&lt;/age&gt;</code>. The type information from JSON is lost — a consumer of the XML cannot tell a number from a string unless a schema (XSD) says so.</p>
             </details>
         </section>
 

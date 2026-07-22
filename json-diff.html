@@ -221,6 +221,11 @@
                 <div id="diffOutput"></div>
             </div>
 
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A JSON diff recursively walks two documents and reports every key that was <strong>added</strong>, <strong>removed</strong>, or <strong>changed</strong>, showing the dotted path to each difference. <strong>Both sides are parsed first, so key order and whitespace are ignored — only real structural and value differences show up. It runs entirely in your browser; nothing is uploaded.</strong> Paste JSON into A and B, then click Compare.</p>
+            </div>
+
             <div class="info-section" style="margin-top: 24px;">
                 <h3>How JSON Diff Works</h3>
                 <p>The tool recursively compares every key and value in both JSON objects:</p>
@@ -240,6 +245,49 @@
                 <li>Auditing configuration differences between environments — spot what changed from <code>dev</code> to <code>prod</code> before a deployment.</li>
                 <li>Reviewing JSON data migrations or pipeline transformations to confirm no fields were dropped or altered unexpectedly.</li>
                 <li>Confirming a refactor did not accidentally change a response contract before merging a pull request.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>Comparing two versions of the same record — one field edited, one removed, one added:</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:0 0 1rem;">
+                <div>
+                    <p style="margin:0 0 0.35rem;font-weight:600;">JSON A (original)</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0;"><code>{
+  "name": "Alice",
+  "age": 30,
+  "city": "New York"
+}</code></pre>
+                </div>
+                <div>
+                    <p style="margin:0 0 0.35rem;font-weight:600;">JSON B (modified)</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0;"><code>{
+  "name": "Alice",
+  "age": 31,
+  "country": "USA"
+}</code></pre>
+                </div>
+            </div>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Diff result</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>~ age       30  →  31        (changed)
+- city      "New York"        (removed)
++ country   "USA"             (added)</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li><code>name</code> is identical in both, so it isn't reported.</li>
+                <li><code>age</code> exists in both but the value differs — a <strong>changed</strong> row showing old and new.</li>
+                <li><code>city</code> is in A but not B — <strong>removed</strong>.</li>
+                <li><code>country</code> is in B but not A — <strong>added</strong>.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Array comparison is by index, not by value.</strong> Element 0 in A is compared to element 0 in B, so reordering a list — even with identical contents — reports many changes. There's no order-insensitive array matching.</li>
+                <li><strong>Type changes count as changed.</strong> <code>"30"</code> (string) versus <code>30</code> (number) is a difference, which is useful for catching an API that started returning numbers as strings.</li>
+                <li><strong>Key order and whitespace are ignored.</strong> Both sides are parsed first, so <code>{"a":1,"b":2}</code> and <code>{"b":2,"a":1}</code> show no differences — the diff is structural, not textual.</li>
+                <li><strong>Nested differences use dotted paths.</strong> A change deep in the tree is reported as <code>user.address.city</code> so you can jump straight to it.</li>
+                <li><strong>Duplicate keys resolve before diffing.</strong> Because each side is parsed, a repeated key keeps only its last value, so the diff compares the resolved objects.</li>
             </ul>
         </section>
 

@@ -75,6 +75,16 @@
           "@type": "Question",
           "name": "Can this tool convert SOAP XML?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes. SOAP envelopes convert to nested JSON objects. Namespace prefixes (like soapenv: or ns:) are preserved as part of the key names in the output — for example, soapenv:Envelope becomes a key named 'soapenv:Envelope' in the JSON." }
+        },
+        {
+          "@type": "Question",
+          "name": "Are numbers and booleans preserved as types?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. XML has no type system, so every value comes out as a JSON string. An element like <age>28</age> becomes \"age\": \"28\", not the number 28, and <active>true</active> becomes the string \"true\". Cast the values in your application after converting if you need real numbers or booleans." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does a list with one item convert differently from a list with several?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Repeated sibling elements become a JSON array, but a single element becomes a plain value. So one <role> produces a string while two or more <role> elements produce an array. This is the classic XML-to-JSON ambiguity: the JSON shape depends on how many items happened to be present. If your code expects an array, normalise it after converting (for example, wrap a lone value in an array) so a one-item list doesn't break it." }
         }
       ]
     }
@@ -121,6 +131,11 @@
         </section>
 
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">An XML-to-JSON converter parses the XML tree and maps it to JSON: the root becomes the top key, attributes go under <code>@attributes</code>, repeated tags become arrays, and element text becomes string values. <strong>This tool runs on the browser's native XML parser, outputs 2-space JSON, and keeps namespace prefixes in the keys — entirely in your browser, so nothing is uploaded.</strong> Paste XML, click Convert to JSON, then copy or download.</p>
+            </div>
+
             <h2>How This Tool Converts XML to JSON</h2>
             <ul>
                 <li>The root XML element becomes the top-level key in the JSON output. Child elements become nested JSON object properties, preserving the original structure.</li>
@@ -137,6 +152,53 @@
                 <li>When migrating data from an XML-based system (RSS feeds, sitemap files, legacy exports) into a JSON API or database.</li>
                 <li>When you receive an XML configuration file and want to inspect or query it with JSONPath or <code>jq</code>.</li>
                 <li>When integrating with third-party services that return XML and your application only handles JSON payloads.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>XML with an attribute, leaf elements, and a repeated tag — the cases that determine the JSON shape:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input XML</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;user id="42"&gt;
+  &lt;name&gt;Jane Smith&lt;/name&gt;
+  &lt;age&gt;28&lt;/age&gt;
+  &lt;roles&gt;
+    &lt;role&gt;admin&lt;/role&gt;
+    &lt;role&gt;editor&lt;/role&gt;
+  &lt;/roles&gt;
+&lt;/user&gt;</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Output JSON</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{
+  "user": {
+    "@attributes": {
+      "id": "42"
+    },
+    "name": "Jane Smith",
+    "age": "28",
+    "roles": {
+      "role": [
+        "admin",
+        "editor"
+      ]
+    }
+  }
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li>The root <code>&lt;user&gt;</code> became the top-level key, and its <code>id</code> attribute landed in a separate <code>@attributes</code> object.</li>
+                <li>The two <code>&lt;role&gt;</code> elements collapsed into a JSON array under <code>role</code> — had there been only one, it would have been a plain string instead (see gotchas).</li>
+                <li><strong><code>age</code> is <code>"28"</code> — a string, not the number 28.</strong> XML values carry no type, so everything comes out as a string.</li>
+                <li>The <code>&lt;roles&gt;</code> wrapper is preserved as an intermediate object, so the array sits at <code>roles.role</code>, not directly under <code>user</code>.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Every value is a string.</strong> <code>&lt;age&gt;28&lt;/age&gt;</code> becomes <code>"28"</code> and <code>&lt;active&gt;true&lt;/active&gt;</code> becomes <code>"true"</code>. Cast to real numbers or booleans in your code after converting.</li>
+                <li><strong>Single vs repeated changes the shape.</strong> One <code>&lt;role&gt;</code> produces a string; two or more produce an array. Consumers that always expect an array break on a one-item list — normalise it after converting.</li>
+                <li><strong>Attributes live under <code>@attributes</code>.</strong> The output shape isn't the same as a JSON document authored by hand, because XML's attribute/element split has no JSON equivalent and is preserved with a special key.</li>
+                <li><strong>Namespace prefixes stay in the keys.</strong> <code>&lt;soapenv:Envelope&gt;</code> becomes a key literally named <code>soapenv:Envelope</code> — convenient for SOAP, but remember the colon is part of the key.</li>
+                <li><strong>Mixed content uses <code>#text</code>.</strong> An element with both text and child elements keeps its text under a <code>#text</code> key alongside the children; whitespace-only text is dropped.</li>
             </ul>
         </section>
 
@@ -161,6 +223,14 @@
             <details>
                 <summary>Can this tool convert SOAP XML?</summary>
                 <p>Yes. SOAP envelopes convert to nested JSON objects. Namespace prefixes such as <code>soapenv:</code> or <code>ns:</code> are preserved as part of the key names in the output — <code>&lt;soapenv:Envelope&gt;</code> becomes a key named <code>soapenv:Envelope</code> in the JSON.</p>
+            </details>
+            <details>
+                <summary>Are numbers and booleans preserved as types?</summary>
+                <p>No. XML has no type system, so every value comes out as a JSON string. An element like <code>&lt;age&gt;28&lt;/age&gt;</code> becomes <code>"age": "28"</code>, not the number <code>28</code>, and <code>&lt;active&gt;true&lt;/active&gt;</code> becomes the string <code>"true"</code>. Cast the values in your application after converting if you need real numbers or booleans.</p>
+            </details>
+            <details>
+                <summary>Why does a list with one item convert differently from a list with several?</summary>
+                <p>Repeated sibling elements become a JSON array, but a single element becomes a plain value. So one <code>&lt;role&gt;</code> produces a string while two or more <code>&lt;role&gt;</code> elements produce an array. This is the classic XML-to-JSON ambiguity: the JSON shape depends on how many items happened to be present. If your code expects an array, normalise it after converting (for example, wrap a lone value in an array) so a one-item list doesn't break it.</p>
             </details>
         </section>
 

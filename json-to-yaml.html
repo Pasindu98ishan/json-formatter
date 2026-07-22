@@ -69,7 +69,17 @@
         {
           "@type": "Question",
           "name": "Are strings automatically quoted in the YAML output?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Only when necessary. Strings that contain special YAML characters such as colons, hash signs, or brackets are automatically wrapped in double quotes. Plain strings are output without quotes." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Every string value is emitted with double quotes, while numbers, booleans, and null are left unquoted. Quoting all strings is deliberately safe: it prevents YAML from re-interpreting string values as other types. Keys are not quoted." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does quoting strings matter in YAML (the Norway problem)?",
+          "acceptedAnswer": { "@type": "Answer", "text": "YAML 1.1 coerces several unquoted words into booleans — no, off, and n become false, while yes, on, and y become true. The classic example is a list of country codes where NO (Norway) silently turns into the boolean false. Unquoted version numbers like 1.10 also become the float 1.1, and values like 08 can error as an invalid octal. Because this converter quotes every string, values like \"no\", \"1.10\", and \"08\" stay strings and avoid all of these traps." }
+        },
+        {
+          "@type": "Question",
+          "name": "Isn't JSON already valid YAML?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes — YAML is a superset of JSON, so any valid JSON document is technically also valid YAML and most YAML parsers will accept it as-is. The reason to convert is readability and idiom: tools like Kubernetes, Docker Compose, and Ansible expect the indentation-based block style, not JSON's braces, and reviewers expect to see it that way in config files." }
         },
         {
           "@type": "Question",
@@ -115,11 +125,16 @@
 
         </section>
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A JSON-to-YAML converter rewrites JSON's brace-and-bracket structure as YAML's indentation-based block style: objects become mappings, arrays become <code>-</code> sequences, and scalars carry over. <strong>This tool uses 2-space indentation, quotes every string (which safely avoids YAML's type-coercion traps), and leaves numbers, booleans, and null unquoted — all in your browser, nothing uploaded.</strong> Paste JSON, click Convert to YAML, then copy or download.</p>
+            </div>
+
             <h2>How This Tool Converts JSON to YAML</h2>
             <ul>
                 <li>JSON objects become YAML mappings — each key-value pair is written as <code>key: value</code> on its own line.</li>
                 <li>JSON arrays become YAML sequences — each item is placed on its own line prefixed with <code>- </code>.</li>
-                <li>Strings containing special YAML characters (<code>:</code> <code>#</code> <code>[</code> <code>{</code>) are automatically double-quoted to keep the output valid.</li>
+                <li><strong>Every string value is double-quoted</strong> in the output; keys are left unquoted. Quoting all strings is intentional — it stops YAML from re-reading a string like <code>no</code> or <code>1.10</code> as a boolean or a number (see the Norway problem below).</li>
                 <li>Nested objects and arrays use 2-space indentation per level — the standard convention for YAML used in Docker Compose, Kubernetes, and GitHub Actions.</li>
                 <li>Numbers, booleans (<code>true</code>/<code>false</code>), and <code>null</code> carry over without quotes.</li>
             </ul>
@@ -130,6 +145,44 @@
                 <li>When a Docker Compose file, Kubernetes manifest, or Helm chart values file requires YAML and you're starting from a JSON prototype or API response.</li>
                 <li>When a CI/CD pipeline definition (GitHub Actions, GitLab CI, CircleCI) needs YAML input and your data is in JSON.</li>
                 <li>When your application's config library reads YAML and you want to convert an existing JSON config without manually rewriting it.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>A small config object with a nested object, an array, and mixed value types:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input JSON</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{
+  "name": "web",
+  "replicas": 3,
+  "active": true,
+  "skills": ["JS", "Python"],
+  "address": { "city": "Boston" }
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Output YAML</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>name: "web"
+replicas: 3
+active: true
+skills:
+  - "JS"
+  - "Python"
+address:
+  city: "Boston"</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li>Each top-level key became a mapping line; the object braces disappeared in favour of indentation.</li>
+                <li>The <code>skills</code> array became a two-item sequence, each on its own <code>-</code> line, indented two spaces under its key.</li>
+                <li>The nested <code>address</code> object was indented one level (two spaces) beneath its key.</li>
+                <li><code>"web"</code>, <code>"JS"</code>, <code>"Boston"</code> are quoted because they are strings; <code>replicas: 3</code> and <code>active: true</code> are left unquoted because they are a number and a boolean.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>The Norway problem.</strong> Unquoted, YAML 1.1 reads <code>no</code>, <code>off</code>, and <code>n</code> as <code>false</code>, and <code>yes</code>, <code>on</code>, <code>y</code> as <code>true</code> — so a country-code list containing <code>NO</code> silently becomes <code>false</code>. This tool quotes every string (<code>"no"</code>), which sidesteps it entirely.</li>
+                <li><strong>Version numbers and leading zeros.</strong> Unquoted <code>1.10</code> parses as the float <code>1.1</code> (trailing zero lost), and <code>08</code> can throw as an invalid octal. Quoted, they stay the strings <code>"1.10"</code> and <code>"08"</code>.</li>
+                <li><strong>JSON is already valid YAML.</strong> YAML is a superset of JSON, so a parser will accept raw JSON — converting is about readable, idiomatic block style, not validity.</li>
+                <li><strong>Indentation is significant.</strong> Unlike JSON, YAML's structure <em>is</em> its indentation. If you hand-edit the output, keep the 2-space steps consistent — a stray space changes the meaning.</li>
+                <li><strong>Multi-line strings</strong> become YAML block scalars (<code>|</code>), preserving their line breaks.</li>
             </ul>
         </section>
         <section class="faq-section">
@@ -148,7 +201,15 @@
             </details>
             <details>
                 <summary>Are strings automatically quoted in the output?</summary>
-                <p>Only when necessary. Strings containing special YAML characters such as <code>:</code>, <code>#</code>, or <code>[</code> are wrapped in double quotes automatically. Plain strings are output without quotes.</p>
+                <p>Yes. Every string value is emitted with double quotes, while numbers, booleans, and <code>null</code> are left unquoted. Quoting all strings is deliberately safe — it prevents YAML from re-interpreting string values as other types. Keys are not quoted.</p>
+            </details>
+            <details>
+                <summary>Why does quoting strings matter in YAML (the Norway problem)?</summary>
+                <p>YAML 1.1 coerces several unquoted words into booleans — <code>no</code>, <code>off</code>, and <code>n</code> become <code>false</code>, while <code>yes</code>, <code>on</code>, and <code>y</code> become <code>true</code>. The classic example is a list of country codes where <code>NO</code> (Norway) silently turns into the boolean <code>false</code>. Unquoted version numbers like <code>1.10</code> also become the float <code>1.1</code>, and values like <code>08</code> can error as an invalid octal. Because this converter quotes every string, values like <code>"no"</code>, <code>"1.10"</code>, and <code>"08"</code> stay strings and avoid all of these traps.</p>
+            </details>
+            <details>
+                <summary>Isn't JSON already valid YAML?</summary>
+                <p>Yes — YAML is a superset of JSON, so any valid JSON document is technically also valid YAML and most YAML parsers will accept it as-is. The reason to convert is readability and idiom: tools like Kubernetes, Docker Compose, and Ansible expect the indentation-based block style, not JSON's braces, and reviewers expect to see it that way in config files.</p>
             </details>
             <details>
                 <summary>Does the YAML output use 2-space or 4-space indentation?</summary>

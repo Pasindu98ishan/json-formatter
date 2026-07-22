@@ -78,6 +78,11 @@
           "@type": "Question",
           "name": "Can I choose 4-space indentation instead of 2 spaces?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes. Use the indentation selector in the toolbar to switch between 2-space, 4-space, and tab indentation before formatting." }
+        },
+        {
+          "@type": "Question",
+          "name": "What can the Repair button fix?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Repair fixes the common mistakes that stop JSON from parsing: single-quoted strings become double-quoted, unquoted object keys get quotes added, trailing commas are removed, and JavaScript-style comments are stripped. It's for input that is nearly JSON but not quite — once repaired, the result is formatted normally. It cannot invent missing data, so a truncated or structurally broken document may still need a manual fix." }
         }
       ]
     }
@@ -216,6 +221,39 @@
                 <li>After copying a minified JSON payload from browser DevTools and wanting to read it without squinting.</li>
             </ul>
         </section>
+        <section class="info-section">
+            <h2>Worked example: formatting and repairing</h2>
+            <p>This input isn't valid JSON — it uses single quotes, an unquoted key, and a trailing comma, the way a JavaScript object literal might. Clicking <strong>Repair</strong> fixes those, and formatting then lays it out:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input (almost JSON)</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{
+  name: 'Alice',
+  roles: ['admin', 'editor'],
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Output (repaired &amp; formatted)</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{
+  "name": "Alice",
+  "roles": [
+    "admin",
+    "editor"
+  ]
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li>The unquoted key <code>name</code> was given double quotes, and the single-quoted <code>'Alice'</code> became <code>"Alice"</code> — JSON requires double quotes on both keys and strings.</li>
+                <li>The trailing comma after the array was removed; JSON does not allow it.</li>
+                <li>The array was then expanded one item per line by the 2-space formatter. Switch the indentation selector to 4 spaces or tabs to change the layout.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Repair vs Format are different steps.</strong> Formatting requires already-valid JSON and only changes whitespace. Repair fixes near-JSON (single quotes, unquoted keys, trailing commas, comments) first — reach for it when Format reports a syntax error.</li>
+                <li><strong>Duplicate keys collapse.</strong> <code>{"a":1,"a":2}</code> formats to <code>{"a": 2}</code> — parsing keeps only the last value for a repeated key, silently dropping the earlier one.</li>
+                <li><strong>Numbers are normalized.</strong> <code>1.0</code> becomes <code>1</code> and <code>1E2</code> becomes <code>100</code>; the value is identical, only the text changes. Keep exact-text values (like versions) as strings.</li>
+                <li><strong>Large documents stay in your browser.</strong> Formatting is done locally with <code>JSON.parse</code>/<code>JSON.stringify</code>, so even a big production payload with sensitive data is never uploaded.</li>
+                <li><strong>Formatting is not validation against a schema.</strong> It confirms the JSON parses, not that the fields are what your app expects — use the <a href="json-schema-validator.html">JSON Schema Validator</a> for that.</li>
+            </ul>
+        </section>
         <section class="faq-section">
             <h2>Frequently Asked Questions</h2>
             <details>
@@ -237,6 +275,10 @@
             <details>
                 <summary>Can I choose 4-space indentation?</summary>
                 <p>Yes. Use the indentation selector in the toolbar to switch between 2-space, 4-space, and tab indentation before clicking Format.</p>
+            </details>
+            <details>
+                <summary>What can the Repair button fix?</summary>
+                <p>Repair fixes the common mistakes that stop JSON from parsing: single-quoted strings become double-quoted, unquoted object keys get quotes added, trailing commas are removed, and JavaScript-style comments are stripped. It's for input that is nearly JSON but not quite — once repaired, the result is formatted normally. It cannot invent missing data, so a truncated or structurally broken document may still need a manual fix.</p>
             </details>
         </section>
         <section class="related-tools">

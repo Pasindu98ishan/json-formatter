@@ -82,6 +82,16 @@
           "@type": "Question",
           "name": "Can I choose 4-space indentation instead of 2 spaces?",
           "acceptedAnswer": { "@type": "Answer", "text": "The beautifier currently uses 2-space indentation, which is the most common convention. If you need 4-space indentation, use the JSON Formatter page which offers indentation options." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens to duplicate keys when I beautify?",
+          "acceptedAnswer": { "@type": "Answer", "text": "They collapse. JSON technically allows an object to list the same key twice, but when the beautifier parses it, only the last value for that key survives — so {\"a\":1,\"a\":2} beautifies to {\"a\": 2}. This is standard JSON.parse behavior and is worth knowing, because a duplicated key silently loses data rather than raising an error." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does beautifying change my data at all?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The values are preserved, but two representational things are normalized because the tool parses and re-serializes: numbers take their canonical form (1.0 becomes 1) and unicode escapes like \\u00e9 are decoded to the actual character (é). The meaning is identical; only the text form of numbers and escaped characters may differ." }
         }
       ]
     }
@@ -136,11 +146,16 @@
         </section>
 
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Beautifying (also called pretty-printing) adds line breaks and 2-space indentation to compact or minified JSON so it's readable, without changing the data. <strong>It runs in your browser as <code>JSON.parse()</code> then <code>JSON.stringify(data, null, 2)</code>, so nothing is uploaded — and because it parses first, it also tells you if the JSON is invalid.</strong> Paste JSON, click Beautify, then copy or download.</p>
+            </div>
+
             <h3>What does beautifying JSON do?</h3>
             <p>Beautifying JSON transforms compact or minified JSON into a readable, indented format. Consider this minified JSON:</p>
-            <pre>{"name":"John","age":30,"address":{"city":"London","zip":"EC1A"}}</pre>
+            <pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;">{"name":"John","age":30,"address":{"city":"London","zip":"EC1A"}}</pre>
             <p>After beautifying with 2-space indentation:</p>
-            <pre>{
+            <pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;">{
   "name": "John",
   "age": 30,
   "address": {
@@ -148,7 +163,7 @@
     "zip": "EC1A"
   }
 }</pre>
-            <p>The data is identical — only the whitespace changes. Beautified JSON is easier to read, debug, and review in code diffs.</p>
+            <p>The data is identical — only the whitespace changes: each key-value pair moved onto its own line, and the nested <code>address</code> object was indented one level deeper. Beautified JSON is easier to read, debug, and review in code diffs.</p>
 
             <h3>Beautify vs minify</h3>
             <p><strong>Beautify</strong> — adds whitespace and indentation for human readability. Use this when reading API responses, reviewing config files, or debugging data structures.</p>
@@ -162,6 +177,16 @@
                 <li>When reviewing a JSON config file (e.g., <code>package.json</code>, <code>appsettings.json</code>) that was accidentally saved without formatting.</li>
                 <li>When copying a minified JSON payload from browser DevTools and want to read it quickly.</li>
                 <li>Before committing a JSON file to version control — beautified JSON produces clean, readable diffs in pull requests.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Duplicate keys collapse silently.</strong> JSON allows an object to list the same key twice, but parsing keeps only the last one, so <code>{"a":1,"a":2}</code> beautifies to <code>{"a": 2}</code> — a duplicated key loses data with no error. Beautifying is a quick way to reveal that a payload had duplicate keys.</li>
+                <li><strong>Numbers are normalized.</strong> Because the tool parses then re-serializes, <code>1.0</code> becomes <code>1</code> and <code>1E2</code> becomes <code>100</code>. The value is unchanged; only the text form is.</li>
+                <li><strong>Unicode escapes are decoded.</strong> <code>é</code> becomes the literal character <code>é</code> in the output. Both are valid JSON and mean the same thing.</li>
+                <li><strong>It validates syntax, not schema.</strong> Beautifying confirms the JSON <em>parses</em>, but says nothing about whether the fields match what your application expects — use the <a href="json-schema-validator.html">JSON Schema Validator</a> for that.</li>
+                <li><strong>Invalid JSON won't beautify.</strong> A trailing comma, single quotes, or an unquoted key makes it fail with an error at the offending position, so you fix the source rather than getting mangled output.</li>
             </ul>
         </section>
         <section class="faq-section">
@@ -189,6 +214,14 @@
             <details>
                 <summary>Can I choose 4-space indentation instead of 2?</summary>
                 <p>The beautifier uses 2-space indentation by default, which matches the most common JSON convention. If you need 4-space indentation, use the <a href="formatter.html">JSON Formatter</a> which exposes indentation options.</p>
+            </details>
+            <details>
+                <summary>What happens to duplicate keys when I beautify?</summary>
+                <p>They collapse. JSON technically allows an object to list the same key twice, but when the beautifier parses it, only the last value for that key survives — so <code>{"a":1,"a":2}</code> beautifies to <code>{"a": 2}</code>. This is standard <code>JSON.parse</code> behavior and is worth knowing, because a duplicated key silently loses data rather than raising an error.</p>
+            </details>
+            <details>
+                <summary>Does beautifying change my data at all?</summary>
+                <p>The values are preserved, but two representational things are normalized because the tool parses and re-serializes: numbers take their canonical form (<code>1.0</code> becomes <code>1</code>) and unicode escapes like <code>é</code> are decoded to the actual character (<code>é</code>). The meaning is identical; only the text form of numbers and escaped characters may differ.</p>
             </details>
         </section>
 

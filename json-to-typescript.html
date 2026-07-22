@@ -58,6 +58,11 @@
         },
         {
           "@type": "Question",
+          "name": "How are interface names generated?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Interface names are derived from the JSON key using PascalCase conversion. The root object always becomes Root. A key named userAddress becomes UserAddress, and user_profile becomes UserProfile. Array item interfaces use the singularized key name — so a key books generates a Book interface." }
+        },
+        {
+          "@type": "Question",
           "name": "Can I use the generated interfaces directly in my project?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes. Copy the generated interfaces and paste them into a .ts file in your TypeScript project. The interfaces are valid TypeScript and can be used immediately for type checking and IDE autocomplete." }
         },
@@ -112,6 +117,11 @@
 
             <div id="errorContainer" style="display:none; margin-top:10px; padding:10px 14px; border-radius:6px; border:1px solid #f5c6cb; background:#f8d7da; color:#721c24;"></div>
 
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">This generator walks a JSON sample and emits TypeScript interfaces: each object becomes a named <code>interface</code>, scalars map to <code>string</code>/<code>number</code>/<code>boolean</code>, arrays become <code>type[]</code>, and nested objects become their own interfaces. <strong>Types are inferred from the one sample you paste, so review nullable and optional fields by hand. It runs entirely in your browser — nothing is uploaded.</strong> Paste JSON, click Generate Interfaces, then copy.</p>
+            </div>
+
             <div class="info-section" style="margin-top:32px;">
                 <h3>How JSON maps to TypeScript</h3>
                 <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
@@ -152,6 +162,45 @@
                 <li>When onboarding to an existing codebase and need to understand the shape of an unfamiliar JSON payload before writing code against it.</li>
                 <li>When building a frontend application that consumes a REST API and you want full IDE autocomplete and type checking on the response data.</li>
                 <li>When prototyping quickly — generate a rough interface from a real API response and refine it (mark fields optional, adjust union types) as you iterate.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>A record with a nested object and an array — showing how nested objects become their own interfaces:</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Input JSON</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{
+  "id": 1,
+  "name": "Alice",
+  "address": { "city": "Boston", "zip": "02101" },
+  "roles": ["admin", "editor"]
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Generated TypeScript</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>interface Root {
+  id: number;
+  name: string;
+  address: Address;
+  roles: string[];
+}
+
+interface Address {
+  city: string;
+  zip: string;
+}</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
+            <ul>
+                <li>The root object became <code>interface Root</code>; each scalar was typed by its value (<code>id</code> → <code>number</code>, <code>name</code> → <code>string</code>).</li>
+                <li>The nested <code>address</code> object was extracted into its own <code>interface Address</code> (named in PascalCase from the key), and <code>Root</code> references it by type.</li>
+                <li>The <code>roles</code> array of strings became <code>string[]</code>. A mixed array like <code>[1, "x"]</code> would instead become <code>(number | string)[]</code>.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Types come from one sample.</strong> The interface reflects exactly the JSON you paste — a field missing from the sample won't appear, and a field that happens to be present will look required. Paste a representative response, then adjust.</li>
+                <li><strong><code>null</code> is not the same as optional.</strong> A field that is <code>null</code> in the sample becomes <code>field: null</code>, which is rarely what you want. Change it to <code>field?: string</code> or <code>field: string | null</code> by hand depending on your real contract.</li>
+                <li><strong>Large integer IDs should be strings.</strong> A 64-bit ID infers <code>number</code>, but JavaScript loses precision past 2<sup>53</sup>, so a value like <code>12345678901234567890</code> is silently rounded. Type such IDs as <code>string</code> — see <a href="errors/bigint-not-serializable.html">the BigInt serialization note</a>.</li>
+                <li><strong>Empty arrays and objects can't be inferred.</strong> An empty <code>[]</code> has no element type to read and an empty <code>{}</code> has no fields, so feed non-empty examples for meaningful types.</li>
+                <li><strong>Interfaces are compile-time only.</strong> They give you editor autocomplete and type checking but no runtime validation — if you need to verify data at runtime, pair them with a <a href="json-schema-validator.html">JSON Schema</a> or a library like Zod.</li>
             </ul>
         </section>
 

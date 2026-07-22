@@ -65,6 +65,21 @@
           "@type": "Question",
           "name": "How do I run a CRON job every 5 minutes?",
           "acceptedAnswer": { "@type": "Answer", "text": "Use */5 in the minute field: '*/5 * * * *'. This means 'every 5 minutes'. The slash syntax means step — */5 means every 5th value starting from 0." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can CRON run on a specific day-of-month and day-of-week at the same time?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not with AND logic. When both the day-of-month and day-of-week fields are restricted (neither is *), most CRON implementations combine them with OR — the job runs when either matches. So '0 0 13 * 5' runs on the 13th of every month OR every Friday, not only on Friday the 13th. To get a true 'Friday the 13th' schedule you need logic inside the job itself." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does */n really run every n minutes from when I add the job?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Step values are aligned to fixed points in the field, not to when the job was created. */15 in the minute field fires at 0, 15, 30, and 45 past every hour. A value that doesn't divide evenly, like */40, fires at 0 and 40 and then resets at the top of the next hour — giving an uneven 40-then-20-minute gap rather than a steady 40-minute interval." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my 6-field cron expression fail here?",
+          "acceptedAnswer": { "@type": "Answer", "text": "This tool uses the standard 5-field Unix cron format: minute, hour, day-of-month, month, day-of-week. Some schedulers add a leading seconds field (6 fields) or, like Quartz, use 6 to 7 fields with different day-of-week rules. Remove the extra seconds field to use a 6-field expression here, and check your scheduler's own docs for non-standard formats." }
         }
       ]
     }
@@ -380,6 +395,11 @@
         </section>
 
         <section class="info-section">
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A cron expression is five space-separated fields — minute, hour, day-of-month, month, day-of-week — that describe when a job repeats. <strong>This tool parses your expression into plain English and the next five run times, entirely in your browser.</strong> Type an expression or click a preset, adjust the individual fields, and read the description and upcoming runs below.</p>
+            </div>
+
             <h3>About CRON Expressions</h3>
             <p>CRON is a time-based job scheduler used in Unix-like systems. A CRON expression is a compact string of five fields that defines when a task should run: minute, hour, day of month, month, and day of week.</p>
             <ul>
@@ -389,6 +409,33 @@
                 <li>Separate multiple values with commas — <code>0 9,17 * * *</code> runs at 9 AM and 5 PM</li>
             </ul>
             <p>Learn more in the companion guide: <a href="blog/understanding-cron.html">Understanding CRON Expressions with Examples</a>.</p>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>Take the weekday-morning schedule <code>0 9 * * 1-5</code> and read it field by field:</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>0 9 * * 1-5
+│ │ │ │ └── day-of-week: 1-5  (Monday through Friday)
+│ │ │ └──── month:       *    (every month)
+│ │ └────── day-of-month:*    (every day)
+│ └──────── hour:        9    (09:00)
+└────────── minute:      0    (on the hour)</code></pre>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Reads as</p>
+            <p style="margin:0 0 0.75rem;">"At 09:00, Monday through Friday" — i.e. every weekday at 9:00 AM. The next runs would be the coming weekdays at 09:00, skipping Saturday and Sunday.</p>
+            <p style="margin:0 0 0.35rem;font-weight:600;">Change one field</p>
+            <ul>
+                <li><code>0 9 * * 1-5</code> &rarr; <code>*/30 9 * * 1-5</code> fires at 9:00 <em>and</em> 9:30 on weekdays (step in the minute field).</li>
+                <li><code>0 9 * * 1-5</code> &rarr; <code>0 9,17 * * 1-5</code> fires at 9:00 and 17:00 on weekdays (a list in the hour field).</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Edge cases &amp; gotchas</h2>
+            <ul>
+                <li><strong>Day-of-month and day-of-week is OR, not AND.</strong> When both fields are set, the job runs when <em>either</em> matches. <code>0 0 13 * 5</code> runs on the 13th <em>or</em> every Friday — not "Friday the 13th". That specific case needs a check inside the job.</li>
+                <li><strong>Step values align to fixed points.</strong> <code>*/15</code> fires at 0, 15, 30, 45 — not 15 minutes after you added it. And <code>*/40</code> fires at 0 and 40, then resets at the next hour, so the gap is 40 minutes then 20, not a steady 40.</li>
+                <li><strong>Sunday is 0 (and often 7 too).</strong> This tool uses 0–6 with 0 = Sunday. Many Unix crons also accept 7 for Sunday; some tools and Quartz number the week differently, so double-check when copying an expression between systems.</li>
+                <li><strong>Standard cron is 5 fields.</strong> A leading seconds field (6 fields) or a Quartz-style expression won't parse here — this tool expects minute, hour, day-of-month, month, day-of-week.</li>
+                <li><strong>Cron runs in the server's timezone.</strong> A "9 AM" job fires at 9 AM wherever the cron daemon lives, which may not be your local time. This tool shows the next runs in <em>your</em> local time so you can see the real-world moments.</li>
+            </ul>
         </section>
 
         <section class="faq-section">
@@ -406,8 +453,16 @@
                 <p>Use <code>*/5 * * * *</code>. The <code>/</code> syntax means "step" — <code>*/5</code> means every 5th value starting from 0 (so 0, 5, 10, 15, …).</p>
             </details>
             <details>
-                <summary>Can CRON run on a specific day and day of week at the same time?</summary>
-                <p>Yes. If both the day-of-month and day-of-week fields are restricted (not <code>*</code>), most CRON implementations use OR logic — the job runs when either condition matches. This tool follows the same behaviour.</p>
+                <summary>Can CRON run on a specific day-of-month and day-of-week at the same time?</summary>
+                <p>Not with AND logic. When both the day-of-month and day-of-week fields are restricted (neither is <code>*</code>), most CRON implementations combine them with OR — the job runs when either matches. So <code>0 0 13 * 5</code> runs on the 13th of every month <em>or</em> every Friday, not only on Friday the 13th. To get a true "Friday the 13th" schedule you need logic inside the job itself.</p>
+            </details>
+            <details>
+                <summary>Does */n really run every n minutes from when I add the job?</summary>
+                <p>No. Step values are aligned to fixed points in the field, not to when the job was created. <code>*/15</code> in the minute field fires at 0, 15, 30, and 45 past every hour. A value that doesn't divide evenly, like <code>*/40</code>, fires at 0 and 40 and then resets at the top of the next hour — giving an uneven 40-then-20-minute gap rather than a steady 40-minute interval.</p>
+            </details>
+            <details>
+                <summary>Why does my 6-field cron expression fail here?</summary>
+                <p>This tool uses the standard 5-field Unix cron format: minute, hour, day-of-month, month, day-of-week. Some schedulers add a leading seconds field (6 fields) or, like Quartz, use 6 to 7 fields with different day-of-week rules. Remove the extra seconds field to use a 6-field expression here, and check your scheduler's own docs for non-standard formats.</p>
             </details>
         </section>
 
