@@ -65,8 +65,13 @@
         },
         {
           "@type": "Question",
-          "name": "How do I fix double-encoded JSON?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Call JSON.parse again on the result: const obj = JSON.parse(JSON.parse(doubleEncodedString)). The real fix is to find where the double encoding happens in your code and remove the extra JSON.stringify call." }
+          "name": "How do I fix double-encoded JSON quickly?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Parse twice: const obj = JSON.parse(JSON.parse(doubleEncodedString)). The permanent fix is to remove the extra JSON.stringify() call wherever it is being added in your server or middleware code." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can res.json() in Express cause double encoding?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. res.json() calls JSON.stringify() internally. If you pass it a string that is already a JSON string (because you called JSON.stringify() manually), the result is double-encoded. Pass the raw object to res.json(), or use res.send() with the pre-stringified string and set Content-Type: application/json yourself." }
         }
       ]
     }
@@ -115,8 +120,8 @@ const doubleEncoded = JSON.stringify(encoded);
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre><code>const result = JSON.parse(doubleEncoded);
 
-typeof result;   // "string" â† still a string!
-console.log(result); // '{"name":"Alice","age":30}' â† the inner JSON string
+typeof result;   // "string" &larr; still a string!
+console.log(result); // '{"name":"Alice","age":30}' &larr; the inner JSON string
 
 // You need to parse once more to get the object
 const obj = JSON.parse(result);
@@ -148,7 +153,7 @@ app.get('/api/user', (req, res) => {
     const user = { name: "Alice" };
     const json = JSON.stringify(user);  // json is now a string
 
-    // âŒ res.json() calls JSON.stringify internally &mdash; double encoding
+    // ❌ res.json() calls JSON.stringify internally &mdash; double encoding
     res.json(json);
 
     // âœ… Either use res.json() with the object directly
@@ -162,7 +167,7 @@ app.get('/api/user', (req, res) => {
             <h3>2. Storing and retrieving from localStorage</h3>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
-<pre><code>// âŒ Storing a pre-stringified value, then stringifying again
+<pre><code>// ❌ Storing a pre-stringified value, then stringifying again
 const data = JSON.stringify({ name: "Alice" });
 localStorage.setItem('user', JSON.stringify(data)); // double-encoded
 
@@ -181,16 +186,16 @@ const user = JSON.parse(localStorage.getItem('user')); // &rarr; object âœ…<
 // serialize the body automatically. If your handler also stringifies,
 // the client receives a double-encoded string.
 
-// âŒ AWS Lambda &mdash; body is already serialized by API Gateway
+// ❌ AWS Lambda &mdash; body is already serialized by API Gateway
 return {
     statusCode: 200,
-    body: JSON.stringify(JSON.stringify({ name: "Alice" })) // â† double
+    body: JSON.stringify(JSON.stringify({ name: "Alice" })) // &larr; double
 };
 
 // âœ… Correct
 return {
     statusCode: 200,
-    body: JSON.stringify({ name: "Alice" }) // â† single
+    body: JSON.stringify({ name: "Alice" }) // &larr; single
 };</code></pre>
             </div>
 
@@ -199,7 +204,7 @@ return {
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre><code>const filter = JSON.stringify({ status: "active" });
 
-// âŒ Stringifying again when building the URL
+// ❌ Stringifying again when building the URL
 const url = `/api/users?filter=${JSON.stringify(filter)}`;
 
 // âœ… Correct &mdash; encode the already-stringified string for the URL

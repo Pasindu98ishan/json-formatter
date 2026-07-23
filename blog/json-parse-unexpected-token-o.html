@@ -56,17 +56,22 @@
         {
           "@type": "Question",
           "name": "What does 'Unexpected token o in JSON at position 1' mean?",
-          "acceptedAnswer": { "@type": "Answer", "text": "It means you passed a JavaScript object to JSON.parse instead of a JSON string. JavaScript implicitly converts the object to the string '[object Object]' via toString(). JSON.parse then tries to parse '[object Object]' and fails on the 'o' at position 1 because [ is a valid JSON start but 'o' immediately after is not valid." }
+          "acceptedAnswer": { "@type": "Answer", "text": "It means you passed a JavaScript object to JSON.parse() instead of a JSON string. JavaScript calls toString() on the object, producing \"[object Object]\". The JSON parser sees the opening [, then the o at position 1 which is not a valid JSON value, and throws." }
         },
         {
           "@type": "Question",
-          "name": "How do I fix 'Unexpected token o in JSON at position 1'?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Check what you are passing to JSON.parse. If it is already a JavaScript object, you do not need to parse it &mdash; just use it directly. If you need to convert an object to a JSON string, use JSON.stringify first. If data comes from an API, check whether the fetch() call already parsed it via response.json()." }
+          "name": "How do I fix this error?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Check what you are passing to JSON.parse(). If it is already a JavaScript object (e.g., the return value of response.json()), you do not need to parse it again &mdash; just use it directly. Only call JSON.parse() on a string value." }
         },
         {
           "@type": "Question",
-          "name": "Why does JSON.parse convert an object to '[object Object]'?",
-          "acceptedAnswer": { "@type": "Answer", "text": "JSON.parse requires a string argument. When you pass a non-string, JavaScript calls toString() on it. Plain objects inherit Object.prototype.toString which returns the string '[object Object]'. JSON.parse receives this string, sees [ as the start, then 'object Object]' which is not valid JSON." }
+          "name": "How do I deep-clone an object using JSON?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Stringify first, then parse: const clone = JSON.parse(JSON.stringify(original)). This is the only legitimate reason to call both together on the same value." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does JavaScript not throw an error when I pass an object to JSON.parse?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JavaScript is dynamically typed and coerces arguments. When JSON.parse receives a non-string, it calls String() on the argument first, producing \"[object Object]\". The type coercion succeeds &mdash; it's the subsequent JSON parsing of that string that throws." }
         }
       ]
     }
@@ -102,7 +107,7 @@
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre><code>const obj = { name: "Alice" };
 
-// âŒ Wrong &mdash; obj.toString() = "[object Object]"
+// ❌ Wrong &mdash; obj.toString() = "[object Object]"
 JSON.parse(obj);
 // SyntaxError: Unexpected token 'o', "[object Obj"... is not valid JSON
 
@@ -116,10 +121,10 @@ console.log(obj.name); // "Alice"</code></pre>
             <p>The most common case: you fetch data, <code>response.json()</code> already returns a JavaScript object, and then you mistakenly pass that object to <code>JSON.parse()</code> again.</p>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
-<pre><code>// âŒ Double parse &mdash; response.json() already returns an object
+<pre><code>// ❌ Double parse &mdash; response.json() already returns an object
 const response = await fetch('/api/data');
 const data = await response.json();     // data is now a JS object
-const parsed = JSON.parse(data);        // âŒ data is NOT a string
+const parsed = JSON.parse(data);        // ❌ data is NOT a string
 
 // âœ… Just use data directly
 const parsed = data;                    // already a JS object</code></pre>
@@ -133,7 +138,7 @@ const parsed = data;                    // already a JS object</code></pre>
     age: parseInt(document.getElementById('age').value)
 };
 
-// âŒ formData is an object, not JSON
+// ❌ formData is an object, not JSON
 JSON.parse(formData);
 
 // âœ… If you need a JSON string, stringify first
@@ -146,7 +151,7 @@ sendToServer(formData);</code></pre>
             <h3>3. Passing state from a React/Vue component</h3>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
-<pre><code>// âŒ state is already an object
+<pre><code>// ❌ state is already an object
 const [user, setUser] = useState({ name: "Alice" });
 const parsed = JSON.parse(user); // SyntaxError
 

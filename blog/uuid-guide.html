@@ -137,7 +137,7 @@
                 <p>v3 and v5 generate deterministic UUIDs from a namespace + name combination using MD5 (v3) or SHA-1 (v5). The same namespace+name always produces the same UUID. Useful when you need a stable ID for a known input (e.g. a URL or domain name), but not for random unique IDs.</p>
 
                 <h3>UUID v4 &mdash; Random (the default choice)</h3>
-                <p>v4 generates 122 random bits, making it the standard choice for virtually all use cases. It requires no coordination, no registry, and no network access. The probability of two v4 UUIDs colliding is approximately 1 in 5.3 &times; 10Â³â¶ &mdash; negligible in any real-world scenario.</p>
+                <p>v4 generates 122 random bits, making it the standard choice for virtually all use cases. It requires no coordination, no registry, and no network access. The probability of two v4 UUIDs colliding is approximately 1 in 5.3 &times; 10³⁶ &mdash; negligible in any real-world scenario.</p>
                 <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre><code>// Example v4 UUIDs
@@ -244,6 +244,25 @@ CREATE TABLE users (
                 <p>Generate UUIDs instantly with the free <a href="../uuid.html">UUID Generator &rarr;</a></p>
             </div>
 
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What is a UUID?</summary>
+                    <p>A UUID (Universally Unique Identifier) is a 128-bit identifier standardized in RFC 4122. It is displayed as 32 hexadecimal characters in the format <code>xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx</code>, where M is the version digit. UUIDs are used as database primary keys, session tokens, and resource identifiers in distributed systems because they can be generated without central coordination.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between UUID v1, v4, and v7?</summary>
+                    <p>UUID v1 includes the MAC address and timestamp, making it traceable but not random. UUID v4 is fully random &mdash; 122 bits of randomness &mdash; and is the most widely used version today. UUID v7 uses a millisecond timestamp prefix followed by random bits, making it sortable by creation time, which significantly improves database index performance compared to v4.</p>
+                </details>
+                <details>
+                    <summary>Is a UUID truly unique?</summary>
+                    <p>UUID v4 has 122 bits of randomness, giving 2<sup>122</sup> possible values. The probability of generating a duplicate across 1 billion UUIDs per second for 100 years is still negligibly small &mdash; roughly 1 in 5 undecillion. For all practical purposes, UUIDs are unique without requiring a central authority to coordinate assignment.</p>
+                </details>
+                <details>
+                    <summary>Can I use a UUID as a database primary key?</summary>
+                    <p>Yes, but the version matters. UUID v4 is random, so inserting rows causes B-tree index fragmentation and poor write performance at scale. UUID v7 solves this by embedding a timestamp prefix, so new rows are always appended near the end of the index. For new projects, prefer UUID v7 or a similar time-ordered identifier like ULID.</p>
+                </details>
+            </section>
             <section class="related-tools">
             <h2>Related Tools</h2>
             <ul>

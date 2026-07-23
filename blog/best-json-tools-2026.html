@@ -67,6 +67,16 @@
           "@type": "Question",
           "name": "What is a JSON Diff tool used for?",
           "acceptedAnswer": { "@type": "Answer", "text": "A JSON Diff tool compares two JSON documents and shows exactly what changed &mdash; which keys were added, removed, or modified. It is useful for comparing API responses between environments, reviewing changes to config files, debugging why two responses that should be identical are not, and verifying data migrations." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I use an online JSON tool or the command line?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Both have their place. For a quick one-off — reading a response you just pasted, or checking whether a snippet is valid — an online tool is the fastest path and needs nothing installed. For anything repeatable or scripted, command-line tools like jq (query and transform JSON), yq (YAML), and Miller (CSV/JSON) belong in your pipeline because they can be versioned, automated, and chained. A good rule: online for exploration, CLI for automation." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between syntax validation and schema validation?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Syntax validation checks that JSON is well-formed — correct commas, quotes, and brackets — and is what a validator like JSONLint or the JSON Validator does. Schema validation goes further and checks that the data matches an expected shape: required fields, value types, allowed ranges. That needs a JSON Schema and a validator such as ajv or a schema-aware editor. Syntax validation answers 'is this valid JSON'; schema validation answers 'is this the JSON my application expects'." }
         }
       ]
     }
@@ -93,7 +103,8 @@
         <article class="blog-article">
 
 
-            <p>JSON tools have become part of every developer's daily workflow. Whether you're debugging an API response, preparing data for a database import, or reviewing configuration changes, having the right tool for each task saves meaningful time. Here are the six use cases that matter most, and what to look for in each.</p>
+            <p>JSON tools have become part of every developer's daily workflow. Whether you're debugging an API response, preparing data for a database import, or reviewing configuration changes, having the right tool for each task saves meaningful time. Here are the six use cases that matter most, what to look for in each, and the notable options &mdash; ours and others' &mdash; worth knowing.</p>
+            <p><strong>What "best" means here:</strong> there's no single best JSON tool, only the best fit for a task. This guide is organized by job rather than by product. For each of the six use cases below we name what to look for, the JSON Dev Tools option, and honest alternatives &mdash; including command-line and editor tools &mdash; so you can pick what suits your workflow. The one criterion we weight heavily throughout is <strong>privacy</strong>: for anything containing tokens or real user data, prefer a tool that processes in your browser (or locally on the CLI) over one that uploads to a server.</p>
             <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:center;">
                 <p style="margin:0 0 0.75rem;"><strong>Try it directly in your browser:</strong></p>
                 <a href="../json-tools.html" class="btn btn-primary" style="display:inline-block;">Explore all tools &rarr;</a>
@@ -104,21 +115,25 @@
             <p><strong>Use case:</strong> You have a minified API response &mdash; one long line &mdash; and need to read it.</p>
             <p><strong>What to look for:</strong> Configurable indentation (2 vs 4 spaces), a collapsible tree view for large documents, sort-keys option for consistent output, and fast rendering even for responses with thousands of keys.</p>
             <p><strong>Tool:</strong> <a href="../formatter.html">JSON Formatter</a> &mdash; processes large JSON documents in the browser, supports indentation options and tree view, no server upload.</p>
+            <p><strong>Notable alternatives:</strong> your editor is often the fastest option for files you already have open &mdash; VS Code's built-in "Format Document" and <strong>Prettier</strong> both pretty-print JSON with your project's conventions. On the command line, <code>jq .</code> formats and colorizes any JSON in a pipe. The tradeoff: editor and CLI tools shine for files inside a project or a script, while an online formatter is quickest for a snippet you just pasted from a browser or a log.</p>
 
             <h2>2. Validating JSON</h2>
             <p><strong>Use case:</strong> You've hand-edited a JSON config or received a malformed API response and need to know exactly where the error is.</p>
             <p><strong>What to look for:</strong> Exact line number and character position in the error message (not just "invalid JSON"), clear description of the error type (trailing comma, missing quote, etc.), and the ability to validate large files without timing out.</p>
             <p><strong>Tool:</strong> <a href="../json-validator.html">JSON Validator</a> &mdash; reports the exact error position and type. Run this before formatting, because a formatter that fails silently on invalid JSON is useless.</p>
+            <p><strong>Notable alternatives:</strong> <strong>JSONLint</strong> is the long-standing, widely-linked online validator and does this job well. If you need to check data against an expected shape rather than just its syntax, that's <em>schema</em> validation &mdash; use a JSON Schema with a validator like <strong>ajv</strong>, or an editor configured with a schema. The distinction matters: syntax validation confirms the JSON parses; schema validation confirms it has the right fields and types.</p>
 
             <h2>3. Minifying JSON</h2>
             <p><strong>Use case:</strong> You need to reduce the size of a JSON payload before sending it over the network or storing it in a database column.</p>
             <p><strong>What to look for:</strong> Removes all whitespace (spaces, tabs, newlines) without altering the data. Should handle Unicode correctly and not re-order keys.</p>
             <p><strong>Tool:</strong> <a href="../json-minifier.html">JSON Minifier</a> &mdash; strips whitespace without touching the data. Real-world payloads typically shrink 20-40% when minified from 4-space indentation.</p>
+            <p><strong>Notable alternatives:</strong> on the command line, <code>jq -c</code> (compact output) minifies any JSON in a pipeline, and most build tools minify bundled JSON automatically. Worth remembering: minification only removes whitespace, so its savings are modest next to <strong>gzip or brotli</strong> compression, which most servers and CDNs apply and which shrinks JSON far more. The best practice is to minify <em>and</em> let the server compress &mdash; an online minifier is handy for a one-off, but for a served API the compression layer does the heavy lifting.</p>
 
             <h2>4. Comparing JSON documents (JSON Diff)</h2>
             <p><strong>Use case:</strong> Two JSON responses that should be identical are producing different results. Or you want to review what changed in a config file between versions.</p>
             <p><strong>What to look for:</strong> Side-by-side diff view, highlights added keys (green), removed keys (red), and changed values (yellow/amber). Should handle nested structures and array reordering.</p>
             <p><strong>Tool:</strong> <a href="../json-diff.html">JSON Diff</a> &mdash; paste two JSON documents and see exactly what changed. Useful for comparing dev vs staging API responses or before/after a data migration.</p>
+            <p><strong>Notable alternatives:</strong> for files, your editor's diff view or <code>git diff</code> works, but plain text diffs flag reordered keys and whitespace as changes even when the data is identical. A common trick is to normalize first &mdash; <code>jq --sort-keys . a.json</code> and the same on <code>b.json</code>, then <code>diff</code> the two &mdash; which makes the comparison structural. Libraries like <strong>jsondiffpatch</strong> do structural diffing programmatically. A dedicated JSON diff (like ours) does that normalization for you so key order doesn't create noise.</p>
 
             <h2>5. Converting JSON to other formats</h2>
             <p><strong>Use case:</strong> You need the data in a different format &mdash; CSV for Excel, YAML for Kubernetes configs, or JSON from a CSV export.</p>
@@ -129,15 +144,50 @@
                 <li><a href="../json-to-yaml.html">JSON to YAML</a> &mdash; convert JSON config objects to YAML for DevOps workflows</li>
                 <li><a href="../csv-to-json.html">CSV to JSON</a> &mdash; convert spreadsheet exports to JSON arrays</li>
             </ul>
+            <p><strong>Notable alternatives:</strong> the command line is strong here for repeatable conversions &mdash; <code>jq</code> reshapes JSON, <code>yq</code> bridges JSON and YAML, <strong>Miller (<code>mlr</code>)</strong> and <strong>csvkit</strong> handle CSV, and in Python <strong>pandas</strong> reads and writes all of these. Reach for the CLI or a script when the conversion is part of a pipeline you'll run again; reach for an online converter when it's a one-off and you'd rather not remember the exact <code>jq</code> incantation.</p>
 
             <h2>6. Decoding JWTs</h2>
             <p><strong>Use case:</strong> You're debugging an authentication flow and need to inspect the claims inside a JSON Web Token &mdash; expiry time, user ID, roles, issuer.</p>
             <p><strong>What to look for:</strong> Decodes all three JWT sections (header, payload, signature), displays the expiry timestamp in human-readable form, and &mdash; critically &mdash; processes the token in the browser without transmitting it to a server. JWT payloads often contain user identity data that should not be sent to third parties.</p>
             <p><strong>Tool:</strong> <a href="../jwt-decoder.html">JWT Decoder</a> &mdash; decodes tokens entirely in the browser. Displays header algorithm, payload claims, and expiry status clearly.</p>
+            <p><strong>Notable alternatives:</strong> <strong>jwt.io</strong> is the canonical, best-known JWT debugger and a genuinely excellent reference for the token format. On the terminal, <code>jwt-cli</code> decodes tokens locally. Whatever you use, the one thing to check for a <em>real</em> token is that decoding happens locally &mdash; a JWT payload often carries a user ID, email, and roles, so it's worth confirming (via the network tab, or by using a local/CLI tool) that a production token isn't being sent anywhere. Decoding is not verification: none of these tools check the signature, so never trust a decoded token's claims without verifying it server-side.</p>
 
             <h2>The privacy-first angle</h2>
             <p>All tools listed above process data entirely in the browser. No JSON, no JWT, no CSV is transmitted to any server. This matters more than it might seem: API responses routinely contain authentication tokens, API keys, user PII, and proprietary business data. Using a tool that processes data server-side means that data touches infrastructure you don't control.</p>
             <p>You can verify browser-side processing by opening your browser's DevTools Network tab and checking that no requests are made when you format, validate, or decode. All processing happens synchronously in JavaScript running on your machine.</p>
+
+            <h2>Choosing between online, editor, and command-line tools</h2>
+            <p>A quick way to decide, across all six categories above:</p>
+            <ul>
+                <li><strong>Online tool</strong> &mdash; best for a one-off: something you just pasted, no install, instant result. Prefer a browser-side one for anything sensitive.</li>
+                <li><strong>Editor (VS Code, Prettier)</strong> &mdash; best for files already in your project; formatting and validation happen where you're already working, with your conventions applied.</li>
+                <li><strong>Command line (<code>jq</code>, <code>yq</code>, <code>mlr</code>)</strong> &mdash; best for anything repeatable: scripts, CI pipelines, data you'll process the same way again. Versionable and automatable.</li>
+            </ul>
+            <p>Most developers use all three depending on the moment. The tools on this site aim to be the fastest, most private choice for the "I just need to do this once, right now" case &mdash; without your data leaving the browser.</p>
+
+            <h2>Frequently Asked Questions</h2>
+            <div class="faq-section">
+                <details>
+                    <summary>What should I look for in an online JSON tool?</summary>
+                    <p>Look for browser-side processing (your data never leaves your machine), clear error messages with line numbers for validators, fast response for large files, dark mode for long work sessions, and no account requirement. Tools that combine multiple functions (format + validate + minify) reduce the number of tabs you need open.</p>
+                </details>
+                <details>
+                    <summary>Are online JSON tools safe to use with sensitive data?</summary>
+                    <p>It depends on the tool. Some tools send your JSON to a server for processing, which means your data is transmitted to a third party. Look for tools that explicitly state they process data client-side in the browser. You can verify by opening your browser's network tab and checking that no requests are made when you format or validate.</p>
+                </details>
+                <details>
+                    <summary>What is a JSON Diff tool used for?</summary>
+                    <p>A JSON Diff tool compares two JSON documents and shows exactly what changed &mdash; which keys were added, removed, or modified. It is useful for comparing API responses between environments, reviewing changes to config files, debugging why two responses that should be identical are not, and verifying data migrations.</p>
+                </details>
+                <details>
+                    <summary>Should I use an online JSON tool or the command line?</summary>
+                    <p>Both have their place. For a quick one-off &mdash; reading a response you just pasted, or checking whether a snippet is valid &mdash; an online tool is the fastest path and needs nothing installed. For anything repeatable or scripted, command-line tools like <code>jq</code> (query and transform JSON), <code>yq</code> (YAML), and Miller (CSV/JSON) belong in your pipeline because they can be versioned, automated, and chained. A good rule: online for exploration, CLI for automation.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between syntax validation and schema validation?</summary>
+                    <p>Syntax validation checks that JSON is well-formed &mdash; correct commas, quotes, and brackets &mdash; and is what a validator like JSONLint or the <a href="../json-validator.html">JSON Validator</a> does. Schema validation goes further and checks that the data matches an expected shape: required fields, value types, allowed ranges. That needs a JSON Schema and a validator such as ajv or a schema-aware editor. Syntax validation answers "is this valid JSON"; schema validation answers "is this the JSON my application expects".</p>
+                </details>
+            </div>
 
                     <section class="related-tools">
             <h2>Related Tools</h2>
