@@ -175,6 +175,12 @@ const dto = {
 res.json(dto); // never pass the ORM model directly</pre>
             </div>
 
+            <h2>Why the error happens at serialization, not creation</h2>
+            <p>A circular reference is perfectly legal in memory &mdash; objects pointing at each other is how linked lists, trees with parent pointers, and DOM nodes work. The problem only appears when you try to flatten that graph into text. <code>JSON.stringify</code> walks the object depth-first, and when it revisits a node it has already seen, it can't represent "the same object again" in a linear format, so it throws <code>TypeError: Converting circular structure to JSON</code>. Node.js even tells you the property path that closed the loop, which is the fastest way to find the offending back-reference. Understanding this is the key to the fix: you're not removing data the program needs, you're only deciding how to represent a shared reference when the structure is serialized.</p>
+
+            <h2>Circular references and structuredClone</h2>
+            <p>It's worth knowing that not every "deep copy" operation chokes on cycles the way JSON does. The modern <code>structuredClone()</code> function handles circular references natively, so if your goal is to duplicate an object in memory rather than send it over the wire, reach for that instead of the old <code>JSON.parse(JSON.stringify(obj))</code> trick &mdash; the round-trip approach not only fails on cycles, it also silently drops functions, <code>undefined</code>, and <code>Date</code> objects turn into strings. Serialization for transport is a different job: there you genuinely have to break the cycle, either by removing the back-reference before stringifying or by replacing it with an ID that the receiver can re-link. When you need to confirm the result is clean, valid JSON, paste it into the <a href="../json-validator.html">JSON Validator</a>.</p>
+
                 <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
                     <p style="margin:0 0 0.75rem;"><strong>Try it directly in your browser &mdash; free, no signup:</strong></p>
                     <a href="../json-validator.html" class="btn btn-primary" style="display:inline-block;">Open JSON Validator &rarr;</a>

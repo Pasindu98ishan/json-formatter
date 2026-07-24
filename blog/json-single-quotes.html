@@ -157,6 +157,12 @@ const user = { 'name': 'Alice', 'age': 30 };</pre>
             </ul>
             <p>When you need to serialize a JavaScript object to JSON, always use <code>JSON.stringify()</code> &mdash; it produces valid JSON with double-quoted keys and values automatically.</p>
 
+            <h2>Where single-quote JSON usually comes from</h2>
+            <p>You rarely type invalid JSON on purpose, so it helps to know the usual sources. The most common is <strong>copying a JavaScript or Python object literal</strong> and treating it as JSON &mdash; both languages accept single quotes, so <code>{'name': 'Alice'}</code> looks right until a strict parser rejects it. Another is <strong>logging then re-parsing</strong>: Python's <code>print(dict)</code> and JavaScript's older console output render objects with single quotes, and pasting that log line back in fails. A third is <strong>hand-written config or test fixtures</strong> where a developer instinctively reached for the key that's easier to type. In every case the fix is the same &mdash; convert every string delimiter to a double quote &mdash; but knowing the source helps you fix it at the root instead of one file at a time.</p>
+
+            <h2>Emitting correct JSON from code</h2>
+            <p>The reliable way to avoid quote errors entirely is to never build JSON by hand. Let the language serialize it: <code>JSON.stringify(obj)</code> in JavaScript and <code>json.dumps(obj)</code> in Python always emit double-quoted, spec-compliant JSON regardless of how the object was written in source. If you're storing example JSON in a JavaScript file, remember that a JS object literal is <em>not</em> JSON &mdash; it just looks similar. Keep true JSON in <code>.json</code> files or template strings, and reserve object literals for actual code. When you do need to hand-edit a JSON document, paste it into the <a href="../json-validator.html">JSON Validator</a> afterward; it flags the exact position of the first single quote so you can fix it before the file reaches an API or build step.</p>
+
                 <div style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1.5rem; margin:1.5rem 0; text-align:center;">
                     <p style="margin:0 0 0.75rem;"><strong>Try it directly in your browser &mdash; free, no signup:</strong></p>
                     <a href="../json-validator.html" class="btn btn-primary" style="display:inline-block;">Open JSON Validator &rarr;</a>

@@ -201,6 +201,14 @@
             </ul>
         </section>
 
+        <section class="info-section">
+            <h2>Seconds vs milliseconds — the most common bug</h2>
+            <p>A Unix timestamp is a count of time since the epoch, <strong>1 January 1970 at 00:00:00 UTC</strong>. The catch is that different systems count in different units. Unix command-line tools, Postgres, and most backend languages default to <em>seconds</em> (a 10-digit number today), while JavaScript's <code>Date.now()</code> and many JSON APIs use <em>milliseconds</em> (13 digits). Mixing them is the single most frequent timestamp bug: feed a seconds value into a milliseconds parser and you land in 1970; do the reverse and you land tens of thousands of years in the future. A quick sanity check — a current timestamp in seconds is about 1.7 billion (10 digits); in milliseconds it's about 1.7 trillion (13 digits). This tool detects and shows both so you can tell at a glance which one an API gave you.</p>
+
+            <h2>Timezones and storage advice</h2>
+            <p>A Unix timestamp is always UTC — it has no timezone of its own. The timezone only matters when you <em>display</em> it, which is why the same instant shows a different wall-clock time in New York and Tokyo. The practical rule for storing time is: store the instant in UTC (as a timestamp or an ISO-8601 string ending in <code>Z</code>), and convert to the user's local timezone only at the moment you render it. That keeps sorting, comparisons, and duration math correct regardless of where your users or servers are. If you work with JWTs, note that the <code>iat</code>, <code>exp</code>, and <code>nbf</code> claims are Unix timestamps in seconds — you can decode a full token with the <a href="jwt-decoder.html">JWT Decoder</a>.</p>
+        </section>
+
         <section class="faq-section">
             <h2>Frequently Asked Questions</h2>
             <details>

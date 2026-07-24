@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free online regex tester with live match highlighting, capture groups, named groups, and all JavaScript flags. Test regular expressions in your browser — nothing is uploaded.">
+    <meta name="keywords" content="regex tester, regular expression tester, regex online, test regex, regex match highlighter, javascript regex tester, regex capture groups">
+    <link rel="canonical" href="https://jsondevtools.org/regex-tester.html">
+    <meta property="og:title" content="Regex Tester – Live Regular Expression Tester Online">
+    <meta property="og:description" content="Test regular expressions with live highlighting, capture groups, and every JavaScript flag. Free, private, runs in your browser.">
+    <meta property="og:url" content="https://jsondevtools.org/regex-tester.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Regex Tester – Live Regular Expression Tester Online</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Regex Tester", "item": "https://jsondevtools.org/regex-tester.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Regex Tester",
+      "url": "https://jsondevtools.org/regex-tester.html",
+      "description": "Free online regex tester with live match highlighting, capture groups, named groups, and all JavaScript flags. Runs entirely in your browser.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What regex flavor does this tester use?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It uses the browser's native JavaScript (ECMAScript) RegExp engine, so what you see here matches exactly how the pattern behaves in JavaScript, Node.js, and TypeScript. Most core syntax is shared with other flavors, but features like lookbehind, named groups, and Unicode property escapes follow the JavaScript specification." }
+        },
+        {
+          "@type": "Question",
+          "name": "What do the g, i, m, s, u, and y flags do?",
+          "acceptedAnswer": { "@type": "Answer", "text": "g (global) finds all matches instead of just the first; i (ignore case) makes matching case-insensitive; m (multiline) makes ^ and $ match at line breaks; s (dotAll) makes the dot match newlines; u (unicode) enables full Unicode and property escapes; y (sticky) anchors each match at lastIndex. Toggle them with the checkboxes and the results update live." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I capture part of a match?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Wrap the part you want in parentheses to create a capture group; it appears as $1, $2, and so on under each match. Use (?<name>...) for a named group, which shows up by name. Use (?:...) for a non-capturing group when you need grouping without capturing." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my test text sent to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Both the pattern and the test text are evaluated entirely in your browser using the native RegExp engine. Nothing is uploaded, so it is safe to test against real logs or data, and the tool works offline." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my pattern match nothing or throw an error?",
+          "acceptedAnswer": { "@type": "Answer", "text": "If the pattern is invalid — for example an unclosed group or bracket — the status line shows the exact syntax error. If it is valid but matches nothing, check whether you need the g flag for multiple matches, the i flag for case, or the m flag for anchors to work per line. Remember to escape literal special characters like . ( ) [ ] with a backslash." }
+        }
+      ]
+    }
+    </script>
+    <style>
+        .rx-field { margin-bottom: 18px; }
+        .rx-field label { display:block; font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--secondary-color); margin-bottom:6px; }
+        .rx-pattern-row { display:flex; gap:8px; align-items:stretch; }
+        .rx-pattern-row .rx-slash { display:flex; align-items:center; font-family:'Courier New',monospace; font-size:1.3rem; color:var(--secondary-color); }
+        #patternInput {
+            flex:1; font-family:'Courier New',monospace; font-size:1.05rem; padding:10px 14px;
+            border:1px solid var(--border-color); border-radius:8px; background:#fff; color:var(--text-light); box-sizing:border-box;
+        }
+        #patternInput:focus { outline:none; border-color:var(--primary-color); box-shadow:0 0 0 3px rgba(0,123,255,0.12); }
+        body.dark-mode #patternInput { background:#111; border-color:#333; color:#a5c8ea; }
+        .flags-row { display:flex; flex-wrap:wrap; gap:14px; margin:12px 0; }
+        .flags-row label { display:flex; align-items:center; gap:5px; font-family:'Courier New',monospace; font-size:0.9rem; color:var(--text-light); text-transform:none; letter-spacing:normal; font-weight:600; }
+        #testInput {
+            width:100%; min-height:150px; font-family:'Courier New',monospace; font-size:0.92rem; line-height:1.6;
+            padding:12px; border:1px solid var(--border-color); border-radius:8px; background:#fff; color:var(--text-light); box-sizing:border-box; resize:vertical;
+        }
+        body.dark-mode #testInput { background:#111; border-color:#333; color:#d0d8e5; }
+        .rx-status { font-family:'Courier New',monospace; font-size:0.9rem; margin:6px 0 14px; font-weight:600; }
+        .rx-status.ok { color:#198754; } .rx-status.err { color:#dc3545; } .rx-status.muted { color:var(--secondary-color); }
+        #highlightOutput {
+            white-space:pre-wrap; word-break:break-word; font-family:'Courier New',monospace; font-size:0.92rem; line-height:1.6;
+            padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--light-bg); min-height:60px;
+        }
+        body.dark-mode #highlightOutput { background:#161616; border-color:#333; color:#d0d8e5; }
+        #highlightOutput mark { background:#ffe08a; color:#000; border-radius:3px; padding:0 1px; }
+        body.dark-mode #highlightOutput mark { background:#b58900; color:#fff; }
+        .rx-placeholder { color:var(--secondary-color); }
+        .match-row { border:1px solid var(--border-color); border-radius:8px; padding:8px 12px; margin-bottom:8px; display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+        body.dark-mode .match-row { border-color:#333; }
+        .match-num { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--primary-color); color:#fff; font-size:0.78rem; font-weight:700; }
+        .match-text { font-family:'Courier New',monospace; background:var(--light-bg); padding:2px 6px; border-radius:4px; }
+        body.dark-mode .match-text { background:#222; color:#a5c8ea; }
+        .match-at { font-size:0.8rem; color:var(--secondary-color); }
+        .match-groups { flex-basis:100%; display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+        .group-chip { font-size:0.82rem; color:var(--text-light); }
+        .rx-ref { width:100%; border-collapse:collapse; font-size:0.9rem; }
+        .rx-ref th, .rx-ref td { padding:7px 10px; text-align:left; border-bottom:1px solid var(--border-color); }
+        .rx-ref th { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--secondary-color); }
+        .rx-ref td code { font-family:'Courier New',monospace; }
+        body.dark-mode .rx-ref th, body.dark-mode .rx-ref td { border-color:#2a2a2a; }
+    </style>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>Regex Tester</h1>
+            <p>Test regular expressions with live match highlighting, capture groups, and every JavaScript flag as you type. Both the pattern and your test text are evaluated entirely in your browser, so nothing is uploaded and it's safe to test against real data.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+            <div class="rx-field">
+                <label for="patternInput">Regular expression</label>
+                <div class="rx-pattern-row">
+                    <span class="rx-slash">/</span>
+                    <input type="text" id="patternInput" spellcheck="false" placeholder="\b\w+@\w+\.\w+\b" value="(\w+)@(\w+\.\w+)" aria-label="Regular expression pattern">
+                    <span class="rx-slash">/</span>
+                    <button id="copyRegexBtn" class="btn btn-secondary">Copy /…/</button>
+                </div>
+                <div class="flags-row">
+                    <label><input type="checkbox" class="flag-box" value="g" checked> g <span style="color:var(--secondary-color);">global</span></label>
+                    <label><input type="checkbox" class="flag-box" value="i"> i <span style="color:var(--secondary-color);">ignore case</span></label>
+                    <label><input type="checkbox" class="flag-box" value="m"> m <span style="color:var(--secondary-color);">multiline</span></label>
+                    <label><input type="checkbox" class="flag-box" value="s"> s <span style="color:var(--secondary-color);">dotAll</span></label>
+                    <label><input type="checkbox" class="flag-box" value="u"> u <span style="color:var(--secondary-color);">unicode</span></label>
+                    <label><input type="checkbox" class="flag-box" value="y"> y <span style="color:var(--secondary-color);">sticky</span></label>
+                </div>
+            </div>
+
+            <div class="rx-field">
+                <label for="testInput">Test string</label>
+                <textarea id="testInput" spellcheck="false" aria-label="Test string">Contact alice@example.com or bob@dev.org for access.
+Invalid: not-an-email, @nope, plain text.</textarea>
+            </div>
+
+            <div class="rx-status muted" id="regexStatus">Enter a pattern to begin.</div>
+
+            <div class="rx-field">
+                <label>Highlighted matches</label>
+                <div id="highlightOutput"></div>
+            </div>
+
+            <div class="rx-field">
+                <label>Match details</label>
+                <div id="matchList"></div>
+            </div>
+        </section>
+
+        <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:2rem 0 0;">
+            <p style="margin:0;font-weight:600;">Quick answer</p>
+            <p style="margin:0.5rem 0 0;">A regular expression is a pattern for finding and extracting text. Type a pattern above, toggle flags like <code>g</code> (all matches) and <code>i</code> (ignore case), and paste text to see matches highlighted with their capture groups. <strong>It uses your browser's native JavaScript RegExp engine, so results match Node.js and TypeScript exactly, and nothing you type leaves your device.</strong></p>
+        </div>
+
+        <section class="info-section">
+            <h2>How to read the results</h2>
+            <ul>
+                <li><strong>Highlighted matches</strong> shows your test string with every match wrapped in a highlight, so you can see at a glance what the pattern catches and what it misses.</li>
+                <li><strong>Match details</strong> lists each match, its position in the string, and any capture groups. Numbered groups (<code>$1</code>, <code>$2</code>) come from plain parentheses; named groups appear as <code>&lt;name&gt;</code>.</li>
+                <li><strong>Status line</strong> confirms how many matches were found, or shows the exact syntax error if the pattern is invalid.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Flags explained</h2>
+            <p>Flags change how the whole pattern behaves. The two you'll reach for most are <code>g</code> and <code>i</code>:</p>
+            <ul>
+                <li><code>g</code> — global: return every match, not just the first. Without it, most languages stop at the first hit.</li>
+                <li><code>i</code> — ignore case: <code>cat</code> matches <code>Cat</code> and <code>CAT</code>.</li>
+                <li><code>m</code> — multiline: <code>^</code> and <code>$</code> match at the start and end of each line, not just the whole string.</li>
+                <li><code>s</code> — dotAll: the <code>.</code> also matches newline characters, which it normally doesn't.</li>
+                <li><code>u</code> — unicode: enables full Unicode handling and <code>\p{...}</code> property escapes.</li>
+                <li><code>y</code> — sticky: each match must start exactly at the current position, useful for tokenizers.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Syntax cheat sheet</h2>
+            <table class="rx-ref">
+                <thead><tr><th>Token</th><th>Matches</th></tr></thead>
+                <tbody>
+                    <tr><td><code>.</code></td><td>Any character except newline (unless <code>s</code> flag)</td></tr>
+                    <tr><td><code>\d</code> <code>\w</code> <code>\s</code></td><td>Digit, word character, whitespace</td></tr>
+                    <tr><td><code>\D</code> <code>\W</code> <code>\S</code></td><td>The negation of each (non-digit, etc.)</td></tr>
+                    <tr><td><code>[abc]</code> <code>[^abc]</code></td><td>Any one of a/b/c; or any character except them</td></tr>
+                    <tr><td><code>[a-z0-9]</code></td><td>A character range</td></tr>
+                    <tr><td><code>*</code> <code>+</code> <code>?</code></td><td>0+, 1+, or 0-or-1 of the preceding token</td></tr>
+                    <tr><td><code>{2}</code> <code>{2,}</code> <code>{2,5}</code></td><td>Exactly, at-least, or between-n-and-m repetitions</td></tr>
+                    <tr><td><code>^</code> <code>$</code></td><td>Start / end of string (or line with <code>m</code>)</td></tr>
+                    <tr><td><code>\b</code></td><td>Word boundary</td></tr>
+                    <tr><td><code>(abc)</code> <code>(?:abc)</code></td><td>Capturing group / non-capturing group</td></tr>
+                    <tr><td><code>(?&lt;name&gt;abc)</code></td><td>Named capture group</td></tr>
+                    <tr><td><code>a|b</code></td><td>Alternation: a or b</td></tr>
+                    <tr><td><code>(?=abc)</code> <code>(?!abc)</code></td><td>Lookahead / negative lookahead</td></tr>
+                </tbody>
+            </table>
+            <p style="margin-top:1rem;">Remember to escape characters that have special meaning when you want them literally — <code>.</code>, <code>(</code>, <code>)</code>, <code>[</code>, <code>]</code>, <code>{</code>, <code>}</code>, <code>*</code>, <code>+</code>, <code>?</code>, <code>|</code>, <code>^</code>, <code>$</code>, and <code>\</code> — by putting a backslash in front. A literal dot is <code>\.</code>, as used in the email example above.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>What regex flavor does this tester use?</summary>
+                <p>It uses the browser's native JavaScript (ECMAScript) RegExp engine, so what you see here matches exactly how the pattern behaves in JavaScript, Node.js, and TypeScript. Most core syntax is shared with other flavors, but features like lookbehind, named groups, and Unicode property escapes follow the JavaScript specification.</p>
+            </details>
+            <details>
+                <summary>What do the g, i, m, s, u, and y flags do?</summary>
+                <p><code>g</code> (global) finds all matches instead of just the first; <code>i</code> (ignore case) makes matching case-insensitive; <code>m</code> (multiline) makes <code>^</code> and <code>$</code> match at line breaks; <code>s</code> (dotAll) makes the dot match newlines; <code>u</code> (unicode) enables full Unicode and property escapes; <code>y</code> (sticky) anchors each match at lastIndex. Toggle them with the checkboxes and the results update live.</p>
+            </details>
+            <details>
+                <summary>How do I capture part of a match?</summary>
+                <p>Wrap the part you want in parentheses to create a capture group; it appears as <code>$1</code>, <code>$2</code>, and so on under each match. Use <code>(?&lt;name&gt;...)</code> for a named group, which shows up by name. Use <code>(?:...)</code> for a non-capturing group when you need grouping without capturing.</p>
+            </details>
+            <details>
+                <summary>Is my test text sent to a server?</summary>
+                <p>No. Both the pattern and the test text are evaluated entirely in your browser using the native RegExp engine. Nothing is uploaded, so it is safe to test against real logs or data, and the tool works offline.</p>
+            </details>
+            <details>
+                <summary>Why does my pattern match nothing or throw an error?</summary>
+                <p>If the pattern is invalid — for example an unclosed group or bracket — the status line shows the exact syntax error. If it is valid but matches nothing, check whether you need the <code>g</code> flag for multiple matches, the <code>i</code> flag for case, or the <code>m</code> flag for anchors to work per line. Remember to escape literal special characters like <code>.</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> with a backslash.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="string-escape.html">String Escape / Unescape</a></li>
+                <li><a href="text-diff.html">Text Diff</a></li>
+                <li><a href="log-redactor.html">Log Redactor</a></li>
+                <li><a href="jsonpath.html">JSONPath Tester</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/regex-tester-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>

@@ -216,6 +216,12 @@ print(json.dumps(list(csv.DictReader(sys.stdin)), indent=2))
 " < data.csv</pre>
             </div>
 
+            <h2>Handling messy real-world CSVs</h2>
+            <p>Clean CSVs are rare. A few issues come up again and again. <strong>Duplicate or blank header names</strong> break <code>DictReader</code> because dictionary keys must be unique &mdash; normalize the header row first, giving blank columns explicit names. <strong>Inconsistent columns per row</strong> (a row with fewer fields than the header) leaves missing keys set to <code>None</code>, which serializes to <code>null</code>; decide whether that's acceptable or should be an error. <strong>Byte-order marks</strong> from Excel exports sneak an invisible character onto your first header name, so open files with <code>encoding='utf-8-sig'</code> to strip it. And <strong>embedded commas or newlines</strong> inside quoted fields are handled correctly by the <code>csv</code> module but will corrupt any naive <code>line.split(',')</code> approach &mdash; which is exactly why using the standard library parser matters.</p>
+
+            <h2>Nested JSON from flat CSV</h2>
+            <p>CSV is flat and JSON is hierarchical, so a common need is turning dotted column names like <code>address.city</code> into nested objects. There's no built-in for this, but it's a short loop: split each key on <code>.</code> and walk into nested dictionaries, creating them as you go. Decide up front how to handle types, too &mdash; every CSV value arrives as a string, so numeric and boolean fields need explicit conversion (covered in the section above) if the consumer expects real numbers rather than <code>"42"</code>. For a one-off job where you don't want to write and debug this logic, the browser-based converter below handles quoting and type inference for you.</p>
+
             <h2>No-code alternative</h2>
             <p>If you do not need to script the conversion, the <a href="../csv-to-json.html">CSV to JSON Converter</a> lets you paste or upload a CSV file and download the JSON output immediately &mdash; no Python required.</p>
 

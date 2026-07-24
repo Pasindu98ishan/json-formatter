@@ -38,6 +38,7 @@
         '                        <li><a href="' + r + 'json-to-typescript.html">JSON &#8594; TypeScript</a></li>\n' +
         '                        <li><a href="' + r + 'json-to-toon.html">JSON &#8594; TOON</a></li>\n' +
         '                        <li><a href="' + r + 'px-to-rem.html">Px &#8596; Rem</a></li>\n' +
+        '                        <li><a href="' + r + 'color-converter.html">Color Converter</a></li>\n' +
         '                        <li><a href="' + r + 'timestamp.html">Timestamp</a></li>\n' +
         '                    </ul>\n' +
         '                </li>\n' +
@@ -47,6 +48,7 @@
         '                        <li><a href="' + r + 'base64.html">Base64</a></li>\n' +
         '                        <li><a href="' + r + 'url-encoder.html">URL Encoder</a></li>\n' +
         '                        <li><a href="' + r + 'jwt-decoder.html">JWT Decoder</a></li>\n' +
+        '                        <li><a href="' + r + 'jwt-encoder.html">JWT Encoder</a></li>\n' +
         '                        <li><a href="' + r + 'string-escape.html">String Escape</a></li>\n' +
         '                    </ul>\n' +
         '                </li>\n' +
@@ -63,6 +65,7 @@
         '                <li class="nav-dropdown">\n' +
         '                    <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">Other Tools &#9662;</button>\n' +
         '                    <ul class="dropdown-menu">\n' +
+        '                        <li><a href="' + r + 'regex-tester.html">Regex Tester</a></li>\n' +
         '                        <li><a href="' + r + 'log-redactor.html">Log Redactor</a></li>\n' +
         '                        <li><a href="' + r + 'docker-image-optimizer.html">Docker Image Optimizer</a></li>\n' +
         '                        <li><a href="' + r + 'http-status.html">HTTP Status Codes</a></li>\n' +

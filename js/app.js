@@ -122,6 +122,16 @@ function initializeEventListeners() {
             if (autoFormatToggle.checked) autoFormat();
         });
     }
+
+    // Re-format immediately when indentation or sort-keys options change.
+    const indentSelect = document.getElementById('indentSelect');
+    const sortKeysToggle = document.getElementById('sortKeysToggle');
+    function reformatOnOptionChange() {
+        const input = document.getElementById('inputJSON');
+        if (input && input.value.trim()) handleFormat();
+    }
+    if (indentSelect) indentSelect.addEventListener('change', reformatOnOptionChange);
+    if (sortKeysToggle) sortKeysToggle.addEventListener('change', reformatOnOptionChange);
 }
 
 function setOutput(text) {

@@ -194,6 +194,12 @@ fs.writeFileSync('config.json', JSON.stringify(data, null, 2));</pre>
             </ul>
             <p>For more on these edge cases, see <a href="json-undefined-value.html">undefined Is Not Valid in JSON</a> and <a href="json-nan-infinity.html">JSON NaN and Infinity Are Not Valid</a>.</p>
 
+            <h2>Formatting without inflating your bundle</h2>
+            <p>Because <code>JSON.stringify</code> with a space argument is built into every JavaScript runtime, you almost never need a library to pretty-print JSON &mdash; adding one just to format output is wasted bundle size. The native call handles indentation, key filtering (via the replacer array), and value transformation (via the replacer function) with zero dependencies. Reach for a third-party formatter only when you need something the spec genuinely doesn't cover, such as sorting keys deterministically, preserving a specific number precision, or producing colorized terminal output. For everything else, <code>JSON.stringify(data, null, 2)</code> is the right answer in the browser, in Node, and in edge/serverless runtimes alike.</p>
+
+            <h2>Common gotchas when formatting in JavaScript</h2>
+            <p>Two things trip people up. First, <code>JSON.stringify</code> only formats a JavaScript <em>value</em>, not a JSON <em>string</em> &mdash; if you already have a JSON string and want to reformat it, you must <code>JSON.parse</code> it first, then stringify with an indent, otherwise you'll get an escaped string wrapped in quotes. Second, the space argument accepts either a number (2 gives two spaces) or a string (<code>'\t'</code> gives tabs); passing a number greater than 10 is capped at 10 spaces by the spec. Also remember that stringifying loses anything JSON can't represent &mdash; functions, <code>undefined</code>, and symbols are dropped from objects, and <code>Date</code> objects become ISO strings via their <code>toJSON</code> method. When in doubt about the result, drop it into the <a href="../json-validator.html">JSON Validator</a> to confirm it's still well-formed.</p>
+
             <h2>Quick online formatting</h2>
             <p>For one-off formatting without writing code, paste your JSON into the <a href="../formatter.html">JSON Formatter</a>. It pretty-prints the structure with syntax highlighting and collapses nested nodes for navigation.</p>
 

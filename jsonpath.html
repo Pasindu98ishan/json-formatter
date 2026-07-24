@@ -63,6 +63,11 @@
         },
         {
           "@type": "Question",
+          "name": "Why does my expression return an array?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSONPath always returns an array of matches, even when only one value matches. This is by design — a path expression like $.name returns [\"John\"], not \"John\". If you need the scalar value, take the first element of the result array." }
+        },
+        {
+          "@type": "Question",
           "name": "Is my JSON data sent to a server?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. All JSONPath evaluation happens entirely in your browser using the JSONPath Plus JavaScript library. Your data never leaves your device." }
         },
@@ -222,6 +227,34 @@
                 <li>Building Kubernetes admission webhook conditions or AWS IAM policy filters that use JSONPath-like syntax.</li>
                 <li>Prototyping Grafana alert rule conditions or Prometheus relabeling expressions against real data before deploying.</li>
             </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example: querying an API response</h2>
+            <p>Suppose an API returns a list of products and you want just the names of the in-stock items under $10. Given this JSON:</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>{
+  "products": [
+    { "name": "Pen",    "price": 3,  "inStock": true },
+    { "name": "Notebook","price": 8, "inStock": true },
+    { "name": "Desk",    "price": 120,"inStock": false }
+  ]
+}</code></pre>
+            <p>Here is how a few expressions evaluate against it:</p>
+            <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+                <thead>
+                    <tr style="background:var(--light-bg);text-align:left;">
+                        <th style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);">Expression</th>
+                        <th style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);">Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);"><code>$.products[*].name</code></td><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);"><code>["Pen","Notebook","Desk"]</code></td></tr>
+                    <tr><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);"><code>$.products[0]</code></td><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);">the first product object</td></tr>
+                    <tr><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);"><code>$.products[?(@.price &lt; 10)].name</code></td><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);"><code>["Pen","Notebook"]</code></td></tr>
+                    <tr><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);"><code>$.products[?(@.inStock == false)].name</code></td><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);"><code>["Desk"]</code></td></tr>
+                    <tr><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);"><code>$..price</code></td><td style="padding:0.5rem 0.7rem;border:1px solid var(--border-color);"><code>[3,8,120]</code> (recursive descent)</td></tr>
+                </tbody>
+            </table>
+            <p style="margin-top:1rem;">A few things to notice: the result is always an array, even when a single node matches; the recursive-descent operator <code>$..price</code> finds every <code>price</code> key at any depth; and filter predicates use <code>@</code> to refer to the current element. Test each expression above in the tool to see the matched nodes highlighted, then adapt them to your own data. If you need to transform or reshape the extracted values rather than just select them, pair JSONPath with the <a href="json-to-typescript.html">JSON to TypeScript</a> or <a href="json-to-csv.html">JSON to CSV</a> tools, and use the <a href="json-viewer.html">JSON Viewer</a> to explore an unfamiliar document's structure before writing an expression.</p>
         </section>
         <section class="faq-section">
             <h2>Frequently Asked Questions</h2>

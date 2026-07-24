@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free online color converter. Convert between HEX, RGB, and HSL instantly with a live preview, alpha support, and one-click shades. Runs in your browser.">
+    <meta name="keywords" content="color converter, hex to rgb, rgb to hex, hex to hsl, hsl to rgb, rgb to hsl, css color converter, hex rgb hsl converter">
+    <link rel="canonical" href="https://jsondevtools.org/color-converter.html">
+    <meta property="og:title" content="Color Converter – HEX, RGB &amp; HSL Online Free">
+    <meta property="og:description" content="Convert colors between HEX, RGB, and HSL instantly with a live preview and shade generator. Free, private, no signup.">
+    <meta property="og:url" content="https://jsondevtools.org/color-converter.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Color Converter – HEX, RGB &amp; HSL Online Free</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Color Converter", "item": "https://jsondevtools.org/color-converter.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Color Converter",
+      "url": "https://jsondevtools.org/color-converter.html",
+      "description": "Free online color converter. Convert between HEX, RGB, and HSL with a live preview, alpha support, and a shade generator.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I convert HEX to RGB?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Split the six-digit hex into three pairs and read each as a base-16 number: #3B82F6 becomes R=0x3B=59, G=0x82=130, B=0xF6=246, i.e. rgb(59, 130, 246). This tool does it instantly — paste the hex and the RGB value updates as you type." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between RGB and HSL?",
+          "acceptedAnswer": { "@type": "Answer", "text": "RGB describes a color by how much red, green, and blue light it mixes (0–255 each). HSL describes the same color by Hue (0–360° on the color wheel), Saturation (0–100%), and Lightness (0–100%). HSL is easier for humans to reason about — to make a color lighter you just raise the lightness, and to shift it toward another color you change the hue." }
+        },
+        {
+          "@type": "Question",
+          "name": "Do HEX, RGB, and HSL support transparency?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. HEX supports an alpha channel as an 8-digit value (#RRGGBBAA), and CSS has rgba() and hsla() (plus modern rgb()/hsl() with a slash alpha). This converter preserves alpha across all three formats when you include it." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my color data sent to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. All conversion runs entirely in your browser with JavaScript. Nothing you type is uploaded, and the tool works offline once the page has loaded." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my HSL value look slightly different after a round trip?",
+          "acceptedAnswer": { "@type": "Answer", "text": "HEX and RGB store 256 discrete steps per channel, while HSL is continuous, so converting HSL → RGB → HSL can round to the nearest representable color. The visible color is effectively identical; only the last digit of the HSL numbers may shift by one." }
+        }
+      ]
+    }
+    </script>
+    <style>
+        .color-grid {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            gap: 24px;
+            align-items: start;
+            margin-bottom: 28px;
+        }
+        @media (max-width: 640px) { .color-grid { grid-template-columns: 1fr; } }
+        .swatch {
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            height: 220px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 14px;
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+        .picker-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .picker-row input[type=color] {
+            width: 46px; height: 46px; padding: 0; border: 1px solid var(--border-color);
+            border-radius: 8px; background: none; cursor: pointer;
+        }
+        .fields { display: flex; flex-direction: column; gap: 16px; }
+        .field label {
+            display: block; font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--secondary-color); margin-bottom: 6px;
+        }
+        .field-row { display: flex; gap: 8px; }
+        .field-row input[type=text] {
+            flex: 1; font-family: 'Courier New', monospace; font-size: 1.05rem; font-weight: 600;
+            padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px;
+            background: #fff; color: var(--text-light); box-sizing: border-box;
+        }
+        .field-row input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0,123,255,0.12); }
+        body.dark-mode .field-row input[type=text] { background: #111; border-color: #333; color: #a5c8ea; }
+        .shades { display: flex; gap: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-color); }
+        .shade-cell { flex: 1; height: 52px; border: none; cursor: pointer; padding: 0; }
+        .shades-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--secondary-color); margin: 22px 0 8px; }
+    </style>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>Color Converter</h1>
+            <p>Convert colors between HEX, RGB, and HSL with a live preview — edit any format and the others update instantly. Alpha transparency is preserved across all three, and everything runs in your browser so nothing is uploaded.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+            <div class="color-grid">
+                <div>
+                    <div class="swatch" id="colorSwatch"><span id="swatchText">#3B82F6</span></div>
+                    <div class="picker-row">
+                        <input type="color" id="colorPicker" value="#3b82f6" aria-label="Pick a color">
+                        <span style="font-size:0.85rem;color:var(--text-light);">Pick a color, or type a value →</span>
+                    </div>
+                    <div class="shades-label">Lightness shades — click to copy</div>
+                    <div class="shades" id="shadesRow"></div>
+                </div>
+
+                <div class="fields">
+                    <div class="field">
+                        <label for="hexInput">HEX</label>
+                        <div class="field-row">
+                            <input type="text" id="hexInput" spellcheck="false" placeholder="#3B82F6" aria-label="HEX color value">
+                            <button class="btn btn-secondary" data-copy="hexInput">Copy</button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="rgbInput">RGB</label>
+                        <div class="field-row">
+                            <input type="text" id="rgbInput" spellcheck="false" placeholder="rgb(59, 130, 246)" aria-label="RGB color value">
+                            <button class="btn btn-secondary" data-copy="rgbInput">Copy</button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="hslInput">HSL</label>
+                        <div class="field-row">
+                            <input type="text" id="hslInput" spellcheck="false" placeholder="hsl(217, 91%, 60%)" aria-label="HSL color value">
+                            <button class="btn btn-secondary" data-copy="hslInput">Copy</button>
+                        </div>
+                    </div>
+                    <p style="margin:0;font-size:0.85rem;color:var(--text-light);">Accepts <code>#rgb</code>, <code>#rrggbb</code>, and 8-digit <code>#rrggbbaa</code> hex, plus <code>rgb()/rgba()</code> and <code>hsl()/hsla()</code>. Invalid input turns the field red until it parses.</p>
+                </div>
+            </div>
+        </section>
+
+        <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:2rem 0 0;">
+            <p style="margin:0;font-weight:600;">Quick answer</p>
+            <p style="margin:0.5rem 0 0;">HEX, RGB, and HSL are three ways of writing the <em>same</em> color. HEX packs the red, green, and blue channels into base-16 pairs (<code>#RRGGBB</code>); RGB writes those channels as 0–255 numbers; HSL describes the color by hue, saturation, and lightness. <strong>Edit any field above and the other two update live — all in your browser, nothing uploaded.</strong></p>
+        </div>
+
+        <section class="info-section">
+            <h2>How the conversions work</h2>
+            <p>All three formats describe a point in the same color space, so conversion is just arithmetic:</p>
+            <ul>
+                <li><strong>HEX ↔ RGB</strong> — each color channel is one byte. <code>#3B82F6</code> splits into <code>3B</code>, <code>82</code>, <code>F6</code>, which are <code>59</code>, <code>130</code>, <code>246</code> in decimal. Going back, each 0–255 number is written as a two-digit base-16 value.</li>
+                <li><strong>RGB → HSL</strong> — find the max and min channel to derive lightness, then compute saturation and the hue angle from which channel is dominant.</li>
+                <li><strong>HSL → RGB</strong> — reverse the process, mapping the hue angle back onto the red/green/blue mix at the given saturation and lightness.</li>
+            </ul>
+            <p>Because HEX and RGB are limited to 256 steps per channel while HSL is continuous, an HSL → RGB → HSL round trip can round to the nearest representable color. The visible result is identical; only the final digit may move by one.</p>
+        </section>
+        <section class="info-section">
+            <h2>Which format to use, and when</h2>
+            <ul>
+                <li><strong>HEX</strong> is the most compact and is the default in design tools and most CSS. Great for storing and sharing a single fixed color.</li>
+                <li><strong>RGB / RGBA</strong> is handy when you need transparency (<code>rgba(0,0,0,0.5)</code>) or when you're manipulating channels programmatically, for example in a canvas or image pipeline.</li>
+                <li><strong>HSL / HSLA</strong> is the most human-friendly for building palettes. To make a color lighter, raise the lightness; to create a complementary color, add 180° to the hue. The shade strip on the left is generated exactly this way — same hue and saturation, stepped lightness.</li>
+            </ul>
+        </section>
+        <section class="info-section">
+            <h2>Worked example</h2>
+            <p>Take the blue <code>#3B82F6</code>. Converting it across formats gives:</p>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>HEX  #3B82F6
+RGB  rgb(59, 130, 246)
+HSL  hsl(217, 91%, 60%)</code></pre>
+            <p>To make a hover state 15% darker, drop the HSL lightness from 60% to 45% — <code>hsl(217, 91%, 45%)</code> — which is far more intuitive than guessing new RGB numbers. Paste any of these into the fields above to see the others and the live swatch update.</p>
+        </section>
+        <section class="info-section">
+            <h2>Accessibility note</h2>
+            <p>Color choice is also an accessibility decision. Text needs sufficient contrast against its background — WCAG AA asks for a contrast ratio of at least 4.5:1 for normal text. HSL makes this easier to tune: keep the hue, and adjust lightness until the contrast passes. The swatch above automatically flips its label between black and white based on the color's luminance, which is the same relative-luminance calculation contrast checkers use.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>How do I convert HEX to RGB?</summary>
+                <p>Split the six-digit hex into three pairs and read each as a base-16 number: <code>#3B82F6</code> becomes R=0x3B=59, G=0x82=130, B=0xF6=246, i.e. <code>rgb(59, 130, 246)</code>. This tool does it instantly — paste the hex and the RGB value updates as you type.</p>
+            </details>
+            <details>
+                <summary>What is the difference between RGB and HSL?</summary>
+                <p>RGB describes a color by how much red, green, and blue light it mixes (0–255 each). HSL describes the same color by Hue (0–360° on the color wheel), Saturation (0–100%), and Lightness (0–100%). HSL is easier for humans to reason about — to make a color lighter you just raise the lightness, and to shift it toward another color you change the hue.</p>
+            </details>
+            <details>
+                <summary>Do HEX, RGB, and HSL support transparency?</summary>
+                <p>Yes. HEX supports an alpha channel as an 8-digit value (<code>#RRGGBBAA</code>), and CSS has <code>rgba()</code> and <code>hsla()</code> (plus modern <code>rgb()/hsl()</code> with a slash alpha). This converter preserves alpha across all three formats when you include it.</p>
+            </details>
+            <details>
+                <summary>Is my color data sent to a server?</summary>
+                <p>No. All conversion runs entirely in your browser with JavaScript. Nothing you type is uploaded, and the tool works offline once the page has loaded.</p>
+            </details>
+            <details>
+                <summary>Why does my HSL value look slightly different after a round trip?</summary>
+                <p>HEX and RGB store 256 discrete steps per channel, while HSL is continuous, so converting HSL → RGB → HSL can round to the nearest representable color. The visible color is effectively identical; only the last digit of the HSL numbers may shift by one.</p>
+            </details>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="px-to-rem.html">Px to Rem Converter</a></li>
+                <li><a href="base64.html">Base64 Encoder &amp; Decoder</a></li>
+                <li><a href="url-encoder.html">URL Encoder</a></li>
+                <li><a href="hash.html">Hash Generator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/color-converter-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>
