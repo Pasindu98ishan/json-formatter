@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="E11000 duplicate key error collection — MongoDB rejected a write that duplicates a unique index. Fix it with an upsert, by catching code 11000, or a partial index.">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/mongodb-e11000-duplicate-key-error.html">
+    <meta property="og:title" content="E11000 duplicate key error collection (MongoDB) — cause &amp; fix">
+    <meta property="og:description" content="MongoDB rejects a write that duplicates a unique index. Read the index and dup key, then fix it with an upsert, by catching code 11000, or — for the { field: null } case — a partial index.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/mongodb-e11000-duplicate-key-error.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>E11000 duplicate key error collection (MongoDB) — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "E11000 duplicate key error collection", "item": "https://jsondevtools.org/errors/mongodb-e11000-duplicate-key-error.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "E11000 duplicate key error collection — Cause and Fix",
+  "description": "MongoDB raises E11000 when a write would duplicate a value in a unique index. This reference covers upserts, catching code 11000, the { field: null } trap, partial indexes, and compound unique indexes.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-01",
+  "dateModified": "2026-08-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does E11000 duplicate key error mean in MongoDB?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An insert or update tried to store a value that already exists in a unique index. The message names the index and the conflicting value: index: email_1 dup key: { email: \"a@b.com\" }. MongoDB rejects the write to keep the indexed field unique. Read the index name and dup key to see exactly what collided."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get E11000 with dup key { field: null }?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A unique index treats a missing field as null, so two documents that both omit the field both index as null and the second insert collides. Either always set the field, or make the index only apply to documents that have it using a partial index: partialFilterExpression: { email: { $exists: true } }. A sparse index also works but is more limited, especially in compound indexes."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I insert without failing if the document already exists?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use an upsert: updateOne(filter, { $set: {...} }, { upsert: true }) inserts when nothing matches the filter and updates otherwise. It is atomic, so it avoids the race condition of checking for the document first and then inserting. In Mongoose, findOneAndUpdate(filter, update, { upsert: true, new: true }) does the same and returns the resulting document."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I catch the duplicate key error in Node.js?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Check the error code: if (err.code === 11000). The modern driver and Mongoose also expose err.keyValue ({ email: 'a@b.com' }) and err.keyPattern ({ email: 1 }), so you can build a clean message and return HTTP 409 Conflict instead of a 500. Catching it turns a real client conflict, like signing up with an existing email, into a proper validation response."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Mongoose 'unique: true' validate uniqueness?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. unique: true is not a validator — it tells Mongoose to build a unique index. Uniqueness is enforced by MongoDB at write time as E11000, not by Mongoose validation, so it does not produce a ValidationError and does not run in a normal validate() call. Handle the E11000 (code 11000) in your catch block, and be aware the index only exists once it has actually been built."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does E11000 still happen after I removed the unique field?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The index still exists even if your schema no longer declares it. Changing unique: true in code does not drop an index MongoDB already created. List indexes with db.collection.getIndexes() and drop the stale one with db.collection.dropIndex('email_1'). Then recreate it the way you actually want, for example as a partial index."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>E11000 duplicate key error collection</span>
+            </nav>
+            <h1>E11000 duplicate key error collection</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>A write tried to duplicate a value in a <strong>unique index</strong>. The message names the culprit: <code>index: email_1 dup key: { email: "a@b.com" }</code>.</li>
+                    <li><strong>Expected duplicate</strong> (re-run, import)? Use an <strong>upsert</strong> instead of insert.</li>
+                    <li><strong>Real client conflict</strong> (signup with an existing email)? <strong>Catch code 11000</strong> and return <code>409</code>.</li>
+                    <li><strong><code>dup key: { field: null }</code>?</strong> Two docs are missing the field &mdash; use a <strong>partial index</strong>, not a plain unique one.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>MongoServerError: E11000 duplicate key error collection: appdb.users
+  index: email_1 dup key: { email: "ada@example.com" }</code></pre>
+            </div>
+            <p>You'll also see these variants &mdash; the driver class name changes over versions, and the <code>dup key</code> content tells you which case you're in:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// older driver wording
+WriteError: E11000 duplicate key error index: appdb.users.$email_1 dup key: {...}
+BulkWriteError: E11000 duplicate key error collection: ...        // insertMany
+
+// the "missing field" trap — both documents indexed null
+E11000 duplicate key error collection: appdb.users index: email_1 dup key: { email: null }
+
+// a compound unique index — more than one field must be unique together
+E11000 duplicate key error collection: appdb.members
+  index: org_1_email_1 dup key: { org: "acme", email: "ada@example.com" }</code></pre>
+            </div>
+
+            <p>MongoDB enforces a <strong>unique index</strong> by rejecting any insert or update that would put a second document with the same indexed value into the collection. The error hands you everything you need: the <code>index:</code> name (which fields it covers) and the <code>dup key:</code> (the exact value that already exists). Read those two parts first &mdash; every fix below flows from what they say.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #28a745;border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Fastest fix</p>
+                <p style="margin:0.5rem 0 0;">If a duplicate is <em>expected</em> &mdash; you re-ran a seed script, replayed a message, or want &ldquo;create or update&rdquo; &mdash; stop using <code>insertOne</code>/<code>create</code> and switch to an <strong>upsert</strong>. It inserts when the document is new and updates when it exists, atomically, so the duplicate never becomes an error:</p>
+                <div class="code-block" style="margin-top:0.75rem;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>db.users.updateOne(
+  { email: "ada@example.com" },       // the unique key
+  { $set: { name: "Ada" } },
+  { upsert: true }
+)</code></pre>
+                </div>
+            </div>
+
+            <h2>30-second triage</h2>
+            <p>Which case are you in? The <code>dup key</code> value tells you:</p>
+            <table>
+                <thead>
+                    <tr><th>What you see</th><th>Case</th><th>Go to</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>A real value that already exists, and a duplicate is fine</td><td>Re-run / import / &ldquo;create or update&rdquo;</td><td>Fix 1 (upsert)</td></tr>
+                    <tr><td>A real value, and the duplicate is a user mistake</td><td>Client conflict (e.g. email taken)</td><td>Fix 2 (catch 11000 &rarr; 409)</td></tr>
+                    <tr><td><code>{ field: null }</code></td><td>Multiple docs missing the field</td><td>Fix 3 (partial index)</td></tr>
+                    <tr><td>An <code>index:</code> name you didn't expect</td><td>A stale or unintended unique index</td><td>Fix 4 (inspect &amp; drop)</td></tr>
+                    <tr><td><code>index: a_1_b_1</code> (multiple fields)</td><td>A compound unique constraint</td><td>Fix 5 (compound)</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Fix 1: upsert instead of insert</h2>
+            <p>An upsert matches on the unique key and either inserts or updates &mdash; atomic and race-safe, unlike a find-then-insert which can still collide between the two calls. In Mongoose, <code>findOneAndUpdate</code> returns the resulting document:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Mongoose — insert-or-update and get the document back
+const user = await User.findOneAndUpdate(
+  { email },
+  { $set: { name } },
+  { upsert: true, new: true, setDefaultsOnInsert: true }
+);
+
+// use $setOnInsert for fields that should only be written on the initial insert
+await User.updateOne(
+  { email },
+  { $set: { name }, $setOnInsert: { createdAt: new Date() } },
+  { upsert: true }
+);</code></pre>
+            </div>
+            <p>Note that a unique index is what makes an upsert safe under concurrency: if two upserts race, one wins the insert and the other retries as an update rather than creating a duplicate.</p>
+
+            <h2>Fix 2: catch code 11000 and return 409</h2>
+            <p>When the duplicate is a genuine client error &mdash; someone registering with an email that's already taken &mdash; catch the write error and turn it into a clean response instead of a 500. The modern driver exposes <code>keyValue</code> and <code>keyPattern</code> so you can name the field precisely:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>try {
+  await User.create({ email, name });
+} catch (err) {
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];   // "email"
+    return res.status(409).json({ error: `${field} already in use` });
+  }
+  throw err;                                       // rethrow anything else
+}</code></pre>
+            </div>
+            <p>Returning <a href="../http-status.html">409 Conflict</a> is the correct HTTP semantics here &mdash; the request was valid but conflicts with existing state. This mirrors the pattern for the <a href="postgres-duplicate-key-unique-constraint.html">PostgreSQL <code>duplicate key value violates unique constraint</code></a> error, where you catch SQLSTATE <code>23505</code> for the same reason.</p>
+
+            <h2>Fix 3: the <code>{ field: null }</code> trap &mdash; use a partial index</h2>
+            <p>This is the most confusing case. A plain unique index treats a <em>missing</em> field as <code>null</code>, and <code>null</code> collides with <code>null</code> &mdash; so as soon as a <em>second</em> document omits the field, you get E11000 on <code>{ field: null }</code> even though neither document set it. The fix is to make the uniqueness apply only to documents that actually have the field, with a <strong>partial index</strong>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// only enforce uniqueness on documents that HAVE a non-null email
+db.users.createIndex(
+  { email: 1 },
+  { unique: true, partialFilterExpression: { email: { $exists: true } } }
+)
+
+// Mongoose schema equivalent
+new Schema({
+  email: {
+    type: String,
+    index: { unique: true, partialFilterExpression: { email: { $exists: true } } }
+  }
+});</code></pre>
+            </div>
+            <p>A <code>sparse: true</code> index also skips documents missing the field and is the older tool for this, but it has real limitations &mdash; especially in compound indexes, where a document is only skipped if it's missing <em>every</em> indexed field. Prefer a partial index for new work; it's more explicit and more flexible.</p>
+
+            <h2>Fix 4: inspect and drop a stale index</h2>
+            <p>If the <code>index:</code> name is one you didn't expect, an old unique index is still in place. Editing <code>unique: true</code> in your schema does <em>not</em> drop an index MongoDB already built &mdash; you have to remove it yourself. List what actually exists, then drop the offender:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>db.users.getIndexes()
+// [ { v: 2, key: { _id: 1 }, name: "_id_" },
+//   { v: 2, key: { email: 1 }, name: "email_1", unique: true } ]
+
+db.users.dropIndex("email_1")
+// { nIndexesWas: 2, ok: 1 }
+
+// then recreate it the way you actually want (e.g. as a partial index)</code></pre>
+            </div>
+            <p>Also watch the reverse problem: a unique index <strong>fails to build</strong> if the collection already contains duplicates, so the constraint you think is protecting you may never have been created. Clean up existing duplicates first, then create the index. And keep in mind that Mongoose only auto-builds indexes when <code>autoIndex</code> is on (it's on in development, and you usually turn it off in production and manage indexes explicitly).</p>
+
+            <h2>Fix 5: a compound unique index</h2>
+            <p>When the index name lists more than one field (<code>org_1_email_1</code>), uniqueness is enforced across the <em>combination</em>, not each field alone. The <code>dup key</code> shows the full tuple that collided:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// unique per (org, email): the same email is allowed in different orgs
+db.members.createIndex({ org: 1, email: 1 }, { unique: true })
+
+// dup key: { org: "acme", email: "ada@example.com" }  ->  that exact PAIR exists
+// { org: "beta", email: "ada@example.com" }  is still allowed</code></pre>
+            </div>
+            <p>So a compound-index E11000 means the whole tuple was already present. If you actually wanted the email unique <em>globally</em>, you built the wrong index &mdash; drop it (Fix 4) and create a single-field unique index instead.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <code>index:</code> name and <code>dup key:</code> &mdash; they name the field(s) and the exact colliding value</li>
+                <li>&#10003; Expected duplicate? Upsert with <code>{ upsert: true }</code> instead of insert (Fix 1)</li>
+                <li>&#10003; Real client conflict? Catch <code>err.code === 11000</code>, use <code>err.keyValue</code>, return <code>409</code> (Fix 2)</li>
+                <li>&#10003; <code>dup key: { field: null }</code>? Multiple docs miss the field &mdash; use a <strong>partial index</strong> (Fix 3)</li>
+                <li>&#10003; Unexpected index name? <code>getIndexes()</code>, then <code>dropIndex()</code> the stale one (Fix 4)</li>
+                <li>&#10003; Compound index name (<code>a_1_b_1</code>)? The whole tuple must be unique, not each field (Fix 5)</li>
+                <li>&#10003; Index never enforced? It may have failed to build over existing duplicates &mdash; clean up first</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does E11000 duplicate key error mean in MongoDB?</summary>
+                    <p>An insert or update tried to store a value that already exists in a unique index. The message names the index and the conflicting value: <code>index: email_1 dup key: { email: "a@b.com" }</code>. MongoDB rejects the write to keep the indexed field unique. Read the index name and dup key to see exactly what collided.</p>
+                </details>
+                <details>
+                    <summary>Why do I get E11000 with dup key { field: null }?</summary>
+                    <p>A unique index treats a missing field as <code>null</code>, so two documents that both omit the field both index as <code>null</code> and the second insert collides. Either always set the field, or make the index only apply to documents that have it using a partial index: <code>partialFilterExpression: { email: { $exists: true } }</code>. A sparse index also works but is more limited, especially in compound indexes.</p>
+                </details>
+                <details>
+                    <summary>How do I insert without failing if the document already exists?</summary>
+                    <p>Use an upsert: <code>updateOne(filter, { $set: {...} }, { upsert: true })</code> inserts when nothing matches the filter and updates otherwise. It is atomic, so it avoids the race condition of checking for the document first and then inserting. In Mongoose, <code>findOneAndUpdate(filter, update, { upsert: true, new: true })</code> does the same and returns the resulting document.</p>
+                </details>
+                <details>
+                    <summary>How do I catch the duplicate key error in Node.js?</summary>
+                    <p>Check the error code: <code>if (err.code === 11000)</code>. The modern driver and Mongoose also expose <code>err.keyValue</code> (<code>{ email: 'a@b.com' }</code>) and <code>err.keyPattern</code> (<code>{ email: 1 }</code>), so you can build a clean message and return HTTP 409 Conflict instead of a 500. Catching it turns a real client conflict, like signing up with an existing email, into a proper validation response.</p>
+                </details>
+                <details>
+                    <summary>Does Mongoose 'unique: true' validate uniqueness?</summary>
+                    <p>No. <code>unique: true</code> is not a validator &mdash; it tells Mongoose to build a unique index. Uniqueness is enforced by MongoDB at write time as E11000, not by Mongoose validation, so it does not produce a <code>ValidationError</code> and does not run in a normal <code>validate()</code> call. Handle the E11000 (code 11000) in your catch block, and be aware the index only exists once it has actually been built.</p>
+                </details>
+                <details>
+                    <summary>Why does E11000 still happen after I removed the unique field?</summary>
+                    <p>The index still exists even if your schema no longer declares it. Changing <code>unique: true</code> in code does not drop an index MongoDB already created. List indexes with <code>db.collection.getIndexes()</code> and drop the stale one with <code>db.collection.dropIndex('email_1')</code>. Then recreate it the way you actually want, for example as a partial index.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More database &amp; backend errors</h3>
+                <p>Browse the full reference for MongoDB, PostgreSQL, Node.js, and Docker errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">HTTP 409 Conflict</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="postgres-duplicate-key-unique-constraint.html">duplicate key value violates unique constraint</a> &mdash; the same conflict in PostgreSQL (SQLSTATE 23505)</li>
+                <li><a href="econnreset-socket-hang-up.html">ECONNRESET / socket hang up</a> &mdash; a common companion when the DB connection drops</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a> &mdash; map a duplicate conflict to a 409 response</li>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; inspect the document you're inserting</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NumberFormatException: For input string means a parser got a value it can't read. Decode the quoted input — whitespace, a BOM, a comma, empty — then fix the parse.">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/java-numberformatexception-for-input-string.html">
+    <meta property="og:title" content="NumberFormatException: For input string 'X' — decode the quoted value &amp; fix it">
+    <meta property="og:description" content="The characters between the quotes are the exact input Java tried to parse. Decode them — empty, whitespace, a comma, a decimal point, a hidden BOM — then apply the matching fix.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/java-numberformatexception-for-input-string.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>NumberFormatException: For input string 'X' — Decode &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "NumberFormatException: For input string", "item": "https://jsondevtools.org/errors/java-numberformatexception-for-input-string.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "java.lang.NumberFormatException: For input string: \"X\" — Decode and Fix",
+  "description": "NumberFormatException: For input string means Integer.parseInt or a similar parser was handed a string it can't read as a number. This reference decodes the exact quoted value — whitespace, a BOM, a thousands separator, an empty string — and fixes each case.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-01",
+  "dateModified": "2026-08-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does NumberFormatException: For input string mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A parser like Integer.parseInt, Long.parseLong, or Double.parseDouble was given a string that is not a valid number in the expected format. The exact characters between the quotes in the message are the literal input it tried to parse. Read them carefully — the value that failed is right there, including any whitespace or hidden characters."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does 'For input string: \"\"' happen with an empty string?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The input was an empty string. Integer.parseInt(\"\") throws because there are no digits to parse. This usually means an upstream value was missing — an empty form field, an absent JSON property that arrived as \"\", or a config key with no value. Check for empty and null before parsing and supply a default."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Integer.parseInt fail on a value that looks like a valid number?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "There is almost always an invisible character. Integer.parseInt does not trim, so leading or trailing spaces fail. A copied value can also carry a byte-order mark (U+FEFF) or a non-breaking space (U+00A0) that renders as nothing. Print s.length() and the character codes — a \"42\" of length 3, or one containing code 65279 or 160, confirms a hidden character."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I parse a number with a comma like '1,234'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Integer.parseInt does not understand grouping separators, so \"1,234\" fails. Strip the separators first, or use a locale-aware NumberFormat: NumberFormat.getInstance(Locale.US).parse(\"1,234\").intValue() returns 1234. Note NumberFormat.parse throws java.text.ParseException, not NumberFormatException, and it stops at the first non-numeric character rather than rejecting the whole string."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Integer.parseInt fail on '42.0'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Integer.parseInt only accepts an optional sign and digits — no decimal point. \"42.0\" is a floating-point literal, so it throws. Use Double.parseDouble(\"42.0\") for a double, or if you truly want an int, parse as a double and round or truncate, or split on the decimal point after validating the shape."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I parse safely without throwing NumberFormatException?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Trim and validate first, then parse inside a try/catch that returns a default on failure, or check the string against a regex like ^-?\\d+$ before calling parseInt. Never let a NumberFormatException from untrusted input (a form, an API, a file) crash a request — catch it and return a clean validation error instead."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>NumberFormatException: For input string</span>
+            </nav>
+            <h1>java.lang.NumberFormatException: For input string: "X"</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li><strong>Read the quoted value literally.</strong> The characters between the quotes are the exact input the parser choked on.</li>
+                    <li><code>""</code> = empty/missing upstream value. <code>" 42"</code> = untrimmed whitespace (<code>parseInt</code> never trims).</li>
+                    <li>Looks valid but still fails? A <strong>hidden character</strong> &mdash; a BOM (<code>U+FEFF</code>) or non-breaking space (<code>U+00A0</code>). Print <code>s.length()</code> and the char codes.</li>
+                    <li><code>"1,234"</code> = grouping separator (use <code>NumberFormat</code>); <code>"42.0"</code> = decimal point (use <code>Double.parseDouble</code>); a huge number = <code>int</code> overflow (use <code>Long.parseLong</code>).</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <p>The stack trace names the parser and the offending value. The value in quotes is the whole story:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Exception in thread "main" java.lang.NumberFormatException: For input string: "1,234"
+    at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)
+    at java.base/java.lang.Integer.parseInt(Integer.java:668)
+    at java.base/java.lang.Integer.parseInt(Integer.java:786)
+    at com.example.App.main(App.java:7)</code></pre>
+            </div>
+            <p>You will also see these variants &mdash; same exception, different quoted content, and sometimes a trailing <code>under radix N</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>NumberFormatException: For input string: ""                 // empty string
+NumberFormatException: For input string: " 42"             // leading space (not trimmed)
+NumberFormatException: For input string: "42.0"            // decimal point, parsed as int
+NumberFormatException: For input string: "null"            // the literal text "null"
+NumberFormatException: For input string: "12345678901"     // overflows int range
+NumberFormatException: For input string: "FF" under radix 10   // hex without radix 16
+NumberFormatException: null                                // Integer.parseInt(null) — different message</code></pre>
+            </div>
+
+            <p>The exception comes from <code>Integer.parseInt</code>, <code>Long.parseLong</code>, <code>Double.parseDouble</code>, <code>new BigDecimal(...)</code>, or any similar parser that was handed a string it can't read as a number in the format it expects. Unlike many errors, this one hands you the failing input directly &mdash; so the fastest path to a fix is to <em>decode what's between the quotes</em>.</p>
+
+            <h2>Anatomy of the message &mdash; the quotes are the input</h2>
+            <p>The message is literally <code>For input string: "</code> + <em>the exact CharSequence you passed</em> + <code>"</code>. Whatever sits between those quotes is the raw value, character for character. The trap is that some of those characters are invisible: a trailing space shows as <code>"42 "</code> and is easy to miss, while a BOM or non-breaking space shows as <em>nothing at all</em> even though it's there. So the first move is always: <strong>copy the quoted content and look at what it actually contains.</strong></p>
+
+            <p>This table maps the quoted value to its cause and fix &mdash; find your row:</p>
+            <table>
+                <thead>
+                    <tr><th>What's in the quotes</th><th>What it means</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>""</code> (empty)</td><td>Missing upstream value &mdash; blank field, absent JSON key</td><td>Check empty/null first; supply a default</td></tr>
+                    <tr><td><code>" 42"</code> / <code>"42\n"</code></td><td>Whitespace; <code>parseInt</code> does <strong>not</strong> trim</td><td><code>s.trim()</code> (or <code>strip()</code>) before parsing</td></tr>
+                    <tr><td>Looks like <code>"42"</code> but fails</td><td>Hidden char &mdash; BOM <code>U+FEFF</code> or NBSP <code>U+00A0</code></td><td>Print length + char codes; strip the char</td></tr>
+                    <tr><td><code>"1,234"</code> / <code>"1.234"</code></td><td>Thousands/grouping separator (locale)</td><td>Use <code>NumberFormat</code>, or remove separators</td></tr>
+                    <tr><td><code>"42.0"</code> / <code>"3.14"</code></td><td>Decimal point given to an integer parser</td><td>Use <code>Double.parseDouble</code> / <code>BigDecimal</code></td></tr>
+                    <tr><td><code>"12345678901"</code></td><td>Value exceeds <code>int</code> range (&plusmn;2.1&nbsp;billion)</td><td>Use <code>Long.parseLong</code> / <code>BigInteger</code></td></tr>
+                    <tr><td><code>"null"</code> / <code>"undefined"</code></td><td>A null/undefined got stringified upstream</td><td>Fix the source; treat as missing</td></tr>
+                    <tr><td><code>"0x1F"</code> / <code>"FF"</code></td><td>Non-decimal digits with the default radix 10</td><td><code>parseInt(s, 16)</code> or <code>Integer.decode</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Fix 1: trim first &mdash; parseInt does not</h2>
+            <p>A surprising number of these are just whitespace. <code>Integer.parseInt</code> accepts only an optional sign and digits; a single leading or trailing space fails it. Values pulled from a file, a form, or a split CSV column routinely carry them:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Integer.parseInt(" 42");   // throws: For input string: " 42"
+Integer.parseInt("42 ");   // throws: For input string: "42 "
+
+Integer.parseInt(" 42".trim());    // 42  (Java: trim removes ASCII whitespace)
+Integer.parseInt(" 42 ".strip());  // 42  (Java 11+: strip is Unicode-aware, also removes NBSP-like spaces)</code></pre>
+            </div>
+            <p>Prefer <code>strip()</code> on Java 11+ &mdash; it's Unicode-aware and removes several space characters that <code>trim()</code> leaves behind, which is exactly what you want when the culprit is a stray non-breaking space.</p>
+
+            <h2>Fix 2: a value that "looks fine" &mdash; find the hidden character</h2>
+            <p>When the quoted value looks like a perfectly good number and still fails, there is an invisible character in it. The two usual offenders are the byte-order mark (<code>U+FEFF</code>, code 65279) at the start of a UTF-8 file's first field, and a non-breaking space (<code>U+00A0</code>, code 160) from data copied out of a web page or spreadsheet. Prove it by printing the length and the code points:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>String s = readFirstColumn();      // looks like "42" in the console
+System.out.println(s.length());    // 3  <- one char too many!
+s.chars().forEach(c -&gt; System.out.printf("%d ", c));
+// 65279 52 50   <- a BOM (65279) is hiding in front of '4' '2'
+
+// strip anything that isn't a digit or sign, then parse
+int n = Integer.parseInt(s.replaceAll("[^0-9-]", ""));   // 42</code></pre>
+            </div>
+            <p>If this value came from a JSON payload or an API response, inspect the raw body before you parse anything &mdash; paste it into the <a href="../formatter.html">JSON Formatter</a> to see the exact bytes and confirm whether the number arrived as a proper JSON number or as a quoted string with junk around it. A field that should be <code>{"qty": 42}</code> but is actually <code>{"qty": " 42"}</code> is the whole bug, visible at a glance.</p>
+
+            <h2>Fix 3: grouping separators and locale (the comma)</h2>
+            <p><code>Integer.parseInt</code> has no concept of a thousands separator, so <code>"1,234"</code> throws. Either strip the separators, or &mdash; if the input is genuinely locale-formatted &mdash; parse it with a locale-aware <code>NumberFormat</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import java.text.NumberFormat;
+import java.util.Locale;
+
+// locale-aware parse (throws java.text.ParseException, NOT NumberFormatException)
+NumberFormat nf = NumberFormat.getInstance(Locale.US);
+int n = nf.parse("1,234").intValue();     // 1234
+
+// or just remove the grouping character before parseInt
+int m = Integer.parseInt("1,234".replace(",", ""));   // 1234</code></pre>
+            </div>
+            <p>Two gotchas with <code>NumberFormat.parse</code>: it throws <code>java.text.ParseException</code> rather than <code>NumberFormatException</code>, and it is lenient &mdash; it parses as far as it can and stops, so <code>"12abc"</code> returns <code>12</code> instead of failing. If you need strict all-or-nothing parsing, validate the string first or stick with <code>parseInt</code> on a cleaned value.</p>
+
+            <h2>Fix 4: decimal points, overflow, and radix</h2>
+            <p>Three more mismatches between the value and the parser you chose:</p>
+            <ul>
+                <li><strong>Decimal point</strong> &mdash; <code>Integer.parseInt("42.0")</code> throws because an <code>int</code> parser rejects the <code>.</code>. Use <code>Double.parseDouble("42.0")</code>, or <code>new BigDecimal("42.0")</code> for exact decimal money math.</li>
+                <li><strong>Overflow</strong> &mdash; <code>Integer.parseInt("12345678901")</code> throws because the value is larger than <code>Integer.MAX_VALUE</code> (about 2.1&nbsp;billion). The digits are all valid; there are just too many. Use <code>Long.parseLong</code>, or <code>BigInteger</code> for arbitrary size.</li>
+                <li><strong>Wrong radix</strong> &mdash; <code>Integer.parseInt("FF")</code> throws <code>under radix 10</code> because hex digits aren't decimal. Pass the radix: <code>Integer.parseInt("FF", 16)</code> returns 255. For a <code>0x</code>-prefixed literal use <code>Integer.decode("0x1F")</code>.</li>
+            </ul>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>double d = Double.parseDouble("42.0");        // 42.0
+long   l = Long.parseLong("12345678901");     // 12345678901
+int    h = Integer.parseInt("FF", 16);        // 255
+int    x = Integer.decode("0x1F");            // 31</code></pre>
+            </div>
+
+            <h2>Fix 5: parse defensively at trust boundaries</h2>
+            <p>When the number comes from anything you don't control &mdash; a form field, a query parameter, an uploaded file, a JSON body &mdash; a bad value is a <em>user</em> problem, not a server crash. Don't let <code>NumberFormatException</code> bubble up into a 500. Validate or catch, and return a clean error:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>static int parseQuantity(String raw) {
+    if (raw == null || raw.isBlank()) {
+        throw new IllegalArgumentException("quantity is required");
+    }
+    String s = raw.strip();
+    if (!s.matches("-?\\d+")) {                     // shape-check before parsing
+        throw new IllegalArgumentException("quantity must be a whole number, got: " + s);
+    }
+    try {
+        return Integer.parseInt(s);
+    } catch (NumberFormatException e) {             // still possible: overflow
+        throw new IllegalArgumentException("quantity is too large: " + s);
+    }
+}</code></pre>
+            </div>
+            <p>The regex rejects empty strings, decimals, and stray characters up front with a message that names the actual value, and the <code>catch</code> still handles the one case a shape-check can't &mdash; a well-formed run of digits that overflows <code>int</code>. This turns a stack trace into a validation message a caller can act on. It's the numeric cousin of guarding against a <a href="java-nullpointerexception.html">NullPointerException</a> before you dereference.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the exact value between the quotes &mdash; it's the literal input that failed</li>
+                <li>&#10003; Empty (<code>""</code>)? An upstream value was missing &mdash; check for blank/null first</li>
+                <li>&#10003; Whitespace (<code>" 42"</code>)? <code>parseInt</code> doesn't trim &mdash; <code>strip()</code> before parsing</li>
+                <li>&#10003; Looks valid but fails? Print <code>s.length()</code> + char codes; strip a BOM (65279) or NBSP (160)</li>
+                <li>&#10003; Comma/dot separator? Use <code>NumberFormat</code> or remove the grouping char</li>
+                <li>&#10003; Decimal point? Use <code>Double.parseDouble</code> / <code>BigDecimal</code>, not <code>parseInt</code></li>
+                <li>&#10003; Huge number? Use <code>Long.parseLong</code> / <code>BigInteger</code> &mdash; it overflowed <code>int</code></li>
+                <li>&#10003; From a request/file/JSON? Validate and catch &mdash; never let it become a 500</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does NumberFormatException: For input string mean?</summary>
+                    <p>A parser like <code>Integer.parseInt</code>, <code>Long.parseLong</code>, or <code>Double.parseDouble</code> was given a string that is not a valid number in the expected format. The exact characters between the quotes in the message are the literal input it tried to parse. Read them carefully &mdash; the value that failed is right there, including any whitespace or hidden characters.</p>
+                </details>
+                <details>
+                    <summary>Why does 'For input string: ""' happen with an empty string?</summary>
+                    <p>The input was an empty string. <code>Integer.parseInt("")</code> throws because there are no digits to parse. This usually means an upstream value was missing &mdash; an empty form field, an absent JSON property that arrived as <code>""</code>, or a config key with no value. Check for empty and null before parsing and supply a default.</p>
+                </details>
+                <details>
+                    <summary>Why does Integer.parseInt fail on a value that looks like a valid number?</summary>
+                    <p>There is almost always an invisible character. <code>Integer.parseInt</code> does not trim, so leading or trailing spaces fail. A copied value can also carry a byte-order mark (<code>U+FEFF</code>) or a non-breaking space (<code>U+00A0</code>) that renders as nothing. Print <code>s.length()</code> and the character codes &mdash; a <code>"42"</code> of length 3, or one containing code 65279 or 160, confirms a hidden character.</p>
+                </details>
+                <details>
+                    <summary>How do I parse a number with a comma like '1,234'?</summary>
+                    <p><code>Integer.parseInt</code> does not understand grouping separators, so <code>"1,234"</code> fails. Strip the separators first, or use a locale-aware <code>NumberFormat</code>: <code>NumberFormat.getInstance(Locale.US).parse("1,234").intValue()</code> returns 1234. Note <code>NumberFormat.parse</code> throws <code>java.text.ParseException</code>, not <code>NumberFormatException</code>, and it stops at the first non-numeric character rather than rejecting the whole string.</p>
+                </details>
+                <details>
+                    <summary>Why does Integer.parseInt fail on '42.0'?</summary>
+                    <p><code>Integer.parseInt</code> only accepts an optional sign and digits &mdash; no decimal point. <code>"42.0"</code> is a floating-point literal, so it throws. Use <code>Double.parseDouble("42.0")</code> for a double, or if you truly want an int, parse as a double and round or truncate, or split on the decimal point after validating the shape.</p>
+                </details>
+                <details>
+                    <summary>How do I parse safely without throwing NumberFormatException?</summary>
+                    <p>Trim and validate first, then parse inside a try/catch that returns a default on failure, or check the string against a regex like <code>^-?\d+$</code> before calling <code>parseInt</code>. Never let a <code>NumberFormatException</code> from untrusted input (a form, an API, a file) crash a request &mdash; catch it and return a clean validation error instead.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Inspect the payload, then fix the parse</h3>
+                <p>When the number arrives inside JSON, look at the raw body first &mdash; then browse the full error reference.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../formatter.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Formatter</a>
+                    <a href="java-nullpointerexception.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Java: NullPointerException</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="java-nullpointerexception.html">java.lang.NullPointerException</a> &mdash; guard untrusted input against null the same way</li>
+                <li><a href="java-arrayindexoutofboundsexception.html">ArrayIndexOutOfBoundsException</a> &mdash; another bounds/validation crash from external data</li>
+                <li><a href="unicodedecodeerror-utf-8-codec.html">UnicodeDecodeError: 'utf-8' codec can't decode byte</a> &mdash; the same hidden-bytes problem, in Python</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter</a> &mdash; inspect a raw payload for values quoted or padded with hidden characters</li>
+                <li><a href="../json-validator.html">JSON Validator</a> &mdash; confirm a number arrived as a JSON number, not a string</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

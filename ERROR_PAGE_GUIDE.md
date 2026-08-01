@@ -2,12 +2,13 @@
 
 This is the authoritative checklist for building or editing any page under `errors/*.html`. Read this before writing a new error page. It exists so the conventions survive across sessions instead of being re-derived (or missed) each time.
 
-## 1. Two templates — pick whichever fits the error
+## 1. Three templates — pick whichever fits the error
 
 - **Fix-first playbook** — leads with the single fastest fix, then a triage/decision section, then numbered `Fix 1..N`. Use when there's one dominant fix most readers want immediately (e.g. `docker-container-name-already-in-use.html`, `docker-no-space-left-on-device.html`).
 - **Diagnosis style** — leads with a triage/decision process (often an SVG decision tree), because the same error string has genuinely different root causes that need distinguishing first (e.g. `docker-oci-runtime-exec-not-found.html`, `rust-e0599-no-method-named.html`).
+- **Message-anatomy (decode-the-error)** — leads by dissecting the error message's *own* diagnostic payload part-by-part, because the message already contains the answer and the reader just can't parse it: a version number (`class file version 65.0`), a quoted input value (`For input string: "1,234"`), a caret/`LINE N:` pointer, a `HINT:`/`DETAIL:` line, or a stack frame. The first substantive section is an **"Anatomy of the message"** block (often a labelled breakdown or a lookup table mapping each fragment to its meaning), *then* the fixes follow from what the reader decoded. Use when the fastest path to a fix is teaching the reader to read what the runtime already told them (e.g. `java-unsupportedclassversionerror.html` — decode `65.0` → JDK via a version table; `java-numberformatexception-for-input-string.html` — decode the exact quoted string, including invisible characters). Applies the standard schema/registration rules like the other two.
 
-Either is acceptable; choose based on whether the error has one obvious fix or several divergent causes.
+Any of the three is acceptable; choose fix-first when there's one obvious fix, diagnosis when there are several divergent causes to distinguish, and message-anatomy when the message itself is a rich diagnostic the reader needs decoded first.
 
 ## 2. Required page structure
 

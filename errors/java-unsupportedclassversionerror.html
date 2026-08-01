@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="UnsupportedClassVersionError: class file version 65.0 means the class was compiled for a newer JDK than your runtime. Decode the numbers, then upgrade or recompile.">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/java-unsupportedclassversionerror.html">
+    <meta property="og:title" content="UnsupportedClassVersionError: class file version 65.0 — decode it &amp; fix it">
+    <meta property="og:description" content="The class was compiled for a newer JDK than your runtime. Decode 'class file version 65.0' (JDK 21) vs 'up to 52.0' (JDK 8) with the lookup table, then run on a newer JRE or recompile with --release.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/java-unsupportedclassversionerror.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>UnsupportedClassVersionError: class file version 65.0 — Decode &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "UnsupportedClassVersionError: class file version 65.0", "item": "https://jsondevtools.org/errors/java-unsupportedclassversionerror.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "java.lang.UnsupportedClassVersionError: class file version 65.0 — Decode and Fix",
+  "description": "UnsupportedClassVersionError means a .class file was compiled for a newer JDK than the runtime running it. This reference decodes the class-file version number to a JDK release and fixes the mismatch by upgrading the runtime or recompiling with --release.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-01",
+  "dateModified": "2026-08-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What JDK is class file version 65.0?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Class file version 65.0 is Java 21. The major version equals the JDK feature release plus 44, so 65 minus 44 is 21. The .0 minor version just means no preview features were enabled. Common values: 52 is Java 8, 55 is Java 11, 61 is Java 17, 65 is Java 21."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does UnsupportedClassVersionError mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A .class file was compiled by a newer JDK than the Java runtime you are running it on. The JVM refuses to load a class whose format is newer than it understands. The message names both numbers: the class file version it found and the highest version this runtime recognizes. Fix it by running on a runtime at least as new as the compile target, or by recompiling for the older runtime."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'has been compiled by a more recent version of the Java Runtime'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Either upgrade the runtime or lower the compile target. To upgrade, install a JDK at least as new as the class file version (65.0 needs Java 21+) and point JAVA_HOME and PATH at it. To lower the target, recompile with javac --release N (or set maven.compiler.release / Gradle's toolchain) so the bytecode matches the runtime you must deploy to."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is 'Unsupported major.minor version 52.0'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It is the same error, printed by Java 7 and earlier. Older JVMs used the wording 'Unsupported major.minor version 52.0' instead of the modern 'class file version 52.0'. The number decodes the same way: 52 is Java 8, so a Java 8 class was run on a Java 7 or older runtime. Upgrade the runtime or recompile for the older one."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I check what version a .class or .jar was compiled for?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run javap -verbose YourClass.class and read the 'major version:' line, or run file YourClass.class. For a jar, extract one class and inspect it. A major version of 61 means the class targets Java 17. Compare that against java -version for your runtime to confirm which side is too old."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Maven or Gradle build fine but fail at runtime?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The JDK that compiled the code is newer than the JRE that runs it. This is common in CI, IDEs, and containers where JAVA_HOME for the build differs from the java on the deploy machine or in the base image. Set the compiler's release level to the runtime you deploy to (maven.compiler.release or a Gradle toolchain), or make the deploy runtime match the build JDK."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>UnsupportedClassVersionError: class file version 65.0</span>
+            </nav>
+            <h1>java.lang.UnsupportedClassVersionError: class file version 65.0</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li>The class was <strong>compiled for a newer JDK</strong> than the runtime running it. The JVM won't load a format it doesn't understand.</li>
+                    <li><strong>Decode the numbers:</strong> major version = JDK + 44. So <code>65.0</code> = Java 21, <code>61.0</code> = Java 17, <code>52.0</code> = Java 8.</li>
+                    <li><strong>Fix by running newer:</strong> point <code>JAVA_HOME</code>/<code>PATH</code> at a JDK &ge; the compile target.</li>
+                    <li><strong>Or compile older:</strong> <code>javac --release 8</code> / <code>maven.compiler.release</code> / a Gradle toolchain, so bytecode matches the runtime you must deploy to.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <p>The modern wording (Java 8 and later) names two version numbers &mdash; the one the class was built for, and the highest one your runtime understands:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Exception in thread "main" java.lang.UnsupportedClassVersionError:
+  com/example/App has been compiled by a more recent version of the
+  Java Runtime (class file version 65.0), this version of the Java
+  Runtime only recognizes class file versions up to 52.0</code></pre>
+            </div>
+            <p>Java 7 and earlier printed the <em>same</em> error with different words &mdash; if you searched that phrasing, this is your page too:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Exception in thread "main" java.lang.UnsupportedClassVersionError:
+  com/example/App : Unsupported major.minor version 52.0</code></pre>
+            </div>
+
+            <p>Both mean the same thing: a <code>.class</code> file was produced by a <strong>newer</strong> compiler than the JVM trying to load it, and the JVM refuses because it can't read a class-file format from the future. Every JDK release bumps the class-file format version by one and will not load anything higher than its own.</p>
+
+            <h2>Anatomy of the message &mdash; read the two numbers</h2>
+            <p>This error tells you exactly what's wrong; you just have to decode it. There are only two moving parts, and the fix falls out of them:</p>
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0 0 0.5rem;"><code>class file version <strong>65.0</strong></code> &rarr; the class was <strong>compiled for JDK 21</strong> &nbsp;(<code>65 &minus; 44 = 21</code>)</p>
+                <p style="margin:0 0 0.5rem;"><code>recognizes ... up to <strong>52.0</strong></code> &rarr; your <strong>runtime is JDK 8</strong> &nbsp;(<code>52 &minus; 44 = 8</code>)</p>
+                <p style="margin:0;">&there4; A Java 21 class is being run on a Java 8 JVM. The <strong>runtime is too old</strong> &mdash; raise it, or lower the compile target.</p>
+            </div>
+            <p>The rule is <code>major&nbsp;version = JDK&nbsp;feature&nbsp;release + 44</code>, so you never have to guess. The trailing <code>.0</code> is the <em>minor</em> version and is almost always <code>0</code>; the one exception is a class compiled with <strong>preview features</strong> enabled, which sets the minor version to <code>65535</code> (<code>0xFFFF</code>) &mdash; if you see <code>65.65535</code>, the class targets Java 21 <em>and</em> was built with <code>--enable-preview</code>, which additionally requires an exactly-matching runtime with <code>--enable-preview</code> too.</p>
+
+            <h3>Class-file version &harr; JDK lookup table</h3>
+            <p>Match the number in your message to the JDK on both sides:</p>
+            <table>
+                <thead>
+                    <tr><th>Class file version</th><th>JDK release</th><th>Notes</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>52.0</td><td>Java 8</td><td>Very long-lived LTS &mdash; still the runtime on many servers</td></tr>
+                    <tr><td>53.0</td><td>Java 9</td><td>Module system introduced</td></tr>
+                    <tr><td>54.0</td><td>Java 10</td><td></td></tr>
+                    <tr><td>55.0</td><td>Java 11</td><td>LTS &mdash; common baseline</td></tr>
+                    <tr><td>56.0 &ndash; 60.0</td><td>Java 12 &ndash; 16</td><td>Non-LTS feature releases</td></tr>
+                    <tr><td>61.0</td><td>Java 17</td><td>LTS &mdash; a very common compile target</td></tr>
+                    <tr><td>62.0 &ndash; 64.0</td><td>Java 18 &ndash; 20</td><td>Non-LTS feature releases</td></tr>
+                    <tr><td>65.0</td><td>Java 21</td><td>LTS</td></tr>
+                    <tr><td>66.0</td><td>Java 22</td><td></td></tr>
+                    <tr><td>67.0</td><td>Java 23</td><td></td></tr>
+                    <tr><td>68.0</td><td>Java 24</td><td></td></tr>
+                </tbody>
+            </table>
+            <p>If your message shows an even higher number, keep applying <code>version &minus; 44</code>. This is a mismatch of the same shape as <a href="java-classnotfoundexception-noclassdeffounderror.html">ClassNotFoundException / NoClassDefFoundError</a> in that both stop a class from loading &mdash; but that one is about a class that can't be <em>found</em>, whereas this one found the class fine and rejected its <em>format</em>.</p>
+
+            <h2>Confirm which side is which</h2>
+            <p>Before changing anything, verify the runtime version and the class's compiled version so you know which one to move. Check the runtime first:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>java -version
+# openjdk version "1.8.0_402"   <- runtime is Java 8 (the "up to 52.0" side)
+
+javac -version
+# javac 21.0.2                  <- compiler is Java 21 (the "65.0" side)</code></pre>
+            </div>
+            <p>Then read the version stamped into the actual class file &mdash; this is the ground truth, independent of which <code>javac</code> is on your PATH right now:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>javap -verbose com/example/App.class | grep -E "major|minor"
+# minor version: 0
+# major version: 65            <- 65 - 44 = Java 21
+
+# on any Unix box, without a JDK:
+file com/example/App.class
+# App.class: compiled Java class data, version 65.0 (Java 21)</code></pre>
+            </div>
+            <p>Now you know both numbers came from your own machine, not just from the error text, and you can pick the fix with confidence.</p>
+
+            <h2>Fix 1: run on a newer Java runtime (raise the runtime)</h2>
+            <p>The direct fix is to run the class on a JDK at least as new as its class-file version. A version <code>65.0</code> class needs Java 21 or newer. Install one and point <code>JAVA_HOME</code> and <code>PATH</code> at it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># example on Linux/macOS after installing a JDK 21 build
+export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk
+export PATH="$JAVA_HOME/bin:$PATH"
+
+java -version   # confirm it now reports 21.x before re-running
+java -cp . com.example.App</code></pre>
+            </div>
+            <p>If you manage several JDKs, a version manager (<code>sdkman</code>, <code>jenv</code>, or your OS package manager's alternatives system) makes switching the active runtime a one-liner. This is the right fix when the newer bytecode is intentional &mdash; you <em>want</em> Java 21 features and simply need the deploy target to catch up.</p>
+
+            <h2>Fix 2: recompile for the older runtime (lower the target)</h2>
+            <p>When you can't change the runtime &mdash; a server stuck on Java 8, a customer environment, a locked base image &mdash; compile the bytecode <em>down</em> to that runtime instead. Use <code>--release</code>, which both emits older bytecode <em>and</em> restricts you to APIs that existed in that release (unlike the older <code>-source</code>/<code>-target</code> pair, which could let you call APIs the target JDK doesn't have):</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># javac --release requires JDK 9+; targets the given release's bytecode + API
+javac --release 8 -d out com/example/App.java
+
+javap -verbose out/com/example/App.class | grep major
+# major version: 52            <- now a Java 8 class, runs on a Java 8 JVM</code></pre>
+            </div>
+            <p>You obviously can't use language or library features newer than the target &mdash; <code>--release 8</code> will reject a record or a <code>var</code> in a lambda. That rejection at <em>compile</em> time is the point: it stops you from shipping a class that would only blow up at runtime on the old JVM.</p>
+
+            <h2>Fix 3: set the release level in Maven or Gradle</h2>
+            <p>Most real projects don't call <code>javac</code> directly. Set the target once in the build tool so every module is consistent. In Maven, prefer the single <code>release</code> property over separate source/target:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>&lt;!-- pom.xml --&gt;
+&lt;properties&gt;
+  &lt;maven.compiler.release&gt;17&lt;/maven.compiler.release&gt;
+&lt;/properties&gt;</code></pre>
+            </div>
+            <p>In Gradle, a <strong>toolchain</strong> is the robust choice because it pins the exact JDK used to compile regardless of which <code>java</code> launched Gradle:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// build.gradle
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+// (or, to only lower bytecode without pinning the JDK:)
+// tasks.withType(JavaCompile).configureEach { options.release = 17 }</code></pre>
+            </div>
+            <p>Set the number to the <em>oldest</em> runtime you must support. Building with a newer JDK is fine &mdash; <code>--release 17</code> under a JDK 21 build produces Java 17 bytecode that runs everywhere from Java 17 up.</p>
+
+            <h2>Why it usually happens: build JDK &ne; runtime JDK</h2>
+            <p>Almost every occurrence is one machine (or image, or IDE) compiling with a newer JDK than a <em>different</em> machine runs. The build succeeds because the compiler is new; the failure only shows up when the class meets the older runtime. The usual culprits:</p>
+            <ul>
+                <li><strong>CI vs. deploy:</strong> the pipeline builds on JDK 21 but the production container's base image is <code>eclipse-temurin:8-jre</code> or <code>openjdk:11</code>. Pin both to the same release.</li>
+                <li><strong>IDE vs. terminal:</strong> IntelliJ or Eclipse compiles with its own configured JDK while your shell's <code>java</code> is older. Align the project SDK/language level with the runtime.</li>
+                <li><strong>A dependency, not your code:</strong> the failing class name in the message is a <em>library's</em> class &mdash; a jar built for Java 17 pulled into a Java 8 app. Either upgrade your runtime or downgrade to a version of the dependency that targets your JDK.</li>
+                <li><strong>Two JDKs installed:</strong> <code>mvn -version</code> and <code>java -version</code> report different Java versions. Fix <code>JAVA_HOME</code> so the build and the launcher agree.</li>
+            </ul>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Decode both numbers with <code>version &minus; 44</code> &mdash; know which side is the class and which is the runtime</li>
+                <li>&#10003; Confirm the runtime with <code>java -version</code> and the class with <code>javap -verbose ... | grep major</code></li>
+                <li>&#10003; Newer bytecode intentional? Upgrade the runtime (Fix 1) and re-check with <code>java -version</code></li>
+                <li>&#10003; Runtime is fixed (old server / base image)? Recompile with <code>--release N</code> (Fix 2/3)</li>
+                <li>&#10003; Failing class is from a dependency? Match the library version to your JDK, or raise the JDK</li>
+                <li>&#10003; <code>mvn -version</code> &ne; <code>java -version</code>? Align <code>JAVA_HOME</code> across build and runtime</li>
+                <li>&#10003; See <code>.65535</code> as the minor version? It's a <code>--enable-preview</code> class &mdash; run with a matching JDK and <code>--enable-preview</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What JDK is class file version 65.0?</summary>
+                    <p>Class file version 65.0 is Java 21. The major version equals the JDK feature release plus 44, so 65 minus 44 is 21. The <code>.0</code> minor version just means no preview features were enabled. Common values: 52 is Java 8, 55 is Java 11, 61 is Java 17, 65 is Java 21.</p>
+                </details>
+                <details>
+                    <summary>What does UnsupportedClassVersionError mean?</summary>
+                    <p>A <code>.class</code> file was compiled by a newer JDK than the Java runtime you are running it on. The JVM refuses to load a class whose format is newer than it understands. The message names both numbers: the class file version it found and the highest version this runtime recognizes. Fix it by running on a runtime at least as new as the compile target, or by recompiling for the older runtime.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'has been compiled by a more recent version of the Java Runtime'?</summary>
+                    <p>Either upgrade the runtime or lower the compile target. To upgrade, install a JDK at least as new as the class file version (65.0 needs Java 21+) and point <code>JAVA_HOME</code> and <code>PATH</code> at it. To lower the target, recompile with <code>javac --release N</code> (or set <code>maven.compiler.release</code> / Gradle's toolchain) so the bytecode matches the runtime you must deploy to.</p>
+                </details>
+                <details>
+                    <summary>What is 'Unsupported major.minor version 52.0'?</summary>
+                    <p>It is the same error, printed by Java 7 and earlier. Older JVMs used the wording <em>Unsupported major.minor version 52.0</em> instead of the modern <em>class file version 52.0</em>. The number decodes the same way: 52 is Java 8, so a Java 8 class was run on a Java 7 or older runtime. Upgrade the runtime or recompile for the older one.</p>
+                </details>
+                <details>
+                    <summary>How do I check what version a .class or .jar was compiled for?</summary>
+                    <p>Run <code>javap -verbose YourClass.class</code> and read the <code>major version:</code> line, or run <code>file YourClass.class</code>. For a jar, extract one class and inspect it. A major version of 61 means the class targets Java 17. Compare that against <code>java -version</code> for your runtime to confirm which side is too old.</p>
+                </details>
+                <details>
+                    <summary>Why does Maven or Gradle build fine but fail at runtime?</summary>
+                    <p>The JDK that compiled the code is newer than the JRE that runs it. This is common in CI, IDEs, and containers where <code>JAVA_HOME</code> for the build differs from the <code>java</code> on the deploy machine or in the base image. Set the compiler's release level to the runtime you deploy to (<code>maven.compiler.release</code> or a Gradle toolchain), or make the deploy runtime match the build JDK.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Java &amp; backend errors</h3>
+                <p>Browse the full reference for Java, Node.js, Python, and database errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="java-classnotfoundexception-noclassdeffounderror.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Java: ClassNotFoundException</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="java-classnotfoundexception-noclassdeffounderror.html">ClassNotFoundException / NoClassDefFoundError</a> &mdash; a class that can't be found, rather than one whose format is rejected</li>
+                <li><a href="java-nullpointerexception.html">java.lang.NullPointerException</a> &mdash; the most common Java runtime crash</li>
+                <li><a href="java-outofmemoryerror-java-heap-space.html">OutOfMemoryError: Java heap space</a> &mdash; the JVM's other classic startup/runtime failure</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a> &mdash; server-side error codes cross-referenced</li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
