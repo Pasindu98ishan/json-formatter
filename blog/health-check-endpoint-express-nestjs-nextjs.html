@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="How to add a health check endpoint in Express, NestJS (with @nestjs/terminus), and Next.js — with copy-paste code, liveness vs readiness, and the right 200/503 status codes.">
+    <meta name="keywords" content="express health check endpoint, nestjs terminus, nextjs health check, health check endpoint node, liveness readiness probe, kubernetes health check node">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/health-check-endpoint-express-nestjs-nextjs.html">
+    <meta property="og:title" content="Adding a Health Check Endpoint: Express, NestJS, and Next.js">
+    <meta property="og:description" content="Copy-paste health check endpoints for Express, NestJS (@nestjs/terminus), and Next.js, plus liveness vs readiness and which HTTP status code to return.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/health-check-endpoint-express-nestjs-nextjs.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Adding a Health Check Endpoint: Express, NestJS, and Next.js | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Health Check Endpoint: Express, NestJS, Next.js", "item": "https://jsondevtools.org/blog/health-check-endpoint-express-nestjs-nextjs.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Adding a Health Check Endpoint: Express, NestJS, and Next.js",
+      "description": "How to add a health check endpoint in Express, NestJS (with @nestjs/terminus), and Next.js, with copy-paste code, liveness vs readiness, and the right 200/503 status codes.",
+      "image": "https://jsondevtools.org/og-image.png",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-08-02",
+      "dateModified": "2026-08-02",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What HTTP status code should a health check return?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Return 200 OK when the app can serve traffic and 503 Service Unavailable when a critical dependency is down. Load balancers and orchestrators treat any 2xx as healthy and typically treat 503 (or a timeout) as unhealthy, so they stop routing traffic to that instance until it recovers." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between liveness and readiness?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A liveness check answers 'is the process alive?' — if it fails, the orchestrator restarts the container. A readiness check answers 'can it serve traffic right now?' — if it fails, the orchestrator keeps the process running but stops sending it requests until dependencies (database, cache) are back. Liveness should be cheap and dependency-free; readiness may check dependencies." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I add a health check in Express?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Add a route: app.get('/health', (req, res) => res.status(200).json({ status: 'ok' })). Register it before authentication middleware so the probe is not blocked, keep it fast, and for a readiness variant check your database connection and return 503 if it is down." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does NestJS handle health checks?",
+          "acceptedAnswer": { "@type": "Answer", "text": "NestJS has an official module, @nestjs/terminus, that provides health indicators for databases, HTTP services, disk, and memory. You create a health controller that runs a set of indicators and returns an aggregated status, so /health reflects the real state of your dependencies." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can a Next.js app have a health check endpoint?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. In the App Router, add app/health/route.ts exporting a GET handler that returns a 200 response; in the Pages Router, add pages/api/health.ts. Both give you a lightweight endpoint your platform can poll, independent of your React pages." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>Health Check Endpoint</span>
+            </nav>
+            <h1>Adding a Health Check Endpoint: Express, NestJS, and Next.js</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; 9 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">A health check endpoint is the small route a load balancer, Kubernetes, or a PaaS polls to decide two things: should it send traffic to this instance, and should it restart it? Without one, the platform can route real users to a process that is technically running but unable to serve requests. This guide gives you copy-paste health checks for <strong>Express</strong>, <strong>NestJS</strong>, and <strong>Next.js</strong>, plus the liveness-vs-readiness distinction and the right status codes. It's the framework-specific companion to <a href="node-production-readiness-checklist.html">The Node.js Production Readiness Checklist (2026)</a>.</p>
+
+            <div class="quick-answer">
+                <p style="margin:0;"><strong>Quick answer:</strong> expose a <code>/health</code> route that returns <a href="../http-status/200.html">200 OK</a> when the app can serve traffic and <a href="../http-status/503.html">503 Service Unavailable</a> when a critical dependency is down. In Express it's one route; in NestJS use <code>@nestjs/terminus</code>; in Next.js add <code>app/health/route.ts</code> (App Router) or <code>pages/api/health.ts</code> (Pages Router).</p>
+            </div>
+
+            <h2>Liveness vs readiness — check the right thing</h2>
+            <p>Orchestrators distinguish two probes, and conflating them causes restart loops:</p>
+            <ul>
+                <li><strong>Liveness</strong> — "is the process alive?" If it fails, the container is <em>restarted</em>. Keep it cheap and dependency-free; a liveness probe that checks the database will restart a healthy app whenever the database blips.</li>
+                <li><strong>Readiness</strong> — "can it serve traffic right now?" If it fails, the process keeps running but is <em>removed from rotation</em> until it recovers. This is where you check dependencies.</li>
+            </ul>
+            <p>A common setup is a trivial <code>/health</code> (or <code>/livez</code>) for liveness and a <code>/ready</code> (or <code>/readyz</code>) for readiness that verifies the database and any critical service.</p>
+
+            <h2>Express</h2>
+            <p>The minimal liveness endpoint is a single route. Register it <em>before</em> authentication middleware so the probe isn't blocked, and keep it fast:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Liveness: cheap, no dependencies
+app.get('/health', (req, res) =&gt; {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});</code></pre>
+            </div>
+            <p>A readiness endpoint verifies the things the app needs to actually work, and returns 503 when one is down so the load balancer stops routing to it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Readiness: check critical dependencies
+app.get('/ready', async (req, res) =&gt; {
+  try {
+    await db.query('SELECT 1');          // is the database reachable?
+    res.status(200).json({ status: 'ready' });
+  } catch (err) {
+    res.status(503).json({ status: 'not-ready', reason: 'database' });
+  }
+});</code></pre>
+            </div>
+
+            <h2>NestJS — @nestjs/terminus</h2>
+            <p>NestJS has an official health-check module, <code>@nestjs/terminus</code>, with ready-made indicators for databases, HTTP services, disk, and memory. Install it alongside the platform HTTP package:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>npm install @nestjs/terminus @nestjs/axios</code></pre>
+            </div>
+            <p>Then create a health controller that runs a set of indicators. The endpoint returns an aggregated status, so <code>/health</code> reflects the real state of your dependencies and responds 503 automatically when an indicator fails:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { Controller, Get } from '@nestjs/common';
+import {
+  HealthCheck, HealthCheckService,
+  TypeOrmHealthIndicator, MemoryHealthIndicator,
+} from '@nestjs/terminus';
+
+@Controller('health')
+export class HealthController {
+  constructor(
+    private health: HealthCheckService,
+    private db: TypeOrmHealthIndicator,
+    private memory: MemoryHealthIndicator,
+  ) {}
+
+  @Get()
+  @HealthCheck()
+  check() {
+    return this.health.check([
+      () =&gt; this.db.pingCheck('database'),
+      () =&gt; this.memory.checkHeap('memory_heap', 300 * 1024 * 1024),
+    ]);
+  }
+}</code></pre>
+            </div>
+            <p>Register <code>TerminusModule</code> in the module that provides <code>HealthController</code>, and Terminus handles the 200/503 response shape for you.</p>
+
+            <h2>Next.js</h2>
+            <p>A Next.js app can expose a health endpoint independent of its React pages. In the <strong>App Router</strong>, add a route handler:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// app/health/route.ts
+import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic'; // never cache the probe
+
+export async function GET() {
+  return NextResponse.json({ status: 'ok' }, { status: 200 });
+}</code></pre>
+            </div>
+            <p>In the older <strong>Pages Router</strong>, use an API route:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// pages/api/health.ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  res.status(200).json({ status: 'ok' });
+}</code></pre>
+            </div>
+            <p>If you deploy Next.js in a container, pair this with <code>output: "standalone"</code> in <code>next.config.js</code> for a smaller image — see the Docker section of the <a href="node-production-readiness-checklist.html">production readiness checklist</a>.</p>
+
+            <h2>Which status code?</h2>
+            <p>Return <a href="../http-status/200.html">200 OK</a> (any 2xx works) when healthy, and <a href="../http-status/503.html">503 Service Unavailable</a> when a dependency the app needs is down. Avoid returning 200 unconditionally from a readiness probe — that defeats its purpose, because the platform keeps sending traffic to an instance that can't serve it. For the full map of status codes your API returns, see the <a href="../http-status.html">HTTP Status Codes reference</a>.</p>
+
+            <div class="tool-cta">
+                <h3>Does your project already have a health check?</h3>
+                <p>The Deployment Readiness Checker detects your framework from <code>package.json</code> and reminds you to add the right health endpoint — along with the rest of your production checklist. Runs entirely in your browser.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../deployment-readiness-checker.html" class="btn btn-primary">Open the Deployment Readiness Checker &rarr;</a>
+                </div>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What HTTP status code should a health check return?</summary>
+                    <p>Return <code>200 OK</code> when the app can serve traffic and <code>503 Service Unavailable</code> when a critical dependency is down. Load balancers and orchestrators treat any 2xx as healthy and typically treat 503 (or a timeout) as unhealthy, so they stop routing traffic to that instance until it recovers.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between liveness and readiness?</summary>
+                    <p>A liveness check answers "is the process alive?" — if it fails, the orchestrator restarts the container. A readiness check answers "can it serve traffic right now?" — if it fails, the orchestrator keeps the process running but stops sending it requests until dependencies (database, cache) are back. Liveness should be cheap and dependency-free; readiness may check dependencies.</p>
+                </details>
+                <details>
+                    <summary>How do I add a health check in Express?</summary>
+                    <p>Add a route: <code>app.get('/health', (req, res) =&gt; res.status(200).json({ status: 'ok' }))</code>. Register it before authentication middleware so the probe is not blocked, keep it fast, and for a readiness variant check your database connection and return 503 if it is down.</p>
+                </details>
+                <details>
+                    <summary>How does NestJS handle health checks?</summary>
+                    <p>NestJS has an official module, <code>@nestjs/terminus</code>, that provides health indicators for databases, HTTP services, disk, and memory. You create a health controller that runs a set of indicators and returns an aggregated status, so <code>/health</code> reflects the real state of your dependencies.</p>
+                </details>
+                <details>
+                    <summary>Can a Next.js app have a health check endpoint?</summary>
+                    <p>Yes. In the App Router, add <code>app/health/route.ts</code> exporting a <code>GET</code> handler that returns a 200 response; in the Pages Router, add <code>pages/api/health.ts</code>. Both give you a lightweight endpoint your platform can poll, independent of your React pages.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../deployment-readiness-checker.html">Deployment Readiness Checker</a> &mdash; detects your framework and checks readiness</li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a> &mdash; what 200, 503 and the rest mean</li>
+                <li><a href="../docker-image-optimizer.html">Docker Image Optimizer</a> &mdash; ship a smaller, safer container</li>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a> &mdash; paste an error, jump to the fix</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="node-production-readiness-checklist.html">The Node.js Production Readiness Checklist (2026)</a></li>
+                <li><a href="env-file-format.html">The .env File Format: Syntax, Quoting Rules, and Common Mistakes</a></li>
+                <li><a href="docker-image-optimizer-guide.html">How to Optimize a Docker Image</a></li>
+                <li><a href="rest-vs-graphql.html">REST vs GraphQL: Which to Choose</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

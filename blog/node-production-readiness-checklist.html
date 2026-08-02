@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A practical Node.js production readiness checklist for 2026: scripts, engines, health-check endpoints, Docker, and .env hygiene — plus a free package.json checker.">
+    <meta name="keywords" content="production readiness checklist, node production checklist, node.js deployment checklist, package.json production, node deploy checklist 2026, is my node app production ready">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/node-production-readiness-checklist.html">
+    <meta property="og:title" content="The Node.js Production Readiness Checklist (2026)">
+    <meta property="og:description" content="Every category that decides whether a Node.js app survives production — scripts, engines, health checks, Docker, secrets — as a checklist you can read and act on. Includes a free package.json checker.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/node-production-readiness-checklist.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>The Node.js Production Readiness Checklist (2026) | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Node.js Production Readiness Checklist", "item": "https://jsondevtools.org/blog/node-production-readiness-checklist.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "The Node.js Production Readiness Checklist (2026)",
+      "description": "A practical Node.js production readiness checklist for 2026: scripts, engines, license, health-check endpoints, Docker, and .env hygiene, with a free tool that checks your package.json automatically.",
+      "image": "https://jsondevtools.org/og-image.png",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-08-02",
+      "dateModified": "2026-08-02",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is a production readiness checklist?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A production readiness checklist is the set of things a service needs before it can safely take real traffic: a reliable way to start, a pinned runtime, a health endpoint, sensible logging, secrets kept out of source control, and a repeatable build. Working through one turns 'it runs on my machine' into 'it runs, and keeps running, on the host'." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the single most important thing to check before deploying a Node app?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A correct start script paired with a pinned engines.node range. The host boots your app with 'npm start', so a missing or dev-only start script (nodemon, ts-node-dev) means it never launches; and without engines.node the host may run a Node version you never tested, which is the classic cause of a deploy that crashes only in production." }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I really need a health check endpoint?",
+          "acceptedAnswer": { "@type": "Answer", "text": "If anything sits in front of your app — a load balancer, Kubernetes, a PaaS — yes. It polls a health endpoint to decide whether to send traffic to your instance and whether to restart it. Without one, the platform can route users to a process that is up but not actually able to serve requests." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should engines.node be pinned in package.json?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Declaring engines.node (for example '>=20 <21') tells your host and your teammates exactly which Node versions the app supports. It prevents a host from silently running your code on a newer or older Node than you tested, and many platforms will honor it when selecting a runtime." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I keep secrets out of production source control?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Keep real values in a .env that is listed in .gitignore, commit only a .env.example with placeholder values, and inject the real secrets at runtime through your platform's environment settings. Never put a real key in .env.example, and if one was ever committed, rotate it — git history keeps it forever." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>Node.js Production Readiness Checklist</span>
+            </nav>
+            <h1>The Node.js Production Readiness Checklist (2026)</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; 11 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">"It works locally" and "it's ready for production" are two very different claims. The gap between them is a short list of things that are easy to forget and expensive to discover after a bad deploy: a missing <code>start</code> script, an unpinned Node version, a secret in the wrong file, no health endpoint for the load balancer to poll. This is that list — every category walked as prose you can read and act on. When you want the fast version, the <a href="../deployment-readiness-checker.html">Deployment Readiness Checker</a> runs all of these checks against your own <code>package.json</code> in your browser.</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:center;">
+                <p style="margin:0 0 0.9rem;font-weight:600;">Don't read — just check yours:</p>
+                <div style="display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;">
+                    <a href="../deployment-readiness-checker.html" class="btn btn-primary" style="display:inline-block;">Check my package.json &rarr;</a>
+                </div>
+                <p style="margin:0.9rem 0 0;font-size:13px;color:var(--secondary-color);">Runs 100% in your browser — nothing is uploaded.</p>
+            </div>
+
+            <h2>1. Scripts: can the host actually start your app?</h2>
+            <p>A platform-as-a-service boots your app by running <code>npm start</code>. If your <code>package.json</code> has no <code>start</code> script, there is nothing to run and the deploy fails at boot. The subtler failure is a <code>start</code> script that points at a development tool:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ nodemon/ts-node-dev are dev tools — they watch files and restart
+"scripts": {
+  "start": "nodemon src/server.js"
+}
+
+// ✅ start runs the built app the way production will
+"scripts": {
+  "start": "node dist/server.js",
+  "dev":   "nodemon src/server.js",
+  "build": "tsc",
+  "test":  "vitest run",
+  "lint":  "eslint ."
+}</code></pre>
+            </div>
+            <p>Keep <code>start</code> for production and <code>dev</code> for the watch-mode workflow. A real <code>build</code> script matters the moment your app compiles (TypeScript, a bundler, a framework build) — CI and your host both call it. A real <code>test</code> script (not the npm placeholder that just prints "Error: no test specified") lets CI stop a broken build before it ships, and a <code>lint</code> script catches error-prone patterns in review.</p>
+
+            <h2>2. Configuration: pin the runtime and declare your intent</h2>
+            <p>The most valuable configuration field is <code>engines.node</code>. Without it, your host runs your code on whatever Node version it happens to default to — and a mismatch between that and the version you tested is the classic "works on my machine, crashes in production" bug.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "engines": { "node": "&gt;=20 &lt;21" },
+  "packageManager": "npm@10.8.1",
+  "type": "module",
+  "private": true
+}</code></pre>
+            </div>
+            <ul>
+                <li><strong><code>type</code></strong> — set it to <code>"module"</code> (ESM) or <code>"commonjs"</code> explicitly. Leaving it unset defaults to CommonJS, and mixing that with <code>import</code> syntax throws <em>"Cannot use import statement outside a module"</em> at runtime. See <a href="../errors/cannot-use-import-statement-outside-a-module.html">that error explained</a> if you have hit it.</li>
+                <li><strong><code>packageManager</code></strong> — pins the manager and version (via Corepack) so every machine and CI runner resolves the lockfile identically.</li>
+                <li><strong><code>private: true</code></strong> — see the security section below; it is your accidental-publish guard.</li>
+            </ul>
+            <p>If any of these are missing, the <a href="../deployment-readiness-checker.html">Deployment Readiness Checker</a> points them out field-by-field with the fix.</p>
+
+            <h2>3. Documentation: the metadata that saves you later</h2>
+            <p>A missing <code>license</code> leaves usage rights ambiguous and makes npm warn on every install; add an SPDX id like <code>"MIT"</code>, or <code>"UNLICENSED"</code> for a closed-source app. A <code>repository</code> field ties the package to its source for teammates and tooling, and a one-line <code>description</code> documents intent for whoever reads the manifest next — often future you. None of these break a deploy on their own, but together they are the difference between a manifest that explains itself and one that doesn't.</p>
+
+            <h2>4. Security: keep secrets out of git</h2>
+            <p>This is the category with the highest blast radius. Three rules cover most incidents:</p>
+            <ol>
+                <li><strong>Real values live in <code>.env</code>, and <code>.env</code> is in <code>.gitignore</code>.</strong> A committed <code>.env</code> leaks every secret it holds to anyone with repo access — the single most common credential leak.</li>
+                <li><strong>Commit only <code>.env.example</code> with placeholders.</strong> It documents which variables exist without exposing their values. A real key in <code>.env.example</code> is a secret in version control.</li>
+                <li><strong>Inject real secrets at runtime</strong> through your platform's environment settings, never baked into an image or a committed file.</li>
+            </ol>
+            <div class="warning-box">
+                <p style="margin:0;"><strong>If a secret was ever committed, rotate it.</strong> Deleting it in a later commit does not help — git history keeps the old value forever. Before you paste logs into a bug report or an AI chat, strip secrets with the <a href="../log-redactor.html">Log Redactor</a>.</p>
+            </div>
+            <p>The exact rules for <code>.env</code> syntax — quoting, multiline values, comments, duplicate keys — are in <a href="env-file-format.html">The .env File Format guide</a>. And remember that an application should set <code>"private": true</code>: an app is not a library, and without that flag a stray <code>npm publish</code> can push your whole app, secrets included, to the public registry.</p>
+
+            <h2>5. Health checks: tell the platform when you're ready</h2>
+            <p>If anything sits in front of your app — a load balancer, Kubernetes, a PaaS — it polls a <strong>health-check endpoint</strong> to decide whether to route traffic to your instance and whether to restart it. Without one, the platform can send users to a process that is technically up but unable to serve requests.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Minimal Express health endpoint
+app.get('/health', (req, res) =&gt; {
+  res.status(200).json({ status: 'ok' });
+});</code></pre>
+            </div>
+            <p>A health endpoint should return <a href="../http-status/200.html">200 OK</a> when the app can serve traffic and <a href="../http-status/503.html">503 Service Unavailable</a> when a critical dependency (database, cache) is down, so the platform stops routing to it. The framework-specific versions — Express, NestJS with <code>@nestjs/terminus</code>, and Next.js — are covered with full code in <a href="health-check-endpoint-express-nestjs-nextjs.html">Adding a Health Check Endpoint: Express, NestJS, and Next.js</a>. The <a href="../deployment-readiness-checker.html">Deployment Readiness Checker</a> detects your framework from <code>package.json</code> and reminds you which one to add.</p>
+
+            <h2>6. Docker: small, pinned, non-root</h2>
+            <p>If you ship a container, the readiness bar is: pin the base image to a specific tag (never <code>:latest</code>), use a multi-stage build so the toolchain doesn't ship with the app, run as a non-root <code>USER</code>, and add a <code>.dockerignore</code> so <code>node_modules</code>, <code>.git</code> and your local <code>.env</code> never enter the build context. Getting the layer order and base image right is its own topic — the <a href="../docker-image-optimizer.html">Docker Image Optimizer</a> analyses a pasted Dockerfile for exactly these issues, and <a href="docker-image-optimizer-guide.html">the Docker optimization guide</a> explains the reasoning.</p>
+
+            <h2>7. CI: make the checks run automatically</h2>
+            <p>Everything above is only reliable if it runs on every change. A minimal pipeline installs with <code>npm ci</code> (not <code>npm install</code>, so the lockfile is honored exactly), runs your <code>test</code> and <code>lint</code> scripts, and performs a build to catch compile errors before they reach a branch anyone deploys. If <code>npm ci</code> fails on a dependency conflict, <a href="../errors/npm-eresolve-unable-to-resolve-dependency-tree.html">the ERESOLVE guide</a> covers the usual fixes.</p>
+
+            <div class="tool-cta">
+                <h3>Check your project against this whole list</h3>
+                <p>Paste your <code>package.json</code> — and optionally your <code>.env</code>, <code>.env.example</code> and <code>.gitignore</code> — and get a scored, per-category report with framework-aware fixes. Nothing is uploaded.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../deployment-readiness-checker.html" class="btn btn-primary">Open the Deployment Readiness Checker &rarr;</a>
+                </div>
+            </div>
+
+            <h2>The checklist, condensed</h2>
+            <div class="table-container" style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr><th>Category</th><th>Must-have</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Scripts</td><td>Real <code>start</code> (not nodemon); <code>build</code>/<code>test</code>/<code>lint</code> where relevant</td></tr>
+                        <tr><td>Configuration</td><td><code>engines.node</code> pinned; <code>type</code> declared; <code>packageManager</code> set</td></tr>
+                        <tr><td>Documentation</td><td><code>license</code>, <code>repository</code>, <code>description</code></td></tr>
+                        <tr><td>Security</td><td><code>.env</code> gitignored; only placeholders in <code>.env.example</code>; <code>private: true</code></td></tr>
+                        <tr><td>Health</td><td>A <code>/health</code> endpoint returning 200/503</td></tr>
+                        <tr><td>Docker</td><td>Pinned base, multi-stage, non-root, <code>.dockerignore</code></td></tr>
+                        <tr><td>CI</td><td><code>npm ci</code> + test + lint + build on every change</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What is a production readiness checklist?</summary>
+                    <p>A production readiness checklist is the set of things a service needs before it can safely take real traffic: a reliable way to start, a pinned runtime, a health endpoint, sensible logging, secrets kept out of source control, and a repeatable build. Working through one turns "it runs on my machine" into "it runs, and keeps running, on the host".</p>
+                </details>
+                <details>
+                    <summary>What is the single most important thing to check before deploying a Node app?</summary>
+                    <p>A correct <code>start</code> script paired with a pinned <code>engines.node</code> range. The host boots your app with <code>npm start</code>, so a missing or dev-only start script (nodemon, ts-node-dev) means it never launches; and without <code>engines.node</code> the host may run a Node version you never tested, which is the classic cause of a deploy that crashes only in production.</p>
+                </details>
+                <details>
+                    <summary>Do I really need a health check endpoint?</summary>
+                    <p>If anything sits in front of your app — a load balancer, Kubernetes, a PaaS — yes. It polls a health endpoint to decide whether to send traffic to your instance and whether to restart it. Without one, the platform can route users to a process that is up but not actually able to serve requests.</p>
+                </details>
+                <details>
+                    <summary>Should engines.node be pinned in package.json?</summary>
+                    <p>Yes. Declaring <code>engines.node</code> (for example <code>&gt;=20 &lt;21</code>) tells your host and your teammates exactly which Node versions the app supports. It prevents a host from silently running your code on a newer or older Node than you tested, and many platforms will honor it when selecting a runtime.</p>
+                </details>
+                <details>
+                    <summary>How do I keep secrets out of production source control?</summary>
+                    <p>Keep real values in a <code>.env</code> that is listed in <code>.gitignore</code>, commit only a <code>.env.example</code> with placeholder values, and inject the real secrets at runtime through your platform's environment settings. Never put a real key in <code>.env.example</code>, and if one was ever committed, rotate it — git history keeps it forever.</p>
+                </details>
+            </section>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../deployment-readiness-checker.html">Deployment Readiness Checker</a> &mdash; run this whole checklist on your package.json</li>
+                <li><a href="../docker-image-optimizer.html">Docker Image Optimizer</a> &mdash; analyse a Dockerfile for size and security</li>
+                <li><a href="../log-redactor.html">Log Redactor</a> &mdash; strip secrets before sharing logs</li>
+                <li><a href="../json-validator.html">JSON Validator</a> &mdash; fix a broken package.json</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="health-check-endpoint-express-nestjs-nextjs.html">Adding a Health Check Endpoint: Express, NestJS, and Next.js</a></li>
+                <li><a href="env-file-format.html">The .env File Format: Syntax, Quoting Rules, and Common Mistakes</a></li>
+                <li><a href="docker-image-optimizer-guide.html">How to Optimize a Docker Image</a></li>
+                <li><a href="json-minify-json-for-production.html">Should You Minify JSON for Production?</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="privacy-policy.html">Privacy Policy</a> | <a href="terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

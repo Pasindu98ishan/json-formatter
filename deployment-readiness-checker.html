@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free, in-browser Deployment Readiness Checker. Paste your package.json (and optional .env, .gitignore) for a scored production-readiness report with fixes.">
+    <meta name="keywords" content="production readiness checklist, package.json validator, node production checklist, deployment readiness checker, dockerfile validator, env file checker, node deploy checklist">
+    <link rel="canonical" href="https://jsondevtools.org/deployment-readiness-checker.html">
+    <meta property="og:title" content="Deployment Readiness Checker – package.json & .env, scored">
+    <meta property="og:description" content="Paste your package.json (and optional .env / .gitignore) and get a scored, per-category production-readiness report with framework-aware fixes. Free, private, in-browser.">
+    <meta property="og:url" content="https://jsondevtools.org/deployment-readiness-checker.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Deployment Readiness Checker – package.json & .env, scored | Free</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-mode.css">
+    <style>
+        .drc-privacy { display:flex; align-items:center; gap:0.5rem; margin:0 0 1rem; padding:0.7rem 1rem; background:#eaf7ee; border:1px solid #b7e0c4; border-left:4px solid var(--success-color); border-radius:6px; font-size:13.5px; color:#1c5230; }
+        .drc-privacy strong { font-weight:700; }
+        .drc-inputs { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin:0 0 1rem; }
+        .drc-field { display:flex; flex-direction:column; }
+        .drc-field.drc-field-main { grid-column:1 / -1; }
+        .drc-field label { font-weight:600; font-size:13.5px; margin:0 0 0.35rem; }
+        .drc-field label .drc-opt { font-weight:400; color:var(--secondary-color); }
+        .drc-field textarea { width:100%; min-height:120px; font-family:'Monaco','Menlo','Ubuntu Mono',monospace; font-size:13px; padding:0.7rem; border:1px solid var(--border-color); border-radius:6px; resize:vertical; background:#fff; color:var(--text-light); }
+        .drc-field-main textarea { min-height:150px; }
+        .drc-field textarea.drag-over { border-color:var(--primary-color); background:#f0f7ff; }
+
+        /* Progressive disclosure: optional inputs collapsed by default so the
+           primary action clears the fold on a standard laptop. */
+        .drc-optional { margin:0 0 1rem; border:1px solid var(--border-color); border-radius:8px; background:var(--light-bg); }
+        .drc-optional-summary { cursor:pointer; list-style:none; padding:0.7rem 1rem; font-size:13.5px; font-weight:600; color:var(--secondary-color); display:flex; flex-wrap:wrap; align-items:center; gap:0.35rem 0.5rem; border-radius:8px; }
+        .drc-optional-summary::-webkit-details-marker { display:none; }
+        .drc-optional-summary::marker { content:''; }
+        .drc-optional-summary:focus-visible { outline:2px solid var(--primary-color); outline-offset:2px; }
+        .drc-optional-summary code { background:rgba(0,0,0,0.06); padding:1px 5px; border-radius:4px; font-size:0.92em; color:var(--text-light); }
+        .drc-optional-caret { display:inline-block; transition:transform 0.15s ease; }
+        .drc-optional[open] .drc-optional-caret { transform:rotate(90deg); }
+        /* Explicit collapse — don't rely on the UA details rule, which project
+           CSS overrides, or the optional inputs would never hide. */
+        .drc-optional:not([open]) .drc-optional-body { display:none; }
+        .drc-optional-body { padding:0 1rem 1rem; }
+        .drc-optional-body .drc-inputs { margin:0; }
+        @media (prefers-reduced-motion: reduce) { .drc-optional-caret { transition:none; } }
+        .drc-file-row { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; margin:0 0 1rem; font-size:13px; color:var(--secondary-color); }
+        .drc-file-row input[type="file"] { font-size:13px; max-width:240px; }
+        @media (max-width:720px) { .drc-inputs { grid-template-columns:1fr; } }
+
+        #drcResultsWrap { display:none; margin-top:1.5rem; }
+        .drc-summary { display:flex; align-items:center; gap:0.9rem; flex-wrap:wrap; padding:1rem 1.2rem; background:var(--light-bg); border:1px solid var(--border-color); border-radius:8px; margin:0 0 1rem; font-size:15px; }
+        .drc-grade { font-weight:800; font-size:2rem; line-height:1; width:2.6rem; height:2.6rem; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#fff; }
+        .drc-grade-A { background:#22a06b; } .drc-grade-B { background:#4c9f38; }
+        .drc-grade-C { background:#d1a000; } .drc-grade-D { background:#e07b00; } .drc-grade-F { background:#d64545; }
+        .drc-grade-advisory { background:#6c757d; font-size:1.5rem; }
+        .drc-cat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.7rem; margin:0 0 1.4rem; }
+        .drc-cat-tile { display:flex; flex-direction:column; gap:0.2rem; padding:0.75rem 0.9rem; background:#fff; border:1px solid var(--border-color); border-radius:8px; }
+        .drc-cat-tile.drc-cat-off { opacity:0.55; }
+        .drc-cat-icon { font-size:1.25rem; }
+        .drc-cat-name { font-weight:700; font-size:14px; }
+        .drc-cat-meta { font-size:12px; color:var(--secondary-color); }
+
+        .drc-findings { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:0.7rem; }
+        .drc-finding { padding:0.85rem 1rem; border:1px solid var(--border-color); border-left-width:4px; border-radius:6px; background:#fff; }
+        .drc-sev-high { border-left-color:#d64545; } .drc-sev-med { border-left-color:#e07b00; }
+        .drc-sev-info { border-left-color:#3d7bd6; } .drc-sev-ok { border-left-color:#22a06b; }
+        .drc-status-pass { opacity:0.78; }
+        .drc-f-head { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
+        .drc-f-icon { font-size:1rem; }
+        .drc-f-title { font-weight:700; font-size:14.5px; }
+        .drc-f-cat { margin-left:auto; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--secondary-color); border:1px solid var(--border-color); border-radius:20px; padding:1px 8px; }
+        .drc-f-detail { margin:0.4rem 0 0; font-size:13.5px; color:var(--text-light); }
+        .drc-f-fix { margin:0.4rem 0 0; font-size:13.5px; }
+        .drc-f-doc { white-space:nowrap; }
+        .drc-finding code, .drc-rubric code { background:rgba(0,0,0,0.06); padding:1px 5px; border-radius:4px; font-size:0.92em; }
+        .drc-rubric { width:100%; border-collapse:collapse; font-size:14px; margin:0.5rem 0 1rem; }
+        /* Override styles.css's .info-section table (display:block + th nowrap),
+           which forces the table wider than a phone; fixed layout + wrapping fits. */
+        .info-section table.drc-rubric { display:table; table-layout:fixed; }
+        .info-section table.drc-rubric th { white-space:normal; }
+        .drc-rubric th, .drc-rubric td { padding:9px 12px; border:1px solid var(--border-color); text-align:left; vertical-align:top; word-break:break-word; overflow-wrap:anywhere; }
+        .drc-rubric th:first-child, .drc-rubric td:first-child { width:20%; }
+        .drc-rubric th:last-child, .drc-rubric td:last-child { width:24%; }
+        .drc-rubric thead tr { background:var(--light-bg); }
+        .drc-lede { font-size:1.05rem; line-height:1.65; margin:0 0 1.75rem; color:var(--text-light); }
+        .info-section h2 { margin-top:2rem; }
+        /* long inline code (e.g. a route snippet) must wrap, not overflow on mobile */
+        .info-section code, .drc-finding code { overflow-wrap:anywhere; }
+        .drc-finding .drc-f-detail, .drc-finding .drc-f-fix { overflow-wrap:anywhere; }
+
+        /* Dark mode: remap neutral var() surfaces (same pattern as base64.html). */
+        body.dark-mode { --light-bg:#2d2d2d; --border-color:#444; --text-light:#e0e0e0; --secondary-color:#9aa0a6; }
+        body.dark-mode .drc-field textarea,
+        body.dark-mode .drc-cat-tile,
+        body.dark-mode .drc-optional,
+        body.dark-mode .drc-finding { background:#2d2d2d; border-color:#444; color:#e0e0e0; }
+        body.dark-mode .drc-optional-summary code { background:rgba(255,255,255,0.1); color:#e0e0e0; }
+        body.dark-mode .drc-field textarea.drag-over { background:#22303f; }
+        body.dark-mode .drc-privacy { background:#1e3226; border-color:#2f5c3d; color:#bfe6cd; }
+        body.dark-mode .drc-finding code, body.dark-mode .drc-rubric code { background:rgba(255,255,255,0.1); }
+    </style>
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Deployment Readiness Checker", "item": "https://jsondevtools.org/deployment-readiness-checker.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Deployment Readiness Checker",
+      "url": "https://jsondevtools.org/deployment-readiness-checker.html",
+      "description": "Paste a package.json (and optional .env, .env.example, .gitignore) to get a scored, per-category production-readiness report with framework-aware fixes. Runs entirely in the browser.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is my package.json or .env sent to a server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. All parsing and analysis run entirely in your browser with JavaScript. Nothing you paste — including a real .env file — is ever uploaded or transmitted. This version makes no network calls at all." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does the Deployment Readiness Checker check?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It inspects your package.json (start/build/test/lint scripts, engines.node, type, packageManager, private, license, repository and other metadata), detects your framework (Express, NestJS, Next.js, Vite) to give context-aware health-check advice, and — when you paste them — analyses your .env / .env.example for secret-shaped values, placeholders, duplicate keys and documentation drift, plus your .gitignore for the entries that matter most before deploying." }
+        },
+        {
+          "@type": "Question",
+          "name": "How is the deployment score calculated?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Each check belongs to a category (Configuration, Scripts, Security, Documentation, Docker, CI) and carries a fixed point value. A category's budget is the sum of the checks that actually ran, so an input you did not paste is marked 'not checked' rather than scored as zero. The overall score is the total points earned divided by the total available across the categories you provided, expressed out of 100 with an A–F grade. The full rubric is published on this page." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does a secret in my .env not always fail the check?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A real .env file is supposed to contain secrets — flagging every one would be noise. The tool treats a secret-shaped value as high severity only where it is actually risky: in a committed .env.example, or in a .env that your pasted .gitignore does not ignore. A secret in a properly gitignored .env is reported as an expected, informational note, not a failure." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it check whether my dependencies are outdated?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not in this version. An 'are my dependencies outdated or deprecated' check needs live registry data, which would mean a network call. To keep the tool 100% offline and private, that check is deferred. The dependency checks it does run — dev tools left in production dependencies, and a dotenv advisory — are all offline." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it validate a Dockerfile?",
+          "acceptedAnswer": { "@type": "Answer", "text": "This checker focuses on your application manifest and configuration. For deep Dockerfile analysis — base-image pinning, multi-stage builds, layer caching, non-root USER, apt/apk cleanup — use the dedicated Docker Image Optimizer, which this tool links to from its Docker category." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does 'engines.node' do and why does it matter?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The engines.node field declares which Node.js versions your app supports. Without it, a host is free to run your code on whatever Node version it defaults to, which is a common cause of 'works on my machine, crashes in production' failures. Pinning a range such as '>=20 <21' and matching it to your host removes that class of bug." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why should an application set private: true?",
+          "acceptedAnswer": { "@type": "Answer", "text": "An application is not meant to be published to the npm registry. Setting \"private\": true makes npm refuse to publish it, so a stray npm publish can't accidentally push your app — and any secrets bundled with it — to the public registry. Libraries you do intend to publish are the exception." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I paste only a .env file?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Every input is independent — paste only a .env (and optionally a .env.example and .gitignore) to run just the environment-variable checks. Categories with no matching input are shown as 'not checked' and are excluded from the score, so the result reflects only what you actually provided." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root=""></div>
+
+    <header class="header header-compact">
+        <div class="container">
+            <h1>Deployment Readiness Checker</h1>
+            <p>Paste your <code>package.json</code> (plus optional <code>.env</code>, <code>.env.example</code> and <code>.gitignore</code>) for a scored, per-category production-readiness report with framework-aware fixes.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="formatter-section">
+            <div class="drc-privacy">
+                <span aria-hidden="true">🔒</span>
+                <span><strong>Runs 100% in your browser — nothing is uploaded.</strong> This tool makes no network calls, so it is safe to paste a real <code>.env</code>.</span>
+            </div>
+
+            <div class="drc-field drc-field-main">
+                <label for="pkgInput">package.json <span class="drc-opt">(required — primary input)</span></label>
+                <textarea id="pkgInput" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" placeholder='Paste your package.json here…'></textarea>
+            </div>
+
+            <details class="drc-optional" id="drcOptional">
+                <summary class="drc-optional-summary" aria-expanded="false">
+                    <span class="drc-optional-caret" aria-hidden="true">▸</span>
+                    Add <code>.env</code> / <code>.env.example</code> / <code>.gitignore</code> for deeper checks (optional)
+                </summary>
+                <div class="drc-optional-body">
+                    <div class="drc-inputs">
+                        <div class="drc-field">
+                            <label for="envInput">.env <span class="drc-opt">(optional — your real env file)</span></label>
+                            <textarea id="envInput" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" placeholder="KEY=value per line…"></textarea>
+                        </div>
+                        <div class="drc-field">
+                            <label for="envExampleInput">.env.example <span class="drc-opt">(optional — committed template)</span></label>
+                            <textarea id="envExampleInput" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" placeholder="KEY=placeholder per line…"></textarea>
+                        </div>
+                        <div class="drc-field drc-field-main">
+                            <label for="gitignoreInput">.gitignore <span class="drc-opt">(optional — lets the tool confirm .env is not committed)</span></label>
+                            <textarea id="gitignoreInput" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" placeholder="node_modules&#10;.env&#10;dist" style="min-height:100px;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <div class="drc-file-row">
+                <label for="fileInput"><strong>Or load a file:</strong></label>
+                <input type="file" id="fileInput" aria-label="Load a package.json, .env, .env.example or .gitignore file">
+                <span>— routed automatically by filename. You can also drag &amp; drop onto any box.</span>
+            </div>
+
+            <div class="button-group">
+                <button id="analyzeBtn" class="btn btn-primary" aria-label="Analyze deployment readiness">Analyze readiness</button>
+                <button id="sampleBtn" class="btn btn-secondary" aria-label="Load a sample project">Load sample</button>
+                <button id="copyBtn" class="btn btn-secondary" aria-label="Copy the report">Copy report</button>
+                <button id="downloadBtn" class="btn btn-secondary" aria-label="Download the report">Download</button>
+                <button id="clearBtn" class="btn btn-secondary" aria-label="Clear all fields">Clear</button>
+            </div>
+
+            <div id="drcResultsWrap">
+                <div id="drcSummary" class="drc-summary" aria-live="polite"></div>
+                <div id="drcCategoryGrid" class="drc-cat-grid"></div>
+                <ul id="drcFindings" class="drc-findings"></ul>
+            </div>
+        </section>
+
+        <section class="info-section">
+            <p class="drc-lede">The Deployment Readiness Checker scores a Node.js project for production. Paste your <code>package.json</code> to start, then add your <code>.env</code>, <code>.env.example</code> and <code>.gitignore</code> for deeper checks. It detects your framework, gives context-aware advice such as where to add a health-check endpoint, and flags leaked secrets by <em>where</em> they appear — all in your browser, with nothing uploaded and no network calls.</p>
+
+            <h2>How the score works</h2>
+            <p>The score answers one question — <em>will this deploy and stay up?</em> — so only findings that affect that are counted. Every check is one of three tiers:</p>
+            <ul>
+                <li><strong>❌ High</strong> — breaks or endangers the deploy: no <code>start</code> script, missing <code>engines.node</code>, a committed secret, a <code>.env</code> that isn't gitignored.</li>
+                <li><strong>⚠️ Medium</strong> — a conditional real risk: no <code>build</code> script <em>when a compiler/bundler is present</em>, or <code>type</code> unset <em>when the package looks like ESM</em>.</li>
+                <li><strong>ℹ️ Info</strong> — hygiene and nice-to-haves (<code>license</code>, <code>packageManager</code>, <code>private</code>, <code>lint</code>, tidy metadata). Shown as advice, <strong>never counted in the score</strong>, so tidy metadata can't inflate — or drag down — how deploy-ready you are.</li>
+            </ul>
+            <p>Only High and Medium checks carry points. A category's budget is just the scored checks that actually ran against what you pasted, so anything you skip is <em>not checked</em>, never a zero. Your score is points earned ÷ points available, out of 100, graded A ≥ 90, B ≥ 75, C ≥ 60, D ≥ 45, otherwise F. The full rubric is public:</p>
+            <div class="table-container" style="overflow-x:auto;">
+                <table class="drc-rubric">
+                    <thead>
+                        <tr><th>Category</th><th>Scored checks (points)</th><th>Advisory (info, unscored)</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Scripts</strong></td>
+                            <td><code>start</code> (12, high) · <code>build</code> (6, med — only when a compiler/bundler is present)</td>
+                            <td>real <code>test</code>, <code>lint</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Configuration</strong></td>
+                            <td><code>engines.node</code> (8, high) · name+version (4, high) · <code>type</code> (4, med — only when ESM is detected) · required var set (5, med)</td>
+                            <td><code>packageManager</code>, <code>private</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Security</strong></td>
+                            <td>.gitignore covers <code>.env</code> (10, high) · <code>node_modules</code> (4, med) · no committed secrets (8 each, high) · no shipped placeholders (2, med) · no duplicate/malformed env lines (3, med)</td>
+                            <td>other .gitignore entries, dev tool in prod deps, <code>dotenv</code> note</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Documentation</strong></td>
+                            <td><em>advisory only — unscored</em></td>
+                            <td><code>license</code>, <code>repository</code>, <code>description</code>, <code>author</code>, every .env key documented</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Docker</strong></td>
+                            <td><em>advisory</em></td>
+                            <td>deep checks in the <a href="docker-image-optimizer.html">Docker Image Optimizer</a></td>
+                        </tr>
+                        <tr>
+                            <td><strong>CI</strong></td>
+                            <td><em>advisory</em></td>
+                            <td>GitHub Actions inspector planned</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>Where each category comes from: <strong>Scripts</strong> and <strong>Configuration</strong> are read from your <code>package.json</code>; <strong>Security</strong> combines your <code>.gitignore</code>, <code>.env</code>/<code>.env.example</code> and dependency signals; <strong>Documentation</strong>, <strong>Docker</strong> and <strong>CI</strong> are advisory — Docker links out to the <a href="docker-image-optimizer.html">Docker Image Optimizer</a> for deep analysis. The reasoning behind every check is in the pillar guide, <a href="blog/node-production-readiness-checklist.html">The Node.js Production Readiness Checklist (2026)</a>.</p>
+
+            <h2>Framework-aware health-check advice</h2>
+            <p>After parsing your dependencies the tool identifies your framework and points you at the highest-value fix — usually the health-check endpoint that load balancers and orchestrators poll before routing traffic:</p>
+            <ul>
+                <li><strong>Express</strong> → add a <code>GET /health</code> route that returns <a href="http-status/200.html">200 OK</a>.</li>
+                <li><strong>NestJS</strong> → use the official <code>@nestjs/terminus</code> module for readiness/liveness endpoints.</li>
+                <li><strong>Next.js</strong> → consider <code>output: "standalone"</code> for a smaller, self-contained deploy.</li>
+                <li><strong>Vite</strong> → it builds a <em>static</em> bundle that needs a static host or CDN.</li>
+            </ul>
+            <p>Copy-paste code for each framework is in <a href="blog/health-check-endpoint-express-nestjs-nextjs.html">Adding a Health Check Endpoint: Express, NestJS, and Next.js</a> — return <a href="http-status/200.html">200</a> when healthy, <a href="http-status/503.html">503</a> when a dependency is down.</p>
+
+            <h2>Why secrets are scored by context, not blanket-flagged</h2>
+            <p>A <code>.env</code> file is <em>supposed</em> to hold real secrets — that is its whole job. A tool that flags every one of them trains you to ignore it. So this checker only escalates a secret-shaped value to high severity where it is genuinely exposable: in a committed <code>.env.example</code>, or in a <code>.env</code> that your pasted <code>.gitignore</code> does not ignore. Paste your <code>.gitignore</code> alongside your <code>.env</code> to get the accurate verdict. For safely sharing logs that contain secrets, use the <a href="log-redactor.html">Log Redactor</a>; for the exact <code>.env</code> syntax rules, see <a href="blog/env-file-format.html">the .env file format guide</a>.</p>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            <details>
+                <summary>Is my package.json or .env sent to a server?</summary>
+                <p>No. All parsing and analysis run entirely in your browser with JavaScript. Nothing you paste — including a real <code>.env</code> file — is ever uploaded or transmitted. This version makes no network calls at all.</p>
+            </details>
+            <details>
+                <summary>What does the Deployment Readiness Checker check?</summary>
+                <p>It inspects your <code>package.json</code> (start/build/test/lint scripts, <code>engines.node</code>, <code>type</code>, <code>packageManager</code>, <code>private</code>, license, repository and other metadata), detects your framework (Express, NestJS, Next.js, Vite) to give context-aware health-check advice, and — when you paste them — analyses your <code>.env</code> / <code>.env.example</code> for secret-shaped values, placeholders, duplicate keys and documentation drift, plus your <code>.gitignore</code> for the entries that matter most before deploying.</p>
+            </details>
+            <details>
+                <summary>How is the deployment score calculated?</summary>
+                <p>Each check belongs to a category (Configuration, Scripts, Security, Documentation, Docker, CI) and carries a fixed point value. A category's budget is the sum of the checks that actually ran, so an input you did not paste is marked "not checked" rather than scored as zero. The overall score is the total points earned divided by the total available across the categories you provided, expressed out of 100 with an A–F grade. The full rubric is published on this page.</p>
+            </details>
+            <details>
+                <summary>Why does a secret in my .env not always fail the check?</summary>
+                <p>A real <code>.env</code> file is supposed to contain secrets — flagging every one would be noise. The tool treats a secret-shaped value as high severity only where it is actually risky: in a committed <code>.env.example</code>, or in a <code>.env</code> that your pasted <code>.gitignore</code> does not ignore. A secret in a properly gitignored <code>.env</code> is reported as an expected, informational note, not a failure.</p>
+            </details>
+            <details>
+                <summary>Does it check whether my dependencies are outdated?</summary>
+                <p>Not in this version. An "are my dependencies outdated or deprecated" check needs live registry data, which would mean a network call. To keep the tool 100% offline and private, that check is deferred. The dependency checks it does run — dev tools left in production dependencies, and a <code>dotenv</code> advisory — are all offline.</p>
+            </details>
+            <details>
+                <summary>Does it validate a Dockerfile?</summary>
+                <p>This checker focuses on your application manifest and configuration. For deep Dockerfile analysis — base-image pinning, multi-stage builds, layer caching, non-root <code>USER</code>, apt/apk cleanup — use the dedicated <a href="docker-image-optimizer.html">Docker Image Optimizer</a>, which this tool links to from its Docker category.</p>
+            </details>
+            <details>
+                <summary>What does "engines.node" do and why does it matter?</summary>
+                <p>The <code>engines.node</code> field declares which Node.js versions your app supports. Without it, a host is free to run your code on whatever Node version it defaults to, which is a common cause of "works on my machine, crashes in production" failures. Pinning a range such as <code>>=20 &lt;21</code> and matching it to your host removes that class of bug.</p>
+            </details>
+            <details>
+                <summary>Why should an application set private: true?</summary>
+                <p>An application is not meant to be published to the npm registry. Setting <code>"private": true</code> makes npm refuse to publish it, so a stray <code>npm publish</code> can't accidentally push your app — and any secrets bundled with it — to the public registry. Libraries you do intend to publish are the exception.</p>
+            </details>
+            <details>
+                <summary>Can I paste only a .env file?</summary>
+                <p>Yes. Every input is independent — paste only a <code>.env</code> (and optionally a <code>.env.example</code> and <code>.gitignore</code>) to run just the environment-variable checks. Categories with no matching input are shown as "not checked" and are excluded from the score, so the result reflects only what you actually provided.</p>
+            </details>
+        </section>
+
+        <p style="text-align:center;color:var(--secondary-color);font-size:13px;margin:1.5rem 0;">Last updated: August 2026</p>
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="docker-image-optimizer.html">Docker Image Optimizer</a> &mdash; deep Dockerfile size, caching &amp; security analysis</li>
+                <li><a href="log-redactor.html">Log Redactor</a> &mdash; strip secrets before sharing logs or a bug report</li>
+                <li><a href="json-validator.html">JSON Validator</a> &mdash; pinpoint syntax errors in a broken package.json</li>
+                <li><a href="formatter.html">JSON Formatter</a> &mdash; pretty-print and inspect JSON</li>
+                <li><a href="error-log-analyzer.html">Error Log Analyzer</a> &mdash; paste an error, jump to the fix</li>
+            </ul>
+        </section>
+
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="blog/node-production-readiness-checklist.html">The Node.js Production Readiness Checklist (2026)</a> &mdash; the full explanation behind every check here</li>
+                <li><a href="blog/health-check-endpoint-express-nestjs-nextjs.html">Adding a Health Check Endpoint: Express, NestJS &amp; Next.js</a></li>
+                <li><a href="blog/env-file-format.html">The .env File Format: Syntax, Quoting &amp; Common Mistakes</a></li>
+                <li><a href="blog/docker-image-optimizer-guide.html">How to Optimize a Docker Image</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="blog/privacy-policy.html">Privacy Policy</a> | <a href="blog/terms-of-service.html">Terms of Service</a> | <a href="about.html">About</a> | <a href="contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="js/navbar-component.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/deployment-readiness-checker-tool.js"></script>
+    <script src="js/dark-mode.js"></script>
+</body>
+</html>
