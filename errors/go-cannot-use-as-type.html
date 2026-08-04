@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Go: cannot use x (variable of type T) as type U — why Go has no implicit conversions, and the fix for numeric, string/[]byte, named-type, and interface cases.">
+    <meta name="keywords" content="cannot use as type go, go cannot use variable of type, go implicit conversion error, go type mismatch assignment, does not implement missing method, go named type conversion">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-cannot-use-as-type.html">
+    <meta property="og:title" content="Go: cannot use x (variable of type T) as type U — Cause &amp; Fix">
+    <meta property="og:description" content="Go never converts types for you. Learn why this error fires for numeric types, string/[]byte, named types, and interfaces — and the explicit conversion each one needs.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-cannot-use-as-type.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Go: cannot use x (variable of type T) as type U — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Go: cannot use x as type U", "item": "https://jsondevtools.org/errors/go-cannot-use-as-type.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Go: cannot use x (variable of type T) as type U in assignment/argument — Cause and Fix",
+  "description": "Go raises this error whenever it would otherwise have to silently convert a value's type. This reference covers the four real causes — numeric type mismatches, string vs []byte, named types with the same underlying type, and interfaces that aren't implemented — plus the exact conversion each one needs.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why doesn't Go convert types automatically?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It's a deliberate design choice. Implicit numeric conversion is a well-known source of silent bugs in C-family languages — an int truncated into an int8, or an int compared against a float64 with a rounding surprise. Go requires every conversion to be written out, so the loss or reinterpretation is visible in the source rather than hidden in the compiler's judgment call."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'cannot use x (variable of type T) as type U'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Convert explicitly with U(x) for numeric types, string/[]byte, and named types sharing an underlying type — for example int64(x) or MyType(x). If the tail of the message says 'does not implement', the fix is different: implement the missing method on the type, or pass a pointer receiver if the method set requires one."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why can't I assign a Celsius value to a Fahrenheit variable if both are float64?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Go's type identity rule cares about the declared name, not just the underlying representation. type Celsius float64 and type Fahrenheit float64 share an underlying type but are different named types, so assigning one to the other requires an explicit conversion: Fahrenheit(c). This is intentional — it stops you from mixing values that happen to share a representation but mean different things."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does 'does not implement' mean at the end of the error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means you tried to use a concrete type where an interface was expected, and that type is missing one of the interface's methods. The message names the missing method directly. Check for two common near-misses first: a typo'd method signature, and a method defined on the pointer receiver (*T) when you're passing a value (T) — only *T satisfies the interface in that case."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this error also happen on return statements, not just assignment?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The same rule applies anywhere a value flows into a typed slot — assignment, a function argument, and a return statement all produce this error family, just with slightly different trailing wording ('in assignment', 'in argument to f', 'in return statement'). The cause and the fix (an explicit conversion) are identical in all three."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Go: cannot use x as type U</span>
+            </nav>
+            <h1>Go: cannot use x (variable of type T) as type U in assignment</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Go never converts a value's type for you &mdash; every conversion must be written out. Match the cause to the fix:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li><strong>Numeric types</strong> (<code>int</code> vs <code>int64</code>, <code>int</code> vs <code>float64</code>) &mdash; wrap it: <code>int64(x)</code>.</li>
+                    <li><strong><code>string</code> vs <code>[]byte</code></strong> &mdash; convert with <code>[]byte(s)</code> or <code>string(b)</code>.</li>
+                    <li><strong>Two named types sharing an underlying type</strong> &mdash; convert explicitly: <code>Fahrenheit(c)</code>.</li>
+                    <li><strong>Message ends "does not implement"</strong> &mdash; different problem: the type is missing an interface method, or you need a pointer receiver.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>package main
+
+func main() {
+    var x int = 10
+    var y int64 = x
+    _ = y
+}
+
+// ./main.go:5:15: cannot use x (variable of type int) as int64 value in assignment
+//
+// older Go toolchains (pre 1.18) phrased it as:
+// ./main.go:5:15: cannot use x (type int) as type int64 in assignment</code></pre>
+            </div>
+
+            <p>The tail changes with context but the shape stays the same: <code>in assignment</code> becomes <code>in argument to f</code> when it's a function call, and <code>in return statement</code> when a <code>return</code> doesn't match the declared return type. All three come from the same rule and take the same fix.</p>
+
+            <p>When the target is an interface rather than a concrete type, the message gets an extra line naming exactly what's missing:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// cannot use w (variable of type Writer) as type io.Writer value in argument to save:
+//     Writer does not implement io.Writer (missing method Write)</code></pre>
+            </div>
+
+            <h2>Why Go makes you write the conversion</h2>
+            <p>Most languages with numeric subtyping will quietly widen an <code>int</code> to a <code>float64</code>, or truncate an <code>int64</code> into an <code>int32</code>, wherever the context demands it. Go's designers considered that a source of exactly the kind of bug that's expensive to find later: a silent truncation that only shows up when a value happens to exceed 32 bits in production. Go's answer is to require every conversion to be visible in the source as <code>T(x)</code> &mdash; nothing converts by accident, and a reviewer can see precisely where a narrowing or reinterpretation happens.</p>
+            <p>This is not the same rule as <a href="../errors/rust-e0308-mismatched-types.html">Rust's type mismatch (E0308)</a>, though the symptom looks similar: Rust infers types and then enforces exact matches after inference; Go has no inference for this case at all &mdash; assignment between differently-typed variables is categorically disallowed unless you convert.</p>
+
+            <h2>Fix 1: numeric type mismatch</h2>
+            <p>Go's numeric types &mdash; <code>int</code>, <code>int8</code>/<code>16</code>/<code>32</code>/<code>64</code>, <code>uint</code> variants, <code>float32</code>/<code>64</code> &mdash; are all distinct types with no automatic promotion between them, even when one clearly fits inside the other. Convert explicitly:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>var x int = 10
+// ❌ var y int64 = x
+var y int64 = int64(x)   // ✅ widening — always safe
+
+var big int64 = 1 &lt;&lt; 40
+// ❌ var small int32 = big
+var small int32 = int32(big)   // ✅ compiles, but TRUNCATES — 1&lt;&lt;40 doesn't fit in int32
+
+var price float64 = 19.99
+// ❌ var count int = price
+var count int = int(price)   // ✅ compiles, but TRUNCATES toward zero: 19, not 20</code></pre>
+            </div>
+            <p>Note the two comments above marked "compiles, but" &mdash; the compiler only enforces that the conversion is <em>written</em>, not that it's <em>safe</em>. Narrowing (<code>int64</code>&rarr;<code>int32</code>) can silently drop high bits, and float&rarr;int truncates toward zero rather than rounding. If the value might not fit, check the range yourself or use <code>math.Round</code> before converting.</p>
+
+            <h2>Fix 2: <code>string</code> vs <code>[]byte</code></h2>
+            <p>Strings and byte slices are different types in Go even though a string is backed by bytes. Functions that expect one won't accept the other without conversion:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>func writeBytes(b []byte) { /* ... */ }
+
+s := "hello"
+// ❌ writeBytes(s)
+writeBytes([]byte(s))   // ✅ allocates a new byte slice, copies s
+
+var b []byte = []byte{'h', 'i'}
+// ❌ var s2 string = b
+var s2 string = string(b)   // ✅ allocates a new string, copies b</code></pre>
+            </div>
+            <p>Both directions allocate and copy &mdash; there's no free reinterpretation, because a <code>string</code> is immutable and a <code>[]byte</code> isn't, so sharing the underlying array would violate that guarantee. If you're converting in a hot loop, that copy is worth knowing about; <code>strings.Builder</code> or <code>bytes.Buffer</code> avoid it for incremental building.</p>
+
+            <h2>Fix 3: two named types with the same underlying type</h2>
+            <p>This is the case that surprises people coming from languages with structural typing. Two types declared with <code>type</code> are different types <em>even if their underlying representation is identical</em> &mdash; Go's identity rule is by declared name, not by shape:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type Celsius float64
+type Fahrenheit float64
+
+func toF(c Celsius) Fahrenheit {
+    return Fahrenheit(c*9/5 + 32)   // ✅ explicit conversion required
+}
+
+func main() {
+    var c Celsius = 100
+    // ❌ var f Fahrenheit = c   — cannot use c (variable of type Celsius) as Fahrenheit value in assignment
+    var f Fahrenheit = Fahrenheit(c)   // ✅
+    _ = f
+}</code></pre>
+            </div>
+            <p>This is intentional, not a limitation: it stops you from accidentally treating a temperature in Celsius as one in Fahrenheit just because both happen to be stored as <code>float64</code>. One exception worth knowing: an <em>untyped constant</em> (a literal like <code>98.6</code>, not a variable) converts implicitly to any compatible named type, so <code>toF(98.6)</code> compiles without a cast even though <code>toF(someFloat64Variable)</code> would not.</p>
+
+            <h2>Fix 4: the tail says "does not implement" &mdash; an interface, not a conversion</h2>
+            <p>When the target type is an interface, the fix is different from the three above &mdash; you can't cast your way to satisfying an interface. The message tells you exactly what's missing:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type Writer interface {
+    Write(p []byte) (n int, err error)
+}
+
+type logger struct{}
+
+func (l *logger) Write(p []byte) (int, error) { return len(p), nil }
+
+func save(w Writer) { /* ... */ }
+
+func main() {
+    l := logger{}
+    // ❌ save(l)
+    // cannot use l (variable of type logger) as Writer value in argument to save:
+    //     logger does not implement Writer (method Write has pointer receiver)
+    save(&amp;l)   // ✅ &amp;l is *logger, which has Write in its method set
+}</code></pre>
+            </div>
+            <p>Two things to check when you see this tail. First, is the method genuinely missing, or is it a typo in the name or signature (wrong parameter types, wrong return count)? Second &mdash; the case above &mdash; is the method defined on a <em>pointer</em> receiver (<code>func (l *logger) Write(...)</code>)? A value type's method set only includes value-receiver methods; you must pass a pointer (<code>&amp;l</code>) to satisfy an interface that requires a pointer-receiver method. This is the single most common trigger for this variant of the error.</p>
+            <p>To catch a missing-implementation bug at compile time even before you call anything, a common idiom is a standalone assertion line: <code>var _ Writer = (*logger)(nil)</code> &mdash; it compiles to nothing at runtime but forces the compiler to check the interface is satisfied right where you declare the type.</p>
+
+            <h2>Quick reference</h2>
+            <table>
+                <thead><tr><th>Situation</th><th>Fix</th><th>Safe?</th></tr></thead>
+                <tbody>
+                    <tr><td>Widening numeric (<code>int32</code>&rarr;<code>int64</code>)</td><td><code>int64(x)</code></td><td>Always safe</td></tr>
+                    <tr><td>Narrowing numeric (<code>int64</code>&rarr;<code>int32</code>)</td><td><code>int32(x)</code></td><td>Can silently truncate &mdash; check range</td></tr>
+                    <tr><td>float&rarr;int</td><td><code>int(x)</code></td><td>Truncates toward zero, not rounds</td></tr>
+                    <tr><td><code>string</code> &harr; <code>[]byte</code></td><td><code>[]byte(s)</code> / <code>string(b)</code></td><td>Safe, but allocates + copies</td></tr>
+                    <tr><td>Two named types, same underlying type</td><td><code>OtherType(x)</code></td><td>Safe (no data change, just re-tagged)</td></tr>
+                    <tr><td>Message ends "does not implement"</td><td>Add the missing method, or pass <code>&amp;x</code></td><td>Not a conversion at all</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the message's tail &mdash; "in assignment" / "in argument to f" / "in return statement" tells you where</li>
+                <li>&#10003; Does it end "does not implement"? That's a missing interface method, not a type mismatch &mdash; go to Fix 4</li>
+                <li>&#10003; Numeric types? Convert with <code>TargetType(x)</code>, and double-check narrowing doesn't lose data</li>
+                <li>&#10003; <code>string</code>/<code>[]byte</code>? Convert with <code>[]byte(s)</code> or <code>string(b)</code></li>
+                <li>&#10003; Two custom types with the same underlying representation? You still need an explicit conversion</li>
+                <li>&#10003; Interface target, "does not implement", naming a real method you wrote? Check for a pointer-receiver mismatch first</li>
+                <li>&#10003; Still stuck? Run <code>go vet</code> and hover the value in your editor (gopls) to confirm its exact inferred type</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Why doesn't Go convert types automatically?</summary>
+                    <p>It's a deliberate design choice. Implicit numeric conversion is a well-known source of silent bugs in C-family languages &mdash; an <code>int</code> truncated into an <code>int8</code>, or an <code>int</code> compared against a <code>float64</code> with a rounding surprise. Go requires every conversion to be written out, so the loss or reinterpretation is visible in the source rather than hidden in the compiler's judgment call.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'cannot use x (variable of type T) as type U'?</summary>
+                    <p>Convert explicitly with <code>U(x)</code> for numeric types, <code>string</code>/<code>[]byte</code>, and named types sharing an underlying type &mdash; for example <code>int64(x)</code> or <code>MyType(x)</code>. If the tail of the message says "does not implement", the fix is different: implement the missing method on the type, or pass a pointer receiver if the method set requires one.</p>
+                </details>
+                <details>
+                    <summary>Why can't I assign a Celsius value to a Fahrenheit variable if both are float64?</summary>
+                    <p>Go's type identity rule cares about the declared name, not just the underlying representation. <code>type Celsius float64</code> and <code>type Fahrenheit float64</code> share an underlying type but are different named types, so assigning one to the other requires an explicit conversion: <code>Fahrenheit(c)</code>. This is intentional &mdash; it stops you from mixing values that happen to share a representation but mean different things.</p>
+                </details>
+                <details>
+                    <summary>What does 'does not implement' mean at the end of the error?</summary>
+                    <p>It means you tried to use a concrete type where an interface was expected, and that type is missing one of the interface's methods. The message names the missing method directly. Check for two common near-misses first: a typo'd method signature, and a method defined on the pointer receiver (<code>*T</code>) when you're passing a value (<code>T</code>) &mdash; only <code>*T</code> satisfies the interface in that case.</p>
+                </details>
+                <details>
+                    <summary>Does this error also happen on return statements, not just assignment?</summary>
+                    <p>Yes. The same rule applies anywhere a value flows into a typed slot &mdash; assignment, a function argument, and a return statement all produce this error family, just with slightly different trailing wording ("in assignment", "in argument to f", "in return statement"). The cause and the fix (an explicit conversion) are identical in all three.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go &amp; backend errors</h3>
+                <p>Browse the full reference for Go, Rust, and Java errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="go-panic-interface-conversion.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: panic: interface conversion</a>
+                    <a href="go-declared-and-not-used.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Go: declared and not used</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-panic-interface-conversion.html">Go: panic: interface conversion</a> &mdash; the runtime counterpart of the "does not implement" case</li>
+                <li><a href="go-undefined-x.html">Go: undefined: X</a></li>
+                <li><a href="go-declared-and-not-used.html">Go: declared and not used</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

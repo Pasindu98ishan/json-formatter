@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Rust error[E0425]: cannot find value X in this scope — typo, declaration order, missing self., and cfg-gated code: the five real causes and their fixes.">
+    <meta name="keywords" content="E0425, cannot find value in this scope, rust E0425, rust cannot find value, rust missing self, rust cfg gated value not found, E0425 vs E0433">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-e0425-cannot-find-value-in-scope.html">
+    <meta property="og:title" content="Rust E0425: Cannot Find Value X in This Scope — Cause &amp; Fix">
+    <meta property="og:description" content="The value usually exists somewhere — Rust just can't see it from here. Typo, wrong scope, declaration order, a missing self., or a disabled cfg gate.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0425-cannot-find-value-in-scope.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Rust E0425: Cannot Find Value X in This Scope — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Rust E0425: cannot find value X in this scope", "item": "https://jsondevtools.org/errors/rust-e0425-cannot-find-value-in-scope.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Rust error[E0425]: cannot find value X in this scope — Cause and Fix",
+  "description": "Rust raises E0425 when it can't resolve a bare identifier as a value. This reference covers the five real causes — a typo, the value declared in a different scope, used before its own declaration, a missing self. on a struct field, and a value gated behind a disabled cfg attribute — plus how it differs from E0433.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does error[E0425]: cannot find value X in this scope mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Rust's compiler could not resolve X as any kind of value — a variable, constant, static, or function — visible from the point where you used it. It doesn't mean X doesn't exist anywhere in your project, only that it isn't reachable from this exact scope. The five usual causes are a typo, using it before its own let binding, declaring it in a different block, forgetting self. for a struct field, or the item being compiled out by a disabled cfg attribute."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is E0425 different from E0433?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "E0425 is for a bare identifier used as a value — a variable, constant, or function called by its plain name. E0433 is for a path — an identifier followed by ::, like foo::Bar — that fails to resolve because a crate, module, or use statement is missing. If your unresolved identifier has no :: after it, you have E0425; if it does, see error[E0433]: failed to resolve."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get E0425 right after adding an if let or match?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The value was almost certainly bound inside the if let or match arm's block, and you're trying to use it after that block ends. Rust's block scoping means a binding only lives until its enclosing { } closes. Move the code that needs the value inside the same block, or restructure to bind it in an outer scope first."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Rust say cannot find value for a struct field I clearly have?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Inside a method, a struct's fields are not bare identifiers — they're only reachable through self. Writing count instead of self.count inside an impl block produces exactly this error, because count as a plain name isn't a local variable, constant, or function; it only exists as a field on self."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a #[cfg(...)] attribute cause this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Code behind a #[cfg(feature = \"x\")] or a platform-specific #[cfg(unix)] simply doesn't exist in a build where that condition is false — the compiler behaves as if you never wrote it. If a constant, function, or module only exists for certain cfg configurations, using it unconditionally elsewhere in the crate produces E0425 (or E0433 for a path) whenever it's built without that configuration."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Rust E0425: cannot find value X</span>
+            </nav>
+            <h1>Rust: error[E0425]: cannot find value `X` in this scope</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The value usually exists somewhere &mdash; Rust just can't see it from here. Check in order:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li><strong>Typo or wrong case</strong> &mdash; the compiler often suggests the correct name.</li>
+                    <li><strong>Declared in a different block</strong> &mdash; an <code>if</code>/<code>match</code>/<code>for</code> body's bindings don't escape it.</li>
+                    <li><strong>Used before its <code>let</code></strong> &mdash; Rust requires declaration before use for local bindings.</li>
+                    <li><strong>Struct field, missing <code>self.</code></strong> &mdash; fields aren't bare identifiers inside a method.</li>
+                    <li><strong>Behind a disabled <code>#[cfg(...)]</code></strong> &mdash; the item doesn't exist in this build at all.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn main() {
+    println!("{}", x);
+}
+
+// error[E0425]: cannot find value `x` in this scope
+//  --&gt; src/main.rs:2:20
+//   |
+// 2 |     println!("{}", x);
+//   |                    ^ not found in this scope</code></pre>
+            </div>
+
+            <p>The caret points at the exact identifier the compiler couldn't resolve, and when there's a plausible near-match rustc adds a suggestion beneath &mdash; a similarly-spelled binding, or (as covered below) a hint to prefix it with <code>self.</code>. Read that suggestion line before doing anything else; it's often the entire fix.</p>
+
+            <h2>Cause 1: typo or wrong case</h2>
+            <p>The simplest and most common cause &mdash; Rust identifiers are case-sensitive, and a one-character slip anywhere in the name is enough:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let user_count = 5;
+println!("{}", User_count);
+// error[E0425]: cannot find value `User_count` in this scope
+//    = help: a local variable with a similar name exists: `user_count`
+
+println!("{}", user_count);   // ✅</code></pre>
+            </div>
+
+            <h2>Cause 2: declared in a different scope</h2>
+            <p>A binding only lives inside the block it was declared in. Once that block's closing <code>}</code> is reached, the name is gone &mdash; this is standard block scoping, but it's easy to lose track of across an <code>if</code>, <code>match</code> arm, or loop body:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn describe(n: i32) {
+    if n &gt; 0 {
+        let sign = "positive";
+    }
+    println!("{}", sign);   // ❌ sign only existed inside the if block
+    // error[E0425]: cannot find value `sign` in this scope
+}
+
+fn describe_fixed(n: i32) {
+    let sign = if n &gt; 0 { "positive" } else { "non-positive" };   // ✅
+    println!("{}", sign);
+}</code></pre>
+            </div>
+            <p>The fix is almost always to declare the binding in the outer scope that actually needs it &mdash; here, using <code>if</code> as an expression that produces the value, rather than a binding trapped inside one of its branches.</p>
+
+            <h2>Cause 3: used before its own declaration</h2>
+            <p>Unlike function items, <code>const</code>, and <code>static</code> &mdash; which are visible throughout their enclosing scope regardless of where they're written &mdash; a <code>let</code> binding is only visible <em>after</em> the line that declares it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn main() {
+    println!("{}", total);   // ❌ used before its let
+    let total = 42;
+    // error[E0425]: cannot find value `total` in this scope
+}
+
+fn main_fixed() {
+    let total = 42;
+    println!("{}", total);   // ✅
+}</code></pre>
+            </div>
+            <p>This trips people coming from languages that hoist variable declarations. Rust doesn't hoist <code>let</code> bindings &mdash; move the declaration above every use.</p>
+
+            <h2>Cause 4: forgot <code>self.</code> for a struct field</h2>
+            <p>Inside a method, a struct's own fields aren't bare identifiers &mdash; they exist only as properties of <code>self</code>. Writing the field name alone looks up a local variable that was never declared:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>struct Counter {
+    count: i32,
+}
+
+impl Counter {
+    fn increment(&amp;mut self) {
+        count += 1;   // ❌ `count` isn't a local — it's self.count
+        // error[E0425]: cannot find value `count` in this scope
+    }
+
+    fn increment_fixed(&amp;mut self) {
+        self.count += 1;   // ✅
+    }
+}</code></pre>
+            </div>
+            <p>The same applies to calling another method on the same instance &mdash; <code>helper()</code> instead of <code>self.helper()</code> &mdash; though that specific case is usually reported as an unresolved function call rather than E0425. When the value is a field, rustc's suggestion (when it fires) points you straight at the <code>self.</code> form.</p>
+
+            <h2>Cause 5: gated behind a disabled <code>#[cfg(...)]</code></h2>
+            <p>Code behind a <code>#[cfg(...)]</code> attribute simply isn't compiled when the condition is false &mdash; as far as that build is concerned, it was never written. Referencing it unconditionally elsewhere in the crate fails only in configurations where the gate is off, which makes this the hardest cause to spot locally:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>#[cfg(feature = "metrics")]
+const MAX_RETRIES: u32 = 5;
+
+fn run() {
+    for _ in 0..MAX_RETRIES { /* ... */ }
+    // error[E0425]: cannot find value `MAX_RETRIES` in this scope
+    // (only when built WITHOUT the "metrics" feature enabled)
+}</code></pre>
+            </div>
+            <p>This compiles fine with <code>cargo build --features metrics</code> and fails without it &mdash; which is why it often first shows up in CI running a different feature combination than your local default. Either gate the usage site with the same <code>#[cfg(...)]</code>, or move the constant out from behind the gate if it should always exist.</p>
+
+            <h2>E0425 vs E0433 vs a missing <code>use</code></h2>
+            <p>All three look similar &mdash; "the compiler can't find my identifier" &mdash; but the fix differs by what kind of identifier failed:</p>
+            <table>
+                <thead><tr><th>Error</th><th>What failed to resolve</th><th>Typical fix</th></tr></thead>
+                <tbody>
+                    <tr><td>E0425 (this page)</td><td>A bare value &mdash; variable, const, static, fn, called by plain name</td><td>Fix scope/order/typo, or add <code>self.</code></td></tr>
+                    <tr><td><a href="rust-e0433-failed-to-resolve.html">E0433</a></td><td>A <strong>path</strong> (<code>foo::Bar</code>) &mdash; a crate, module, or type segment</td><td>Add the crate to <code>Cargo.toml</code>, add <code>use</code>, or declare the local <code>mod</code></td></tr>
+                    <tr><td>E0432</td><td>A <code>use</code> statement itself can't be resolved</td><td>Same family as E0433 &mdash; check the crate/module name and dependency</td></tr>
+                </tbody>
+            </table>
+            <p>The quick test: does the unresolved name have a <code>::</code> after it? If yes, you're looking at <a href="rust-e0433-failed-to-resolve.html">E0433</a>, not this page.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <code>help:</code> suggestion first &mdash; rustc often names the fix directly</li>
+                <li>&#10003; Check for a typo or case mismatch against the actual declaration</li>
+                <li>&#10003; Is the binding declared inside an <code>if</code>/<code>match</code>/<code>for</code> block you've since left?</li>
+                <li>&#10003; Is the <code>let</code> declaration physically <em>below</em> the line that uses it?</li>
+                <li>&#10003; Inside an <code>impl</code> block? Try prefixing with <code>self.</code></li>
+                <li>&#10003; Check for a <code>#[cfg(...)]</code> on the declaration that might be disabled in this build</li>
+                <li>&#10003; Identifier followed by <code>::</code>? Wrong page &mdash; that's <a href="rust-e0433-failed-to-resolve.html">E0433</a></li>
+                <li>&#10003; Still stuck? rust-analyzer's "go to definition" on the closest similarly-named item will confirm whether it's a scope or a spelling problem</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does error[E0425]: cannot find value X in this scope mean?</summary>
+                    <p>Rust's compiler could not resolve <code>X</code> as any kind of value &mdash; a variable, constant, static, or function &mdash; visible from the point where you used it. It doesn't mean <code>X</code> doesn't exist anywhere in your project, only that it isn't reachable from this exact scope. The five usual causes are a typo, using it before its own <code>let</code> binding, declaring it in a different block, forgetting <code>self.</code> for a struct field, or the item being compiled out by a disabled <code>cfg</code> attribute.</p>
+                </details>
+                <details>
+                    <summary>How is E0425 different from E0433?</summary>
+                    <p>E0425 is for a bare identifier used as a value &mdash; a variable, constant, or function called by its plain name. E0433 is for a <em>path</em> &mdash; an identifier followed by <code>::</code>, like <code>foo::Bar</code> &mdash; that fails to resolve because a crate, module, or <code>use</code> statement is missing. If your unresolved identifier has no <code>::</code> after it, you have E0425; if it does, see <a href="rust-e0433-failed-to-resolve.html">error[E0433]: failed to resolve</a>.</p>
+                </details>
+                <details>
+                    <summary>Why do I get E0425 right after adding an if let or match?</summary>
+                    <p>The value was almost certainly bound inside the <code>if let</code> or <code>match</code> arm's block, and you're trying to use it after that block ends. Rust's block scoping means a binding only lives until its enclosing <code>{ }</code> closes. Move the code that needs the value inside the same block, or restructure to bind it in an outer scope first.</p>
+                </details>
+                <details>
+                    <summary>Why does Rust say cannot find value for a struct field I clearly have?</summary>
+                    <p>Inside a method, a struct's fields are not bare identifiers &mdash; they're only reachable through <code>self</code>. Writing <code>count</code> instead of <code>self.count</code> inside an <code>impl</code> block produces exactly this error, because <code>count</code> as a plain name isn't a local variable, constant, or function; it only exists as a field on <code>self</code>.</p>
+                </details>
+                <details>
+                    <summary>Can a #[cfg(...)] attribute cause this error?</summary>
+                    <p>Yes. Code behind a <code>#[cfg(feature = "x")]</code> or a platform-specific <code>#[cfg(unix)]</code> simply doesn't exist in a build where that condition is false &mdash; the compiler behaves as if you never wrote it. If a constant, function, or module only exists for certain <code>cfg</code> configurations, using it unconditionally elsewhere in the crate produces E0425 (or E0433 for a path) whenever it's built without that configuration.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Rust &amp; backend errors</h3>
+                <p>Browse the full reference for Rust, Go, and Java errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-e0433-failed-to-resolve.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Rust E0433: failed to resolve</a>
+                    <a href="rust-e0599-no-method-named.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Rust E0599: no method named</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-e0433-failed-to-resolve.html">Rust E0433: failed to resolve (undeclared crate or module)</a> &mdash; the path-resolution sibling of this error</li>
+                <li><a href="rust-e0599-no-method-named.html">Rust E0599: no method named X found</a></li>
+                <li><a href="rust-e0308-mismatched-types.html">Rust E0308: mismatched types</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

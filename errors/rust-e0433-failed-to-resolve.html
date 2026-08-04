@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Rust error[E0433]: failed to resolve: use of undeclared crate or module — missing Cargo.toml dependency, missing use, undeclared local mod, and cfg-gated crates.">
+    <meta name="keywords" content="E0433, failed to resolve use of undeclared crate or module, rust E0433, rust undeclared crate, rust mod not found, E0432 unresolved import, rust use of undeclared type">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-e0433-failed-to-resolve.html">
+    <meta property="og:title" content="Rust E0433: Failed to Resolve — Undeclared Crate or Module">
+    <meta property="og:description" content="The crate/module path can't be resolved — a missing Cargo.toml dependency, a missing use, an undeclared local mod, or a disabled cfg gate. Four causes, four fixes.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0433-failed-to-resolve.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Rust E0433: Failed to Resolve — Undeclared Crate or Module</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Rust E0433: failed to resolve", "item": "https://jsondevtools.org/errors/rust-e0433-failed-to-resolve.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Rust error[E0433]: failed to resolve: use of undeclared crate or module — Cause and Fix",
+  "description": "Rust raises E0433 when a path segment — a crate, module, or type reached via :: — can't be resolved. This reference covers the four real causes: a dependency missing from Cargo.toml, a missing use statement, a local module never declared with mod, and a crate gated behind a disabled cfg — plus how it relates to E0432 and E0425.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'failed to resolve: use of undeclared crate or module' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Rust couldn't find the first segment of a :: path — usually a crate name at the start of a use statement or a fully-qualified path. The four real causes are: the crate isn't listed as a dependency in Cargo.toml, you're using a local module you never declared with mod, a typo in the crate or module name, or the item is behind a #[cfg(...)] that's disabled in this build."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix 'failed to resolve: use of undeclared crate or module'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "First check Cargo.toml — is the crate actually listed under [dependencies]? If it's a crate you wrote in a local file, confirm it's declared with mod name; in your crate root (main.rs or lib.rs) or an ancestor module — Rust doesn't auto-discover module files, every module needs an explicit mod statement somewhere in its parent."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between E0433 and E0432?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They're the same underlying problem reported from two different places. E0432 fires specifically on an unresolved use statement — 'unresolved import'. E0433 fires when the same kind of unresolved path is used directly in code, like a fully-qualified call foo::bar() without a use at all. The fix is identical either way: add the crate to Cargo.toml, add the use, or declare the local mod."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is E0433 different from E0425?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "E0433 is for a path — an identifier followed by ::, such as foo::Bar — that fails to resolve because a crate, module, or import is missing. E0425 is for a bare value identifier with no :: after it, like an unresolved local variable. Check whether your unresolved name has a :: after it: if yes, you're looking at the right page (E0433); if no, see error[E0425]: cannot find value."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I still need extern crate in modern Rust?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No, not for ordinary dependencies. The 2018 edition removed the requirement to write extern crate foo; before using a crate — listing it in Cargo.toml and writing use foo::Bar; is enough. You'll still see extern crate in a handful of special cases, such as extern crate alloc; in #![no_std] crates or when explicitly renaming a crate at the extern-crate level, but for a normal Cargo.toml dependency it's unnecessary and considered legacy 2015-edition style."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Rust E0433: failed to resolve</span>
+            </nav>
+            <h1>Rust: error[E0433]: failed to resolve: use of undeclared crate or module</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">The first segment of a <code>::</code> path can't be found. Check in order:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li><strong>External crate</strong> &mdash; is it actually in <code>Cargo.toml</code> under <code>[dependencies]</code>?</li>
+                    <li><strong>Local module</strong> &mdash; did you declare it with <code>mod name;</code> in its parent file?</li>
+                    <li><strong>Typo</strong> &mdash; crate and module names are case-sensitive.</li>
+                    <li><strong>Behind a <code>#[cfg(...)]</code></strong> &mdash; the crate/feature is disabled in this build.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>use serde::Serialize;
+
+// error[E0433]: failed to resolve: use of undeclared crate or module `serde`
+//  --&gt; src/main.rs:1:5
+//   |
+// 1 | use serde::Serialize;
+//   |     ^^^^^ use of undeclared crate or module `serde`
+
+// a close relative you'll also see, for a type rather than a crate/module:
+// error[E0433]: failed to resolve: use of undeclared type `Foo`
+
+// and the sibling error code for the same underlying problem, reported
+// specifically on a `use` statement:
+// error[E0432]: unresolved import `serde::Serialize`
+//   |
+//   = help: no external crate `serde`</code></pre>
+            </div>
+            <p>All three point at the same class of problem &mdash; a path segment the compiler can't locate &mdash; from slightly different code shapes. <a href="#e0432">See the comparison table below</a> for exactly which one you'll get where.</p>
+
+            <h2>Cause 1: the crate isn't in <code>Cargo.toml</code></h2>
+            <p>By far the most common cause. Using an external crate requires it to be listed as a dependency &mdash; the 2018 edition removed the old <code>extern crate foo;</code> requirement, but the crate still has to be declared somewhere, and that somewhere is now <code>Cargo.toml</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Cargo.toml
+[dependencies]
+# serde = "1"   ← ❌ missing entirely, or commented out</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Cargo.toml — ✅
+[dependencies]
+serde = { version = "1", features = ["derive"] }</code></pre>
+            </div>
+            <p>After editing <code>Cargo.toml</code>, run <code>cargo build</code> &mdash; Cargo resolves and fetches the new dependency automatically; you don't run a separate "install" step the way npm or pip require.</p>
+
+            <h2>Cause 2: a local module never declared with <code>mod</code></h2>
+            <p>Rust does not auto-discover module files from the filesystem. Creating <code>src/utils.rs</code> does nothing on its own &mdash; every module has to be declared explicitly with <code>mod name;</code> somewhere in its parent (usually <code>main.rs</code> or <code>lib.rs</code> for a top-level module):</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// src/main.rs
+// mod utils;   ← ❌ missing — src/utils.rs exists but was never declared
+
+fn main() {
+    utils::greet();
+    // error[E0433]: failed to resolve: use of undeclared crate or module `utils`
+}</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// src/main.rs
+mod utils;   // ✅ tells the compiler src/utils.rs (or src/utils/mod.rs) is part of the crate
+
+fn main() {
+    utils::greet();
+}</code></pre>
+            </div>
+            <p>This is the case that surprises people most, because the file genuinely exists on disk and compiles on its own with no complaint &mdash; it's simply not part of the crate's module tree until something declares it with <code>mod</code>. The same rule applies one level deeper: a submodule inside <code>utils/</code> needs its own <code>mod</code> declaration inside <code>utils.rs</code> (or <code>utils/mod.rs</code>).</p>
+
+            <h2>Cause 3: wrong path form (2018+ edition rules)</h2>
+            <p>Since the 2018 edition, paths inside a module are resolved relative to that module by default, which changes how you reference sibling items compared to the old 2015-edition rules:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// src/foo.rs
+mod bar;
+
+fn run() {
+    // bar::Thing   ← ✅ this resolves fine, `bar` is a direct child module
+
+    // crate::foo::bar::Thing   ← ✅ also fine, `crate::` is an explicit absolute path
+}</code></pre>
+            </div>
+            <p>If you're porting old 2015-edition code (which needed <code>extern crate</code> and different relative-path defaults) or copying a path from a different module's context, the segment that resolved there may not resolve here. When a relative path doesn't work, an absolute one starting with <code>crate::</code> almost always does &mdash; it's unambiguous and worth reaching for first when debugging a stubborn E0433.</p>
+
+            <h2>Cause 4: gated behind a disabled <code>#[cfg(...)]</code> or optional dependency</h2>
+            <p>An optional crate dependency, or a module behind a feature flag, doesn't exist in a build where that feature isn't enabled &mdash; referencing it unconditionally fails only in the configurations without it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Cargo.toml
+[dependencies]
+tokio = { version = "1", optional = true }
+
+[features]
+async = ["tokio"]</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>use tokio::runtime::Runtime;
+// error[E0433]: failed to resolve: use of undeclared crate or module `tokio`
+// (only when built WITHOUT --features async)</code></pre>
+            </div>
+            <p>The fix is either to build with the feature enabled (<code>cargo build --features async</code>), or &mdash; if the code should compile either way &mdash; gate the <code>use</code> and its call sites with the matching <code>#[cfg(feature = "async")]</code> so they're consistent with the dependency's own gate.</p>
+
+            <h2 id="e0432">E0433 vs E0432 vs E0425</h2>
+            <table>
+                <thead><tr><th>Error</th><th>Where it fires</th><th>Typical fix</th></tr></thead>
+                <tbody>
+                    <tr><td>E0433 (this page)</td><td>A path used directly in code, e.g. <code>foo::bar()</code></td><td>Add the crate to <code>Cargo.toml</code>, or declare the local <code>mod</code></td></tr>
+                    <tr><td>E0432</td><td>Specifically on a <code>use</code> statement</td><td>Same fix &mdash; same underlying problem, different code shape</td></tr>
+                    <tr><td><a href="rust-e0425-cannot-find-value-in-scope.html">E0425</a></td><td>A bare value, no <code>::</code> at all</td><td>Fix scope/typo/order, or add <code>self.</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; External crate? Confirm it's listed under <code>[dependencies]</code> in <code>Cargo.toml</code>, not just imagined</li>
+                <li>&#10003; Local module? Confirm a <code>mod name;</code> declaration exists in its parent file</li>
+                <li>&#10003; Double-check spelling and case &mdash; crate names on crates.io are case-sensitive in <code>Cargo.toml</code></li>
+                <li>&#10003; Try an absolute path starting with <code>crate::</code> to rule out a relative-path mistake</li>
+                <li>&#10003; Optional dependency? Check whether the required feature is enabled for this build</li>
+                <li>&#10003; Path has no <code>::</code> at all? Wrong page &mdash; that's <a href="rust-e0425-cannot-find-value-in-scope.html">E0425</a></li>
+                <li>&#10003; Still stuck? <code>cargo tree</code> confirms whether the dependency actually resolved into your build at all</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'failed to resolve: use of undeclared crate or module' mean?</summary>
+                    <p>Rust couldn't find the first segment of a <code>::</code> path &mdash; usually a crate name at the start of a <code>use</code> statement or a fully-qualified path. The four real causes are: the crate isn't listed as a dependency in <code>Cargo.toml</code>, you're using a local module you never declared with <code>mod</code>, a typo in the crate or module name, or the item is behind a <code>#[cfg(...)]</code> that's disabled in this build.</p>
+                </details>
+                <details>
+                    <summary>How do I fix 'failed to resolve: use of undeclared crate or module'?</summary>
+                    <p>First check <code>Cargo.toml</code> &mdash; is the crate actually listed under <code>[dependencies]</code>? If it's a crate you wrote in a local file, confirm it's declared with <code>mod name;</code> in your crate root (<code>main.rs</code> or <code>lib.rs</code>) or an ancestor module &mdash; Rust doesn't auto-discover module files, every module needs an explicit <code>mod</code> statement somewhere in its parent.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between E0433 and E0432?</summary>
+                    <p>They're the same underlying problem reported from two different places. E0432 fires specifically on an unresolved <code>use</code> statement &mdash; "unresolved import". E0433 fires when the same kind of unresolved path is used directly in code, like a fully-qualified call <code>foo::bar()</code> without a <code>use</code> at all. The fix is identical either way: add the crate to <code>Cargo.toml</code>, add the <code>use</code>, or declare the local <code>mod</code>.</p>
+                </details>
+                <details>
+                    <summary>How is E0433 different from E0425?</summary>
+                    <p>E0433 is for a path &mdash; an identifier followed by <code>::</code>, such as <code>foo::Bar</code> &mdash; that fails to resolve because a crate, module, or import is missing. E0425 is for a bare value identifier with no <code>::</code> after it, like an unresolved local variable. Check whether your unresolved name has a <code>::</code> after it: if yes, you're looking at the right page (E0433); if no, see <a href="rust-e0425-cannot-find-value-in-scope.html">error[E0425]: cannot find value</a>.</p>
+                </details>
+                <details>
+                    <summary>Do I still need extern crate in modern Rust?</summary>
+                    <p>No, not for ordinary dependencies. The 2018 edition removed the requirement to write <code>extern crate foo;</code> before using a crate &mdash; listing it in <code>Cargo.toml</code> and writing <code>use foo::Bar;</code> is enough. You'll still see <code>extern crate</code> in a handful of special cases, such as <code>extern crate alloc;</code> in <code>#![no_std]</code> crates or when explicitly renaming a crate at the extern-crate level, but for a normal <code>Cargo.toml</code> dependency it's unnecessary and considered legacy 2015-edition style.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Rust &amp; backend errors</h3>
+                <p>Browse the full reference for Rust, Go, and Java errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-e0425-cannot-find-value-in-scope.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Rust E0425: cannot find value</a>
+                    <a href="rust-e0277-trait-bound-not-satisfied.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Rust E0277: trait bound not satisfied</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-e0425-cannot-find-value-in-scope.html">Rust E0425: cannot find value X in this scope</a> &mdash; the value-identifier sibling of this path-resolution error</li>
+                <li><a href="rust-e0277-trait-bound-not-satisfied.html">Rust E0277: the trait bound is not satisfied</a></li>
+                <li><a href="go-missing-go-sum-entry.html">Go: missing go.sum entry for module providing package X</a> &mdash; the Go equivalent dependency-resolution failure</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

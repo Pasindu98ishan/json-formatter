@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Java: Error: Could not find or load main class X — the classpath/directory fix, package-qualified invocation, and how it differs from two lookalike errors.">
+    <meta name="keywords" content="could not find or load main class, java could not find or load main class, java classnotfoundexception main, java -cp classpath error, no main manifest attribute, java run wrong directory">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/java-could-not-find-or-load-main-class.html">
+    <meta property="og:title" content="Java: Could Not Find or Load Main Class X — Fix">
+    <meta property="og:description" content="Almost always a classpath or working-directory mismatch. The fastest fix, package-qualified invocation, jar/module gotchas, and two lookalike errors to not confuse it with.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/java-could-not-find-or-load-main-class.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Java: Could Not Find or Load Main Class X — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Java: Could not find or load main class", "item": "https://jsondevtools.org/errors/java-could-not-find-or-load-main-class.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Java: Error: Could not find or load main class X — Cause and Fix",
+  "description": "The JVM raises this when java can't locate the named class on its classpath at run time, even though it compiled fine. This reference covers the fastest fix (matching classpath and working directory), package-qualified invocation, jar and module invocation, and two lookalike errors — no main manifest attribute and UnsupportedClassVersionError — that get confused with it.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I fix 'Error: Could not find or load main class'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run java from the classpath root — the directory that contains your top-level package folder — using the fully package-qualified class name, not a bare class name and not the .class file's own directory. For a class declared package com.example; that compiled to out/com/example/Main.class, run java -cp out com.example.Main from the directory containing out/, not from inside out/com/example/."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my program compile fine but fail to run with this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "javac only cares about your source files and produces .class files wherever you tell it to. It has no concept of how you'll later invoke java. The class name, package, and classpath you pass to java are a completely separate, unchecked step — so a compile that succeeds says nothing about whether your run command matches where the class actually landed."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between 'Could not find or load main class' and 'no main manifest attribute'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "'Could not find or load main class' comes from java ClassName (or -cp) when the JVM can't locate that class on the classpath at all. 'no main manifest attribute, in app.jar' is a completely different message from java -jar app.jar, meaning the jar was found and opened fine, but its META-INF/MANIFEST.MF doesn't declare a Main-Class. The fix for the second is adding Main-Class to the manifest, not a classpath change."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is 'Could not find or load main class' the same as UnsupportedClassVersionError?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No, and the distinction matters for diagnosis. Could not find or load main class means the .class file was never located. UnsupportedClassVersionError means the JVM found and opened the file, then rejected it because it was compiled for a newer Java version than the one running it — a completely different problem with a completely different fix (raise the runtime JDK or lower the compile target)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this happen only in my IDE but not from the terminal, or vice versa?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The IDE's run configuration has its own idea of the working directory and output/classes folder, independent of what a terminal command does. A stale run configuration pointing at an old output path, or a module misconfiguration after a project restructure, produces this error in the IDE even when the equivalent terminal command with the correct classpath works fine — and the reverse is just as common after an IDE auto-fixes its own config."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Java: Could not find or load main class</span>
+            </nav>
+            <h1>Java: Error: Could not find or load main class X</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Almost always a classpath or working-directory mismatch. From the directory that contains your top-level package folder, run:</p>
+                <div class="code-block" style="margin:0.5rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>java -cp &lt;classes-dir&gt; &lt;fully.qualified.ClassName&gt;</code></pre>
+                </div>
+                <p style="margin:0.5rem 0 0;">Not a bare class name, and not from inside the package's own folder. If you're running a jar instead, see Fix 3 below &mdash; the message you'd get there is different.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ java Main
+Error: Could not find or load main class Main
+Caused by: java.lang.ClassNotFoundException: Main</code></pre>
+            </div>
+            <p>The <code>Caused by</code> line is the real diagnostic: this is a <code>ClassNotFoundException</code> at the JVM's own bootstrap step, before your program has run a single line. <code>javac</code> compiling your source without complaint tells you nothing about whether this specific <code>java</code> invocation can find the resulting <code>.class</code> file &mdash; the two are entirely separate tools with no shared awareness of each other's working directory or paths.</p>
+
+            <h2>Why this happens</h2>
+            <p><code>java</code> looks for <code>Main.class</code> on the <strong>classpath</strong> &mdash; by default, the current working directory plus anything passed via <code>-cp</code>/<code>-classpath</code> or the <code>CLASSPATH</code> environment variable. If your class declares a package, the JVM expects to find it at a path matching that package under one of those classpath roots &mdash; <code>com/example/Main.class</code> under a directory that's <em>on</em> the classpath, not <code>Main.class</code> sitting by itself. Get either the directory or the class name wrong and the class simply isn't where the JVM looked.</p>
+
+            <h2>Fix 1 (fastest): match your working directory to your classpath</h2>
+            <p>Say <code>Main.java</code> declares <code>package com.example;</code> and you compiled it to an <code>out/</code> directory:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>out/
+  com/
+    example/
+      Main.class</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ wrong directory, wrong (unqualified) class name
+$ cd out/com/example
+$ java Main
+Error: Could not find or load main class Main
+Caused by: java.lang.ClassNotFoundException: Main
+
+# ✅ classpath root, fully package-qualified name
+$ cd out
+$ java com.example.Main
+Hello from Main!</code></pre>
+            </div>
+            <p><code>Hello from Main!</code> (or whatever your program prints) appearing is the success signal &mdash; there's no separate "loaded successfully" message, the JVM just runs your <code>main</code> method. Two mistakes stack in the broken example above: running from inside the package folder instead of the classpath root, and dropping the package prefix from the class name. Either one alone is enough to trigger this error.</p>
+            <p>If you compiled with <code>javac</code> directly rather than a build tool, the same rule applies to <code>-d</code>: use <code>javac -d out src/com/example/Main.java</code> to get this exact layout in the first place.</p>
+
+            <h2>Fix 2: explicit classpath with <code>-cp</code></h2>
+            <p>Running from an arbitrary directory works too, as long as you point <code>-cp</code> at the classes root explicitly:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ java -cp out com.example.Main
+Hello from Main!
+
+# multiple classpath entries (JARs and directories), separated by
+# `:` on Linux/macOS or `;` on Windows:
+$ java -cp "out:libs/gson-2.11.0.jar" com.example.Main        # Linux/macOS
+$ java -cp "out;libs/gson-2.11.0.jar" com.example.Main        # Windows</code></pre>
+            </div>
+            <p>This is the form most build tools and IDEs generate under the hood &mdash; if the IDE-generated command works but your manual one doesn't, diff them for exactly this: a missing <code>-cp</code> entry or a wrong separator character for your OS.</p>
+
+            <h2>Fix 3: running a jar (different message if the manifest is missing)</h2>
+            <p>A runnable jar needs a <code>Main-Class</code> entry in its manifest. Note this produces a <strong>different error message</strong> if the manifest itself is the problem &mdash; don't confuse the two:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># jar built WITHOUT a Main-Class manifest entry:
+$ java -jar app.jar
+no main manifest attribute, in app.jar
+# ← this is a DIFFERENT error, not "Could not find or load main class"
+
+# ✅ build with the manifest entry (Maven shade/assembly plugin,
+#    Gradle `jar { manifest { attributes 'Main-Class': ... } }`,
+#    or a hand-written MANIFEST.MF passed to `jar cfm`)
+$ java -jar app.jar
+Hello from Main!</code></pre>
+            </div>
+            <p>If you land here searching for "could not find or load main class" but your actual message was "no main manifest attribute", you're in the right general area but the fix is different: add <code>Main-Class: com.example.Main</code> to the jar's manifest, not a classpath change.</p>
+
+            <h2>Fix 4: default (unnamed) package classes</h2>
+            <p>A class with no <code>package</code> declaration lives in Java's "default package" and is invoked without any qualification &mdash; but the classpath rule still applies exactly the same way:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Main.java has NO package declaration
+$ javac Main.java          # produces Main.class in the same directory
+$ java Main                # ✅ works — you ARE already at the classpath root</code></pre>
+            </div>
+            <p>One Windows-specific trap: some filesystems are case-insensitive, so a folder named <code>Main</code> and a class named <code>main</code> can silently coexist locally and then fail the moment the same project builds on a case-sensitive filesystem (Linux CI, macOS in its default configuration for newer volumes). Keep class names and their file/folder names cased consistently regardless of what your local OS tolerates.</p>
+
+            <h2>Fix 5: the Java Platform Module System (Java 9+)</h2>
+            <p>If your project is modular (has a <code>module-info.java</code>), invocation needs <code>--module-path</code> and <code>-m</code> instead of a plain classpath:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ java --module-path out -m com.example.app/com.example.Main</code></pre>
+            </div>
+            <p>Mixing the two invocation styles &mdash; passing <code>-cp</code> to a project that expects <code>--module-path</code>, or vice versa &mdash; produces this same "could not find or load" error, because the JVM is looking in the wrong kind of path entirely for a modular build.</p>
+
+            <h2>Three lookalike errors, disambiguated</h2>
+            <table>
+                <thead><tr><th>Message</th><th>What it means</th><th>Fix</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Could not find or load main class</strong> (this page)</td><td>Class never located on the classpath</td><td>Fix classpath / working directory / class name</td></tr>
+                    <tr><td>no main manifest attribute, in app.jar</td><td>Jar found and opened, but no <code>Main-Class</code> declared</td><td>Add <code>Main-Class</code> to the manifest</td></tr>
+                    <tr><td><a href="java-unsupportedclassversionerror.html">UnsupportedClassVersionError</a></td><td>Class found and opened, but compiled for a newer JDK</td><td>Raise the runtime JDK or lower the compile target</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Does the class declare a <code>package</code>? Use the fully-qualified name, not the bare class name</li>
+                <li>&#10003; Run from the classpath <em>root</em> &mdash; the folder containing the top-level package folder, not the package folder itself</li>
+                <li>&#10003; Explicit <code>-cp</code> pointing at the right directory (and using the right separator, <code>:</code> vs <code>;</code>, for your OS)</li>
+                <li>&#10003; Running a jar? Check <code>Main-Class</code> is set in the manifest &mdash; that's a different message from this one</li>
+                <li>&#10003; Case mismatch between the class name and its file/folder name? Check on a case-sensitive filesystem</li>
+                <li>&#10003; Modular project? Confirm you're using <code>--module-path</code> + <code>-m</code>, not a plain <code>-cp</code></li>
+                <li>&#10003; IDE-only failure? Compare the IDE's generated run command against a working manual one</li>
+                <li>&#10003; Getting a version-number error instead? That's <a href="java-unsupportedclassversionerror.html">UnsupportedClassVersionError</a>, a different page</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How do I fix 'Error: Could not find or load main class'?</summary>
+                    <p>Run <code>java</code> from the classpath root &mdash; the directory that contains your top-level package folder &mdash; using the fully package-qualified class name, not a bare class name and not the <code>.class</code> file's own directory. For a class declared <code>package com.example;</code> that compiled to <code>out/com/example/Main.class</code>, run <code>java -cp out com.example.Main</code> from the directory containing <code>out/</code>, not from inside <code>out/com/example/</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does my program compile fine but fail to run with this error?</summary>
+                    <p><code>javac</code> only cares about your source files and produces <code>.class</code> files wherever you tell it to. It has no concept of how you'll later invoke <code>java</code>. The class name, package, and classpath you pass to <code>java</code> are a completely separate, unchecked step &mdash; so a compile that succeeds says nothing about whether your run command matches where the class actually landed.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between 'Could not find or load main class' and 'no main manifest attribute'?</summary>
+                    <p>"Could not find or load main class" comes from <code>java ClassName</code> (or <code>-cp</code>) when the JVM can't locate that class on the classpath at all. "no main manifest attribute, in app.jar" is a completely different message from <code>java -jar app.jar</code>, meaning the jar was found and opened fine, but its <code>META-INF/MANIFEST.MF</code> doesn't declare a <code>Main-Class</code>. The fix for the second is adding <code>Main-Class</code> to the manifest, not a classpath change.</p>
+                </details>
+                <details>
+                    <summary>Is 'Could not find or load main class' the same as UnsupportedClassVersionError?</summary>
+                    <p>No, and the distinction matters for diagnosis. "Could not find or load main class" means the <code>.class</code> file was never located. <code>UnsupportedClassVersionError</code> means the JVM found and opened the file, then rejected it because it was compiled for a newer Java version than the one running it &mdash; a completely different problem with a completely different fix (raise the runtime JDK or lower the compile target).</p>
+                </details>
+                <details>
+                    <summary>Why does this happen only in my IDE but not from the terminal, or vice versa?</summary>
+                    <p>The IDE's run configuration has its own idea of the working directory and output/classes folder, independent of what a terminal command does. A stale run configuration pointing at an old output path, or a module misconfiguration after a project restructure, produces this error in the IDE even when the equivalent terminal command with the correct classpath works fine &mdash; and the reverse is just as common after an IDE auto-fixes its own config.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Java &amp; backend errors</h3>
+                <p>Browse the full reference for Java, Go, and Rust errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="java-classnotfoundexception-noclassdeffounderror.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Java: ClassNotFoundException / NoClassDefFoundError</a>
+                    <a href="java-unsupportedclassversionerror.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Java: UnsupportedClassVersionError</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="java-classnotfoundexception-noclassdeffounderror.html">Java: ClassNotFoundException / NoClassDefFoundError</a> &mdash; a class not found at runtime after startup, not at launch</li>
+                <li><a href="java-unsupportedclassversionerror.html">Java: UnsupportedClassVersionError</a> &mdash; a class found and rejected for its format, not missing</li>
+                <li><a href="java-cannot-find-symbol.html">Java: error: cannot find symbol</a> &mdash; the compile-time counterpart</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

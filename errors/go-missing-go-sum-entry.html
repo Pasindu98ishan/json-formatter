@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Go: missing go.sum entry for module providing package X — the one-command fix (go mod tidy), why it happens, and how to avoid it in CI.">
+    <meta name="keywords" content="missing go.sum entry, go missing go.sum entry for module, go mod tidy, go mod download, go.sum vs go.mod, mod=readonly, go sum database">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-missing-go-sum-entry.html">
+    <meta property="og:title" content="Go: missing go.sum entry for module providing package X — Fix">
+    <meta property="og:description" content="The fastest fix is go mod tidy. Here's why go.sum gets out of sync, why CI's read-only mode makes it fatal there, and how to stop it happening again.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-missing-go-sum-entry.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Go: missing go.sum entry for module providing package X — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Go: missing go.sum entry", "item": "https://jsondevtools.org/errors/go-missing-go-sum-entry.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Go: missing go.sum entry for module providing package X — Cause and Fix",
+  "description": "Go refuses to build when go.sum is missing a hash for a required module, because Go 1.16+ defaults to read-only module mode. This reference covers the one-command fix (go mod tidy), why go.sum drifts out of sync, and how to prevent it recurring in CI.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I fix 'missing go.sum entry for module providing package X'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Run go mod tidy from your module root, then commit the updated go.mod and go.sum. It resolves every import in your code against your dependencies, adds any missing go.sum hashes, and removes ones you no longer need, in one pass."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is go.sum for, and how is it different from go.mod?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "go.mod declares which module versions your project requires. go.sum records a cryptographic hash of each required module's content, so that if the same version is ever downloaded again — by you, a teammate, or CI — the build can verify it byte-for-byte matches what you originally used. go.mod says what version; go.sum proves it hasn't changed."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does this only fail in CI and not on my machine?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Your local module cache may already hold the package from an earlier go get, so the build succeeds even with a stale go.sum. Go 1.16 made -mod=readonly the default, which refuses to write go.sum automatically during a build — CI runners typically start with an empty cache and no network access for module downloads, so a genuinely incomplete go.sum fails there even though it happened to work locally."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should go.sum be committed to version control?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes — always commit go.sum alongside go.mod. Unlike some ecosystems' lockfiles, go.sum isn't a local cache artifact; it's the supply-chain integrity record every teammate and CI run needs. Gitignoring it is a common and serious mistake that causes exactly this error for everyone except the person who originally ran go get." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is 'go mod download' enough, or do I need 'go mod tidy'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "go mod download only adds hashes for modules already listed in go.mod — use it when you don't want go.mod itself to change. go mod tidy is the more complete fix: it also adds any requirement missing from go.mod entirely (for example after adding a new import without running go get) and removes unused ones. When in doubt, use go mod tidy."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Go: missing go.sum entry</span>
+            </nav>
+            <h1>Go: missing go.sum entry for module providing package X</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Run this from your module root, then commit both files it changes:</p>
+                <div class="code-block" style="margin:0.5rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>go mod tidy
+git add go.mod go.sum</code></pre>
+                </div>
+                <p style="margin:0.5rem 0 0;">That's the whole fix for the vast majority of cases. Keep reading if it's happening only in CI, or if <code>go mod tidy</code> itself fails.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ go build ./...
+missing go.sum entry for module providing package github.com/pkg/errors (imported by example.com/myapp); to add:
+	go mod download github.com/pkg/errors
+
+// a related, shorter-form wording you'll also see (from "go mod download"
+// itself, or a slightly different Go version) points at the same fix:
+github.com/pkg/errors@v0.9.1: missing go.sum entry; to add it:
+	go mod download github.com/pkg/errors</code></pre>
+            </div>
+
+            <p>Both wordings mean the same thing: <code>go.mod</code> requires this module, but <code>go.sum</code> has no verification hash for the exact version being used, and Go's default read-only mode refuses to fetch and write one automatically. The message even suggests the fix &mdash; <code>go mod download &lt;module&gt;</code> works, but <code>go mod tidy</code> (below) is more complete and just as fast.</p>
+
+            <h2>Why this happens</h2>
+            <p>Since <strong>Go 1.16</strong>, the module system defaults to <code>-mod=readonly</code>: a build will not silently rewrite <code>go.mod</code> or <code>go.sum</code> on your behalf. Before that default, an ordinary <code>go build</code> would fetch whatever was missing and fix the files for you, which is convenient locally but means a broken or incomplete <code>go.sum</code> can slip past your own machine unnoticed &mdash; and then surface for the next person, or in CI, as a hard failure instead of the silent auto-fix you got used to.</p>
+            <p>The usual triggers, in rough order of frequency:</p>
+            <ul>
+                <li>You edited an import by hand (added a new package, or your editor auto-imported one) and never ran <code>go get</code> or <code>go mod tidy</code> afterward.</li>
+                <li><code>go.sum</code> wasn't committed to version control at all &mdash; see the FAQ below, this is a real and common mistake.</li>
+                <li>A merge produced a conflict in <code>go.sum</code> that was resolved incorrectly, leaving it internally inconsistent.</li>
+                <li>You're building on a machine or CI runner with an empty module cache and restricted network access, so nothing can be fetched to fill the gap on the fly.</li>
+            </ul>
+
+            <h2>Fix 1 (fastest): <code>go mod tidy</code></h2>
+            <p>This is the dominant fix and should be your first move. It reconciles <code>go.mod</code> and <code>go.sum</code> against what your code actually imports in one pass &mdash; adding anything missing, removing anything unused:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ go mod tidy
+go: downloading github.com/pkg/errors v0.9.1
+
+$ go build ./...
+$ echo $?
+0</code></pre>
+            </div>
+            <p><code>go build</code> printing nothing at all, with a <code>0</code> exit status, <em>is</em> the expected success signal &mdash; Go's tools are silent when there's nothing to report. Commit the result:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>git add go.mod go.sum
+git commit -m "go mod tidy"</code></pre>
+            </div>
+
+            <h2>Fix 2: <code>go mod download</code> (when you don't want <code>go.mod</code> to change)</h2>
+            <p>If you specifically don't want <code>go mod tidy</code> touching your requirement list &mdash; for instance you're mid-investigation and don't want unrelated tidy-ups in the same commit &mdash; download just the missing module's hash:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>go mod download github.com/pkg/errors</code></pre>
+            </div>
+            <p>This only works if the module is already correctly listed in <code>go.mod</code>; if the import is missing from <code>go.mod</code> entirely (you added the import but never ran <code>go get</code>), you'll need <code>go get</code> or <code>go mod tidy</code> instead, since <code>go mod download</code> doesn't add new requirements.</p>
+
+            <h2>Fix 3: it's a private module (GOPRIVATE)</h2>
+            <p>If the package lives in a private repository, the public checksum database (<code>sum.golang.org</code>) can't verify it &mdash; and shouldn't be asked to, since that would leak your private module's path to a third party. Tell the Go tool to skip both the public proxy and the sum database for it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>go env -w GOPRIVATE=github.com/yourorg/*
+go mod tidy</code></pre>
+            </div>
+            <p><code>GOPRIVATE</code> covers both proxy bypass and sum-database bypass for matching module paths in one setting; the narrower <code>GONOSUMCHECK</code>/<code>GOSUMDB=off</code> knobs exist too but are blunter (they affect everything, not just your private paths) and are usually the wrong tool for this specific problem.</p>
+
+            <h2>Fix 4: it only fails in CI</h2>
+            <p>If <code>go build</code> works locally but fails with this error in CI specifically, the difference is almost always cache and network, not your code:</p>
+            <ul>
+                <li>Your local module cache (<code>$GOPATH/pkg/mod</code>) may already contain the package from a previous <code>go get</code>, quietly papering over an incomplete <code>go.sum</code>. CI usually starts from a clean cache, so it's the one that catches the real problem.</li>
+                <li>CI runners are frequently network-restricted for module downloads (allow-listed proxies, or none at all), so <code>go mod download</code> can't fetch what's missing even if it wanted to. The fix has to happen <em>before</em> CI runs &mdash; commit a complete <code>go.sum</code>, don't rely on CI to generate it.</li>
+                <li>Confirm CI is checking out <code>go.sum</code> at all: a <code>.gitignore</code> that excludes it (see below) means every CI run starts from an incomplete file no matter what you commit locally.</li>
+            </ul>
+
+            <h2>go.mod vs go.sum</h2>
+            <table>
+                <thead><tr><th></th><th>go.mod</th><th>go.sum</th></tr></thead>
+                <tbody>
+                    <tr><td>Declares</td><td>Which module <strong>versions</strong> are required</td><td>A <strong>hash</strong> verifying each required module's content</td></tr>
+                    <tr><td>Changed by</td><td><code>go get</code>, <code>go mod tidy</code>, manual edits</td><td><code>go mod tidy</code>, <code>go mod download</code> (never by hand)</td></tr>
+                    <tr><td>Commit to git?</td><td>Always</td><td>Always &mdash; it is <em>not</em> a disposable lockfile</td></tr>
+                    <tr><td>Missing entry means</td><td>Build fails immediately, clear message</td><td>This error &mdash; version known, hash unverifiable</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Run <code>go mod tidy</code> from the module root first &mdash; it fixes the large majority of cases</li>
+                <li>&#10003; Confirm <code>go.sum</code> is tracked by git, not in <code>.gitignore</code></li>
+                <li>&#10003; Commit both <code>go.mod</code> <em>and</em> <code>go.sum</code> together, every time either changes</li>
+                <li>&#10003; Only failing in CI? Check network access to the module proxy and confirm <code>go.sum</code> is actually checked out there</li>
+                <li>&#10003; Private module? Set <code>GOPRIVATE</code> rather than disabling checksum verification globally</li>
+                <li>&#10003; Recent merge? Check <code>go.sum</code> wasn't left in a conflicted or partially-resolved state</li>
+                <li>&#10003; Still stuck? Delete <code>go.sum</code> and regenerate it fresh with <code>go mod tidy</code> (safe &mdash; it's fully derived from <code>go.mod</code> plus the actual module content)</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How do I fix 'missing go.sum entry for module providing package X'?</summary>
+                    <p>Run <code>go mod tidy</code> from your module root, then commit the updated <code>go.mod</code> and <code>go.sum</code>. It resolves every import in your code against your dependencies, adds any missing <code>go.sum</code> hashes, and removes ones you no longer need, in one pass.</p>
+                </details>
+                <details>
+                    <summary>What is go.sum for, and how is it different from go.mod?</summary>
+                    <p><code>go.mod</code> declares which module versions your project requires. <code>go.sum</code> records a cryptographic hash of each required module's content, so that if the same version is ever downloaded again &mdash; by you, a teammate, or CI &mdash; the build can verify it byte-for-byte matches what you originally used. <code>go.mod</code> says what version; <code>go.sum</code> proves it hasn't changed.</p>
+                </details>
+                <details>
+                    <summary>Why does this only fail in CI and not on my machine?</summary>
+                    <p>Your local module cache may already hold the package from an earlier <code>go get</code>, so the build succeeds even with a stale <code>go.sum</code>. Go 1.16 made <code>-mod=readonly</code> the default, which refuses to write <code>go.sum</code> automatically during a build &mdash; CI runners typically start with an empty cache and no network access for module downloads, so a genuinely incomplete <code>go.sum</code> fails there even though it happened to work locally.</p>
+                </details>
+                <details>
+                    <summary>Should go.sum be committed to version control?</summary>
+                    <p>Yes &mdash; always commit <code>go.sum</code> alongside <code>go.mod</code>. Unlike some ecosystems' lockfiles, <code>go.sum</code> isn't a local cache artifact; it's the supply-chain integrity record every teammate and CI run needs. Gitignoring it is a common and serious mistake that causes exactly this error for everyone except the person who originally ran <code>go get</code>.</p>
+                </details>
+                <details>
+                    <summary>Is 'go mod download' enough, or do I need 'go mod tidy'?</summary>
+                    <p><code>go mod download</code> only adds hashes for modules already listed in <code>go.mod</code> &mdash; use it when you don't want <code>go.mod</code> itself to change. <code>go mod tidy</code> is the more complete fix: it also adds any requirement missing from <code>go.mod</code> entirely (for example after adding a new import without running <code>go get</code>) and removes unused ones. When in doubt, use <code>go mod tidy</code>.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go &amp; backend errors</h3>
+                <p>Browse the full reference for Go, Rust, and Java errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="go-cannot-find-module-providing-package.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: cannot find module providing package</a>
+                    <a href="npm-eresolve-unable-to-resolve-dependency-tree.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">npm: ERESOLVE</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-cannot-find-module-providing-package.html">Go: cannot find module providing package X</a> &mdash; the module can't be located at all, a different failure mode</li>
+                <li><a href="go-undefined-x.html">Go: undefined: X</a></li>
+                <li><a href="npm-eresolve-unable-to-resolve-dependency-tree.html">npm ERR! ERESOLVE</a> &mdash; the Node.js equivalent dependency-resolution failure</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
