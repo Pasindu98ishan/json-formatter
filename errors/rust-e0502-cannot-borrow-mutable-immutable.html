@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Rust error[E0502]: cannot borrow x as mutable because it is also borrowed as immutable — why the borrows overlap, and five fixes that end the shared borrow first.">
+    <meta name="keywords" content="E0502, cannot borrow as mutable because it is also borrowed as immutable, rust E0502, rust borrow checker, non-lexical lifetimes, rust mutate while iterating, split borrows rust">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/rust-e0502-cannot-borrow-mutable-immutable.html">
+    <meta property="og:title" content="Rust E0502: Cannot Borrow as Mutable — Also Borrowed as Immutable">
+    <meta property="og:description" content="A shared borrow is still live when you take a &mut. See the overlap on a timeline, then fix it by ending the shared borrow first — reorder, copy, split fields, or restructure the loop.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0502-cannot-borrow-mutable-immutable.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Rust E0502: Cannot Borrow as Mutable — Also Borrowed as Immutable</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Rust E0502: cannot borrow as mutable", "item": "https://jsondevtools.org/errors/rust-e0502-cannot-borrow-mutable-immutable.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Rust error[E0502]: cannot borrow X as mutable because it is also borrowed as immutable — Cause and Fix",
+  "description": "Rust raises E0502 when a shared borrow is still live at the moment you take a mutable borrow of the same value. This reference explains the overlap on a timeline and covers the five fixes: reorder so the shared borrow ends first, copy the value out, restructure a mutate-while-iterating loop, split borrows by struct field, and interior mutability as a last resort.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does error[E0502]: cannot borrow as mutable because it is also borrowed as immutable mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "At the moment you took a mutable borrow, a shared (immutable) borrow of the same value was still live. Rust's core aliasing rule allows either one mutable borrow or any number of shared borrows at a time, never both. The compiler's three annotations tell you the whole story: where the immutable borrow starts, where the mutable borrow happens, and — most importantly — where the immutable borrow is later used, which is what keeps it alive across the mutation."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I fix E0502?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "End the shared borrow before the mutation. In practice that means one of: move the last use of the reference above the mutating call so non-lexical lifetimes end the borrow early; copy or clone the value out so no reference is held at all; restructure a mutate-while-iterating loop to collect indices or use retain/drain; or borrow individual struct fields instead of all of self."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the error point at a line after my mutable borrow?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because that later line is the reason the shared borrow is still alive. Since non-lexical lifetimes (Rust 1.31, 2018 edition), a borrow ends at its last use rather than at the end of the enclosing block. The 'immutable borrow later used here' annotation is pointing at the exact line that extends the borrow past your mutation — delete or move that use and the error usually disappears."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why can't I push to a vector while iterating over it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Iterating with for x in &v holds a shared borrow of the vector for the whole loop, and push needs a mutable borrow. Beyond the borrow rule, this is a genuine memory-safety issue: pushing can reallocate the vector's backing buffer, which would leave the iterator pointing at freed memory. Collect what you want to add into a separate Vec and extend after the loop, or iterate by index, or use retain for removals."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between E0499 and E0502?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "E0499 is two mutable borrows alive at once. E0502 is a mutable borrow overlapping a shared (immutable) borrow. Both enforce the same underlying rule — a mutable borrow must be exclusive — they just describe different combinations, and the fixes are the same family: shorten one borrow's live range so the two no longer overlap."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I use RefCell to get around E0502?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only as a last resort, and knowingly. RefCell doesn't remove the aliasing rule — it moves the check from compile time to run time, so the same conflicting borrows panic with 'already borrowed: BorrowMutError' instead of failing to compile. Reach for it when the borrow pattern is genuinely dynamic (graph structures, shared observers), not to silence a conflict that reordering or copying would fix safely."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Rust E0502: cannot borrow as mutable</span>
+            </nav>
+            <h1>Rust: error[E0502]: cannot borrow `x` as mutable because it is also borrowed as immutable</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">A shared borrow is still alive when you take a <code>&amp;mut</code>. End the shared borrow first:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li><strong>Move the reference's last use</strong> above the mutating line &mdash; usually the whole fix.</li>
+                    <li><strong><a href="#mutate-while-iterating">Pushing inside a <code>for</code> loop?</a></strong> That's the most common case &mdash; collect into a second <code>Vec</code>, or use <code>retain</code>/<code>iter_mut</code>.</li>
+                    <li><strong>Copy the value out</strong> (<code>let n = v[0];</code>) so no reference is held at all.</li>
+                    <li><strong>Inside a method?</strong> Borrow the individual struct fields instead of all of <code>self</code>.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>fn main() {
+    let mut v = vec![1, 2, 3];
+    let first = &amp;v[0];
+    v.push(4);
+    println!("{}", first);
+}
+
+// error[E0502]: cannot borrow `v` as mutable because it is also borrowed as immutable
+//  --&gt; src/main.rs:4:5
+//   |
+// 3 |     let first = &amp;v[0];
+//   |                  - immutable borrow occurs here
+// 4 |     v.push(4);
+//   |     ^^^^^^^^^ mutable borrow occurs here
+// 5 |     println!("{}", first);
+//   |                    ----- immutable borrow later used here</code></pre>
+            </div>
+
+            <p>Rust gives you three annotations, and the third is the one people skip. <code>immutable borrow occurs here</code> is where the shared borrow starts, <code>mutable borrow occurs here</code> is the line that failed &mdash; but <strong><code>immutable borrow later used here</code> is the reason it failed</strong>. That last line is what keeps the shared borrow alive across your mutation. Find it, and you've found the thing to move or delete.</p>
+
+            <h2>When you'll see this error</h2>
+            <p>Almost every real E0502 is one of four situations. Find yours, then jump to its fix:</p>
+            <ul>
+                <li>Calling <code>push()</code> (or any <code>&amp;mut</code> method) <strong>while iterating</strong> a <code>Vec</code> &mdash; by far the most common &rarr; <a href="#mutate-while-iterating">Fix 2</a>.</li>
+                <li><strong>Reading from a collection and modifying it</strong> before the read's borrow has ended &rarr; Fix 1 or Fix 3.</li>
+                <li>Iterating <code>&amp;self.field</code> while calling another <code>&amp;mut self</code> <strong>method</strong> on the same struct &rarr; Fix 4.</li>
+                <li>Simply <strong>holding a reference longer than necessary</strong>, so it's still live at the mutation &rarr; Fix 1.</li>
+            </ul>
+            <p>Two things worth knowing up front. First, since <strong>non-lexical lifetimes (NLL)</strong>, a borrow ends at its <em>last use</em> rather than at the end of the enclosing scope &mdash; which is why moving a single line often fixes this outright. Second, Rust isn't being pedantic here: if <code>Vec::push</code> reallocates the backing buffer, any existing reference into it would point at freed memory, so the borrow checker is preventing a genuine use-after-free at compile time.</p>
+            <p>Not your error? <a href="rust-cannot-borrow-as-mutable-e0499.html">E0499</a> is <em>two mutable</em> borrows, <a href="rust-borrow-of-moved-value-e0382.html">E0382</a> is a value that was <em>moved</em>, and <a href="rust-e0597-does-not-live-long-enough.html">E0597</a> is a reference <em>outliving</em> its value &mdash; there's a full comparison table further down.</p>
+
+            <h2>The mechanism: overlapping borrow ranges</h2>
+            <p>Rust's rule is that at any single point in the program, a value can have <em>either</em> one mutable borrow <em>or</em> any number of shared borrows &mdash; never both at once. Since <strong>non-lexical lifetimes</strong> (stabilized in Rust 1.31 for the 2018 edition, and extended to 2015-edition crates in 1.36), a borrow's live range ends at its <em>last use</em>, not at the closing brace of its block. So the question is never "is the reference still in scope" but "do the two ranges overlap":</p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 620 320" role="img" aria-label="Diagram comparing two timelines. In the rejected version, a shared borrow of v created by let first = &amp;v[0] stays live until its last use in println, and v.push(4) takes a mutable borrow in the middle of that range, so the two borrow ranges overlap and the compiler reports E0502. In the accepted version, the println last use is moved before v.push(4), so the shared borrow range ends before the mutable borrow begins and there is no overlap.">
+                    <defs>
+                        <marker id="e0502-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                    </defs>
+
+                    <text class="dg-t dg-bad" x="8" y="16" text-anchor="start">&#10007; Rejected &mdash; the two borrow ranges overlap</text>
+
+                    <text class="dg-m" x="92" y="40" text-anchor="middle">let first = &amp;v[0];</text>
+                    <text class="dg-m" x="330" y="40" text-anchor="middle">v.push(4);</text>
+                    <text class="dg-m" x="520" y="40" text-anchor="middle">println!("{}", first)</text>
+
+                    <line class="dg-ln" x1="20" y1="56" x2="600" y2="56" marker-end="url(#e0502-a)"/>
+                    <line class="dg-ln" x1="92" y1="48" x2="92" y2="64"/>
+                    <line class="dg-ln" x1="330" y1="48" x2="330" y2="64"/>
+                    <line class="dg-ln" x1="520" y1="48" x2="520" y2="64"/>
+
+                    <rect class="dg-box-muted" x="92" y="74" width="428" height="26" rx="5"/>
+                    <text class="dg-s" x="192" y="91" text-anchor="middle">shared borrow of v</text>
+                    <text class="dg-s" x="444" y="91" text-anchor="middle">&hellip; still live here</text>
+
+                    <rect class="dg-box-bad" x="300" y="110" width="60" height="26" rx="5"/>
+                    <text class="dg-s dg-bad" x="330" y="127" text-anchor="middle">&amp;mut v</text>
+
+                    <rect x="300" y="70" width="60" height="72" rx="4" style="fill:var(--dg-bad);fill-opacity:0.16"/>
+                    <line class="dg-ln-bad" x1="300" y1="70" x2="300" y2="142" style="stroke-dasharray:4 3"/>
+                    <line class="dg-ln-bad" x1="360" y1="70" x2="360" y2="142" style="stroke-dasharray:4 3"/>
+
+                    <text class="dg-s dg-bad" x="306" y="156" text-anchor="middle">both borrows are live in this column &rarr; E0502</text>
+
+                    <line class="dg-ln-dash" x1="20" y1="176" x2="600" y2="176"/>
+
+                    <text class="dg-t dg-ok" x="8" y="200" text-anchor="start">&#10003; Accepted &mdash; the last use moves before the mutation</text>
+
+                    <text class="dg-m" x="92" y="224" text-anchor="middle">let first = &amp;v[0];</text>
+                    <text class="dg-m" x="285" y="224" text-anchor="middle">println!("{}", first)</text>
+                    <text class="dg-m" x="520" y="224" text-anchor="middle">v.push(4);</text>
+
+                    <line class="dg-ln" x1="20" y1="240" x2="600" y2="240" marker-end="url(#e0502-a)"/>
+                    <line class="dg-ln" x1="92" y1="232" x2="92" y2="248"/>
+                    <line class="dg-ln" x1="285" y1="232" x2="285" y2="248"/>
+                    <line class="dg-ln" x1="520" y1="232" x2="520" y2="248"/>
+
+                    <rect class="dg-box-ok" x="92" y="258" width="193" height="26" rx="5"/>
+                    <text class="dg-s" x="188" y="275" text-anchor="middle">shared borrow ends here</text>
+
+                    <rect class="dg-box-ok" x="490" y="258" width="60" height="26" rx="5"/>
+                    <text class="dg-s" x="520" y="275" text-anchor="middle">&amp;mut v</text>
+
+                    <text class="dg-s dg-ok" x="388" y="275" text-anchor="middle">no overlap</text>
+                    <text class="dg-s" x="306" y="302" text-anchor="middle">same lines, same scope &mdash; only the order changed</text>
+                </svg>
+                <p class="dg-cap">The borrow checker compares live <em>ranges</em>, not scopes. Nothing was cloned or restructured between these two versions &mdash; the shared borrow simply stops being used before the mutable one begins.</p>
+            </div>
+
+            <h2>Fix 1: move the last use before the mutation</h2>
+            <p>This is the diagram above, in code. If you only need the borrowed value <em>before</em> the mutation, say so by using it there:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let mut v = vec![1, 2, 3];
+
+// ❌ rejected — the borrow is still needed after the mutation
+// let first = &amp;v[0];
+// v.push(4);
+// println!("{}", first);
+
+// ✅ accepted — identical lines, only the order changed
+let first = &amp;v[0];
+println!("{}", first);   // last use of the shared borrow — it ends here
+v.push(4);               // nothing is borrowed now</code></pre>
+            </div>
+            <p>Read those two blocks against each other: same three statements, same scope, same variables. <strong>Only the ordering changed</strong> &mdash; no clone, no restructuring, and nothing extra at runtime. This is the fix a surprising share of E0502s actually want, which is why it's worth trying before anything more involved.</p>
+
+            <h2 id="mutate-while-iterating">Fix 2: don't mutate a collection while iterating it</h2>
+            <p>This is the most common real-world shape of E0502 by a wide margin &mdash; if you arrived here from a <code>push</code> inside a <code>for</code> loop, this is your section. <code>for x in &amp;v</code> holds a shared borrow for the entire loop body:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let mut v = vec![1, 2, 3];
+
+// ❌ for x in &amp;v {
+// ❌     v.push(*x * 2);
+// ❌ }
+// error[E0502]: cannot borrow `v` as mutable because it is also borrowed as immutable
+//  --&gt; src/main.rs:4:9
+//   |
+// 3 |     for x in &amp;v {
+//   |              --
+//   |              |
+//   |              immutable borrow occurs here
+//   |              immutable borrow later used here
+// 4 |         v.push(*x * 2);
+//   |         ^^^^^^^^^^^^^^ mutable borrow occurs here</code></pre>
+            </div>
+            <p>This one isn't the borrow checker being fussy &mdash; it's preventing a genuine use-after-free. <code>push</code> can reallocate the vector's backing buffer when it outgrows its capacity, which would leave the iterator walking freed memory. Languages without this check hand you a crash or silent corruption instead. Pick whichever fix matches your intent:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ✅ collect first, mutate after — the shared borrow ends with the loop
+let additions: Vec&lt;i32&gt; = v.iter().map(|x| x * 2).collect();
+v.extend(additions);
+
+// ✅ removing instead of adding? retain does it in one pass, no second borrow
+v.retain(|x| *x % 2 == 0);
+
+// ✅ modifying in place? iterate mutably — one &amp;mut, no shared borrow at all
+for x in &amp;mut v {
+    *x *= 2;
+}
+
+// ✅ need to add while inspecting? loop by index, so nothing stays borrowed
+let original_len = v.len();
+for i in 0..original_len {
+    let doubled = v[i] * 2;   // borrow ends at the end of this statement
+    v.push(doubled);
+}</code></pre>
+            </div>
+
+            <h2>Fix 3: copy the value out instead of borrowing it</h2>
+            <p>If you genuinely need the value after the mutation, don't hold a reference across it. For <code>Copy</code> types this is free:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let mut v = vec![1, 2, 3];
+
+let first = v[0];        // ✅ i32 is Copy — this is a value, not a borrow
+v.push(4);
+println!("{}", first);   // ✅ fine — `first` never borrowed v</code></pre>
+            </div>
+            <p>For non-<code>Copy</code> types such as <code>String</code>, <code>.clone()</code> does the same job at the cost of an allocation. That's a real cost, so prefer Fix 1 when ordering allows it &mdash; but a clone is far better than reaching for <code>unsafe</code> or restructuring the whole function around the borrow checker.</p>
+
+            <h2>Fix 4: split borrows by struct field</h2>
+            <p>Inside a method, calling <code>self.something_mut()</code> while iterating <code>&amp;self.items</code> borrows <em>all</em> of <code>self</code> twice, even though the two operations touch different fields:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>struct App {
+    items: Vec&lt;String&gt;,
+    processed: usize,
+}
+
+impl App {
+    fn bump(&amp;mut self) {
+        self.processed += 1;
+    }
+
+    fn run(&amp;mut self) {
+        // ❌ for item in &amp;self.items {
+        // ❌     println!("{}", item);
+        // ❌     self.bump();
+        // ❌ }
+        // error[E0502]: cannot borrow `*self` as mutable because it is also
+        //               borrowed as immutable
+    }
+}</code></pre>
+            </div>
+            <p>The borrow checker <em>can</em> see that two <em>direct field accesses</em> are disjoint &mdash; <code>&amp;self.items</code> and <code>&amp;mut self.processed</code> coexist happily. What it can't do is look inside a method call: <code>self.bump()</code> takes <code>&amp;mut self</code> as a whole, so all field-level precision is lost. Work at the field level instead:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>impl App {
+    fn run(&amp;mut self) {
+        // ✅ touch the fields directly — disjoint borrows are allowed
+        for item in &amp;self.items {
+            println!("{}", item);
+            self.processed += 1;
+        }
+    }
+}
+
+// ✅ or, when the logic is worth keeping in a function, pass only what it needs
+fn bump(processed: &amp;mut usize) {
+    *processed += 1;
+}
+
+impl App {
+    fn run_split(&amp;mut self) {
+        let App { items, processed } = self;   // destructure into per-field borrows
+        for item in items.iter() {
+            println!("{}", item);
+            bump(processed);
+        }
+    }
+}</code></pre>
+            </div>
+            <p>It's worth being explicit about why those two versions differ, because it looks arbitrary at first: iterating <code>&amp;self.items</code> while touching <code>self.processed</code> <em>looks</em> like a whole-<code>self</code> conflict, but it compiles &mdash; the checker resolves each field access individually. Swap that line for <code>self.bump()</code> and the identical logic is rejected, because a method signature says <code>&amp;mut self</code> and the checker can't see which fields the body actually touches. <strong>The method call is what breaks it, not the field access.</strong></p>
+            <p>The destructuring form in <code>run_split</code> is the general escape hatch, and the one to reach for when you do want the logic in a function: it converts one <code>&amp;mut self</code> into independent borrows of each field, which the checker then tracks separately. For slices specifically, <code>split_at_mut</code> does the same job for two disjoint ranges of one collection.</p>
+
+            <h2>Fix 5: interior mutability, knowingly</h2>
+            <p><code>RefCell&lt;T&gt;</code> (single-threaded) and <code>Mutex&lt;T&gt;</code> (across threads) let you mutate through a shared reference. This does <strong>not</strong> remove the aliasing rule &mdash; it moves enforcement from compile time to run time:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>use std::cell::RefCell;
+
+let v = RefCell::new(vec![1, 2, 3]);
+v.borrow_mut().push(4);              // ✅ compiles
+
+// ⚠️ the same conflict now panics at RUNTIME instead of failing to compile:
+// let borrowed = v.borrow();        // shared borrow held...
+// v.borrow_mut().push(5);           // → panics: already borrowed: BorrowMutError
+// println!("{:?}", borrowed);</code></pre>
+            </div>
+            <p>Use it when the borrow pattern is genuinely dynamic &mdash; graph structures, shared observers, a cache behind an <code>Rc</code> &mdash; not to silence a conflict that reordering (Fix 1) or a copy (Fix 3) would resolve with no runtime cost and no panic risk.</p>
+
+            <h2>The borrow-checker error family</h2>
+            <table>
+                <thead><tr><th>Error</th><th>What conflicts</th><th>Typical fix</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>E0502</strong> (this page)</td><td>A <code>&amp;mut</code> overlapping a shared <code>&amp;</code></td><td>End the shared borrow first</td></tr>
+                    <tr><td><a href="rust-cannot-borrow-as-mutable-e0499.html">E0499</a></td><td>Two <code>&amp;mut</code> borrows at once</td><td>Shorten one range, or split the borrows</td></tr>
+                    <tr><td><a href="rust-e0597-does-not-live-long-enough.html">E0597</a></td><td>A reference outliving the value it points at</td><td>Extend the value's scope, or return owned data</td></tr>
+                    <tr><td><a href="rust-borrow-of-moved-value-e0382.html">E0382</a></td><td>Using a value after it was moved</td><td>Borrow instead of move, or clone</td></tr>
+                </tbody>
+            </table>
+            <p>All four are the same checker reporting different shapes of the same question: for every reference, is its live range compatible with everything else happening to that value? Reading the "later used here" annotation is the shared skill across all of them.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Find the <code>immutable borrow later used here</code> annotation &mdash; that line is why the borrow is still alive</li>
+                <li>&#10003; Can that use move <em>above</em> the mutating line? That's the zero-cost fix</li>
+                <li>&#10003; Is the value <code>Copy</code>? Bind by value (<code>v[0]</code>) instead of by reference (<code>&amp;v[0]</code>)</li>
+                <li>&#10003; Mutating inside a <code>for ... in &amp;collection</code> loop? Collect first and mutate after, or use <code>retain</code>/<code>drain</code>/<code>iter_mut</code></li>
+                <li>&#10003; Inside an <code>impl</code>? Replace <code>self.method()</code> with direct field access, or destructure <code>self</code> into per-field borrows</li>
+                <li>&#10003; Need two disjoint parts of one slice? <code>split_at_mut</code> gives you both safely</li>
+                <li>&#10003; Reaching for <code>RefCell</code>? Confirm the pattern is genuinely dynamic &mdash; otherwise you're trading a compile error for a runtime panic</li>
+                <li>&#10003; On an old toolchain? Non-lexical lifetimes need Rust 1.31+ (2018 edition) or 1.36+ (2015 edition); before that, borrows ran to the end of the block</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does error[E0502]: cannot borrow as mutable because it is also borrowed as immutable mean?</summary>
+                    <p>At the moment you took a mutable borrow, a shared (immutable) borrow of the same value was still live. Rust's core aliasing rule allows either one mutable borrow or any number of shared borrows at a time, never both. The compiler's three annotations tell you the whole story: where the immutable borrow starts, where the mutable borrow happens, and &mdash; most importantly &mdash; where the immutable borrow is <em>later used</em>, which is what keeps it alive across the mutation.</p>
+                </details>
+                <details>
+                    <summary>How do I fix E0502?</summary>
+                    <p>End the shared borrow before the mutation. In practice that means one of: move the last use of the reference above the mutating call so non-lexical lifetimes end the borrow early; copy or clone the value out so no reference is held at all; restructure a mutate-while-iterating loop to collect indices or use <code>retain</code>/<code>drain</code>; or borrow individual struct fields instead of all of <code>self</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does the error point at a line after my mutable borrow?</summary>
+                    <p>Because that later line is the reason the shared borrow is still alive. Since non-lexical lifetimes (Rust 1.31, 2018 edition), a borrow ends at its last use rather than at the end of the enclosing block. The <code>immutable borrow later used here</code> annotation is pointing at the exact line that extends the borrow past your mutation &mdash; delete or move that use and the error usually disappears.</p>
+                </details>
+                <details>
+                    <summary>Why can't I push to a vector while iterating over it?</summary>
+                    <p>Iterating with <code>for x in &amp;v</code> holds a shared borrow of the vector for the whole loop, and <code>push</code> needs a mutable borrow. Beyond the borrow rule, this is a genuine memory-safety issue: pushing can reallocate the vector's backing buffer, which would leave the iterator pointing at freed memory. Collect what you want to add into a separate <code>Vec</code> and <code>extend</code> after the loop, or iterate by index, or use <code>retain</code> for removals.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between E0499 and E0502?</summary>
+                    <p>E0499 is two mutable borrows alive at once. E0502 is a mutable borrow overlapping a shared (immutable) borrow. Both enforce the same underlying rule &mdash; a mutable borrow must be exclusive &mdash; they just describe different combinations, and the fixes are the same family: shorten one borrow's live range so the two no longer overlap.</p>
+                </details>
+                <details>
+                    <summary>Should I use RefCell to get around E0502?</summary>
+                    <p>Only as a last resort, and knowingly. <code>RefCell</code> doesn't remove the aliasing rule &mdash; it moves the check from compile time to run time, so the same conflicting borrows panic with "already borrowed: BorrowMutError" instead of failing to compile. Reach for it when the borrow pattern is genuinely dynamic (graph structures, shared observers), not to silence a conflict that reordering or copying would fix safely.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Rust &amp; backend errors</h3>
+                <p>Browse the full reference for Rust, Go, and Java errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="rust-cannot-borrow-as-mutable-e0499.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Rust E0499: two mutable borrows</a>
+                    <a href="rust-e0597-does-not-live-long-enough.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Rust E0597: does not live long enough</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="rust-cannot-borrow-as-mutable-e0499.html">Rust E0499: cannot borrow as mutable more than once</a> &mdash; the two-mutable-borrows sibling of this error</li>
+                <li><a href="rust-e0597-does-not-live-long-enough.html">Rust E0597: does not live long enough</a> &mdash; a reference outliving its value</li>
+                <li><a href="rust-borrow-of-moved-value-e0382.html">Rust E0382: borrow of moved value</a></li>
+                <li><a href="rust-e0425-cannot-find-value-in-scope.html">Rust E0425: cannot find value 'x' in this scope</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>See Also &mdash; the concepts behind this error</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html" rel="noopener noreferrer" target="_blank">Understanding Ownership</a> &mdash; the model the borrow checker enforces</li>
+                <li><a href="https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html" rel="noopener noreferrer" target="_blank">References and Borrowing</a> &mdash; the one-<code>&amp;mut</code>-or-many-<code>&amp;</code> rule in full</li>
+                <li><a href="https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html" rel="noopener noreferrer" target="_blank">Lifetimes</a> &mdash; how long a borrow's range actually is</li>
+                <li><a href="https://doc.rust-lang.org/std/cell/struct.RefCell.html" rel="noopener noreferrer" target="_blank"><code>RefCell&lt;T&gt;</code></a> &mdash; interior mutability, and its runtime panic contract (Fix 5)</li>
+                <li><a href="https://doc.rust-lang.org/std/primitive.slice.html#method.split_at_mut" rel="noopener noreferrer" target="_blank"><code>split_at_mut</code></a> &mdash; two disjoint mutable borrows of one slice (Fix 4)</li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
