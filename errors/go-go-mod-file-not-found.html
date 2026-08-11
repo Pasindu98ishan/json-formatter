@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Go: go.mod file not found in current directory or any parent directory — run go mod init, or cd to the module root. Plus the 'go get outside a module' variant.">
+    <meta name="keywords" content="go.mod file not found, go mod file not found in current directory or any parent, go mod init, go help modules, GO111MODULE, go get no longer supported outside a module, GOPATH">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/go-go-mod-file-not-found.html">
+    <meta property="og:title" content="Go: go.mod file not found in current directory or any parent — Fix">
+    <meta property="og:description" content="Go looks for go.mod in your current directory and every parent. Run go mod init to create one, or cd into the module root — plus the 'go get outside a module' variant.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/go-go-mod-file-not-found.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Go: go.mod file not found in current directory or any parent — Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Go: go.mod file not found", "item": "https://jsondevtools.org/errors/go-go-mod-file-not-found.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Go: go.mod file not found in current directory or any parent directory — Cause and Fix",
+  "description": "Go commands must run inside a module. This reference covers the one-command fix (go mod init), the wrong-directory and monorepo-subdirectory cases, the 'go get is no longer supported outside a module' variant, and the legacy GOPATH escape hatch.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-11",
+  "dateModified": "2026-08-11",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I fix 'go.mod file not found in current directory or any parent directory'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If this is a new project, run go mod init <module-path> in the project root — for example go mod init github.com/you/myapp. If the project already has a go.mod, you are simply running the command from the wrong directory: cd to the directory that contains go.mod and run it again."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Go look in parent directories?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A Go module is defined by a go.mod file at its root, and everything beneath that directory belongs to the module. So when you run a go command, the toolchain walks upward from your current directory — parent, grandparent, and so on to the filesystem root — looking for the nearest go.mod. It never searches downward into subdirectories, which is why running a command from one level above your module fails even though go.mod is clearly visible in the folder listing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What module path should I use in go mod init?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use the repository URL where the code will live, without the scheme — for example github.com/you/myapp. That path becomes the prefix for every import inside the module, so other projects can import it directly. For throwaway or local-only code any unique name works, such as go mod init myapp, but renaming later means updating every internal import, so use the real repository path if you know it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does 'go get' say it is no longer supported outside a module?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Since Go 1.16, go get only manages dependencies of a module and cannot install programs globally. To install a command-line tool without being inside a module, use go install with an explicit version — for example go install example.com/cmd@latest. To add a dependency to your own project, cd into the module and run go get there."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I still use GOPATH mode instead of modules?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Setting GO111MODULE=off restores the legacy GOPATH behavior, and the error goes away because the toolchain stops looking for go.mod at all. Treat this as a temporary escape hatch for old code rather than a fix: modules have been the default since Go 1.16, module-aware tooling assumes them, and dependency versions are not tracked in GOPATH mode. Running go mod init on the legacy project is almost always the better move."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Go: go.mod file not found</span>
+            </nav>
+            <h1>Go: go.mod file not found in current directory or any parent directory</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Go commands must run <em>inside</em> a module. If the project has no <code>go.mod</code> yet, create one:</p>
+                <div class="code-block" style="margin:0.5rem 0 0;">
+                    <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>go mod init github.com/you/myapp</code></pre>
+                </div>
+                <p style="margin:0.5rem 0 0;">If the project <strong>already has</strong> a <code>go.mod</code>, you're just in the wrong directory &mdash; <code>cd</code> to the folder containing it and re-run. Go searches <em>upward</em>, never into subfolders.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ go build
+go: go.mod file not found in current directory or any parent directory; see 'go help modules'
+
+// the same message appears from `go run`, `go test`, and `go mod tidy`.
+//
+// `go get` outside a module prints a longer variant:
+//
+// go: go.mod file not found in current directory or any parent directory.
+// 	'go get' is no longer supported outside a module.
+// 	To build and install a command, use 'go install' with a version,
+// 	like 'go install example.com/cmd@latest'
+// 	For more information, see https://golang.org/doc/go-get-install-deprecation
+// 	or run 'go help get'.</code></pre>
+            </div>
+
+            <p>Both messages report the same root cause &mdash; the Go toolchain found no <code>go.mod</code> anywhere between your current directory and the filesystem root, so it has no module to operate on. The <code>go get</code> variant adds a second, separate point: even once you <em>are</em> inside a module, <code>go get</code> is no longer the command for installing an executable. So the two failures don't always have the same fix (see <a href="#go-get-outside-module">Fix 4</a>).</p>
+            <p>Either way this is a <em>location</em> problem or a <em>missing-file</em> problem &mdash; never a problem with your Go code, which the compiler hasn't even looked at yet.</p>
+
+            <h2>Which module is Go actually using?</h2>
+            <p>Before changing anything, ask the toolchain directly. <code>go env GOMOD</code> prints the <code>go.mod</code> that Go resolved for your current directory, and it answers the question this error raises in one command:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Inside a module — prints the resolved go.mod path
+$ go env GOMOD
+/home/you/projects/myapp/go.mod
+
+# Outside any module — prints the null device instead of a path
+$ go env GOMOD
+/dev/null</code></pre>
+            </div>
+            <p>That <code>/dev/null</code> (or <code>NUL</code> on Windows) is the tell: it means Go completed its search and found nothing, which is exactly the state that produces this error from <code>go build</code>, <code>go run</code>, <code>go test</code>, and <code>go mod tidy</code> alike. If it instead prints a path you didn't expect &mdash; a parent directory's <code>go.mod</code>, or a different module in a monorepo &mdash; you've found your problem without guessing: you're inside the wrong module, not outside all of them.</p>
+
+            <h2>Why Go searches upward</h2>
+            <p>A module is defined by a <code>go.mod</code> file at its root, and every package in every subdirectory beneath that file belongs to the module. So when you run any module-aware command, the toolchain walks <strong>upward</strong> &mdash; current directory, parent, grandparent, on to the filesystem root &mdash; looking for the nearest <code>go.mod</code>. It never searches <em>downward</em>.</p>
+            <p>That asymmetry is the whole trick, and it's what makes the error feel wrong when you can plainly see <code>go.mod</code> sitting in a subfolder in your editor. From <code>~/projects</code>, a <code>go.mod</code> in <code>~/projects/myapp</code> is invisible to Go, because the search only ever goes the other way.</p>
+
+            <h2>Fix 1 (most common): create the module</h2>
+            <p>If this is a new project that has never had a <code>go.mod</code>, run <code>go mod init</code> in the directory you want to be the module root, passing the module path:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ go mod init github.com/you/myapp
+go: creating new go.mod: module github.com/you/myapp
+go: to add module requirements and sums:
+	go mod tidy
+
+$ go build ./...
+$ echo $?
+0</code></pre>
+            </div>
+            <p><code>go build</code> printing nothing with exit status <code>0</code> <em>is</em> the success signal &mdash; Go's tools stay silent when there's nothing to report.</p>
+            <p><strong>Choosing the module path:</strong> use the repository URL where the code will live, minus the scheme &mdash; <code>github.com/you/myapp</code>. That path becomes the import prefix for every package inside the module, so other projects can import it as-is. For throwaway or local-only code any unique name works (<code>go mod init myapp</code>), but renaming later means rewriting every internal import, so use the real repository path when you know it.</p>
+            <p>If the project already has dependencies in its source, follow up with <code>go mod tidy</code> to populate <code>go.mod</code> and <code>go.sum</code> from your imports &mdash; that's the same command that fixes <a href="go-missing-go-sum-entry.html">missing go.sum entry for module providing package X</a>.</p>
+
+            <h2>Fix 2: you're in the wrong directory</h2>
+            <p>If <code>go.mod</code> already exists, this is purely a <code>cd</code> problem. Find the module root and run from there:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Where am I, and is there a go.mod here?
+$ pwd
+/home/you/projects
+$ ls go.mod
+ls: cannot access 'go.mod': No such file or directory
+
+# Find it (searching down, which Go itself will not do).
+# -maxdepth must come BEFORE -name: BSD/macOS find requires that order,
+# and GNU find warns about it.
+$ find . -maxdepth 3 -name go.mod -not -path '*/vendor/*'
+./myapp/go.mod
+
+$ cd myapp
+$ go build ./...</code></pre>
+            </div>
+            <p>On Windows PowerShell:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>PS&gt; Get-Location
+PS&gt; Test-Path .\go.mod
+False
+PS&gt; Get-ChildItem -Recurse -Depth 2 -Filter go.mod | Select-Object FullName
+PS&gt; Set-Location myapp
+PS&gt; go build ./...</code></pre>
+            </div>
+            <p>Two everyday versions of this: opening a terminal that starts in your home directory and running <code>go run .</code> before <code>cd</code>-ing anywhere, and an editor or IDE whose integrated terminal opens at the workspace root while the Go module lives one level down.</p>
+
+            <h2>Fix 3: the module is in a subdirectory (monorepo)</h2>
+            <p>A repository whose Go code lives under <code>backend/</code> or <code>services/api/</code> has its module root there, not at the repository root. Running <code>go</code> commands from the repo root always fails, no matter how you spell the package pattern &mdash; <code>./...</code> included, because the module is resolved before the pattern is:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>myrepo/
+  frontend/
+  backend/
+    go.mod        ← the module root is HERE
+    main.go</code></pre>
+            </div>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ from myrepo/ — fails, go.mod is below you, not above
+# go build ./backend/...
+
+# ✅ cd into the module
+$ cd backend &amp;&amp; go build ./...
+
+# ✅ or, without changing your shell's directory (Go 1.20+):
+$ go -C backend build ./...</code></pre>
+            </div>
+            <p>The <code>-C</code> flag changes directory before doing anything else, which makes it handy in Makefiles and CI steps that shouldn't disturb the working directory. It must come <em>before</em> the subcommand: <code>go -C backend build</code>, not <code>go build -C backend</code>.</p>
+            <p>If several modules live in one repository and you want them treated as one build, that's what a <strong>workspace</strong> is for: <code>go work init ./backend ./tools</code> creates a <code>go.work</code> at the repo root. That's a deliberate multi-module setup, not a fix for a single misplaced command.</p>
+
+            <h2 id="go-get-outside-module">Fix 4: <code>go get</code> outside a module</h2>
+            <p>The longer variant of this error appears when you run <code>go get</code> anywhere outside a module. Since <strong>Go 1.16</strong>, <code>go get</code> only manages the dependencies of the module you're in &mdash; it no longer installs programs globally. Use <code>go install</code> with an explicit version instead:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ installing a tool with go get, from anywhere
+# go get github.com/golangci/golangci-lint/cmd/golangci-lint
+
+# ✅ install a command — works from any directory, no module needed
+$ go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# ✅ adding a dependency to YOUR project — cd into the module first
+$ cd myapp
+$ go get github.com/gorilla/mux</code></pre>
+            </div>
+            <p>The <code>@version</code> suffix is required by <code>go install</code> when you're outside a module &mdash; <code>@latest</code>, a tag such as <code>@v1.55.2</code>, or a commit hash. Omitting it produces its own error telling you a version is required.</p>
+
+            <h2>Fix 5: legacy GOPATH projects</h2>
+            <p>Code written before modules lived under <code>$GOPATH/src</code> and had no <code>go.mod</code> at all. Since <strong>Go 1.16</strong> the toolchain defaults to module-aware mode (<code>GO111MODULE=on</code>), so those projects now hit this error on the first build.</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ✅ preferred: migrate the project to a module, in place
+$ cd $GOPATH/src/github.com/you/oldapp
+$ go mod init github.com/you/oldapp
+$ go mod tidy
+
+# ⚠️ legacy escape hatch — restores pre-modules behavior, use only to unblock
+# GO111MODULE=off go build ./...</code></pre>
+            </div>
+            <p><code>GO111MODULE=off</code> makes the error disappear because the toolchain stops looking for <code>go.mod</code> entirely &mdash; but it also gives up dependency versioning, reproducible builds, and compatibility with essentially all modern Go tooling. Treat it as a way to unblock yourself for an afternoon, not as the fix.</p>
+
+            <h2>Three module errors, disambiguated</h2>
+            <p>These read similarly but fail at different stages, and only the first one is this page:</p>
+            <table>
+                <thead><tr><th>Message</th><th>What it means</th><th>Fix</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>go.mod file not found</strong> (this page)</td><td>You're not inside a module at all</td><td><code>go mod init</code>, or <code>cd</code> to the module root</td></tr>
+                    <tr><td><a href="go-cannot-find-module-providing-package.html">cannot find module providing package X</a></td><td>Inside a module, but the package can't be located</td><td><code>go mod tidy</code>, or fix the import path</td></tr>
+                    <tr><td><a href="go-missing-go-sum-entry.html">missing go.sum entry</a></td><td>Module known and required, but its hash is unverified</td><td><code>go mod tidy</code>, then commit <code>go.sum</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Run <code>ls go.mod</code> in your current directory &mdash; is it actually there?</li>
+                <li>&#10003; New project? <code>go mod init &lt;module-path&gt;</code>, using the repository URL where possible</li>
+                <li>&#10003; Existing project? <code>cd</code> to the directory containing <code>go.mod</code> &mdash; Go searches <em>up</em>, never down</li>
+                <li>&#10003; Monorepo? The module root is the subdirectory with <code>go.mod</code>; use <code>cd</code> or <code>go -C &lt;dir&gt;</code> (Go 1.20+)</li>
+                <li>&#10003; Installing a tool? Use <code>go install pkg@version</code>, not <code>go get</code> (Go 1.16+)</li>
+                <li>&#10003; Legacy GOPATH code? Prefer <code>go mod init</code> over setting <code>GO111MODULE=off</code></li>
+                <li>&#10003; CI failing but local works? Confirm the job's working directory is the module root, not the repo root</li>
+                <li>&#10003; Still stuck? <code>go env GOMOD</code> prints the go.mod Go resolved &mdash; empty output means you're outside a module</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How do I fix 'go.mod file not found in current directory or any parent directory'?</summary>
+                    <p>If this is a new project, run <code>go mod init &lt;module-path&gt;</code> in the project root &mdash; for example <code>go mod init github.com/you/myapp</code>. If the project already has a <code>go.mod</code>, you are simply running the command from the wrong directory: <code>cd</code> to the directory that contains <code>go.mod</code> and run it again.</p>
+                </details>
+                <details>
+                    <summary>Why does Go look in parent directories?</summary>
+                    <p>A Go module is defined by a <code>go.mod</code> file at its root, and everything beneath that directory belongs to the module. So when you run a <code>go</code> command, the toolchain walks upward from your current directory &mdash; parent, grandparent, and so on to the filesystem root &mdash; looking for the nearest <code>go.mod</code>. It never searches downward into subdirectories, which is why running a command from one level above your module fails even though <code>go.mod</code> is clearly visible in the folder listing.</p>
+                </details>
+                <details>
+                    <summary>What module path should I use in go mod init?</summary>
+                    <p>Use the repository URL where the code will live, without the scheme &mdash; for example <code>github.com/you/myapp</code>. That path becomes the prefix for every import inside the module, so other projects can import it directly. For throwaway or local-only code any unique name works, such as <code>go mod init myapp</code>, but renaming later means updating every internal import, so use the real repository path if you know it.</p>
+                </details>
+                <details>
+                    <summary>Why does 'go get' say it is no longer supported outside a module?</summary>
+                    <p>Since Go 1.16, <code>go get</code> only manages dependencies of a module and cannot install programs globally. To install a command-line tool without being inside a module, use <code>go install</code> with an explicit version &mdash; for example <code>go install example.com/cmd@latest</code>. To add a dependency to your own project, <code>cd</code> into the module and run <code>go get</code> there.</p>
+                </details>
+                <details>
+                    <summary>Can I still use GOPATH mode instead of modules?</summary>
+                    <p>Setting <code>GO111MODULE=off</code> restores the legacy GOPATH behavior, and the error goes away because the toolchain stops looking for <code>go.mod</code> at all. Treat this as a temporary escape hatch for old code rather than a fix: modules have been the default since Go 1.16, module-aware tooling assumes them, and dependency versions are not tracked in GOPATH mode. Running <code>go mod init</code> on the legacy project is almost always the better move.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Go &amp; backend errors</h3>
+                <p>Browse the full reference for Go, Rust, and Java errors &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="go-missing-go-sum-entry.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Go: missing go.sum entry</a>
+                    <a href="go-cannot-find-module-providing-package.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Go: cannot find module providing package</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="go-cannot-find-module-providing-package.html">Go: cannot find module providing package X</a> &mdash; inside a module, but the package can't be resolved</li>
+                <li><a href="go-missing-go-sum-entry.html">Go: missing go.sum entry for module providing package X</a> &mdash; the next failure after the module exists</li>
+                <li><a href="go-undefined-x.html">Go: undefined: X</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+                <li><a href="../blog/developer-tools-api-testing.html">Developer Tools for API Testing</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

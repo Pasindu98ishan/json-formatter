@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Docker: pull access denied, repository does not exist or may require 'docker login' — one message, four causes: unqualified name, typo, wrong registry, or no access.">
+    <meta name="keywords" content="pull access denied for, repository does not exist or may require docker login, docker login ghcr.io, docker pull denied, requested access to the resource is denied, docker.io library namespace">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-pull-access-denied.html">
+    <meta property="og:title" content="Docker: pull access denied, repository does not exist or may require 'docker login'">
+    <meta property="og:description" content="Docker returns the same denial whether the repo is missing or private. Work the decision tree: qualify the name, check the tag, log in to the right registry, check permissions.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-pull-access-denied.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker: pull access denied, repository does not exist or may require 'docker login'</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Docker: pull access denied", "item": "https://jsondevtools.org/errors/docker-pull-access-denied.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: pull access denied for X, repository does not exist or may require 'docker login' — Cause and Fix",
+  "description": "Docker returns an identical denial whether an image is missing or private, so this one message covers four different causes. This reference walks the decision tree: an unqualified name resolving to docker.io/library, a typo in the name or tag, not being logged in to the right registry, and an account without access to the repository.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-11",
+  "dateModified": "2026-08-11",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why does Docker say the repository does not exist OR may require login?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because the registry deliberately returns the same response for both cases. If it distinguished a missing repository from a private one, anyone could probe for the existence of private image names. That ambiguity is a privacy feature, not a vague error message — which is why you have to rule the causes out yourself rather than reading the answer off the message."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does pulling my own image fail when the name looks right?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An unqualified name expands to the official-images namespace on Docker Hub: docker pull myapp becomes docker.io/library/myapp, and library/ holds only Docker's curated official images. Your own image lives under your username or organization, so it must be pulled as docker.io/youruser/myapp — or with the registry included for anything not on Docker Hub, such as ghcr.io/yourorg/myapp."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know whether an image is public or I just lack access?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Try the pull with no credentials in play. Run docker logout for that registry and pull again: if it succeeds logged out, the image is public and your original problem was elsewhere — usually the name or tag. If it fails logged out but the name is definitely right, the repository is private and you need credentials that can see it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does docker login cover every registry?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Credentials are stored per registry host, so logging in to Docker Hub does nothing for GitHub Container Registry, Quay, ECR, or Artifact Registry. You must run docker login against the specific host — for example docker login ghcr.io — and cloud registries usually issue short-lived tokens through their own CLI instead, such as aws ecr get-login-password piped into docker login."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "It works locally but fails in CI — why?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Your machine has credentials saved from an earlier docker login; a fresh CI runner has none. Add an explicit login step before any build or pull that touches a private image, using a token from your CI secret store rather than a password. Expired or rotated tokens produce the same failure on a runner that used to work."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is this the same as 'toomanyrequests' or 'manifest not found'?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No — those are distinct failures with distinct fixes. A toomanyrequests error means you hit Docker Hub's pull rate limit and should authenticate or wait, not that access was denied. A manifest not found error means the repository was readable but the specific tag does not exist, so the fix is correcting the tag rather than your credentials."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Docker: pull access denied</span>
+            </nav>
+            <h1>Docker: pull access denied for X, repository does not exist or may require 'docker login'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">One message, four causes &mdash; check in this order:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li><strong>Unqualified name</strong> &mdash; <code>myapp</code> means <code>docker.io/library/myapp</code>. Yours is <code>docker.io/<em>you</em>/myapp</code>.</li>
+                    <li><strong>Typo</strong> in the image name or tag &mdash; a very common cause, and free to rule out.</li>
+                    <li><strong>Wrong registry</strong> &mdash; a Docker Hub login does nothing for <code>ghcr.io</code>. Run <code>docker login ghcr.io</code>.</li>
+                    <li><strong>No permission</strong> &mdash; logged in, but your account can't see that repository.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker pull myapp
+Using default tag: latest
+Error response from daemon: pull access denied for myapp, repository does not exist or may require 'docker login': denied: requested access to the resource is denied
+
+// BuildKit / docker buildx phrases it differently, same cause:
+// ERROR: failed to solve: myapp: failed to resolve source metadata for
+//   docker.io/library/myapp:latest: pull access denied, repository does not
+//   exist or may require 'docker login'
+
+// docker compose up wraps it too — the daemon message is the same underneath.</code></pre>
+            </div>
+
+            <p>Note what the daemon actually told you: it resolved your bare <code>myapp</code> to <strong><code>docker.io/library/myapp</code></strong>. That expansion is visible in the BuildKit wording and is the single most useful clue in the whole message &mdash; more on it in Cause 1.</p>
+
+            <h2>Why the message is deliberately ambiguous</h2>
+            <p>"Repository does not exist <strong>or</strong> may require <code>docker login</code>" reads like the daemon couldn't be bothered to check which. In fact the registry <em>refuses</em> to distinguish the two: if a missing repository returned a different response from a private one, anyone could probe a registry for the existence of private image names &mdash; a slow but real information leak about a company's unreleased projects.</p>
+            <p>So the ambiguity is a privacy guarantee, not a diagnostic failure. The practical consequence is that you cannot read the answer off the message; you have to eliminate the causes yourself, cheapest first:</p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 620 300" role="img" aria-label="Decision tree for the Docker pull access denied error. First question: is the image name fully qualified? If not, Docker resolved it to docker.io/library/name, the official images namespace. If it is qualified, second question: is the image public? If it is public but the pull still fails, the name or tag has a typo. If it is private, third question: are you logged in to that specific registry? If not, run docker login for that host, because a Docker Hub login does not cover ghcr.io. If you are logged in and it still fails, your account lacks access to that repository.">
+                    <defs>
+                        <marker id="dpad-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                    </defs>
+
+                    <text class="dg-t" x="8" y="18" text-anchor="start">Same message &rarr; four causes. Work down.</text>
+
+                    <rect class="dg-box-muted" x="40" y="40" width="260" height="40" rx="6"/>
+                    <text class="dg-s" x="170" y="58" text-anchor="middle">1. Is the name fully qualified?</text>
+                    <text class="dg-s" x="170" y="72" text-anchor="middle">ghcr.io/org/app &mdash; not just app</text>
+                    <line class="dg-ln" x1="302" y1="60" x2="336" y2="60" marker-end="url(#dpad-a)"/>
+                    <rect class="dg-box-bad" x="340" y="40" width="260" height="40" rx="6"/>
+                    <text class="dg-s dg-bad" x="470" y="58" text-anchor="middle">No &rarr; Docker resolved it to</text>
+                    <text class="dg-s dg-bad" x="470" y="72" text-anchor="middle">docker.io/library/app</text>
+
+                    <line class="dg-ln" x1="170" y1="80" x2="170" y2="100" marker-end="url(#dpad-a)"/>
+                    <text class="dg-s" x="178" y="95" text-anchor="start">yes</text>
+
+                    <rect class="dg-box-muted" x="40" y="104" width="260" height="40" rx="6"/>
+                    <text class="dg-s" x="170" y="122" text-anchor="middle">2. Is the image public?</text>
+                    <text class="dg-s" x="170" y="136" text-anchor="middle">Check the registry's web UI</text>
+                    <line class="dg-ln" x1="302" y1="124" x2="336" y2="124" marker-end="url(#dpad-a)"/>
+                    <rect class="dg-box-bad" x="340" y="104" width="260" height="40" rx="6"/>
+                    <text class="dg-s dg-bad" x="470" y="122" text-anchor="middle">Public but still denied?</text>
+                    <text class="dg-s dg-bad" x="470" y="136" text-anchor="middle">&rarr; typo in the name or tag</text>
+
+                    <line class="dg-ln" x1="170" y1="144" x2="170" y2="164" marker-end="url(#dpad-a)"/>
+                    <text class="dg-s" x="178" y="159" text-anchor="start">private</text>
+
+                    <rect class="dg-box-muted" x="40" y="168" width="260" height="40" rx="6"/>
+                    <text class="dg-s" x="170" y="186" text-anchor="middle">3. Logged in to that registry?</text>
+                    <text class="dg-s" x="170" y="200" text-anchor="middle">docker login ghcr.io</text>
+                    <line class="dg-ln" x1="302" y1="188" x2="336" y2="188" marker-end="url(#dpad-a)"/>
+                    <rect class="dg-box-bad" x="340" y="168" width="260" height="40" rx="6"/>
+                    <text class="dg-s dg-bad" x="470" y="186" text-anchor="middle">No &rarr; log in to that host</text>
+                    <text class="dg-s dg-bad" x="470" y="200" text-anchor="middle">Hub login &ne; ghcr.io login</text>
+
+                    <line class="dg-ln" x1="170" y1="208" x2="170" y2="228" marker-end="url(#dpad-a)"/>
+                    <text class="dg-s" x="178" y="223" text-anchor="start">yes</text>
+
+                    <rect class="dg-box-bad" x="40" y="232" width="260" height="40" rx="6"/>
+                    <text class="dg-s dg-bad" x="170" y="250" text-anchor="middle">4. Logged in, denied anyway &mdash;</text>
+                    <text class="dg-s dg-bad" x="170" y="264" text-anchor="middle">your account lacks repo access</text>
+
+                    <text class="dg-s" x="310" y="290" text-anchor="middle">The registry answers "denied" the same way for a missing repo and a private one &mdash; by design.</text>
+                </svg>
+                <p class="dg-cap">These are the four causes worth checking, roughly cheapest first &mdash; they aren't mutually exclusive (a typo <em>and</em> a wrong-registry login can both be true), so keep going if fixing one doesn't clear it.</p>
+            </div>
+
+            <h2>Cause 1: an unqualified name means <code>library/</code></h2>
+            <p>Docker expands a bare image name into a full reference. <code>myapp</code> becomes <code>docker.io/library/myapp</code> &mdash; and <code>library/</code> is the namespace reserved for Docker's curated <strong>official images</strong> (<code>nginx</code>, <code>postgres</code>, <code>ubuntu</code>). Almost nobody can push there, so pulling your own image by bare name asks for something that will essentially never exist:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ resolves to docker.io/library/myapp — the official-images namespace
+# docker pull myapp
+
+# ✅ your own image on Docker Hub lives under your username
+$ docker pull youruser/myapp:1.4.0
+
+# ✅ anything not on Docker Hub must name the registry explicitly
+$ docker pull ghcr.io/yourorg/myapp:1.4.0
+$ docker pull quay.io/yourorg/myapp:1.4.0</code></pre>
+            </div>
+            <p>This bites hardest in a <code>Dockerfile</code> or Compose file copied between projects, where a <code>FROM myapp</code> or <code>image: myapp</code> silently means something entirely different once it leaves the machine that had it cached locally.</p>
+
+            <h2>Cause 2: a typo in the name or tag</h2>
+            <p>The plain-boring cause, and an easy one to skip past. Because a nonexistent repository and a private one produce identical output, a mistyped name looks exactly like a permissions problem &mdash; which sends people to <code>docker login</code> when nothing is wrong with their credentials at all.</p>
+            <p>Start with the non-destructive checks. Open the repository in the registry's web UI (Docker Hub, the GitHub <em>Packages</em> tab, Quay) and confirm both that it exists and what its visibility is set to &mdash; that answers "public or private" without touching your local session. To probe a reference without downloading layers, <code>docker manifest inspect</code> queries the registry directly:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Resolve the reference against the registry without pulling the image
+$ docker manifest inspect ghcr.io/yourorg/myapp:1.4.0</code></pre>
+            </div>
+            <p>If you still need to prove public access independently, you <em>can</em> temporarily log out and retry &mdash; just know this clears your saved credentials for that host, so log back in afterwards:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Optional diagnostic — clears saved credentials for that registry.
+# $ docker logout ghcr.io
+# $ docker pull ghcr.io/yourorg/myapp:1.4.0</code></pre>
+            </div>
+            <p>If the pull <em>succeeds</em> while logged out, the image is public and your problem was never authentication &mdash; recheck the exact spelling and tag you used originally. If it fails logged out and you're confident the reference is right, the repository is private: continue to Cause 3.</p>
+            <p>Watch for the near-misses that survive a casual read: a hyphen versus an underscore, a trailing space pasted from a chat message, <code>:lastest</code>, or an organization name that differs from the GitHub organization by one character.</p>
+
+            <h3>What each reference form actually resolves to</h3>
+            <p>Every short name is expanded before it leaves your machine. Reading the expansion is usually enough to spot the mistake:</p>
+            <table>
+                <thead><tr><th>What you type</th><th>What Docker actually requests</th></tr></thead>
+                <tbody>
+                    <tr><td><code>myapp</code></td><td><code>docker.io/library/myapp:latest</code> &mdash; official images only</td></tr>
+                    <tr><td><code>youruser/myapp</code></td><td><code>docker.io/youruser/myapp:latest</code> &mdash; your Docker Hub repo</td></tr>
+                    <tr><td><code>ghcr.io/yourorg/myapp</code></td><td><code>ghcr.io/yourorg/myapp:latest</code> &mdash; no rewriting; needs a GHCR login</td></tr>
+                    <tr><td><code>myapp:1.4.0</code></td><td><code>docker.io/library/myapp:1.4.0</code> &mdash; still <code>library/</code>; the tag changes nothing</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Cause 3: logged in to the wrong registry</h2>
+            <p>Docker stores credentials <strong>per registry host</strong>. A successful <code>docker login</code> to Docker Hub grants nothing on <code>ghcr.io</code>, <code>quay.io</code>, or a cloud registry &mdash; and because the failure message never mentions which host was refused, it's easy to be logged in and still denied. Log in to the specific host:</p>
+            <table>
+                <thead><tr><th>Registry</th><th>Login command</th></tr></thead>
+                <tbody>
+                    <tr><td>Docker Hub</td><td><code>docker login</code></td></tr>
+                    <tr><td>GitHub Container Registry</td><td><code>docker login ghcr.io -u YOUR_USERNAME</code> &mdash; password is a PAT with <code>read:packages</code></td></tr>
+                    <tr><td>Quay</td><td><code>docker login quay.io</code></td></tr>
+                    <tr><td>Amazon ECR</td><td><code>aws ecr get-login-password --region REGION | docker login --username AWS --password-stdin ACCOUNT.dkr.ecr.REGION.amazonaws.com</code></td></tr>
+                    <tr><td>Google Artifact Registry</td><td><code>gcloud auth configure-docker REGION-docker.pkg.dev</code></td></tr>
+                </tbody>
+            </table>
+            <p>Use an access token rather than your account password wherever the registry supports it &mdash; tokens are scopeable and revocable, and on Docker Hub a password won't work at all once two-factor authentication is enabled. Pipe it from stdin so it never lands in your shell history:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_USERNAME --password-stdin
+Login Succeeded</code></pre>
+            </div>
+            <p><code>Login Succeeded</code> is the confirmation you want &mdash; note it proves the credentials are valid, not that they can read the specific repository, which is Cause 4.</p>
+
+            <h2>Cause 4: authenticated, but without access</h2>
+            <p>If you're definitely logged in to the right host and the reference is definitely correct, the account simply can't see that repository. Check, in roughly this order: that the token's scopes include read access to packages or the registry; that your user is a member of the owning organization or team; that the repository's visibility is what you think it is; and for GHCR specifically, that the package is actually linked to the repository whose permissions you're relying on.</p>
+            <p>Cloud registries add an IAM layer on top of the Docker login &mdash; an ECR pull can fail with this message even after <code>Login Succeeded</code> when the IAM principal lacks <code>ecr:BatchGetImage</code>. The Docker-level credential and the cloud-level authorization are two separate gates.</p>
+
+            <h2>The CI variant: the same causes, with no saved credentials</h2>
+            <p>This isn't a fifth cause &mdash; it's causes 3 and 4 showing up in an environment that never logged in. Your workstation has credentials cached from a login you did months ago; a fresh CI runner starts with nothing. Add an explicit login step before anything that pulls or builds from a private image:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># GitHub Actions — log in to GHCR before build/pull steps
+- name: Log in to GHCR
+  uses: docker/login-action@v3
+  with:
+    registry: ghcr.io
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}</code></pre>
+            </div>
+            <p><strong>The built-in <code>GITHUB_TOKEN</code> has a real limit here.</strong> It can read and write packages owned by <em>the same repository</em>, but it will not reach a package in another repository or organization, or one that was never linked to a repository &mdash; which is exactly the Cause 4 situation reappearing in CI. For cross-repo or cross-org images, store a PAT with <code>read:packages</code> as a repository or organization secret and use that as the <code>password</code> instead of the automatic token.</p>
+            <p>A CI job that used to pass and now fails with this message usually means a rotated or expired token, or a base image that flipped from public to private &mdash; not a change in your Dockerfile. If the failure is on <code>docker push</code> rather than a pull, you'll typically see the shorter <code>denied: requested access to the resource is denied</code>, which points at write permission specifically.</p>
+
+            <h2>Lookalike registry errors</h2>
+            <table>
+                <thead><tr><th>Message</th><th>What it means</th><th>Fix</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>pull access denied &hellip; may require 'docker login'</strong> (this page)</td><td>Repo is missing <em>or</em> unreadable &mdash; deliberately indistinguishable</td><td>Work the decision tree above</td></tr>
+                    <tr><td><code>manifest for X:tag not found</code></td><td>Repo <em>is</em> readable; that tag doesn't exist</td><td>Fix the tag &mdash; credentials are fine</td></tr>
+                    <tr><td><code>denied: requested access to the resource is denied</code> (on push)</td><td>Authenticated, but no write permission</td><td>Check push rights / repo ownership</td></tr>
+                    <tr><td><code>unauthorized: incorrect username or password</code></td><td>The <code>docker login</code> itself failed</td><td>Use a token, not a password (required with 2FA)</td></tr>
+                    <tr><td><code>toomanyrequests: You have reached your pull rate limit</code></td><td>Docker Hub rate limit &mdash; not an auth failure</td><td>Authenticate to raise the limit, or wait</td></tr>
+                </tbody>
+            </table>
+            <p>The rate-limit one is worth recognising on sight: anonymous pulls from Docker Hub are capped, so an unauthenticated CI job that pulls a public base image can start failing purely from volume. Logging in fixes it &mdash; but it's a quota problem, not a permissions problem.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the resolved reference in the error &mdash; a bare name became <code>docker.io/library/&lt;name&gt;</code></li>
+                <li>&#10003; Fully qualify the image: <code>registry/namespace/image:tag</code></li>
+                <li>&#10003; Re-read the name and tag character by character &mdash; typos look identical to permission failures here</li>
+                <li>&#10003; Test public reachability: <code>docker logout &lt;registry&gt;</code> then pull again</li>
+                <li>&#10003; Log in to the <em>specific host</em> &mdash; a Docker Hub login doesn't cover <code>ghcr.io</code> or <code>quay.io</code></li>
+                <li>&#10003; Use a scoped access token via <code>--password-stdin</code>, never a bare password</li>
+                <li>&#10003; Still denied after <code>Login Succeeded</code>? Check token scopes, org membership, and (for ECR/GCR) the cloud IAM policy</li>
+                <li>&#10003; CI-only failure? Add an explicit login step; suspect a rotated token or a base image that went private</li>
+                <li>&#10003; Check which hosts you're authenticated to &mdash; but note that with a credential helper configured (<code>credsStore</code>, the Docker Desktop default) <code>~/.docker/config.json</code> holds helper references rather than an <code>auths</code> list, so an empty-looking file does <em>not</em> mean you're logged out. Confirm via the helper or <code>docker system info</code>, and don't paste that file into a public issue or log</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Why does Docker say the repository does not exist OR may require login?</summary>
+                    <p>Because the registry deliberately returns the same response for both cases. If it distinguished a missing repository from a private one, anyone could probe for the existence of private image names. That ambiguity is a privacy feature, not a vague error message &mdash; which is why you have to rule the causes out yourself rather than reading the answer off the message.</p>
+                </details>
+                <details>
+                    <summary>Why does pulling my own image fail when the name looks right?</summary>
+                    <p>An unqualified name expands to the official-images namespace on Docker Hub: <code>docker pull myapp</code> becomes <code>docker.io/library/myapp</code>, and <code>library/</code> holds only Docker's curated official images. Your own image lives under your username or organization, so it must be pulled as <code>docker.io/youruser/myapp</code> &mdash; or with the registry included for anything not on Docker Hub, such as <code>ghcr.io/yourorg/myapp</code>.</p>
+                </details>
+                <details>
+                    <summary>How do I know whether an image is public or I just lack access?</summary>
+                    <p>Try the pull with no credentials in play. Run <code>docker logout</code> for that registry and pull again: if it succeeds logged out, the image is public and your original problem was elsewhere &mdash; usually the name or tag. If it fails logged out but the name is definitely right, the repository is private and you need credentials that can see it.</p>
+                </details>
+                <details>
+                    <summary>Does docker login cover every registry?</summary>
+                    <p>No. Credentials are stored per registry host, so logging in to Docker Hub does nothing for GitHub Container Registry, Quay, ECR, or Artifact Registry. You must run <code>docker login</code> against the specific host &mdash; for example <code>docker login ghcr.io</code> &mdash; and cloud registries usually issue short-lived tokens through their own CLI instead, such as <code>aws ecr get-login-password</code> piped into <code>docker login</code>.</p>
+                </details>
+                <details>
+                    <summary>It works locally but fails in CI — why?</summary>
+                    <p>Your machine has credentials saved from an earlier <code>docker login</code>; a fresh CI runner has none. Add an explicit login step before any build or pull that touches a private image, using a token from your CI secret store rather than a password. Expired or rotated tokens produce the same failure on a runner that used to work.</p>
+                </details>
+                <details>
+                    <summary>Is this the same as 'toomanyrequests' or 'manifest not found'?</summary>
+                    <p>No &mdash; those are distinct failures with distinct fixes. A <code>toomanyrequests</code> error means you hit Docker Hub's pull rate limit and should authenticate or wait, not that access was denied. A <code>manifest not found</code> error means the repository was readable but the specific tag does not exist, so the fix is correcting the tag rather than your credentials.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Docker errors &amp; tools</h3>
+                <p>Browse the Docker error cluster, or analyse a Dockerfile for size, caching, and security issues.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../docker-image-optimizer.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker Image Optimizer</a>
+                    <a href="docker-cannot-connect-to-daemon.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Docker: cannot connect to the daemon</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-cannot-connect-to-daemon.html">Docker: Cannot connect to the Docker daemon</a> &mdash; the daemon isn't reachable at all, before any registry call</li>
+                <li><a href="docker-permission-denied-daemon-socket.html">Docker: permission denied on the daemon socket</a> &mdash; a local Unix permission problem, not a registry one</li>
+                <li><a href="docker-exec-format-error.html">Docker: exec format error</a> &mdash; the image pulled fine but was built for another architecture</li>
+                <li><a href="docker-no-space-left-on-device.html">Docker: no space left on device</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../docker-image-optimizer.html">Docker Image Optimizer</a> &mdash; paste a Dockerfile, get size and security fixes</li>
+                <li><a href="../blog/docker-image-optimizer-guide.html">How to Optimize a Docker Image</a></li>
+                <li><a href="../deployment-readiness-checker.html">Deployment Readiness Checker</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
