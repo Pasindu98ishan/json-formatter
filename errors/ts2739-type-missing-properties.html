@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2739: Type 'X' is missing the following properties from type 'Y' — add the fields, mark them optional, use Partial or Pick, or fix the wrong object. Also TS2741.">
+    <meta name="keywords" content="TS2739, type is missing the following properties from type, typescript missing properties, Partial typescript, TS2741, typescript object literal missing property, required vs optional properties">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2739-type-missing-properties.html">
+    <meta property="og:title" content="TS2739: Type 'X' is missing the following properties from type 'Y'">
+    <meta property="og:description" content="TypeScript compared two shapes and yours came up short. Add the fields, mark them optional, use Partial&lt;T&gt;, or fix the object you're really passing — plus how TS2739 differs from TS2741.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2739-type-missing-properties.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2739: Type 'X' is missing the following properties from type 'Y'</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2739: Type is missing properties", "item": "https://jsondevtools.org/errors/ts2739-type-missing-properties.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2739: Type 'X' is missing the following properties from type 'Y' — Cause and Fix",
+  "description": "TypeScript raises TS2739 when an object is assigned to a type that requires properties it does not have. This reference covers the four real fixes — supply the fields, mark them optional, use Partial or Pick, or correct the object you are actually passing — plus the TS2739 vs TS2741 split and why an as cast is the wrong tool.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-12",
+  "dateModified": "2026-08-12",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does TS2739 mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TypeScript compared the shape of the value you supplied against the shape the target type requires, and yours is missing at least two required properties — the message names them. It is a structural check: TypeScript does not care what the value is called or where it came from, only whether it has every required property with a compatible type."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between TS2739 and TS2741?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are the same structural check, reported differently depending on how much is missing. TS2741 is commonly used when a single required property is missing and reads 'Property x is missing in type A but required in type B'. TS2739 is typically reported when multiple properties are missing and lists them together as 'missing the following properties'. Which code you get is not a contracted rule and can vary by TypeScript version, but it rarely matters: the cause and the fixes are identical either way."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I make properties optional so the error goes away?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Add a question mark to the property in the interface — name?: string — which makes it legal to omit but also makes its type string | undefined everywhere it is read. Do this only when the field is genuinely optional in your domain. If it is required but simply not available yet at this point in the code, making it optional pushes undefined checks onto every consumer rather than fixing the real gap."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I use 'as' to silence TS2739?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. An as assertion tells the compiler to stop checking, but the properties are still absent at run time, so the first read of a missing field yields undefined and usually crashes downstream. The error is reporting a real gap between the data you have and the data the type promises. Use Partial, Pick, or a correct object instead, and reserve as for cases where you genuinely know more than the compiler."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get TS2739 when assigning an empty object?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An empty object literal has none of the required properties, so every one of them is reported at once — this is the most common way to trigger TS2739 rather than its single-property sibling TS2741. If you need to start empty and fill the object in later, type the variable as Partial<T> while building it and convert to T once it is complete, so the compiler tracks the gap instead of ignoring it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does TS2739 mention properties I did not think were required?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Every property in an interface is required unless it carries a question mark, so fields you think of as having defaults are still mandatory to the type system unless declared optional. This also surfaces when a library updates and adds required fields to a type you were already constructing — the object did not change, but the contract it must satisfy did."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2739: Type is missing properties</span>
+            </nav>
+            <h1>TS2739: Type 'X' is missing properties from type 'Y'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Your object doesn't have every property the target type requires. The compiler lists exactly which ones. Pick the fix that matches the truth:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li><strong>They belong there</strong> &mdash; add the missing properties.</li>
+                    <li><strong>They're genuinely optional</strong> &mdash; mark them <code>?</code> in the interface.</li>
+                    <li><strong>You only ever have a subset</strong> &mdash; type it <code>Partial&lt;T&gt;</code> or <code>Pick&lt;T, ...&gt;</code>.</li>
+                    <li><strong>Wrong object</strong> &mdash; you're passing something that was never meant to satisfy this type.</li>
+                </ul>
+                <p style="margin:0.5rem 0 0;">Don't reach for <code>as</code> &mdash; it hides the gap without filling it.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>interface User {
+  id: number;
+  name: string;
+  email: string;
+  createdAt: Date;
+}
+
+const u: User = { id: 1, name: "Ada" };
+
+// error TS2739: Type '{ id: number; name: string; }' is missing the following
+// properties from type 'User': email, createdAt
+
+// With exactly ONE property missing you get the singular sibling instead:
+//
+// error TS2741: Property 'createdAt' is missing in type
+// '{ id: number; name: string; email: string; }' but required in type 'User'.</code></pre>
+            </div>
+
+            <p>TypeScript compared two <em>shapes</em> and yours came up short. This is structural typing at work: the compiler doesn't care what your value is called or where it came from &mdash; only whether it carries every required property, at a compatible type. The message is unusually cooperative here, because it names the exact missing fields; the work is deciding <em>which</em> of the four fixes below reflects reality.</p>
+
+            <h2>TS2739 vs TS2741 &mdash; the same check, counted differently</h2>
+            <p>These two codes confuse people into thinking they're different problems. They aren't &mdash; it's one structural check, and which code you see generally tracks how many properties are missing:</p>
+            <table>
+                <thead><tr><th>Code</th><th>Typically reported when</th><th>Wording</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>TS2741</strong></td><td>A <strong>single</strong> required property is missing</td><td>"Property 'x' is missing in type A but required in type B"</td></tr>
+                    <tr><td><strong>TS2739</strong> (this page)</td><td><strong>Multiple</strong> required properties are missing</td><td>"missing the following properties from type 'Y': a, b"</td></tr>
+                </tbody>
+            </table>
+            <p>Treat that as the usual pattern rather than a guaranteed rule &mdash; which diagnostic the compiler picks isn't a contracted behaviour, and it can differ by TypeScript version and by the assignability context the check runs in. It doesn't matter much in practice, because the cause and the fixes are the same either way.</p>
+            <p>Same cause, same fixes &mdash; only the count and the phrasing change. If you fix one missing field out of three, TS2739 remains while two are still missing. Once only one required property remains, the diagnostic changes to TS2741. That progression is normal and not a sign you've made things worse.</p>
+
+            <h2>The same error in other positions</h2>
+            <p>Every example here assigns to a typed <code>const</code>, but that's just the tidiest way to show it. The check runs anywhere a value flows into a typed slot, so a function return and an array element fail identically:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Function return — checked against the declared return type
+function makeUser(): User {
+  return { id: 1, name: "Ada" };        // ❌ TS2739: missing email, createdAt
+}
+
+// Array element — checked against the element type
+const users: User[] = [{ id: 1, name: "Ada" }];   // ❌ same error
+
+// Also: function arguments, though those usually surface as TS2345</code></pre>
+            </div>
+            <p>Same cause, same four fixes below &mdash; only the position differs. Worth recognising because the error text names the shapes rather than the location, so a return-position failure reads exactly like the assignment ones.</p>
+
+            <h2>Fix 1: supply the missing properties</h2>
+            <p>The default answer, and the right one whenever the fields genuinely belong on this object:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ const u: User = { id: 1, name: "Ada" };
+
+// ✅ every required property present
+const u: User = {
+  id: 1,
+  name: "Ada",
+  email: "ada@example.com",
+  createdAt: new Date(),
+};</code></pre>
+            </div>
+            <p>If the values genuinely aren't available at this point in the code, that's information &mdash; it usually means the type is wrong for this stage of the data's life, which is Fix 3.</p>
+
+            <h2>Fix 2: mark the properties optional</h2>
+            <p>If a field is legitimately not always present, say so in the type with <code>?</code>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>interface User {
+  id: number;
+  name: string;
+  email?: string;      // may be absent
+  createdAt?: Date;
+}
+
+const u: User = { id: 1, name: "Ada" };   // ✅ compiles</code></pre>
+            </div>
+            <p>Understand the trade before reaching for this: <code>email?: string</code> means the property's type is now <code>string | undefined</code> <em>everywhere it is read</em>, so every consumer needs a guard &mdash; and skipping that guard is how you end up at <a href="ts18048-value-possibly-undefined.html">TS18048: 'x' is possibly 'undefined'</a>. Marking a field optional purely to silence this error moves the problem downstream and multiplies it across every call site.</p>
+            <p>The honest test: would a reviewer agree this field is sometimes legitimately absent in your domain? If yes, optional is correct. If it's really "required, but I don't have it <em>yet</em>", use Fix 3.</p>
+
+            <h2>Fix 3: model a partial object with <code>Partial&lt;T&gt;</code> or <code>Pick&lt;T, ...&gt;</code></h2>
+            <p>This is the fix for the extremely common case of building an object up in stages, or accepting a subset for an update:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Building up in stages — every field optional while incomplete
+const draft: Partial&lt;User&gt; = {};
+draft.id = 1;
+draft.name = "Ada";
+// ... later, once complete:
+const u: User = { ...draft, email: "ada@example.com", createdAt: new Date() };
+
+// A function that only needs some fields — say exactly which
+function label(user: Pick&lt;User, "id" | "name"&gt;) {
+  return `#${user.id} ${user.name}`;
+}
+label({ id: 1, name: "Ada" });   // ✅ no email/createdAt required
+
+// A patch payload — all fields optional except the identifier
+type UserPatch = Partial&lt;User&gt; &amp; { id: number };</code></pre>
+            </div>
+            <p><code>Pick</code> is the sharper tool of the two: it states positively which fields the code needs, so a reader knows the contract without checking the implementation, and adding a required field to <code>User</code> later won't break the function. <code>Partial&lt;T&gt;</code> makes <em>everything</em> optional, which is right for drafts and patches but too loose as a general-purpose escape from this error.</p>
+
+            <h2>Fix 4: you're passing the wrong object</h2>
+            <p>Sometimes the error is correct and the fix is neither the type nor the object literal &mdash; you're simply handing over the wrong value. Two shapes of this are worth recognising:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// A response envelope, where the payload is one level down
+const res = await fetch("/api/user");
+const body = await res.json();          // any
+
+// ❌ the envelope isn't a User — it CONTAINS one
+// const u: User = body;
+
+// ✅
+const u: User = body.data;
+
+// A DTO that only resembles the domain type
+interface UserRow { id: number; full_name: string; }   // snake_case from SQL
+// ❌ const u: User = row;   → missing name, email, createdAt
+// ✅ map it explicitly
+const u: User = {
+  id: row.id,
+  name: row.full_name,
+  email: row.email,
+  createdAt: new Date(row.created_at),
+};</code></pre>
+            </div>
+            <p>The API-envelope version is the one that catches people most often, and it's worth pausing on: <code>res.json()</code> returns <code>any</code>, so nothing is checked until you assign it to a typed variable &mdash; which is exactly where TS2739 finally surfaces the mismatch. That late detection is a feature; the alternative is discovering it as <a href="cannot-read-properties-of-undefined.html">Cannot read properties of undefined</a> at run time. If you're shaping TypeScript interfaces from real API responses, our <a href="../json-to-typescript.html">JSON to TypeScript converter</a> generates the interface from a sample payload so the shape matches what the server actually sends.</p>
+
+            <h2>Why <code>as</code> is the wrong tool</h2>
+            <p>It's tempting, it compiles, and it's the one fix that makes things worse:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ compiles, then explodes at run time
+// const u = { id: 1, name: "Ada" } as User;
+// u.email.toLowerCase();   → TypeError: Cannot read properties of undefined
+
+// ✅ if you truly must start incomplete, keep the gap visible
+const draft: Partial&lt;User&gt; = { id: 1, name: "Ada" };</code></pre>
+            </div>
+            <p>An assertion tells the compiler to stop checking; it does not create the properties. <code>u.email</code> is still <code>undefined</code> at run time, so you've converted a compile-time error you could see into a runtime crash you can't. Reserve <code>as</code> for cases where you genuinely know more than the compiler &mdash; and a missing property is the opposite of that.</p>
+
+            <h2>Related assignability errors</h2>
+            <table>
+                <thead><tr><th>Code</th><th>What failed</th><th>Typical fix</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>TS2739</strong> / TS2741 (this page)</td><td>Required properties are absent</td><td>Add them, mark optional, or use <code>Partial</code>/<code>Pick</code></td></tr>
+                    <tr><td><a href="ts2322-type-not-assignable.html">TS2322</a></td><td>Properties present but a <em>type</em> mismatches</td><td>Fix the value's type, or widen the target</td></tr>
+                    <tr><td><a href="ts2345-argument-not-assignable.html">TS2345</a></td><td>The same mismatch, on a function argument</td><td>Fix the argument or the parameter type</td></tr>
+                    <tr><td><a href="ts2339-property-does-not-exist.html">TS2339</a></td><td>Reading a property the type doesn't declare &mdash; the inverse</td><td>Add it to the type, or narrow first</td></tr>
+                </tbody>
+            </table>
+            <p>Useful shortcut when triaging: TS2739 is about what's <em>absent</em> from a value you're supplying, while TS2339 is about what's absent from a type you're <em>reading</em>. Same structural engine, opposite directions.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the listed property names &mdash; the compiler already told you exactly what's missing</li>
+                <li>&#10003; Do those fields belong on this object? Then add them (Fix 1)</li>
+                <li>&#10003; Are they legitimately sometimes-absent? Mark them <code>?</code> &mdash; and expect <code>| undefined</code> at every read site</li>
+                <li>&#10003; Building the object in stages? Use <code>Partial&lt;T&gt;</code> while incomplete</li>
+                <li>&#10003; Function only needs some fields? Declare <code>Pick&lt;T, "a" | "b"&gt;</code> instead of the whole type</li>
+                <li>&#10003; Coming from an API? Check whether the payload is nested (<code>body.data</code>, not <code>body</code>)</li>
+                <li>&#10003; Started after a dependency upgrade? A library type may have gained required fields</li>
+                <li>&#10003; Resist <code>as</code> &mdash; it converts a compile error into a runtime <code>undefined</code></li>
+                <li>&#10003; Only one field missing? That's TS2741 &mdash; same page, same fixes</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does TS2739 mean?</summary>
+                    <p>TypeScript compared the shape of the value you supplied against the shape the target type requires, and yours is missing at least two required properties &mdash; the message names them. It is a structural check: TypeScript does not care what the value is called or where it came from, only whether it has every required property with a compatible type.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between TS2739 and TS2741?</summary>
+                    <p>They are the same structural check, reported differently depending on how much is missing. TS2741 is commonly used when a single required property is missing and reads "Property 'x' is missing in type A but required in type B". TS2739 is typically reported when multiple properties are missing and lists them together as "missing the following properties". Which code you get is not a contracted rule and can vary by TypeScript version, but it rarely matters: the cause and the fixes are identical either way.</p>
+                </details>
+                <details>
+                    <summary>How do I make properties optional so the error goes away?</summary>
+                    <p>Add a question mark to the property in the interface &mdash; <code>name?: string</code> &mdash; which makes it legal to omit but also makes its type <code>string | undefined</code> everywhere it is read. Do this only when the field is genuinely optional in your domain. If it is required but simply not available yet at this point in the code, making it optional pushes <code>undefined</code> checks onto every consumer rather than fixing the real gap.</p>
+                </details>
+                <details>
+                    <summary>Should I use 'as' to silence TS2739?</summary>
+                    <p>No. An <code>as</code> assertion tells the compiler to stop checking, but the properties are still absent at run time, so the first read of a missing field yields <code>undefined</code> and usually crashes downstream. The error is reporting a real gap between the data you have and the data the type promises. Use <code>Partial</code>, <code>Pick</code>, or a correct object instead, and reserve <code>as</code> for cases where you genuinely know more than the compiler.</p>
+                </details>
+                <details>
+                    <summary>Why do I get TS2739 when assigning an empty object?</summary>
+                    <p>An empty object literal has none of the required properties, so every one of them is reported at once &mdash; this is the most common way to trigger TS2739 rather than its single-property sibling TS2741. If you need to start empty and fill the object in later, type the variable as <code>Partial&lt;T&gt;</code> while building it and convert to <code>T</code> once it is complete, so the compiler tracks the gap instead of ignoring it.</p>
+                </details>
+                <details>
+                    <summary>Why does TS2739 mention properties I did not think were required?</summary>
+                    <p>Every property in an interface is required unless it carries a question mark, so fields you think of as having defaults are still mandatory to the type system unless declared optional. This also surfaces when a library updates and adds required fields to a type you were already constructing &mdash; the object did not change, but the contract it must satisfy did.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>Generate the interface from real JSON</h3>
+                <p>If you're hand-writing types for an API payload, paste a sample response and get the interface &mdash; shapes match what the server actually sends.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../json-to-typescript.html" class="btn btn-primary">JSON to TypeScript</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts2322-type-not-assignable.html">TS2322: Type 'X' is not assignable to type 'Y'</a> &mdash; the general assignability failure this is a special case of</li>
+                <li><a href="ts2345-argument-not-assignable.html">TS2345: Argument of type 'X' is not assignable</a> &mdash; the same mismatch at a call site</li>
+                <li><a href="ts2339-property-does-not-exist.html">TS2339: Property does not exist on type</a> &mdash; the inverse: reading a property the type lacks</li>
+                <li><a href="ts18048-value-possibly-undefined.html">TS18048: 'x' is possibly 'undefined'</a> &mdash; what you get after marking fields optional</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/json-to-typescript.html">How to Convert JSON to TypeScript Interfaces</a></li>
+                <li><a href="../json-validator.html">JSON Validator</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

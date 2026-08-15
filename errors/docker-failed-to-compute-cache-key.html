@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Docker: failed to compute cache key: not found — COPY paths resolve from the build context, not the Dockerfile's folder. Plus .dockerignore and multi-stage causes.">
+    <meta name="keywords" content="failed to compute cache key, failed to calculate checksum of ref, not found docker build, COPY failed file not found in build context, dockerignore excluded, docker build context, COPY --from multi-stage">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/docker-failed-to-compute-cache-key.html">
+    <meta property="og:title" content="Docker: failed to compute cache key — &quot;/file&quot;: not found">
+    <meta property="og:description" content="BuildKit couldn't find a file a COPY asked for. Almost always the build context, not the file: COPY resolves from the context root, not the Dockerfile's directory.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/docker-failed-to-compute-cache-key.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Docker: failed to compute cache key — "/file": not found</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "Docker: failed to compute cache key", "item": "https://jsondevtools.org/errors/docker-failed-to-compute-cache-key.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Docker: failed to compute cache key: failed to calculate checksum of ref — \"/file\": not found — Cause and Fix",
+  "description": "BuildKit reports this when a COPY or ADD names a path that is not in the build context. This reference explains that COPY resolves from the context root rather than the Dockerfile's directory, and covers the five causes: the wrong context argument, a -f Dockerfile in a subdirectory, .dockerignore exclusion, a file that is generated or gitignored, and a bad COPY --from path in a multi-stage build.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-12",
+  "dateModified": "2026-08-12",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does 'failed to compute cache key' mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "BuildKit hashes the files a COPY or ADD instruction references so it can decide whether that layer can be reused from cache. To hash a file it must first find it in the build context. When the path is not there, hashing fails and the build stops with this message. Despite the wording it is almost never a caching problem — the quoted path simply is not in the context."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does COPY not find a file that is clearly there?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "COPY source paths resolve from the build context root — the path you passed to docker build, usually the final dot — not from the directory containing the Dockerfile. If your Dockerfile lives in docker/ and you build with a context of dot, then COPY package.json means the package.json at the repository root, not the one beside the Dockerfile. The file exists; it is just not where the context says to look."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can COPY reach files outside the build context?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Only files inside the context are uploaded to the builder, so a source path containing .. that escapes the context root can never resolve. This is a deliberate boundary, not a bug. The fix is to widen the context — build from a parent directory and pass the Dockerfile with -f — or to restructure so everything the build needs lives inside one context."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does .dockerignore cause this error?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Files matched by .dockerignore are never sent to the builder, so as far as the build is concerned they do not exist — even though you can see them on disk. This is the most confusing version of the error because everything looks correct locally. Check .dockerignore for a pattern matching the missing path, including broad rules such as an asterisk followed by re-inclusions, which exclude far more than people expect."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it fail in CI but work on my machine?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Usually the file exists locally but was never committed, so it is absent from a fresh CI checkout — build output, a .env file, or anything covered by .gitignore. The other common cause is a build step that generates the file running after the Docker build in CI but before it locally. Confirm by checking whether git ls-files lists the path."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does COPY --from fail with the same message?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "With COPY --from the source path resolves inside the named stage or image, not in the build context, so the question becomes whether that path actually exists in that stage's filesystem. Common causes are a stage name typo, referencing a stage defined later in the file, or assuming an output directory that the build in that stage never produced. Run a shell in the earlier stage and list the directory to confirm what is really there."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Docker: failed to compute cache key</span>
+            </nav>
+            <h1>Docker: failed to compute cache key — "/file": not found</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Despite the name, this is almost never about caching. A <code>COPY</code> named a path that isn't in the <strong>build context</strong>:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li><strong><code>COPY</code> resolves from the context root</strong> (the <code>.</code> you passed to <code>docker build</code>) &mdash; <em>not</em> from the Dockerfile's folder.</li>
+                    <li><strong>Check <code>.dockerignore</code></strong> &mdash; an excluded file is invisible to the build even though it's on disk.</li>
+                    <li><strong><code>..</code> can't escape the context</strong> &mdash; widen the context instead.</li>
+                    <li><strong><code>COPY --from</code></strong> resolves inside that <em>stage</em>, not the context.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker build -t myapp .
+ =&gt; ERROR [4/8] COPY package.json ./
+------
+ &gt; [4/8] COPY package.json ./:
+------
+failed to solve: failed to compute cache key: failed to calculate checksum
+of ref abc123::xyz: "/package.json": not found
+
+// The legacy (non-BuildKit) builder says the same thing far more plainly —
+// and names the second-most-common cause outright:
+//
+// COPY failed: file not found in build context or excluded by .dockerignore:
+// stat package.json: file does not exist</code></pre>
+            </div>
+
+            <p>If Docker reports <code>failed to compute cache key: failed to calculate checksum of ref &hellip; "/file": not found</code>, the problem is almost always that the file isn't in the build context &mdash; not that anything is wrong with your cache. The wording is unhelpful in a specific way: it describes the <em>step that failed</em> (hashing a file to decide whether the layer can be reused) rather than the <em>reason</em> (the file isn't there to hash). Read past "cache key" &mdash; the useful part is the quoted path at the end and the <code>COPY</code> line above it. The legacy builder's message is the better mental model, because it names both causes at once: <strong>not in the build context, or excluded by <code>.dockerignore</code></strong>.</p>
+
+            <h2>The one concept that explains most of these</h2>
+            <p><code>COPY</code> source paths are resolved from the <strong>build context root</strong> &mdash; the path you pass as the final argument to <code>docker build</code> &mdash; and never from the directory the Dockerfile happens to live in. Only files inside that context are uploaded to the builder; everything else may as well not exist.</p>
+            <p>Everything on this page applies equally to <code>ADD</code>, which resolves local source paths the same way and fails with the same message.</p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 620 330" role="img" aria-label="Diagram showing how Docker COPY paths resolve. The command docker build -f docker/Dockerfile dot sets the build context to the current directory. A dashed boundary encloses the repository root containing package.json, src, and a docker folder holding the Dockerfile — everything inside that boundary is uploaded to the builder. A sibling directory outside the boundary is unreachable. Therefore COPY package.json resolves to context slash package.json and succeeds, while COPY dot dot slash shared slash lib points outside the context and always fails.">
+                    <defs>
+                        <marker id="dcck-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                    </defs>
+
+                    <text class="dg-t" x="8" y="16" text-anchor="start">COPY resolves from the build context &mdash; not the Dockerfile's folder</text>
+
+                    <rect class="dg-box-muted" x="20" y="30" width="580" height="30" rx="6"/>
+                    <text class="dg-m" x="32" y="50" text-anchor="start">docker build -f docker/Dockerfile .</text>
+                    <text class="dg-s dg-ok" x="590" y="50" text-anchor="end">context root = "."</text>
+
+                    <rect x="30" y="78" width="330" height="128" rx="6" style="fill:none;stroke:var(--dg-line);stroke-dasharray:5 4;stroke-width:1.5"/>
+                    <text class="dg-s" x="40" y="94" text-anchor="start">uploaded to the builder</text>
+                    <text class="dg-m" x="48" y="116" text-anchor="start">myrepo/</text>
+                    <text class="dg-m" x="66" y="134" text-anchor="start">package.json</text>
+                    <text class="dg-m" x="66" y="152" text-anchor="start">src/</text>
+                    <text class="dg-m" x="66" y="170" text-anchor="start">docker/</text>
+                    <text class="dg-m" x="84" y="188" text-anchor="start">Dockerfile</text>
+
+                    <text class="dg-m" x="400" y="116" text-anchor="start">../shared/</text>
+                    <text class="dg-s dg-bad" x="400" y="136" text-anchor="start">outside the context &mdash;</text>
+                    <text class="dg-s dg-bad" x="400" y="150" text-anchor="start">never uploaded, never</text>
+                    <text class="dg-s dg-bad" x="400" y="164" text-anchor="start">reachable by COPY</text>
+
+                    <line class="dg-ln" x1="195" y1="206" x2="195" y2="224" marker-end="url(#dcck-a)"/>
+
+                    <rect class="dg-box-ok" x="30" y="230" width="560" height="30" rx="6"/>
+                    <text class="dg-m" x="42" y="250" text-anchor="start">COPY package.json ./</text>
+                    <text class="dg-s dg-ok" x="578" y="250" text-anchor="end">&rarr; &lt;context&gt;/package.json &nbsp;&#10003;</text>
+
+                    <rect class="dg-box-bad" x="30" y="268" width="560" height="30" rx="6"/>
+                    <text class="dg-m" x="42" y="288" text-anchor="start">COPY ../shared/lib ./</text>
+                    <text class="dg-s dg-bad" x="578" y="288" text-anchor="end">&rarr; escapes the context &nbsp;&#10007;</text>
+
+                    <text class="dg-s" x="310" y="318" text-anchor="middle">Moving the Dockerfile changes nothing. Only the context argument moves the root.</text>
+                </svg>
+                <p class="dg-cap">The Dockerfile's location is irrelevant to <code>COPY</code> resolution &mdash; <code>-f</code> only says which file to read. The final argument to <code>docker build</code> is what sets the root, and nothing outside it is uploaded.</p>
+            </div>
+
+            <h2>Cause 1: the Dockerfile is in a subdirectory</h2>
+            <p>The classic. Your Dockerfile sits in <code>docker/</code> and its <code>COPY</code> lines are written as if paths were relative to itself:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># myrepo/docker/Dockerfile, built with:  docker build -f docker/Dockerfile .
+
+# ❌ package.json sits beside the Dockerfile, in docker/
+# COPY package.json ./
+
+# ✅ spell it from the context root
+COPY docker/package.json ./</code></pre>
+            </div>
+            <p>The mirror-image mistake is just as common: the file <em>is</em> at the repo root, but you build with <code>docker build docker/</code>, which shrinks the context so the root file now sits outside it. Pick where the context root should be first, then write every path relative to that.</p>
+
+            <h2>The same trap in Docker Compose</h2>
+            <p>Compose splits the two settings across separate keys, which makes it easy to assume <code>dockerfile:</code> is what matters. It isn't &mdash; <code>context:</code> is:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>services:
+  app:
+    build:
+      context: .                      # ← this sets the COPY root
+      dockerfile: docker/Dockerfile   # ← this only says which file to read</code></pre>
+            </div>
+            <p>With that config, <code>COPY package.json ./</code> looks for <code>&lt;project-root&gt;/package.json</code>, <em>not</em> <code>&lt;project-root&gt;/docker/package.json</code> &mdash; exactly as if you'd run <code>docker build -f docker/Dockerfile .</code> by hand. Note also that <code>context:</code> is relative to the Compose file's own location, so moving <code>compose.yaml</code> into a subdirectory silently moves the root along with it.</p>
+
+            <h2>Cause 2: <code>.dockerignore</code> is excluding it</h2>
+            <p>The most confusing version, because the file is plainly on disk and the path is plainly correct. Excluded files are never uploaded, so the build genuinely cannot see them:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># .dockerignore
+*                    # exclude everything...
+!src/                # ...then re-include only these
+!package.json
+
+# A Dockerfile line like `COPY tsconfig.json ./` now fails: tsconfig.json
+# was excluded by `*` and never re-included.</code></pre>
+            </div>
+            <p>Allowlist patterns (<code>*</code> followed by <code>!</code> re-inclusions) cause this far more often than plain denylists, because adding a new file to the repo silently leaves it excluded &mdash; the build breaks on a file you never touched.</p>
+            <p>Three cheap checks, in order, before anything clever:</p>
+            <ol>
+                <li><code>grep</code> your <code>.dockerignore</code> for anything that could match the path &mdash; and read the whole file, since a later <code>!</code> line may or may not re-include what an earlier rule excluded.</li>
+                <li>Confirm the context root you're actually building with (the final argument to <code>docker build</code>, or <code>context:</code> in Compose).</li>
+                <li>Re-read the <code>COPY</code> source character by character against the real path on disk.</li>
+            </ol>
+            <p><strong>Advanced: see exactly what the builder received.</strong> If those three don't settle it, build a throwaway image that copies the whole context and lists it &mdash; this reflects <code>.dockerignore</code> filtering precisely, with no guessing about pattern semantics:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Print the context as the builder sees it, honouring .dockerignore
+$ docker build --no-cache --progress=plain -f - . &lt;&lt;'EOF'
+FROM busybox
+COPY . /ctx
+RUN find /ctx -maxdepth 2 -not -path '*/.git/*'
+EOF</code></pre>
+            </div>
+            <p>If the missing file doesn't appear in that listing, <code>.dockerignore</code> is your answer &mdash; no further guessing needed.</p>
+
+            <h2>Cause 3: the path escapes the context with <code>..</code></h2>
+            <p>Sharing a library between two services and reaching "up and over" into it is the natural instinct, and it can never work:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ from a context of ./service-a, this points outside — always fails
+# COPY ../shared/lib ./lib
+
+# ✅ move the context up so both are inside it, and keep -f pointing at the file
+$ docker build -f service-a/Dockerfile -t service-a .
+# then, in the Dockerfile:
+COPY shared/lib ./lib
+COPY service-a/src ./src</code></pre>
+            </div>
+            <p>Widening the context has a cost worth knowing: everything inside it is uploaded to the builder on every build, so a repo-root context with large directories makes builds slow. Pair it with a <code>.dockerignore</code> that excludes <code>node_modules</code>, <code>.git</code>, build output, and anything else the image doesn't need &mdash; which is the same file that causes Cause 2, so keep the two in mind together.</p>
+
+            <h2>Cause 4: the file isn't committed (CI-only failures)</h2>
+            <p>Builds fine locally, fails on the runner. The usual explanation is that the file exists in your working tree but not in a fresh checkout:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Is the path actually tracked by git?
+$ git ls-files --error-unmatch dist/bundle.js
+error: pathspec 'dist/bundle.js' did not match any file(s) known to git</code></pre>
+            </div>
+            <p>Typical culprits are build output covered by <code>.gitignore</code>, a local <code>.env</code>, or generated code. The second flavour is ordering: a step that produces the file runs before <code>docker build</code> on your machine but after it in the pipeline. Either commit the file, generate it earlier in the pipeline, or produce it <em>inside</em> the Dockerfile so the build no longer depends on the host having run something first.</p>
+            <p><strong>The third flavour is case.</strong> macOS and Windows filesystems are case-insensitive by default, so <code>COPY Config.json ./</code> happily finds a file named <code>config.json</code> on your machine and fails on a case-sensitive Linux CI runner:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Local (macOS/Windows): resolves — the filesystem ignores case
+# CI (Linux):            "/Config.json": not found
+
+$ git ls-files config.json
+config.json          # ← tracked and present; the NAME is what's wrong</code></pre>
+            </div>
+            <p>This one is worth calling out separately because it slips past the <code>git ls-files</code> check above: the file is committed and present, so that test passes while the build still fails. Compare the exact casing in the <code>COPY</code> line against <code>git ls-files</code> output, which reports the name as recorded in the repository rather than as your local filesystem chooses to display it.</p>
+
+            <h2>Cause 5: <code>COPY --from</code> in a multi-stage build</h2>
+            <p>Here the rules change: with <code>--from</code>, the source path resolves inside the named stage's filesystem, not the build context. So "not found" means that path doesn't exist <em>in that stage</em>:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>FROM node:22-slim AS builder
+WORKDIR /app
+COPY . .
+RUN npm ci &amp;&amp; npm run build      # produces /app/dist
+
+FROM node:22-slim
+WORKDIR /app
+# ❌ wrong path inside the builder stage — build output is at /app/dist
+# COPY --from=builder /dist ./dist
+
+# ✅
+COPY --from=builder /app/dist ./dist</code></pre>
+            </div>
+            <p>Three things to check when <code>--from</code> fails: the stage name is spelled the same as its <code>AS</code> label; the stage is typically defined <em>earlier</em> in the file (BuildKit does resolve forward references in some cases, but ordering the stages conventionally removes the question); and the build in that stage actually produced the directory you're naming. For the third, stop at the earlier stage and look:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Build only the builder stage, then inspect what it really contains
+$ docker build --target builder -t myapp-builder .
+$ docker run --rm myapp-builder ls -la /app</code></pre>
+            </div>
+            <p>That <code>--target</code> trick is the fastest way to settle a multi-stage disagreement, and it works for any stage in the file. If the stage itself fails to start rather than the copy, see <a href="docker-oci-runtime-exec-not-found.html">executable file not found in $PATH</a>.</p>
+
+            <h2>Quick triage</h2>
+            <table>
+                <thead><tr><th>Symptom</th><th>Most likely cause</th><th>First check</th></tr></thead>
+                <tbody>
+                    <tr><td>Dockerfile is in a subfolder</td><td>Path written relative to the Dockerfile</td><td>Re-spell the path from the context root</td></tr>
+                    <tr><td>File is visibly on disk, path looks right</td><td><code>.dockerignore</code> exclusion</td><td>Grep <code>.dockerignore</code>; list the real context</td></tr>
+                    <tr><td>Source path contains <code>..</code></td><td>Escapes the context</td><td>Widen the context, use <code>-f</code></td></tr>
+                    <tr><td>Only fails in CI</td><td>File not committed, or generated later</td><td><code>git ls-files</code> on the path</td></tr>
+                    <tr><td>Only fails in CI, but the file <em>is</em> committed</td><td>Filename case &mdash; case-insensitive locally, not on Linux</td><td>Compare casing against <code>git ls-files</code> output</td></tr>
+                    <tr><td>Using Docker Compose</td><td><code>context:</code>, not <code>dockerfile:</code>, sets the root</td><td>Read <code>build.context</code> in the Compose file</td></tr>
+                    <tr><td>Line uses <code>--from=</code></td><td>Path wrong <em>inside that stage</em></td><td><code>--target</code> that stage and <code>ls</code></td></tr>
+                </tbody>
+            </table>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the quoted path and the <code>COPY</code> line above it &mdash; ignore the words "cache key"</li>
+                <li>&#10003; Identify your context root: the last argument to <code>docker build</code>, or <code>context:</code> in Compose</li>
+                <li>&#10003; Re-spell every <code>COPY</code> source relative to that root, not to the Dockerfile</li>
+                <li>&#10003; Search <code>.dockerignore</code> for a pattern matching the path &mdash; especially <code>*</code> allowlists</li>
+                <li>&#10003; List what the builder actually received (the <code>COPY . /ctx</code> + <code>find</code> trick above)</li>
+                <li>&#10003; Any <code>..</code> in the source path? It can't escape the context &mdash; widen the context instead</li>
+                <li>&#10003; CI-only? <code>git ls-files --error-unmatch &lt;path&gt;</code> to confirm it's committed</li>
+                <li>&#10003; CI-only but the file <em>is</em> tracked? Check the filename's casing &mdash; Linux is case-sensitive, your laptop probably isn't</li>
+                <li>&#10003; On Compose? <code>build.context</code> sets the root; <code>dockerfile:</code> only picks the file</li>
+                <li>&#10003; Using <code>--from</code>? Check the stage name, its position in the file, and what it really produced</li>
+                <li>&#10003; Rerun with <code>--progress=plain --no-cache</code> for unabridged output</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does 'failed to compute cache key' mean?</summary>
+                    <p>BuildKit hashes the files a <code>COPY</code> or <code>ADD</code> instruction references so it can decide whether that layer can be reused from cache. To hash a file it must first find it in the build context. When the path is not there, hashing fails and the build stops with this message. Despite the wording it is almost never a caching problem &mdash; the quoted path simply is not in the context.</p>
+                </details>
+                <details>
+                    <summary>Why does COPY not find a file that is clearly there?</summary>
+                    <p><code>COPY</code> source paths resolve from the build context root &mdash; the path you passed to <code>docker build</code>, usually the final dot &mdash; not from the directory containing the Dockerfile. If your Dockerfile lives in <code>docker/</code> and you build with a context of <code>.</code>, then <code>COPY package.json</code> means the <code>package.json</code> at the repository root, not the one beside the Dockerfile. The file exists; it is just not where the context says to look.</p>
+                </details>
+                <details>
+                    <summary>Can COPY reach files outside the build context?</summary>
+                    <p>No. Only files inside the context are uploaded to the builder, so a source path containing <code>..</code> that escapes the context root can never resolve. This is a deliberate boundary, not a bug. The fix is to widen the context &mdash; build from a parent directory and pass the Dockerfile with <code>-f</code> &mdash; or to restructure so everything the build needs lives inside one context.</p>
+                </details>
+                <details>
+                    <summary>How does .dockerignore cause this error?</summary>
+                    <p>Files matched by <code>.dockerignore</code> are never sent to the builder, so as far as the build is concerned they do not exist &mdash; even though you can see them on disk. This is the most confusing version of the error because everything looks correct locally. Check <code>.dockerignore</code> for a pattern matching the missing path, including broad rules such as an asterisk followed by re-inclusions, which exclude far more than people expect.</p>
+                </details>
+                <details>
+                    <summary>Why does it fail in CI but work on my machine?</summary>
+                    <p>Usually the file exists locally but was never committed, so it is absent from a fresh CI checkout &mdash; build output, a <code>.env</code> file, or anything covered by <code>.gitignore</code>. The other common cause is a build step that generates the file running after the Docker build in CI but before it locally. Confirm by checking whether <code>git ls-files</code> lists the path.</p>
+                </details>
+                <details>
+                    <summary>Why does COPY --from fail with the same message?</summary>
+                    <p>With <code>COPY --from</code> the source path resolves inside the named stage or image, not in the build context, so the question becomes whether that path actually exists in that stage's filesystem. Common causes are a stage name typo, referencing a stage defined later in the file, or assuming an output directory that the build in that stage never produced. Run a shell in the earlier stage and list the directory to confirm what is really there.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More Docker errors &amp; tools</h3>
+                <p>Browse the Docker error cluster, or analyse a Dockerfile for size, caching, and security issues.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../docker-image-optimizer.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Docker Image Optimizer</a>
+                    <a href="docker-pull-access-denied.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">Docker: pull access denied</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="docker-pull-access-denied.html">Docker: pull access denied for X</a> &mdash; fails at the <code>FROM</code> line, before any <code>COPY</code> runs</li>
+                <li><a href="docker-oci-runtime-exec-not-found.html">Docker: executable file not found in $PATH</a> &mdash; the image built, but the command inside it is missing</li>
+                <li><a href="docker-no-space-left-on-device.html">Docker: no space left on device</a> &mdash; the other everyday build-time failure</li>
+                <li><a href="docker-exec-format-error.html">Docker: exec format error</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../blog/docker-image-optimizer-guide.html">How to Optimize a Docker Image</a> &mdash; layer caching, <code>COPY</code> order, and <code>.dockerignore</code></li>
+                <li><a href="../deployment-readiness-checker.html">Deployment Readiness Checker</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

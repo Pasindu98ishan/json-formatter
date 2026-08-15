@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TS2366: Function lacks ending return statement and return type does not include 'undefined' — find the code path that falls through, and the four ways to close it.">
+    <meta name="keywords" content="TS2366, function lacks ending return statement, return type does not include undefined, typescript missing return, strictNullChecks, noImplicitReturns, typescript exhaustive switch never">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/ts2366-function-lacks-ending-return.html">
+    <meta property="og:title" content="TS2366: Function lacks ending return statement — Cause &amp; Fix">
+    <meta property="og:description" content="TypeScript found a path through your function that returns nothing. Find the fall-through branch, then close it with a default return, an else, a throw, or an exhaustive switch.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/ts2366-function-lacks-ending-return.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TS2366: Function lacks ending return statement — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TS2366: Function lacks ending return statement", "item": "https://jsondevtools.org/errors/ts2366-function-lacks-ending-return.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TS2366: Function lacks ending return statement and return type does not include 'undefined' — Cause and Fix",
+  "description": "TypeScript raises TS2366 under strictNullChecks when at least one path through a function reaches the end without returning. This reference covers finding the fall-through branch and the four ways to close it: a final return, an else, a throw, or an exhaustive switch with a never guard — plus why widening the return type to include undefined is usually the wrong fix.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-12",
+  "dateModified": "2026-08-15",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does TS2366 mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TypeScript traced every path through your function and found at least one that reaches the closing brace without hitting a return. On that path the function returns undefined at run time, which contradicts a declared return type that does not include undefined. It is a control-flow finding, not a typo — the compiler is telling you a real branch produces no value."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does TS2366 only appear with strictNullChecks on?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Without strictNullChecks, undefined is assignable to almost every type, so a path that falls through and yields undefined still satisfies a declared return type of string. Turning strictNullChecks on removes that blanket assignability, which is exactly what makes the missing path visible. The bug existed before you enabled the flag — it just was not reportable."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I just add undefined to the return type?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only if callers genuinely need to handle a no-value case. Changing the signature to string | undefined silences TS2366 but pushes an undefined check onto every caller, and skipping those checks produces TS18048 or a runtime crash instead. Prefer closing the gap inside the function with a default return or a throw, and widen the return type only when absence is a real, meaningful outcome."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my switch statement trigger TS2366 when I covered every case?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TypeScript only treats a switch as exhaustive when it can prove the tested value has no remaining possibilities. If the value is typed as string rather than a union of literals, infinitely many unmatched values exist, so a path reaches the closing brace without returning. Narrowing the parameter to a literal union is usually the whole fix — once the cases cover every member, the switch is exhaustive with no default clause at all. Adding a default that assigns the value to a never-typed variable is a separate benefit: it fails the build if someone adds a union member later and forgets this switch."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does TS2366 apply to async functions?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, and the rule is identical. An async function that falls off the end still returns a promise, but one that resolves to undefined — that is Promise<undefined>, which is not assignable to a declared Promise<string>. The Promise wrapper changes nothing about the control-flow analysis, and the same fixes apply: a final return, an explicit else, or a throw, which rejects the promise rather than resolving it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between TS2366 and noImplicitReturns?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TS2366 comes from strictNullChecks and fires only when the declared return type cannot accommodate undefined. The separate noImplicitReturns compiler option is stricter: it flags a function where at least one path returns a value and another reachable path returns nothing, even when the return type would allow undefined. A function that returns nothing on every path does not trigger it — the objection is to the mix. They overlap but are not the same check."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a throw or a loop that never ends satisfy the check?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. TypeScript's control-flow analysis understands that a throw statement, a call to a function returning never, or an infinite loop with no reachable exit terminates the path without falling through, so no return is required there. This is why throwing in a default clause is a clean way to close an unreachable branch — it satisfies the compiler while making the impossible case loud if it ever happens."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>TS2366: Function lacks ending return statement</span>
+            </nav>
+            <h1>TS2366: Function lacks ending return statement</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <p style="margin:0.5rem 0 0;">Some path through your function reaches the end without returning. Find that branch, then close it:</p>
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    <li><strong>Add a final <code>return</code></strong> after the conditionals &mdash; the usual fix.</li>
+                    <li><strong>Turn a bare <code>if</code> into <code>if/else</code></strong> so both halves return.</li>
+                    <li><strong><code>throw</code></strong> when reaching that point means a real bug.</li>
+                    <li><strong>Exhaustive <code>switch</code></strong> &mdash; narrow to a literal union; a <code>never</code> guard in <code>default</code> future-proofs it.</li>
+                </ul>
+                <p style="margin:0.5rem 0 0;">Widening the return type to <code>| undefined</code> silences it, but pushes the problem onto every caller.</p>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function grade(score: number): string {
+  if (score &gt;= 90) return "A";
+  if (score &gt;= 80) return "B";
+  if (score &gt;= 70) return "C";
+}                                    // ← score = 50 reaches here, returns nothing
+
+// error TS2366: Function lacks ending return statement and return type
+// does not include 'undefined'.</code></pre>
+            </div>
+
+            <p>Read it as two clauses, because both have to be true for the error to fire. <strong>"Lacks ending return statement"</strong> &mdash; the compiler traced the control flow and found a path to the closing brace with no <code>return</code>. <strong>"Return type does not include 'undefined'"</strong> &mdash; and you declared <code>string</code>, which can't represent the <code>undefined</code> that path actually produces. Fix either clause and the error clears; the rest of this page is about which one you should fix.</p>
+
+            <h2>Why this only appears under <code>strictNullChecks</code></h2>
+            <p>With <code>strictNullChecks: false</code>, <code>undefined</code> is assignable to nearly every type, so a fall-through returning <code>undefined</code> still satisfies a declared <code>string</code> and nothing is reported. Turning the flag on removes that blanket assignability &mdash; which is precisely what makes the gap visible.</p>
+            <p>Worth being clear about the implication: enabling <code>strictNullChecks</code> didn't introduce this bug. The branch that returns nothing was always there; it just wasn't reportable. A wave of TS2366s after switching the flag on is the compiler handing you a list of pre-existing holes, not a list of new ones.</p>
+
+            <h2>Fix 1: add a final return</h2>
+            <p>The common case &mdash; a chain of conditionals that forgot the last one:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function grade(score: number): string {
+  if (score &gt;= 90) return "A";
+  if (score &gt;= 80) return "B";
+  if (score &gt;= 70) return "C";
+  return "F";          // ✅ every path now returns a string
+}</code></pre>
+            </div>
+            <p>Ask what should happen in the case you didn't write down. If there's a sensible default, this is the whole fix. If there <em>isn't</em> one, that's a signal &mdash; go to Fix 3.</p>
+
+            <h2>Fix 2: make the branches symmetric</h2>
+            <p>A bare <code>if</code> whose body returns leaves an implicit "otherwise, fall off the end". Making the <code>else</code> explicit forces you to answer it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ no branch handles the false case
+// function label(active: boolean): string {
+//   if (active) { return "Active"; }
+// }
+
+// ✅ both halves return
+function label(active: boolean): string {
+  if (active) {
+    return "Active";
+  } else {
+    return "Inactive";
+  }
+}</code></pre>
+            </div>
+            <p>Loops carry the same trap, and it's subtler because the code looks complete &mdash; the compiler can't know a <code>for</code> body ever executes, so the path where it runs zero times must still return:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ an empty array falls straight past the loop
+// function firstEven(nums: number[]): number {
+//   for (const n of nums) {
+//     if (n % 2 === 0) return n;
+//   }
+// }
+
+// ✅ say what an empty (or all-odd) array means
+function firstEven(nums: number[]): number | undefined {
+  for (const n of nums) {
+    if (n % 2 === 0) return n;
+  }
+  return undefined;    // "not found" is a real outcome here
+}</code></pre>
+            </div>
+            <p>Note this is the one case where widening the return type <em>is</em> the honest fix: "no even number exists" is a genuine result the caller must handle, not a hole in your logic. Contrast that with <code>grade()</code> above, where every score has a grade and <code>undefined</code> would be meaningless.</p>
+
+            <h2>Fix 3: throw when the path shouldn't happen</h2>
+            <p>If reaching the end means something upstream is broken, say so. TypeScript's control-flow analysis knows a <code>throw</code> terminates the path, so no <code>return</code> is needed after it:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (value !== undefined) return value;
+  throw new Error(`Missing required environment variable: ${name}`);   // ✅
+}</code></pre>
+            </div>
+            <p>This keeps the return type as the clean <code>string</code> that callers want, instead of forcing every one of them to handle a <code>| undefined</code> that should never occur in a correctly-configured process. The same reasoning applies to a function typed <code>never</code> (such as a <code>fail()</code> helper) or an infinite loop &mdash; all three end the path, and all three satisfy the check.</p>
+
+            <h2>Fix 4: exhaustive <code>switch</code> with a <code>never</code> guard</h2>
+            <p>A switch that visibly covers every case can still trigger TS2366, which feels wrong until you see what the compiler is actually reasoning about:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ `status: string` — the compiler must assume some other string exists
+// function color(status: string): string {
+//   switch (status) {
+//     case "ok":    return "green";
+//     case "warn":  return "amber";
+//     case "error": return "red";
+//   }
+// }</code></pre>
+            </div>
+            <p>The problem is the parameter type. <code>status</code> is a wide <code>string</code>, so the compiler can't prove those three cases cover every possible value &mdash; infinitely many others exist, and each one reaches the closing brace. Narrow it to a literal union and the compiler can track what's left; a <code>default</code> with a <code>never</code> guard then buys you an explicit compile-time exhaustiveness check on top:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>type Status = "ok" | "warn" | "error";
+
+function color(status: Status): string {
+  switch (status) {
+    case "ok":    return "green";
+    case "warn":  return "amber";
+    case "error": return "red";
+    default: {
+      // If a new Status member is added later, `status` is no longer `never`
+      // here and THIS LINE fails to compile — a compile-time reminder.
+      const exhaustive: never = status;
+      throw new Error(`Unhandled status: ${exhaustive}`);
+    }
+  }
+}</code></pre>
+            </div>
+            <p>The <code>never</code> assignment is the part worth stealing. Inside <code>default</code>, TypeScript has narrowed <code>status</code> down to the cases you didn't handle &mdash; which is <code>never</code> when you've handled them all. Add a fourth member to <code>Status</code> later and that line stops compiling, pointing you at every switch that needs updating. It turns "I hope I covered everything" into something the compiler enforces.</p>
+            <p>To be precise about what's doing the work here: once <code>status</code> is <code>Status</code>, the three cases already cover the union and the switch compiles clean <em>without</em> a <code>default</code> at all. The clause isn't closing a runtime fall-through &mdash; it's a future-proofing guard that fails the build the day someone widens the union and forgets this file.</p>
+
+            <h2>Same rule, unfamiliar shape: <code>async</code> functions</h2>
+            <p>TS2366 reads differently when the return type is a <code>Promise</code>, and plenty of people don't recognise it as the same control-flow rule:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ the false path resolves to Promise&lt;undefined&gt;, not Promise&lt;string&gt;
+// async function getName(cond: boolean): Promise&lt;string&gt; {
+//   if (cond) {
+//     return "Pasindu";
+//   }
+// }
+
+// ✅ close the path exactly as you would in a synchronous function
+async function getName(cond: boolean): Promise&lt;string&gt; {
+  if (cond) {
+    return "Pasindu";
+  }
+  return "anonymous";
+}</code></pre>
+            </div>
+            <p>An <code>async</code> function that falls off the end still returns a promise &mdash; one that resolves to <code>undefined</code>. That's <code>Promise&lt;undefined&gt;</code>, which isn't assignable to the declared <code>Promise&lt;string&gt;</code>, so you get the same TS2366 with the same two clauses. The <code>Promise</code> wrapper changes nothing about the rule, and none of the fixes change either: a final <code>return</code>, an explicit <code>else</code>, a <code>throw</code> (which rejects the promise rather than resolving it), or an exhaustive <code>switch</code> all work identically.</p>
+
+            <h2>Same rule, unfamiliar shape: arrow functions and callbacks</h2>
+            <p>The other place this catches people is inside a callback, where the function being checked is easy to overlook:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const items = [{ name: "alpha", active: true }, { name: "beta", active: false }];
+
+// ❌ annotated `: string`, but the inactive branch returns nothing
+// const labels = items.map((item): string =&gt; {
+//   if (item.active) {
+//     return item.name;
+//   }
+// });                        // ← TS2366 points at the arrow function
+
+// ✅ both branches produce a string
+const labels = items.map((item): string =&gt;
+  item.active ? item.name : "(inactive)"
+);</code></pre>
+            </div>
+            <p>Note what makes the error appear: the explicit <code>: string</code> return annotation on the arrow. Drop it and TypeScript infers <code>string | undefined</code> instead, so the callback itself is fine &mdash; the mismatch just resurfaces later as <a href="ts2322-type-not-assignable.html">TS2322</a> when you assign the resulting <code>(string | undefined)[]</code> to a <code>string[]</code>. That's an argument for annotating callback return types: it moves the error onto the branch that actually caused it.</p>
+
+            <h2>The fix to be careful with: widening the return type</h2>
+            <p>Adding <code>| undefined</code> always silences TS2366, which is exactly why it's worth a moment's thought:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Silences the error — but is `undefined` a real outcome, or a hole?
+function grade(score: number): string | undefined {
+  if (score &gt;= 90) return "A";
+  if (score &gt;= 80) return "B";
+}
+
+// Now every caller inherits the problem:
+// const g = grade(85);
+// g.toLowerCase();   → TS18048: 'g' is possibly 'undefined'</code></pre>
+            </div>
+            <p>The test is whether absence is <em>meaningful</em> to a caller. For <code>firstEven()</code> in Fix 2, "not found" is real information and the wider type is correct. For <code>grade()</code>, every score has a grade, so <code>| undefined</code> just relocates the missing branch into every call site &mdash; where it shows up as <a href="ts18048-value-possibly-undefined.html">TS18048</a> or, unchecked, as <a href="cannot-read-properties-of-undefined.html">Cannot read properties of undefined</a> at run time.</p>
+
+            <h2>TS2366 vs <code>noImplicitReturns</code></h2>
+            <p>These overlap and get conflated, but they're separate checks with different triggers:</p>
+            <table>
+                <thead><tr><th></th><th>TS2366</th><th><code>noImplicitReturns</code></th></tr></thead>
+                <tbody>
+                    <tr><td>Enabled by</td><td><code>strictNullChecks</code> (part of <code>strict</code>)</td><td>Its own flag &mdash; <strong>not</strong> included in <code>strict</code></td></tr>
+                    <tr><td>Fires when</td><td>A path falls through <em>and</em> the return type excludes <code>undefined</code></td><td>At least one path returns a value <em>and</em> another reachable path returns nothing</td></tr>
+                    <tr><td>Return type <code>string | undefined</code></td><td>No error</td><td>Still errors if some paths return and others don't</td></tr>
+                </tbody>
+            </table>
+            <p>The "reachable path returns nothing" wording matters: a function that returns nothing on <em>every</em> path &mdash; an ordinary <code>void</code>-style function &mdash; is consistent, and neither check touches it. What <code>noImplicitReturns</code> objects to is the mix. So it's the stricter of the two, and catches the inconsistent-function case that TS2366 deliberately permits. It's worth enabling alongside <code>strict</code> if you want every function to be uniform about returning &mdash; note it is <em>not</em> turned on by <code>strict</code>, so you have to opt in explicitly.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Trace to the closing brace &mdash; which input reaches it without hitting a <code>return</code>?</li>
+                <li>&#10003; A chain of <code>if</code>s with no final fallback? Add the last <code>return</code></li>
+                <li>&#10003; A bare <code>if</code> whose body returns? Give it an explicit <code>else</code></li>
+                <li>&#10003; A <code>for</code>/<code>while</code> that returns inside? The zero-iteration path still needs a return</li>
+                <li>&#10003; Should that path be impossible? <code>throw</code> &mdash; it satisfies the check and surfaces real bugs</li>
+                <li>&#10003; <code>switch</code> over a wide <code>string</code>? Narrow the parameter to a literal union &mdash; that alone can make it exhaustive</li>
+                <li>&#10003; Want the compiler to catch a future union member? Assign to <code>const _: never = value</code> in <code>default</code></li>
+                <li>&#10003; <code>async</code> function? Same rule &mdash; the fall-through resolves to <code>Promise&lt;undefined&gt;</code></li>
+                <li>&#10003; Error pointing at a callback? Check the arrow's own return annotation, not the outer function</li>
+                <li>&#10003; Before widening to <code>| undefined</code>: is absence meaningful to callers, or are you moving the hole?</li>
+                <li>&#10003; Appeared en masse after enabling <code>strict</code>? These are pre-existing gaps, now visible</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does TS2366 mean?</summary>
+                    <p>TypeScript traced every path through your function and found at least one that reaches the closing brace without hitting a <code>return</code>. On that path the function returns <code>undefined</code> at run time, which contradicts a declared return type that does not include <code>undefined</code>. It is a control-flow finding, not a typo &mdash; the compiler is telling you a real branch produces no value.</p>
+                </details>
+                <details>
+                    <summary>Why does TS2366 only appear with strictNullChecks on?</summary>
+                    <p>Without <code>strictNullChecks</code>, <code>undefined</code> is assignable to almost every type, so a path that falls through and yields <code>undefined</code> still satisfies a declared return type of <code>string</code>. Turning <code>strictNullChecks</code> on removes that blanket assignability, which is exactly what makes the missing path visible. The bug existed before you enabled the flag &mdash; it just was not reportable.</p>
+                </details>
+                <details>
+                    <summary>Should I just add undefined to the return type?</summary>
+                    <p>Only if callers genuinely need to handle a no-value case. Changing the signature to <code>string | undefined</code> silences TS2366 but pushes an <code>undefined</code> check onto every caller, and skipping those checks produces TS18048 or a runtime crash instead. Prefer closing the gap inside the function with a default return or a <code>throw</code>, and widen the return type only when absence is a real, meaningful outcome.</p>
+                </details>
+                <details>
+                    <summary>Why does my switch statement trigger TS2366 when I covered every case?</summary>
+                    <p>TypeScript only treats a switch as exhaustive when it can prove the tested value has no remaining possibilities. If the value is typed as <code>string</code> rather than a union of literals, infinitely many unmatched values exist, so a path reaches the closing brace without returning. Narrowing the parameter to a literal union is usually the whole fix &mdash; once the cases cover every member, the switch is exhaustive with no <code>default</code> clause at all. Adding a <code>default</code> that assigns the value to a <code>never</code>-typed variable is a separate benefit: it fails the build if someone adds a union member later and forgets this switch.</p>
+                </details>
+                <details>
+                    <summary>Does TS2366 apply to async functions?</summary>
+                    <p>Yes, and the rule is identical. An <code>async</code> function that falls off the end still returns a promise, but one that resolves to <code>undefined</code> &mdash; that is <code>Promise&lt;undefined&gt;</code>, which is not assignable to a declared <code>Promise&lt;string&gt;</code>. The <code>Promise</code> wrapper changes nothing about the control-flow analysis, and the same fixes apply: a final <code>return</code>, an explicit <code>else</code>, or a <code>throw</code>, which rejects the promise rather than resolving it.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between TS2366 and noImplicitReturns?</summary>
+                    <p>TS2366 comes from <code>strictNullChecks</code> and fires only when the declared return type cannot accommodate <code>undefined</code>. The separate <code>noImplicitReturns</code> compiler option is stricter: it flags a function where at least one path returns a value and another reachable path returns nothing, even when the return type would allow <code>undefined</code>. A function that returns nothing on every path does not trigger it &mdash; the objection is to the mix. They overlap but are not the same check.</p>
+                </details>
+                <details>
+                    <summary>Does a throw or a loop that never ends satisfy the check?</summary>
+                    <p>Yes. TypeScript's control-flow analysis understands that a <code>throw</code> statement, a call to a function returning <code>never</code>, or an infinite loop with no reachable exit terminates the path without falling through, so no <code>return</code> is required there. This is why throwing in a <code>default</code> clause is a clean way to close an unreachable branch &mdash; it satisfies the compiler while making the impossible case loud if it ever happens.</p>
+                </details>
+            </section>
+
+            <div class="tool-cta">
+                <h3>More TypeScript errors</h3>
+                <p>Browse the full TypeScript error reference &mdash; exact message, cause, and fix.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="ts18048-value-possibly-undefined.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">TS18048: possibly 'undefined'</a>
+                    <a href="../json-to-typescript.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">JSON to TypeScript</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="ts18048-value-possibly-undefined.html">TS18048: 'x' is possibly 'undefined'</a> &mdash; what callers hit if you widen the return type instead</li>
+                <li><a href="ts2532-object-possibly-undefined.html">TS2532: Object is possibly 'undefined'</a> &mdash; the other <code>strictNullChecks</code> gate</li>
+                <li><a href="ts2322-type-not-assignable.html">TS2322: Type is not assignable</a> &mdash; the general assignability failure behind the second clause</li>
+                <li><a href="ts2739-type-missing-properties.html">TS2739: Type is missing the following properties</a></li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Tools &amp; Guides</h2>
+            <ul>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript Converter</a></li>
+                <li><a href="../blog/json-to-typescript.html">How to Convert JSON to TypeScript Interfaces</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
