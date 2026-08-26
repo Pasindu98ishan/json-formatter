@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online CSV to JSON converter. Paste CSV or upload a file — get a JSON array of objects instantly in your browser. No signup, no data sent to servers.">
-    <meta name="keywords" content="csv to json, csv to json converter, convert csv to json online, csv json, csv file to json, csv parser online">
+    <meta name="description" content="Free CSV to JSON converter with auto type detection, delimiter auto-detect (comma, semicolon, tab), nested keys and NDJSON output. Runs in your browser.">
+    <meta name="keywords" content="csv to json, csv to json converter, convert csv to json online, csv json, csv file to json, csv parser online, semicolon csv to json, tsv to json, csv to ndjson, csv to nested json">
     <meta name="author" content="Pasindu Ishan">
     <link rel="canonical" href="https://jsondevtools.org/csv-to-json.html">
     <meta property="og:title" content="CSV to JSON Converter Online – Free & Private">
-    <meta property="og:description" content="Convert CSV to a JSON array of objects instantly in your browser. No signup required, no data sent to servers.">
+    <meta property="og:description" content="Convert CSV to JSON with automatic type detection, delimiter auto-detect, nested keys and NDJSON output. Handles quoted fields with line breaks. Runs entirely in your browser.">
     <meta property="og:url" content="https://jsondevtools.org/csv-to-json.html">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
@@ -39,7 +39,7 @@
       "@type": "WebApplication",
       "name": "CSV to JSON Converter Online",
       "url": "https://jsondevtools.org/csv-to-json.html",
-      "description": "Free online CSV to JSON converter. Convert CSV data to a JSON array of objects instantly in your browser.",
+      "description": "Free online CSV to JSON converter with automatic type detection, delimiter auto-detect, nested key expansion and NDJSON output. RFC 4180 compliant, runs entirely in your browser.",
       "applicationCategory": "DeveloperApplication",
       "operatingSystem": "Any",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -75,22 +75,37 @@
         {
           "@type": "Question",
           "name": "Does my CSV need a header row?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Yes. The first row must be the header row — its values become the JSON object keys. If your CSV has no header row, the first data row will be used as keys, which will produce incorrect output." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Not necessarily. By default the first row is treated as the header row and its values become the JSON keys. If your data has no header, untick 'First row is a header' and the converter will either generate col1, col2, col3 keys or output each row as a plain array, whichever you choose." }
         },
         {
           "@type": "Question",
           "name": "Are numbers and booleans detected automatically?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. All CSV values are treated as strings in the JSON output. CSV has no type system — a cell containing '42' becomes the string '42', not the number 42. Apply type casting in your target application after importing the JSON." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, when 'Detect numbers and booleans' is enabled (it is on by default). A cell containing 42 becomes the number 42, true and false become real booleans, and the word null becomes null. Values that cannot survive the conversion are deliberately left as strings: leading zeros such as 007, integers larger than JavaScript can represent exactly, and numbers with a leading plus sign. This keeps IDs, zip codes and phone numbers intact. Turn the option off to keep every value as a string." }
         },
         {
           "@type": "Question",
           "name": "Does it support line breaks inside a quoted CSV field?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. This converter parses one physical line at a time, so a value that contains a real newline inside quotes — which the CSV spec technically allows — is split across two rows and produces broken output. Commas and escaped double quotes inside a quoted field are handled correctly; embedded newlines are not. If your data has multi-line cells, replace the newlines before converting." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. The parser reads the file as a single character stream and tracks whether it is inside a quoted field, so a real newline inside quotes is preserved as part of that value rather than splitting the record. This is the behaviour RFC 4180 specifies. Commas, custom delimiters and escaped double quotes inside quoted fields are handled correctly too." }
         },
         {
           "@type": "Question",
           "name": "What happens if two columns have the same header name?",
-          "acceptedAnswer": { "@type": "Answer", "text": "JSON object keys must be unique, so if two CSV columns share a header, the second column overwrites the first in every object — the earlier value is lost. Rename duplicate headers before converting so each column maps to its own key." }
+          "acceptedAnswer": { "@type": "Answer", "text": "JSON object keys must be unique, so the converter renames the repeat instead of dropping it. A second column named 'id' becomes 'id_2', a third becomes 'id_3', and a notice tells you the rename happened. No column is silently lost. Rename the headers in your source data if you want different names." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can it convert semicolon or tab delimited files?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. The delimiter is auto-detected from the header row by default, covering comma, semicolon, tab and pipe, and you can also set it explicitly or enter a custom character. Semicolon files are common because Excel in many European locales uses a semicolon as its list separator; tab separated (.tsv) files work the same way." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I produce nested JSON instead of flat objects?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Enable 'Expand nested keys' and a header such as user.name becomes a nested object {\"user\":{\"name\":...}}, while a numeric segment such as items.0.id rebuilds a real array. The separator defaults to a dot and can be changed. This is the exact inverse of the flattening performed by the JSON to CSV tool, so data can round-trip between the two." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I export NDJSON instead of a JSON array?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Choose NDJSON as the output format and each record is written on its own line with no wrapping array. This is the format expected by tools such as jq, BigQuery, Elasticsearch bulk import and many log pipelines. Minified single-line JSON is also available." }
         }
       ]
     }
@@ -137,6 +152,125 @@
             border-color: #555;
             color: #aaa;
         }
+
+        /* Conversion options */
+        .cj-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px 22px;
+            align-items: center;
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .cj-opt {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .cj-opt label { font-weight: 600; cursor: pointer; margin: 0; }
+        .cj-opt select,
+        .cj-opt input[type="text"] {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 13px;
+            font-family: inherit;
+            background: #fff;
+            color: inherit;
+        }
+        .cj-opt input[type="text"] { width: 46px; text-align: center; font-family: monospace; }
+        .cj-opt input[type="checkbox"] { cursor: pointer; width: 15px; height: 15px; }
+        .cj-hint {
+            font-size: 12px;
+            color: var(--secondary-color);
+            cursor: help;
+            border-bottom: 1px dotted var(--secondary-color);
+        }
+        body.dark-mode .cj-options {
+            background: #23262b;
+            border-color: #3a3f45;
+        }
+        body.dark-mode .cj-opt select,
+        body.dark-mode .cj-opt input[type="text"] {
+            background: #2c3036;
+            border-color: #4a4f56;
+            color: #e6e6e6;
+        }
+        body.dark-mode .cj-hint { color: #9aa4b0; }
+
+        /* Warnings */
+        .cj-warnings {
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-left: 4px solid #ffb300;
+            color: #6d4c00;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+        body.dark-mode .cj-warnings {
+            background: #3a2f10;
+            border-color: #6b5518;
+            border-left-color: #ffb300;
+            color: #ffd479;
+        }
+
+        /* Preview table */
+        .cj-preview {
+            margin-top: 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow: auto;
+            max-height: 340px;
+        }
+        .cj-preview table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 12.5px;
+            font-family: monospace;
+        }
+        .cj-preview th, .cj-preview td {
+            border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            padding: 5px 9px;
+            text-align: left;
+            max-width: 260px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .cj-preview th {
+            background: var(--light-bg);
+            position: sticky;
+            top: 0;
+            font-weight: 700;
+            z-index: 1;
+        }
+        .cj-preview .cell-num  { color: #0b7285; }
+        .cj-preview .cell-bool { color: #8a4a00; }
+        .cj-preview .cell-null { color: var(--secondary-color); font-style: italic; }
+        body.dark-mode .cj-preview { border-color: #3a3f45; }
+        body.dark-mode .cj-preview th {
+            background: #23262b;
+            border-color: #3a3f45;
+        }
+        body.dark-mode .cj-preview td { border-color: #3a3f45; }
+        body.dark-mode .cj-preview .cell-num  { color: #5fd8e8; }
+        body.dark-mode .cj-preview .cell-bool { color: #ffb26b; }
+        body.dark-mode .cj-preview .cell-null { color: #8b939c; }
+
+        .cj-meta {
+            font-size: 12px;
+            color: var(--secondary-color);
+            margin-left: 8px;
+        }
+        body.dark-mode .cj-meta { color: #9aa4b0; }
     </style>
 </head>
 <body>
@@ -167,78 +301,147 @@
                     aria-label="CSV input"></textarea>
             </div>
 
+            <div class="cj-options" role="group" aria-label="Conversion options">
+                <div class="cj-opt">
+                    <label for="delimiterSelect">Delimiter</label>
+                    <select id="delimiterSelect" aria-label="CSV delimiter">
+                        <option value="auto" selected>Auto-detect</option>
+                        <option value=",">Comma ,</option>
+                        <option value=";">Semicolon ;</option>
+                        <option value="tab">Tab</option>
+                        <option value="|">Pipe |</option>
+                        <option value="custom">Custom…</option>
+                    </select>
+                    <input type="text" id="customDelimiter" maxlength="1" value="," aria-label="Custom delimiter character" style="display:none;">
+                </div>
+
+                <div class="cj-opt">
+                    <input type="checkbox" id="hasHeader" checked>
+                    <label for="hasHeader">First row is a header</label>
+                </div>
+
+                <div class="cj-opt" id="headerlessWrap" style="display:none;">
+                    <label for="headerlessMode">Without header</label>
+                    <select id="headerlessMode" aria-label="Output shape when there is no header row">
+                        <option value="keys" selected>Use col1, col2…</option>
+                        <option value="arrays">Rows as arrays</option>
+                    </select>
+                </div>
+
+                <div class="cj-opt">
+                    <input type="checkbox" id="inferTypes" checked>
+                    <label for="inferTypes">Detect numbers &amp; booleans</label>
+                    <span class="cj-hint" title="Converts 42 to a number and true/false to booleans. Leading zeros (007), oversized integers and +1 style values stay strings so IDs are never corrupted.">?</span>
+                </div>
+
+                <div class="cj-opt">
+                    <input type="checkbox" id="emptyAsNull">
+                    <label for="emptyAsNull">Empty cells as null</label>
+                </div>
+
+                <div class="cj-opt">
+                    <input type="checkbox" id="expandNested">
+                    <label for="expandNested">Expand nested keys</label>
+                    <input type="text" id="nestedSeparator" maxlength="1" value="." aria-label="Nested key separator" style="display:none;">
+                    <span class="cj-hint" title="A header like user.name becomes {&quot;user&quot;:{&quot;name&quot;:…}}, and items.0.id rebuilds a real array.">?</span>
+                </div>
+
+                <div class="cj-opt">
+                    <label for="outputFormat">Output</label>
+                    <select id="outputFormat" aria-label="Output format">
+                        <option value="pretty" selected>Pretty JSON</option>
+                        <option value="minified">Minified</option>
+                        <option value="ndjson">NDJSON (one per line)</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="button-group">
                 <button id="convertBtn" class="btn btn-primary">Convert to JSON</button>
                 <button id="clearBtn" class="btn btn-secondary">Clear</button>
             </div>
 
             <div id="errorContainer" class="error-container" style="display:none;"></div>
+            <div id="warningContainer" class="cj-warnings" style="display:none;"></div>
 
             <div id="outputSection">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
-                    <span id="rowCount" class="row-count-badge"></span>
+                    <span>
+                        <span id="rowCount" class="row-count-badge"></span>
+                        <span id="detectedDelimiter" class="cj-meta"></span>
+                    </span>
                     <div style="display:flex; gap:8px;">
                         <button id="copyBtn" class="btn btn-secondary">Copy JSON</button>
-                        <button id="downloadBtn" class="btn btn-secondary">Download .json</button>
+                        <button id="downloadBtn" class="btn btn-secondary">Download</button>
                     </div>
                 </div>
                 <pre id="jsonOutput" style="background:var(--light-bg); border:1px solid var(--border-color); border-radius:6px; padding:14px; font-size:13px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; min-height:80px;"></pre>
+
+                <div id="previewWrap" class="cj-preview" style="display:none;">
+                    <table id="previewTable"></table>
+                </div>
             </div>
 
         </section>
 
         <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:2rem 0 0;">
                 <p style="margin:0;font-weight:600;">Quick answer</p>
-                <p style="margin:0.5rem 0 0;">A CSV-to-JSON converter reads the first row as column headers and turns every following row into a JSON object keyed by those headers, collecting them into an array. <strong>This tool handles quoted fields with commas and escaped quotes, preserves empty cells as empty strings, and keeps every value as a string — all in your browser, nothing uploaded.</strong> Paste CSV, click Convert to JSON, then copy or download.</p>
+                <p style="margin:0.5rem 0 0;">A CSV-to-JSON converter reads the first row as column headers and turns every following row into a JSON object keyed by those headers, collecting them into an array. <strong>This tool is RFC 4180 compliant: it handles quoted fields containing commas, escaped quotes and real line breaks, auto-detects comma, semicolon, tab or pipe delimiters, and converts numbers and booleans to real JSON types — all in your browser, nothing uploaded.</strong> Paste CSV, click Convert to JSON, then copy or download as JSON or NDJSON.</p>
             </div>
 
         <section class="info-section">
             <h2>How This Tool Converts CSV to JSON</h2>
             <ul>
-                <li>The first row of your CSV is treated as the header row. Its column names become the keys for every JSON object in the output array.</li>
+                <li>The first row of your CSV is treated as the header row. Its column names become the keys for every JSON object in the output array. Untick <strong>First row is a header</strong> if your data starts straight at the first record.</li>
                 <li>Each subsequent data row becomes one JSON object. Column order is preserved and each value is mapped to the header key of its column.</li>
-                <li>Fields wrapped in double quotes are parsed correctly, including values that contain commas or escaped double quotes (<code>""</code> &rarr; a literal <code>"</code>). Note that newlines <em>inside</em> a quoted field are not supported — each physical line is parsed on its own.</li>
-                <li>Empty cells are preserved as empty strings (<code>""</code>) in the JSON output. All CSV values are output as strings — type casting (numbers, booleans) must be applied in your target application.</li>
+                <li>The delimiter is detected from the header row — comma, semicolon, tab or pipe — by counting each candidate outside quoted regions. You can also pick one explicitly or type a custom character.</li>
+                <li>Fields wrapped in double quotes are parsed correctly, including values containing the delimiter, escaped double quotes (<code>""</code> &rarr; a literal <code>"</code>) and <strong>real line breaks</strong>. The parser reads the file as one character stream and tracks quote state across newlines, exactly as RFC 4180 requires.</li>
+                <li>With <strong>Detect numbers &amp; booleans</strong> on, <code>42</code> becomes the number <code>42</code> and <code>true</code> becomes a boolean. Values that would not survive the trip — leading zeros like <code>007</code>, integers beyond <code>Number.MAX_SAFE_INTEGER</code>, and <code>+</code>-prefixed values — are deliberately kept as strings.</li>
+                <li>Empty cells stay as empty strings (<code>""</code>) unless <strong>Empty cells as null</strong> is ticked.</li>
             </ul>
         </section>
         <section class="info-section">
             <h2>Worked example</h2>
-            <p>This CSV has a value with an embedded comma and escaped quotes, plus an empty trailing cell — the cases that most often trip up naive parsers:</p>
+            <p>This CSV packs in every case that trips up naive parsers at once: an embedded comma, escaped quotes, a <strong>real line break inside a quoted field</strong>, a leading-zero code, a boolean and an empty trailing cell.</p>
             <p style="margin:0 0 0.35rem;font-weight:600;">Input CSV</p>
-<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>name,age,city,note
-Alice,30,New York,"Likes ""tea"", coffee"
-Bob,25,London,</code></pre>
+<pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>name,age,zip,active,note
+Alice,30,007,true,"Likes ""tea"", coffee
+and long walks"
+Bob,25,90210,false,</code></pre>
             <p style="margin:0 0 0.35rem;font-weight:600;">Output JSON</p>
 <pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0 0 1rem;"><code>[
   {
     "name": "Alice",
-    "age": "30",
-    "city": "New York",
-    "note": "Likes \"tea\", coffee"
+    "age": 30,
+    "zip": "007",
+    "active": true,
+    "note": "Likes \"tea\", coffee\nand long walks"
   },
   {
     "name": "Bob",
-    "age": "25",
-    "city": "London",
+    "age": 25,
+    "zip": 90210,
+    "active": false,
     "note": ""
   }
 ]</code></pre>
             <p style="margin:0 0 0.35rem;font-weight:600;">What happened</p>
             <ul>
-                <li>The header row became the object keys; each data row became one object.</li>
-                <li><code>age</code> is <code>"30"</code> — a <strong>string</strong>, not the number <code>30</code>. CSV carries no types, so every value comes out as a string. This is the single most common surprise.</li>
-                <li>Alice's quoted <code>note</code> kept its internal comma, and each doubled quote <code>""</code> became a single <code>"</code> (shown escaped as <code>\"</code> in JSON).</li>
+                <li>The header row became the object keys; each data row became one object — <strong>two records, not three</strong>, even though the file spans four physical lines.</li>
+                <li><code>age</code> is the number <code>30</code> and <code>active</code> is the boolean <code>true</code>, because type detection is on by default.</li>
+                <li><code>zip</code> stayed the string <code>"007"</code> for Alice — converting it would destroy the leading zeros. Bob's <code>90210</code> has no leading zero, so it became a number.</li>
+                <li>Alice's quoted <code>note</code> kept its internal comma <em>and</em> its line break; each doubled quote <code>""</code> became a single <code>"</code> (escaped as <code>\"</code> in JSON).</li>
                 <li>Bob's trailing empty cell became <code>""</code> rather than being dropped.</li>
             </ul>
         </section>
         <section class="info-section">
             <h2>Edge cases &amp; gotchas</h2>
             <ul>
-                <li><strong>Every value is a string.</strong> If your target needs real numbers or booleans, cast them after import (e.g. <code>Number(row.age)</code>, <code>row.active === "true"</code>). Nothing on the CSV side can infer types reliably.</li>
-                <li><strong>A header row is required.</strong> Without it, your first data row is consumed as keys and every real row shifts up by one. Add a header before converting.</li>
-                <li><strong>Newlines inside quoted fields break parsing.</strong> The parser works line by line, so a multi-line cell is split into two rows. Strip or replace embedded newlines first.</li>
-                <li><strong>Duplicate headers collide.</strong> Two columns named the same key produce one property — the rightmost wins and the other value is lost, because JSON keys are unique.</li>
-                <li><strong>Ragged rows are tolerated.</strong> Missing trailing values become <code>""</code>; any extra cells beyond the header count are ignored.</li>
+                <li><strong>Type detection is deliberately conservative.</strong> <code>007</code>, <code>9007199254740993</code> and <code>+15551234</code> stay strings, because converting them would silently change the value. Zip codes, product codes and phone numbers survive intact. Switch the option off entirely if you want every value as a string.</li>
+                <li><strong>A UTF-8 BOM is stripped automatically.</strong> Files exported from Excel often start with an invisible byte order mark. Left in place it becomes part of the first header name, so <code>row.id</code> silently returns <code>undefined</code>. The converter removes it and tells you it did.</li>
+                <li><strong>Duplicate headers are renamed, not dropped.</strong> A second column named <code>id</code> becomes <code>id_2</code>, because JSON keys must be unique. You get a notice rather than silent data loss.</li>
+                <li><strong>Ragged rows are tolerated.</strong> Missing trailing values become <code>""</code>; extra cells beyond the header count are ignored. A notice reports how many rows were affected.</li>
+                <li><strong>Semicolon files are common outside the US.</strong> Excel in many European locales writes <code>;</code> as the list separator. Auto-detect handles it, but you can force the delimiter if a file has an unusual header.</li>
             </ul>
         </section>
 
@@ -272,19 +475,31 @@ Bob,25,London,</code></pre>
             </details>
             <details>
                 <summary>Does my CSV need a header row?</summary>
-                <p>Yes. The first row must be the header row — its values become the JSON object keys. If your CSV has no header row, the first data row will be treated as keys, which will produce incorrect output. Add a header row before converting.</p>
+                <p>Not necessarily. By default the first row is treated as the header row and its values become the JSON keys. If your data has no header, untick "First row is a header" and the converter will either generate col1, col2, col3 keys or output each row as a plain array, whichever you choose.</p>
             </details>
             <details>
                 <summary>Are numbers and booleans detected automatically?</summary>
-                <p>No. All CSV values are output as strings — a cell containing <code>42</code> becomes <code>"42"</code>, not the number <code>42</code>. CSV has no type system, so type casting must be applied in your target application after importing the JSON.</p>
+                <p>Yes, when "Detect numbers and booleans" is enabled (it is on by default). A cell containing 42 becomes the number 42, true and false become real booleans, and the word null becomes null. Values that cannot survive the conversion are deliberately left as strings: leading zeros such as 007, integers larger than JavaScript can represent exactly, and numbers with a leading plus sign. This keeps IDs, zip codes and phone numbers intact. Turn the option off to keep every value as a string.</p>
             </details>
             <details>
                 <summary>Does it support line breaks inside a quoted CSV field?</summary>
-                <p>No. This converter parses one physical line at a time, so a value that contains a real newline inside quotes — which the CSV spec technically allows — is split across two rows and produces broken output. Commas and escaped double quotes inside a quoted field are handled correctly; embedded newlines are not. If your data has multi-line cells, replace the newlines before converting.</p>
+                <p>Yes. The parser reads the file as a single character stream and tracks whether it is inside a quoted field, so a real newline inside quotes is preserved as part of that value rather than splitting the record. This is the behaviour RFC 4180 specifies. Commas, custom delimiters and escaped double quotes inside quoted fields are handled correctly too.</p>
             </details>
             <details>
                 <summary>What happens if two columns have the same header name?</summary>
-                <p>JSON object keys must be unique, so if two CSV columns share a header, the second column overwrites the first in every object — the earlier value is lost. Rename duplicate headers before converting so each column maps to its own key.</p>
+                <p>JSON object keys must be unique, so the converter renames the repeat instead of dropping it. A second column named "id" becomes "id_2", a third becomes "id_3", and a notice tells you the rename happened. No column is silently lost. Rename the headers in your source data if you want different names.</p>
+            </details>
+            <details>
+                <summary>Can it convert semicolon or tab delimited files?</summary>
+                <p>Yes. The delimiter is auto-detected from the header row by default, covering comma, semicolon, tab and pipe, and you can also set it explicitly or enter a custom character. Semicolon files are common because Excel in many European locales uses a semicolon as its list separator; tab separated (.tsv) files work the same way.</p>
+            </details>
+            <details>
+                <summary>Can I produce nested JSON instead of flat objects?</summary>
+                <p>Yes. Enable "Expand nested keys" and a header such as user.name becomes a nested object {"user":{"name":...}}, while a numeric segment such as items.0.id rebuilds a real array. The separator defaults to a dot and can be changed. This is the exact inverse of the flattening performed by the <a href="json-to-csv.html">JSON to CSV</a> tool, so data can round-trip between the two.</p>
+            </details>
+            <details>
+                <summary>Can I export NDJSON instead of a JSON array?</summary>
+                <p>Yes. Choose NDJSON as the output format and each record is written on its own line with no wrapping array. This is the format expected by tools such as jq, BigQuery, Elasticsearch bulk import and many log pipelines. Minified single-line JSON is also available.</p>
             </details>
         </section>
 

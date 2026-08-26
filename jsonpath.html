@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online JSONPath tester. Test JSONPath expressions against any JSON document instantly in your browser. Supports RFC 9535 and JSONPath Plus syntax.">
+    <meta name="description" content="JSONPath tester with live evaluation, match paths and JSON Pointers, and source highlighting so you see exactly what matched. Supports JSONPath Plus syntax.">
     <meta name="keywords" content="jsonpath tester, jsonpath evaluator online, jsonpath expression tester, test jsonpath, jsonpath plus, rfc 9535 jsonpath">
     <link rel="canonical" href="https://jsondevtools.org/jsonpath.html">
     <meta property="og:title" content="JSONPath Tester – Test JSONPath Expressions Online Free">
@@ -38,7 +38,7 @@
       "@type": "WebApplication",
       "name": "JSONPath Tester",
       "url": "https://jsondevtools.org/jsonpath.html",
-      "description": "Free online JSONPath expression tester. Evaluate JSONPath queries against JSON data instantly in your browser.",
+      "description": "Free online JSONPath expression tester with live evaluation, a matches table showing each result's path and RFC 6901 JSON Pointer, and highlighting of matched nodes in the source document. Runs entirely in your browser.",
       "applicationCategory": "DeveloperApplication",
       "operatingSystem": "Any",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -80,6 +80,21 @@
           "@type": "Question",
           "name": "Does order matter in JSONPath array selectors?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes. Index-based selectors like [0] and [2] are order-sensitive — they select the element at that position. Wildcard selectors like [*] and filter expressions like [?(@.active==true)] are order-independent and match all qualifying elements regardless of position." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I get the path of each JSONPath match?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The matches table lists the full path of every result alongside its value, in both JSONPath bracket notation such as $['store']['book'][0]['author'] and RFC 6901 JSON Pointer form such as /store/book/0/author. Each row has a copy button for its path, and you can switch the result panel to show paths or pointers instead of values. Knowing where a match came from matters when a query returns several values and you need to write back to one of them." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I see which parts of my JSON matched?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Below the results the source document is shown pretty-printed with every matched node highlighted, so you can see exactly what the expression selected rather than only the extracted values. Highlighting is skipped automatically for very large documents to keep the page responsive." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my expression return results even though it looks wrong?",
+          "acceptedAnswer": { "@type": "Answer", "text": "JSONPath-Plus is lenient about malformed expressions. Something like $[ with an unclosed bracket is not rejected — it quietly evaluates as $ and returns the whole document, which looks like a working query. This tool checks the expression separately for unbalanced brackets, parentheses and quotes, and shows a warning when it finds one, even if matches were returned." }
         }
       ]
     }
@@ -131,6 +146,95 @@
             margin-left: auto;
             white-space: nowrap;
         }
+
+        /* Preset expressions */
+        .jp-presets-row { display: flex; align-items: baseline; gap: 10px; margin: 10px 0 4px; flex-wrap: wrap; }
+        .jp-presets-label { font-size: 0.82rem; font-weight: 600; color: var(--secondary-color); }
+        .jp-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+        .jp-preset {
+            font: inherit; font-size: 0.78rem;
+            border: 1px solid var(--border-color); background: var(--light-bg);
+            color: inherit; border-radius: 5px; padding: 3px 8px; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .jp-preset code { font-family: 'Courier New', monospace; background: none; padding: 0; }
+        .jp-preset:hover { border-color: var(--primary-color); background: rgba(74,144,226,0.08); }
+        body.dark-mode .jp-preset { background: #23262b; border-color: #3a3f45; }
+        body.dark-mode .jp-preset:hover { border-color: var(--primary-color); background: #2c3036; }
+
+        /* Output mode selector */
+        .jp-mode-label { font-size: 0.82rem; font-weight: 600; margin: 0 0 0 6px; }
+        .jp-mode-select {
+            border: 1px solid var(--border-color); border-radius: 4px;
+            padding: 5px 7px; font: inherit; font-size: 0.82rem;
+            background: #fff; color: inherit;
+        }
+        body.dark-mode .jp-mode-select { background: #2c3036; border-color: #4a4f56; color: #e6e6e6; }
+
+        /* Result panels */
+        .jp-panel { margin-top: 22px; }
+        .jp-panel-title { font-size: 0.95rem; margin: 0 0 8px; }
+        .jp-panel-note { font-weight: 400; font-size: 0.82rem; color: var(--secondary-color); }
+        body.dark-mode .jp-panel-note { color: #9aa4b0; }
+
+        .jp-table-scroll {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow: auto;
+            max-height: 330px;
+        }
+        .jp-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .jp-table th, .jp-table td {
+            padding: 6px 10px; text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+        .jp-table th {
+            background: var(--light-bg); position: sticky; top: 0; z-index: 1;
+            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .jp-table code { font-family: 'Courier New', monospace; font-size: 0.8rem; word-break: break-all; }
+        .jp-idx { color: var(--secondary-color); width: 34px; }
+        .jp-path { color: var(--primary-color); }
+        .jp-pointer { color: var(--secondary-color); }
+        .jp-copy-path {
+            font: inherit; font-size: 0.68rem; margin-left: 6px; cursor: pointer;
+            border: 1px solid var(--border-color); background: transparent;
+            color: var(--secondary-color); border-radius: 4px; padding: 1px 5px;
+        }
+        .jp-copy-path:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        body.dark-mode .jp-table th { background: #23262b; }
+        body.dark-mode .jp-table th, body.dark-mode .jp-table td { border-color: #3a3f45; }
+        body.dark-mode .jp-table-scroll { border-color: #3a3f45; }
+        body.dark-mode .jp-pointer, body.dark-mode .jp-idx { color: #9aa4b0; }
+
+        /* Highlighted source view */
+        .jp-source {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--light-bg);
+            padding: 10px 0;
+            margin: 0;
+            max-height: 400px;
+            overflow: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.82rem;
+            line-height: 1.55;
+        }
+        .jp-line { padding: 0 14px; white-space: pre; }
+        .jp-hit { background: #fff3bf; border-left: 3px solid #f59f00; padding-left: 11px; }
+        .jp-key  { color: #0b7285; }
+        .jp-str  { color: #2b8a3e; }
+        .jp-num  { color: #1971c2; }
+        .jp-bool { color: #9c36b5; }
+        .jp-null { color: var(--secondary-color); }
+        body.dark-mode .jp-source { background: #1f2226; border-color: #3a3f45; }
+        body.dark-mode .jp-hit { background: #3d3410; border-left-color: #f59f00; }
+        body.dark-mode .jp-key  { color: #66d9e8; }
+        body.dark-mode .jp-str  { color: #8ce99a; }
+        body.dark-mode .jp-num  { color: #74c0fc; }
+        body.dark-mode .jp-bool { color: #e599f7; }
+        body.dark-mode .jp-null { color: #868e96; }
     </style>
 </head>
 <body>
@@ -168,13 +272,39 @@
                 <button id="evaluateBtn" class="btn btn-primary">Evaluate</button>
             </div>
 
+            <div class="jp-presets-row">
+                <span class="jp-presets-label">Try:</span>
+                <div id="pathPresets" class="jp-presets"></div>
+            </div>
+
             <div class="button-group">
                 <button id="copyBtn" class="btn btn-secondary">📋 Copy Result</button>
+                <button id="downloadBtn" class="btn btn-secondary">⬇️ Download</button>
+                <button id="shareBtn" class="btn btn-secondary">🔗 Share link</button>
                 <button id="clearBtn" class="btn btn-secondary">Clear</button>
+                <label for="outputMode" class="jp-mode-label">Show</label>
+                <select id="outputMode" class="jp-mode-select" aria-label="Result format">
+                    <option value="values" selected>Values</option>
+                    <option value="paths">Paths</option>
+                    <option value="pointers">JSON Pointers</option>
+                    <option value="entries">Path → value</option>
+                </select>
                 <p style="margin:0; margin-left:auto; font-size:0.78rem; color:var(--secondary-color);"><kbd>Ctrl+Enter</kbd> to evaluate</p>
             </div>
 
             <div id="errorContainer" style="display:none; margin-top:10px; padding:10px 14px; border-radius:6px; border:1px solid #f5c6cb; background:#f8d7da; color:#721c24;"></div>
+
+            <div id="resultTableWrap" class="jp-panel" style="display:none;">
+                <h3 class="jp-panel-title">Matches</h3>
+                <div class="jp-table-scroll">
+                    <table id="resultTable" class="jp-table"></table>
+                </div>
+            </div>
+
+            <div id="sourceViewWrap" class="jp-panel" style="display:none;">
+                <h3 class="jp-panel-title">Source JSON <span class="jp-panel-note">— matched nodes highlighted</span></h3>
+                <pre id="sourceView" class="jp-source"></pre>
+            </div>
 
             <div class="info-section" style="margin-top:32px;">
                 <h3>JSONPath Quick Reference</h3>
@@ -282,6 +412,18 @@
                 <summary>Does order matter in JSONPath array selectors?</summary>
                 <p>Yes for index-based selectors — <code>[0]</code> and <code>[2]</code> are order-sensitive and select elements at those positions. No for filter expressions — <code>[?(@.active==true)]</code> matches all qualifying elements regardless of their position in the array.</p>
             </details>
+            <details>
+                <summary>How do I get the path of each JSONPath match?</summary>
+                <p>The matches table lists the full path of every result alongside its value, in both JSONPath bracket notation such as <code>$['store']['book'][0]['author']</code> and RFC 6901 JSON Pointer form such as <code>/store/book/0/author</code>. Each row has a copy button for its path, and you can switch the result panel to show paths or pointers instead of values. Knowing where a match came from matters when a query returns several values and you need to write back to one of them.</p>
+            </details>
+            <details>
+                <summary>Can I see which parts of my JSON matched?</summary>
+                <p>Yes. Below the results the source document is shown pretty-printed with every matched node highlighted, so you can see exactly what the expression selected rather than only the extracted values. Highlighting is skipped automatically for very large documents to keep the page responsive.</p>
+            </details>
+            <details>
+                <summary>Why does my expression return results even though it looks wrong?</summary>
+                <p>JSONPath-Plus is lenient about malformed expressions. Something like <code>$[</code> with an unclosed bracket is not rejected — it quietly evaluates as <code>$</code> and returns the whole document, which looks like a working query. This tool checks the expression separately for unbalanced brackets, parentheses and quotes, and shows a warning when it finds one, even if matches were returned.</p>
+            </details>
         </section>
 
         <section class="related-tools">
@@ -311,7 +453,16 @@
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/jsonpath-plus/dist/index-browser-umd.min.js"></script>
+    <!-- Pinned deliberately. The unpinned path silently resolved to v5.1.0,
+         because jsDelivr falls back to the newest release still containing
+         that filename, and v10 renamed the UMD build to .cjs. The .cjs file
+         is served as application/node, which browsers refuse to execute, so
+         the ESM build is used and exposed under the global the tool expects.
+         Module scripts run before DOMContentLoaded, so the global is ready. -->
+    <script type="module">
+        import { JSONPath } from 'https://cdn.jsdelivr.net/npm/jsonpath-plus@10.3.0/dist/index-browser-esm.min.js';
+        window.JSONPath = { JSONPath };
+    </script>
     <script src="js/navbar-component.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/utils.js"></script>

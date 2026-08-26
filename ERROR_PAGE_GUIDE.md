@@ -23,6 +23,14 @@ Any of the three is acceptable; choose fix-first when there's one obvious fix, d
 - **Inline contextual cross-links in body prose**, not only in the bottom link blocks — this is a recurring miss the user has flagged more than once. Link a related error/tool where the text naturally mentions the concept.
 - Titles should be clickable/non-branded — no "| JSON Dev Tools" suffix.
 - Add an SVG diagram (`.dg-wrap` system, see §5) only when the mechanism is genuinely multi-step/sequential/decision-shaped. Most pages get none — don't force one.
+- **A `<h2>References</h2>` block, placed immediately before `<div class="tool-cta">`.** All 129 pages carry one; a new page without it is the odd one out. Format, 2–3 entries:
+  ```html
+  <h2>References</h2>
+  <ul>
+      <li><a href="URL" target="_blank" rel="noopener">Page title</a> (Source name)</li>
+  </ul>
+  ```
+  Rules: **primary sources only** — the language spec, the compiler's own error index, or the vendor's reference; never a blog or Stack Overflow. Prefer the *exact* page for that error over a doc homepage (Rust has per-code pages at `doc.rust-lang.org/error_codes/E0499.html`; MDN has per-error pages; TSConfig Reference has per-flag anchors). **Verify before shipping** — check the page returns 200 *and*, if you used a `#fragment`, that the anchor id actually exists in the HTML. Two real misses came from skipping that: an MDN page that never existed, and a Node.js anchor renamed from `-in-mebibytes` to `-in-megabytes`. Don't repeat a URL already linked inline elsewhere on the page.
 
 ## 3. JSON-LD (exact set, in this order)
 
@@ -99,6 +107,8 @@ Script-check for every new/edited page:
 - No broken relative links (`os.path.exists` on every relative `href`).
 - Word count ≥ 1300.
 - Registration counts per §6.
+- Exactly one `<h2>References</h2>` block, with ≥ 2 `<li>` entries (§2).
+- Every external `href` returns 200, and any `#fragment` resolves to a real `id` in the fetched HTML — check the anchor separately from the page, since a renamed anchor still returns 200.
 
 ### 9a. Technical accuracy pass (cannot be scripted — do it by hand)
 

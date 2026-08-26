@@ -1995,3 +1995,122 @@ body.dark-mode .article-lede {
     font-size: 0.9rem;
     color: var(--text-light);
 }
+
+/* ============================================================
+   Tool option bars — shared control alignment
+   ------------------------------------------------------------
+   The global rule above gives every input/select `margin-bottom:16px`
+   and `width:100%`. Inside a horizontal option bar that pushes each
+   control 8px above its own label (flex centring counts the margin
+   box) and stretches neighbouring buttons. These rules opt the bar's
+   controls out of both, and give inputs and selects one shared
+   height so they sit on a single centre line.
+   ============================================================ */
+.jd-options input,  .jd-options select,
+.cj-options input,  .cj-options select,
+.jc-options input,  .jc-options select,
+.rx-pattern-row input, .rx-actions select, .rx-replace-input,
+.jsonpath-expression-row input,
+.jsonpath-expression-row select,
+.button-group select {
+    margin: 0;
+    width: auto;
+    box-sizing: border-box;
+}
+
+/* Uniform control height: selects render ~29px and text inputs ~27px
+   from the same padding, which reads as a stepped row. */
+.jd-options input:not([type="checkbox"]), .jd-options select,
+.cj-options input:not([type="checkbox"]), .cj-options select,
+.jc-options input:not([type="checkbox"]), .jc-options select {
+    height: 32px;
+    line-height: normal;
+}
+
+/* A select sitting in a button row should read as a peer of the buttons,
+   so give it the same box metrics as .btn rather than the compact height. */
+.rx-actions select,
+.button-group select {
+    height: 40px;
+    padding: 0 10px;
+    font-size: 14px;
+    line-height: normal;
+    border-radius: 6px;
+}
+
+/* Checkboxes keep their intrinsic size but must not inherit width:auto
+   quirks or the 16px margin. */
+.jd-options input[type="checkbox"],
+.cj-options input[type="checkbox"],
+.jc-options input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    padding: 0;
+    flex: none;
+    cursor: pointer;
+}
+
+/* Inline rows where a control sits directly beside a .btn: match the
+   button's height so neither stretches the row. */
+.rx-pattern-row input,
+.jsonpath-expression-row input {
+    height: 40px;
+}
+
+/* These inputs fill their row. A flex item defaults to min-width:auto, so
+   without a floor it either refuses to shrink (pushing the neighbouring
+   button off-screen) or collapses to nothing. Give it a usable minimum and
+   let the row wrap instead, so the button drops below on narrow screens. */
+.rx-pattern-row {
+    flex-wrap: wrap;
+}
+.rx-pattern-row input,
+.jsonpath-expression-row input {
+    flex: 1;
+    min-width: 160px;
+}
+
+/* Replace-mode input is a block field, not a flex child: keep it full width. */
+.rx-replace-input {
+    width: 100%;
+}
+.rx-pattern-row .btn,
+.jsonpath-expression-row .btn {
+    height: 40px;
+    padding-top: 0;
+    padding-bottom: 0;
+    white-space: nowrap;
+}
+
+/* The "?" hint sits inline with labels; a dotted underline on a bare
+   glyph drops it off the shared baseline, so render it as a centred
+   badge instead. */
+.jd-hint, .cj-hint, .jc-hint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex: none;
+    border: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 1;
+    color: var(--secondary-color);
+    cursor: help;
+}
+body.dark-mode .jd-hint,
+body.dark-mode .cj-hint,
+body.dark-mode .jc-hint {
+    border-color: #4a4f56;
+    color: #9aa4b0;
+}
+
+/* Labels inside option bars are inline chips, not block form labels. */
+.jd-opt label, .cj-opt label, .jc-opt label {
+    display: inline-block;
+    margin: 0;
+    line-height: 1.2;
+}

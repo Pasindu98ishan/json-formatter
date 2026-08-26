@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online regex tester with live match highlighting, capture groups, named groups, and all JavaScript flags. Test regular expressions in your browser — nothing is uploaded.">
-    <meta name="keywords" content="regex tester, regular expression tester, regex online, test regex, regex match highlighter, javascript regex tester, regex capture groups">
+    <meta name="description" content="Regex tester with live highlighting, capture groups, replace preview, a pattern library and code generation for Python, Go, Java, PHP and C#. Free, private.">
+    <meta name="keywords" content="regex tester, regular expression tester, regex online, test regex, regex match highlighter, javascript regex tester, regex capture groups, regex replace, regex to python, regex code generator, catastrophic backtracking">
     <link rel="canonical" href="https://jsondevtools.org/regex-tester.html">
     <meta property="og:title" content="Regex Tester – Live Regular Expression Tester Online">
-    <meta property="og:description" content="Test regular expressions with live highlighting, capture groups, and every JavaScript flag. Free, private, runs in your browser.">
+    <meta property="og:description" content="Test regular expressions with live highlighting, capture groups, replace preview and code generation for six languages. Free, private, runs in your browser.">
     <meta property="og:url" content="https://jsondevtools.org/regex-tester.html">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
@@ -38,7 +38,7 @@
       "@type": "WebApplication",
       "name": "Regex Tester",
       "url": "https://jsondevtools.org/regex-tester.html",
-      "description": "Free online regex tester with live match highlighting, capture groups, named groups, and all JavaScript flags. Runs entirely in your browser.",
+      "description": "Free online regex tester with live match highlighting, capture groups, replace preview, a common-pattern library and code generation for JavaScript, Python, Go, Java, PHP and C#. Runs entirely in your browser.",
       "applicationCategory": "DeveloperApplication",
       "operatingSystem": "Any",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -75,6 +75,21 @@
           "@type": "Question",
           "name": "Why does my pattern match nothing or throw an error?",
           "acceptedAnswer": { "@type": "Answer", "text": "If the pattern is invalid — for example an unclosed group or bracket — the status line shows the exact syntax error. If it is valid but matches nothing, check whether you need the g flag for multiple matches, the i flag for case, or the m flag for anchors to work per line. Remember to escape literal special characters like . ( ) [ ] with a backslash." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I preview a search and replace?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Click 'Show replace mode' and enter a replacement string to see the rewritten text update live. Capture group references work exactly as they do in JavaScript: $1 and $2 insert numbered groups, $& inserts the whole match, and $<name> inserts a named group. With the g flag set every match is replaced, otherwise only the first." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can it convert my regex into Python, Go, Java, PHP or C# code?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Pick a language under 'Use this regex in your code' and a ready-to-paste snippet is generated, with the flags translated to that language's equivalent — the JavaScript i flag becomes re.IGNORECASE in Python, (?i) in Go, Pattern.CASE_INSENSITIVE in Java and RegexOptions.IgnoreCase in C#. String quoting is handled per language, so Python uses a raw string, Java doubles its backslashes and Go uses a backtick literal." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens if my pattern causes catastrophic backtracking?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Matching runs in a background worker with a one second limit, so a pattern like (a+)+$ against a long string cannot freeze the page. If the limit is hit the worker is terminated, the tool tells you catastrophic backtracking was detected, and where possible it names the construct responsible — typically a quantifier nested inside a group that is itself quantified. The interface stays usable so you can fix the pattern." }
         }
       ]
     }
@@ -120,6 +135,59 @@
         .rx-ref th { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--secondary-color); }
         .rx-ref td code { font-family:'Courier New',monospace; }
         body.dark-mode .rx-ref th, body.dark-mode .rx-ref td { border-color:#2a2a2a; }
+
+        /* Pattern library */
+        .rx-library { display:flex; flex-wrap:wrap; gap:8px; }
+        .rx-preset {
+            font:inherit; font-size:0.82rem; font-weight:600;
+            border:1px solid var(--border-color); background:var(--light-bg);
+            color:inherit; border-radius:20px; padding:5px 13px; cursor:pointer;
+            transition:border-color 0.15s, background 0.15s;
+        }
+        .rx-preset:hover { border-color:var(--primary-color); background:rgba(74,144,226,0.08); }
+        body.dark-mode .rx-preset { background:#23262b; border-color:#3a3f45; }
+        body.dark-mode .rx-preset:hover { border-color:var(--primary-color); background:#2c3036; }
+
+        /* Label + action rows */
+        .rx-label-row {
+            display:flex; align-items:center; justify-content:space-between;
+            gap:10px; flex-wrap:wrap; margin-bottom:6px;
+        }
+        .rx-label-row label { margin:0; }
+        .rx-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .rx-actions select {
+            border:1px solid var(--border-color); border-radius:4px;
+            padding:5px 7px; font:inherit; font-size:0.85rem;
+            background:#fff; color:inherit;
+        }
+        body.dark-mode .rx-actions select { background:#2c3036; border-color:#4a4f56; color:#e6e6e6; }
+
+        /* Replace mode */
+        .rx-replace-input {
+            width:100%; box-sizing:border-box; font-family:'Courier New',monospace;
+            font-size:0.95rem; padding:8px 10px;
+            border:1px solid var(--border-color); border-radius:6px;
+            background:#fff; color:inherit;
+        }
+        body.dark-mode .rx-replace-input { background:#2c3036; border-color:#4a4f56; color:#e6e6e6; }
+        .rx-replace-output {
+            border:1px solid var(--border-color); border-radius:6px;
+            background:var(--light-bg); padding:10px 12px; min-height:60px;
+            font-family:'Courier New',monospace; font-size:0.9rem;
+            white-space:pre-wrap; word-break:break-word;
+        }
+        body.dark-mode .rx-replace-output { background:#1f2226; border-color:#3a3f45; }
+        .rx-help { font-size:0.8rem; color:var(--secondary-color); margin:6px 0 0; }
+        body.dark-mode .rx-help { color:#9aa4b0; }
+
+        /* Generated code */
+        .rx-code {
+            border:1px solid var(--border-color); border-radius:6px;
+            background:var(--light-bg); padding:12px 14px; margin:0;
+            font-family:'Courier New',monospace; font-size:0.85rem;
+            overflow-x:auto; white-space:pre; min-height:60px;
+        }
+        body.dark-mode .rx-code { background:#1f2226; border-color:#3a3f45; color:#d6e2f0; }
     </style>
 </head>
 <body>
@@ -154,6 +222,11 @@
             </div>
 
             <div class="rx-field">
+                <label>Common patterns</label>
+                <div id="patternLibrary" class="rx-library"></div>
+            </div>
+
+            <div class="rx-field">
                 <label for="testInput">Test string</label>
                 <textarea id="testInput" spellcheck="false" aria-label="Test string">Contact alice@example.com or bob@dev.org for access.
 Invalid: not-an-email, @nope, plain text.</textarea>
@@ -167,8 +240,42 @@ Invalid: not-an-email, @nope, plain text.</textarea>
             </div>
 
             <div class="rx-field">
-                <label>Match details</label>
+                <div class="rx-label-row">
+                    <label>Match details</label>
+                    <div class="rx-actions">
+                        <button id="copyMatchesBtn" class="btn btn-secondary">Copy matches as JSON</button>
+                        <button id="shareRegexBtn" class="btn btn-secondary">Share link</button>
+                        <button id="replaceToggle" class="btn btn-secondary" aria-expanded="false">Show replace mode</button>
+                    </div>
+                </div>
                 <div id="matchList"></div>
+            </div>
+
+            <div class="rx-field" id="replaceWrap" style="display:none;">
+                <label for="replaceInput">Replace with</label>
+                <input type="text" id="replaceInput" spellcheck="false" class="rx-replace-input"
+                       placeholder="$1 at $2" value="$1 at $2" aria-label="Replacement string">
+                <p class="rx-help">Use <code>$1</code>, <code>$2</code> for capture groups, <code>$&amp;</code> for the whole match, and <code>$&lt;name&gt;</code> for named groups.</p>
+                <label style="margin-top:10px;">Result</label>
+                <div id="replaceOutput" class="rx-replace-output"></div>
+            </div>
+
+            <div class="rx-field">
+                <div class="rx-label-row">
+                    <label for="codeLang">Use this regex in your code</label>
+                    <div class="rx-actions">
+                        <select id="codeLang" aria-label="Target language">
+                            <option value="javascript" selected>JavaScript</option>
+                            <option value="python">Python</option>
+                            <option value="go">Go</option>
+                            <option value="java">Java</option>
+                            <option value="php">PHP</option>
+                            <option value="csharp">C#</option>
+                        </select>
+                        <button id="copyCodeBtn" class="btn btn-secondary">Copy code</button>
+                    </div>
+                </div>
+                <pre id="codeOutput" class="rx-code"></pre>
             </div>
         </section>
 
@@ -241,6 +348,18 @@ Invalid: not-an-email, @nope, plain text.</textarea>
             <details>
                 <summary>Why does my pattern match nothing or throw an error?</summary>
                 <p>If the pattern is invalid — for example an unclosed group or bracket — the status line shows the exact syntax error. If it is valid but matches nothing, check whether you need the <code>g</code> flag for multiple matches, the <code>i</code> flag for case, or the <code>m</code> flag for anchors to work per line. Remember to escape literal special characters like <code>.</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> with a backslash.</p>
+            </details>
+            <details>
+                <summary>Can I preview a search and replace?</summary>
+                <p>Yes. Click "Show replace mode" and enter a replacement string to see the rewritten text update live. Capture group references work exactly as they do in JavaScript: <code>$1</code> and <code>$2</code> insert numbered groups, <code>$&amp;</code> inserts the whole match, and <code>$&lt;name&gt;</code> inserts a named group. With the <code>g</code> flag set every match is replaced, otherwise only the first.</p>
+            </details>
+            <details>
+                <summary>Can it convert my regex into Python, Go, Java, PHP or C# code?</summary>
+                <p>Yes. Pick a language under "Use this regex in your code" and a ready-to-paste snippet is generated, with the flags translated to that language's equivalent — the JavaScript <code>i</code> flag becomes <code>re.IGNORECASE</code> in Python, <code>(?i)</code> in Go, <code>Pattern.CASE_INSENSITIVE</code> in Java and <code>RegexOptions.IgnoreCase</code> in C#. String quoting is handled per language, so Python uses a raw string, Java doubles its backslashes and Go uses a backtick literal.</p>
+            </details>
+            <details>
+                <summary>What happens if my pattern causes catastrophic backtracking?</summary>
+                <p>Matching runs in a background worker with a one second limit, so a pattern like <code>(a+)+$</code> against a long string cannot freeze the page. If the limit is hit the worker is terminated, the tool tells you catastrophic backtracking was detected, and where possible it names the construct responsible — typically a quantifier nested inside a group that is itself quantified. The interface stays usable so you can fix the pattern.</p>
             </details>
         </section>
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online JSON to CSV Converter. Convert JSON arrays to CSV for Excel, Google Sheets, and database imports instantly. No signup, works in your browser.">
+    <meta name="description" content="Free JSON to CSV converter with delimiter choice, Excel UTF-8 BOM, three array modes, column selection and NDJSON input. Works in your browser, nothing uploaded.">
     <meta name="keywords" content="json to csv, convert json to csv, json converter, csv converter, json to spreadsheet, export json as csv">
     <link rel="canonical" href="https://jsondevtools.org/json-to-csv.html">
     <meta property="og:title" content="JSON to CSV Converter – Convert JSON Online Free">
@@ -19,6 +19,77 @@
     <title>JSON to CSV Converter – Convert JSON Online Free</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/dark-mode.css">
+    <style>
+        .jc-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 20px;
+            align-items: center;
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 0 0 12px;
+            font-size: 13px;
+        }
+        .jc-opt { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .jc-opt label { font-weight: 600; margin: 0; cursor: pointer; }
+        .jc-opt select,
+        .jc-opt input[type="text"] {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 13px;
+            font-family: inherit;
+            background: #fff;
+            color: inherit;
+        }
+        .jc-opt input[type="text"] { font-family: monospace; text-align: center; width: 44px; }
+        .jc-opt input[type="checkbox"] { cursor: pointer; width: 15px; height: 15px; }
+        .jc-hint {
+            font-size: 12px;
+            color: var(--secondary-color);
+            cursor: help;
+            border-bottom: 1px dotted var(--secondary-color);
+        }
+        body.dark-mode .jc-options { background: #23262b; border-color: #3a3f45; }
+        body.dark-mode .jc-opt select,
+        body.dark-mode .jc-opt input[type="text"] {
+            background: #2c3036;
+            border-color: #4a4f56;
+            color: #e6e6e6;
+        }
+        body.dark-mode .jc-hint { color: #9aa4b0; }
+
+        .jc-columns {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .jc-columns-label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .jc-column-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 14px;
+            max-height: 130px;
+            overflow-y: auto;
+        }
+        .jc-col {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-family: monospace;
+            font-size: 12.5px;
+            cursor: pointer;
+        }
+        body.dark-mode .jc-columns { border-color: #3a3f45; }
+    </style>
     <script src="/js/analytics.js"></script>
     <meta name="google-adsense-account" content="ca-pub-3477621730217949">
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
@@ -69,7 +140,7 @@
         {
           "@type": "Question",
           "name": "What delimiter does the CSV output use?",
-          "acceptedAnswer": { "@type": "Answer", "text": "The output uses commas as the delimiter (standard CSV). Any values that contain a comma are automatically wrapped in double quotes so they are parsed correctly by Excel, Google Sheets, and other tools." }
+          "acceptedAnswer": { "@type": "Answer", "text": "A comma by default, and you can switch to semicolon, tab or pipe, or type a custom character. Quoting follows whichever delimiter you pick, so a value containing that character is automatically wrapped in double quotes. Semicolon output is worth knowing about: Excel in many European locales expects a semicolon as the list separator and will drop a comma-delimited file into a single column." }
         },
         {
           "@type": "Question",
@@ -79,12 +150,22 @@
         {
           "@type": "Question",
           "name": "Why does Excel show my accented characters or emoji as garbled text?",
-          "acceptedAnswer": { "@type": "Answer", "text": "That is an encoding issue on Excel's side, not a problem with the CSV. The file is written as UTF-8, but Excel on Windows assumes the legacy ANSI codepage when you double-click a .csv file, so multi-byte characters like accents and emoji appear as mojibake. The reliable fix is to import the file instead of double-clicking it: in Excel use Data → From Text/CSV and pick UTF-8 as the file origin, and the characters render correctly." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Tick 'UTF-8 BOM (Excel)' and the problem goes away. The file is written as UTF-8, but Excel on Windows assumes the legacy ANSI codepage when you double-click a .csv, so accents and emoji appear as mojibake. A byte order mark at the start of the file tells Excel it is UTF-8. The BOM is invisible in every other tool, and this converter strips it back off if you send the file through the CSV to JSON tool. Importing via Data → From Text/CSV and choosing UTF-8 also works." }
         },
         {
           "@type": "Question",
           "name": "How are arrays of objects handled?",
-          "acceptedAnswer": { "@type": "Answer", "text": "A plain array of primitives such as [\"admin\",\"editor\"] is joined into one cell with a pipe separator (admin | editor). An array that contains objects is different — each object is serialized back to a JSON string and those strings are joined with the pipe separator, so the cell holds raw JSON. If you need those nested objects as their own columns instead, flatten or extract them in your JSON before converting." }
+          "acceptedAnswer": { "@type": "Answer", "text": "You choose. 'Join into one cell' collapses [\"admin\",\"editor\"] to admin | editor with a separator you control, and serializes objects to JSON. 'Indexed columns' gives each element its own column — items.0.sku, items.1.sku — which keeps the data queryable. 'One row per element' repeats the parent's scalar fields and emits one row per array item, the shape most databases and pivot tables expect." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I choose which columns end up in the CSV?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. After converting, every detected column appears as a checkbox above the output. Untick the ones you do not need — deeply nested keys often produce noisy columns — and the CSV and preview regenerate immediately. This is easier than editing the JSON to remove fields first." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it accept NDJSON or JSON Lines input?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. If the input is not a single valid JSON document, each non-empty line is parsed as its own JSON object, which is the NDJSON / JSONL format produced by log pipelines, jq, BigQuery exports and Elasticsearch. No wrapping array is required." }
         }
       ]
     }
@@ -124,6 +205,56 @@
                     <textarea id="outputCSV" placeholder="CSV result will appear here..." readonly></textarea>
                 </div>
             </div>
+            <div class="jc-options" role="group" aria-label="CSV output options">
+                <div class="jc-opt">
+                    <label for="delimiterSelect">Delimiter</label>
+                    <select id="delimiterSelect" aria-label="CSV delimiter">
+                        <option value="," selected>Comma ,</option>
+                        <option value=";">Semicolon ;</option>
+                        <option value="tab">Tab</option>
+                        <option value="|">Pipe |</option>
+                        <option value="custom">Custom…</option>
+                    </select>
+                    <input type="text" id="customDelimiter" maxlength="1" value="," aria-label="Custom delimiter" style="display:none;">
+                </div>
+
+                <div class="jc-opt">
+                    <label for="arrayMode">Arrays</label>
+                    <select id="arrayMode" aria-label="How to handle arrays">
+                        <option value="join" selected>Join into one cell</option>
+                        <option value="columns">Indexed columns</option>
+                        <option value="rows">One row per element</option>
+                    </select>
+                    <input type="text" id="arrayJoiner" value=" | " size="3" aria-label="Array join separator">
+                </div>
+
+                <div class="jc-opt">
+                    <label for="flattenSeparator">Nested key separator</label>
+                    <input type="text" id="flattenSeparator" maxlength="1" value="." size="2" aria-label="Nested key separator">
+                </div>
+
+                <div class="jc-opt">
+                    <input type="checkbox" id="addBom">
+                    <label for="addBom">UTF-8 BOM (Excel)</label>
+                    <span class="jc-hint" title="Adds a byte order mark so Excel reads accents and emoji correctly when you double-click the file.">?</span>
+                </div>
+
+                <div class="jc-opt">
+                    <input type="checkbox" id="crlf">
+                    <label for="crlf">CRLF line endings</label>
+                </div>
+
+                <div class="jc-opt">
+                    <input type="checkbox" id="includeHeader" checked>
+                    <label for="includeHeader">Header row</label>
+                </div>
+            </div>
+
+            <div id="columnWrap" class="jc-columns" style="display:none;">
+                <span class="jc-columns-label">Columns</span>
+                <div id="columnPicker" class="jc-column-list"></div>
+            </div>
+
             <div class="button-group">
                 <button id="convertBtn" class="btn btn-primary">Convert to CSV</button>
                 <button id="copyBtn" class="btn btn-secondary">📋 Copy Output</button>
@@ -201,7 +332,7 @@
             <h2>Edge cases &amp; gotchas</h2>
             <ul>
                 <li><strong>Excel drops leading zeros.</strong> A ZIP code or ID like <code>02101</code> is correct in the CSV file, but Excel auto-detects it as a number and shows <code>2101</code>. To keep it, import via Data → From Text/CSV and set that column's type to Text rather than double-clicking the file.</li>
-                <li><strong>Excel and UTF-8.</strong> The download is UTF-8, but Excel on Windows assumes the legacy ANSI codepage on a double-click, so accents and emoji show as garbled text. Import with Data → From Text/CSV and choose UTF-8 as the file origin.</li>
+                <li><strong>Excel and UTF-8.</strong> The download is UTF-8, but Excel on Windows assumes the legacy ANSI codepage on a double-click, so accents and emoji show as garbled text. Tick <strong>UTF-8 BOM (Excel)</strong> before downloading, or import with Data → From Text/CSV and choose UTF-8 as the file origin.</li>
                 <li><strong>Arrays of objects become raw JSON.</strong> Primitive arrays join cleanly (<code>admin | editor</code>), but an array of objects is serialized back to JSON strings inside the cell. Flatten or extract those before converting if you need real columns.</li>
                 <li><strong>Deeply inconsistent objects produce sparse rows.</strong> Because headers are the union of every key seen, a set of very different objects yields a wide table with many empty cells — expected, not a bug.</li>
                 <li><strong>Order follows first appearance.</strong> Columns appear in the order keys are first encountered across the array, so the first object effectively sets the leading column order.</li>
@@ -223,19 +354,27 @@
             </details>
             <details>
                 <summary>What delimiter does the CSV output use?</summary>
-                <p>The output uses commas as the delimiter (standard CSV). Any values that contain a comma are automatically wrapped in double quotes so they are parsed correctly by Excel, Google Sheets, and other tools.</p>
+                <p>A comma by default, and you can switch to semicolon, tab or pipe, or type a custom character. Quoting follows whichever delimiter you pick, so a value containing that character is automatically wrapped in double quotes. Semicolon output is worth knowing about: Excel in many European locales expects <code>;</code> as the list separator and will drop a comma-delimited file into a single column.</p>
             </details>
             <details>
-                <summary>What happens to null or missing values?</summary>
+                <summary>What happens to null or missing values in JSON?</summary>
                 <p>JSON <code>null</code> values become empty cells in the CSV. If an object is missing a key that other objects in the array have, that cell is also left empty.</p>
             </details>
             <details>
                 <summary>Why does Excel show my accented characters or emoji as garbled text?</summary>
-                <p>That is an encoding issue on Excel's side, not a problem with the CSV. The file is written as UTF-8, but Excel on Windows assumes the legacy ANSI codepage when you double-click a <code>.csv</code> file, so multi-byte characters like accents and emoji appear as mojibake. The reliable fix is to import instead of double-clicking: in Excel use <strong>Data → From Text/CSV</strong> and pick UTF-8 as the file origin, and the characters render correctly.</p>
+                <p>Tick <strong>UTF-8 BOM (Excel)</strong> and the problem goes away. The file is written as UTF-8, but Excel on Windows assumes the legacy ANSI codepage when you double-click a <code>.csv</code>, so accents and emoji appear as mojibake. A byte order mark at the start of the file tells Excel it is UTF-8. The BOM is invisible in every other tool, and this converter strips it back off if you send the file through <a href="csv-to-json.html">CSV to JSON</a>. Importing via <strong>Data → From Text/CSV</strong> and choosing UTF-8 also works.</p>
             </details>
             <details>
                 <summary>How are arrays of objects handled?</summary>
-                <p>A plain array of primitives such as <code>["admin","editor"]</code> is joined into one cell with a pipe separator (<code>admin | editor</code>). An array that contains objects is different — each object is serialized back to a JSON string and those strings are joined with the pipe separator, so the cell holds raw JSON. If you need those nested objects as their own columns, flatten or extract them in your JSON before converting.</p>
+                <p>You choose. <strong>Join into one cell</strong> collapses <code>["admin","editor"]</code> to <code>admin | editor</code> with a separator you control, and serializes objects to JSON. <strong>Indexed columns</strong> gives each element its own column — <code>items.0.sku</code>, <code>items.1.sku</code> — which keeps the data queryable. <strong>One row per element</strong> repeats the parent's scalar fields and emits one row per array item, the shape most databases and pivot tables expect.</p>
+            </details>
+            <details>
+                <summary>Can I choose which columns end up in the CSV?</summary>
+                <p>Yes. After converting, every detected column appears as a checkbox above the output. Untick the ones you do not need — deeply nested keys often produce noisy columns — and the CSV and preview regenerate immediately. This is easier than editing the JSON to remove fields first.</p>
+            </details>
+            <details>
+                <summary>Does it accept NDJSON or JSON Lines input?</summary>
+                <p>Yes. If the input is not a single valid JSON document, each non-empty line is parsed as its own JSON object, which is the NDJSON / JSONL format produced by log pipelines, <code>jq</code>, BigQuery exports and Elasticsearch. No wrapping array is required.</p>
             </details>
         </section>
         <section class="related-tools">

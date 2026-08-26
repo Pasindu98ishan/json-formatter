@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free online JSON Diff tool. Compare two JSON objects side by side. Highlights added, removed, and changed keys instantly in your browser. No signup required.">
-    <meta name="keywords" content="json diff, json compare, json difference, compare json online, json diff tool, json object comparison">
+    <meta name="description" content="Compare two JSON objects with smart array matching, ignore rules for timestamps, and JSON Patch (RFC 6902) export. Reordered arrays handled correctly.">
+    <meta name="keywords" content="json diff, json compare, json difference, compare json online, json diff tool, json object comparison, json patch generator, rfc 6902, compare json arrays">
     <meta name="author" content="Pasindu Ishan">
     <link rel="canonical" href="https://jsondevtools.org/json-diff.html">
     <meta property="og:title" content="JSON Diff Online – Compare Two JSON Objects Free">
-    <meta property="og:description" content="Compare two JSON objects side by side. Highlights added, removed, and changed keys instantly in your browser.">
+    <meta property="og:description" content="Compare two JSON objects with smart array matching, ignore rules for noisy fields, and JSON Patch (RFC 6902) export. Runs entirely in your browser.">
     <meta property="og:url" content="https://jsondevtools.org/json-diff.html">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
@@ -76,7 +76,27 @@
         {
           "@type": "Question",
           "name": "Does JSON Diff handle arrays with reordered elements?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Array comparison is index-based — element 0 in A is compared to element 0 in B. If elements are reordered, the diff will show multiple changes even though the same values are present. This is the standard behaviour for structural JSON diffing." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. By default arrays of objects are matched by an identity key — id, _id, uuid, key, name, slug or code — chosen automatically when that property is present and unique on every element. Elements are then compared to their true counterpart rather than to whatever sits at the same index, so a reordered list reports 'moved' instead of flagging every field as changed. You can name the key explicitly, or switch to position matching if index order is what you actually care about. Arrays of primitives are always compared positionally." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I ignore timestamps and other noisy fields?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Enter path patterns in the 'Ignore paths' box, separated by commas. A pattern such as *.updatedAt excludes that field at any depth, and meta.requestId excludes one specific path. This is the usual way to compare two API responses where timestamps, request IDs and generated tokens would otherwise bury the differences that matter." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I export the differences as a JSON Patch?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Click 'Generate JSON Patch' to produce a standard RFC 6902 patch — an array of add, remove and replace operations with JSON Pointer paths — that transforms document A into document B. It works with fast-json-patch in JavaScript, the jsonpatch library in Python, and any other RFC 6902 compliant client." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I ignore small floating point differences?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Set a number tolerance and any two numbers within that absolute distance of each other are treated as equal. This is useful when comparing computed values, currency rounding or results from different floating point implementations, where 1.0000001 and 1.0 are not meaningfully different." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I compare JSON with different key ordering?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Both inputs are parsed before comparison so key order in objects does not matter. {\"a\":1,\"b\":2} and {\"b\":2,\"a\":1} show no differences." }
         },
         {
           "@type": "Question",
@@ -138,9 +158,92 @@
         .diff-row-added td { background: #f0fff4; }
         .diff-row-removed td { background: #fff5f5; }
         .diff-row-changed td { background: #fffbea; }
+        .diff-row-moved td { background: #eef4ff; }
         body.dark-mode .diff-row-added td { background: #0f2d1a; }
         body.dark-mode .diff-row-removed td { background: #2d0f0f; }
         body.dark-mode .diff-row-changed td { background: #2d2700; }
+        body.dark-mode .diff-row-moved td { background: #14203a; }
+
+        /* Worked-example pair: side by side on desktop, stacked on mobile.
+           Was an inline 1fr 1fr grid that overflowed narrow screens. */
+        .example-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 0 0 1rem;
+        }
+        @media (max-width: 640px) {
+            .example-pair { grid-template-columns: 1fr; }
+        }
+
+        /* Comparison options */
+        .jd-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 20px;
+            align-items: center;
+            background: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .jd-opt { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .jd-opt-wide { flex: 1 1 260px; min-width: 220px; }
+        .jd-opt-wide input[type="text"] { flex: 1; min-width: 140px; }
+        .jd-opt label { font-weight: 600; margin: 0; cursor: pointer; }
+        .jd-opt select,
+        .jd-opt input[type="text"] {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 13px;
+            font-family: inherit;
+            background: #fff;
+            color: inherit;
+        }
+        .jd-opt input[type="checkbox"] { cursor: pointer; width: 15px; height: 15px; }
+        .jd-hint {
+            font-size: 12px;
+            color: var(--secondary-color);
+            cursor: help;
+            border-bottom: 1px dotted var(--secondary-color);
+        }
+        .jd-note, .diff-note {
+            font-size: 12.5px;
+            color: var(--secondary-color);
+            margin: 6px 0 0;
+        }
+        .diff-pos { font-family: monospace; font-size: 12.5px; }
+        .diff-none { color: var(--secondary-color); }
+        body.dark-mode .jd-options { background: #23262b; border-color: #3a3f45; }
+        body.dark-mode .jd-opt select,
+        body.dark-mode .jd-opt input[type="text"] {
+            background: #2c3036;
+            border-color: #4a4f56;
+            color: #e6e6e6;
+        }
+        body.dark-mode .jd-hint,
+        body.dark-mode .jd-note,
+        body.dark-mode .diff-note,
+        body.dark-mode .diff-none { color: #9aa4b0; }
+
+        /* Summary badges double as filters */
+        .diff-badge {
+            border: 1px solid transparent;
+            font: inherit;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 20px;
+            padding: 4px 12px;
+        }
+        .diff-badge.is-active { outline: 2px solid var(--primary-color); outline-offset: 1px; }
+        .diff-badge-moved { background: #dbe7ff; color: #1c3d7a; }
+        .diff-badge-all { background: var(--light-bg); color: inherit; border-color: var(--border-color); }
+        body.dark-mode .diff-badge-moved { background: #14203a; color: #9dc0ff; }
+        body.dark-mode .diff-badge-all { background: #2c3036; border-color: #4a4f56; color: #e6e6e6; }
         body.dark-mode .diff-table th { background: #2d2d2d; border-color: #555; }
         body.dark-mode .diff-table td { border-color: #555; }
 
@@ -211,14 +314,62 @@
                 </div>
             </div>
 
+            <div class="jd-options" role="group" aria-label="Comparison options">
+                <div class="jd-opt">
+                    <label for="arrayMode">Arrays</label>
+                    <select id="arrayMode" aria-label="How to match array elements">
+                        <option value="key" selected>Match by identity key</option>
+                        <option value="index">Match by position</option>
+                    </select>
+                    <span class="jd-hint" title="Identity matching pairs array elements by id/_id/uuid/key/name so a reordered list is not reported as fully changed. Position matching compares index 0 to index 0.">?</span>
+                </div>
+
+                <div class="jd-opt">
+                    <label for="identityKey">Key</label>
+                    <input type="text" id="identityKey" placeholder="auto" size="8" aria-label="Identity key override">
+                </div>
+
+                <div class="jd-opt jd-opt-wide">
+                    <label for="ignorePaths">Ignore paths</label>
+                    <input type="text" id="ignorePaths" placeholder="*.updatedAt, meta.requestId" aria-label="Paths to ignore, comma separated">
+                    <span class="jd-hint" title="Comma-separated path patterns to exclude. Use * as a wildcard, e.g. *.updatedAt ignores that field at any depth.">?</span>
+                </div>
+
+                <div class="jd-opt">
+                    <input type="checkbox" id="ignoreCase">
+                    <label for="ignoreCase">Ignore case</label>
+                </div>
+
+                <div class="jd-opt">
+                    <input type="checkbox" id="nullEqualsMissing">
+                    <label for="nullEqualsMissing">null = missing</label>
+                </div>
+
+                <div class="jd-opt">
+                    <label for="numberTolerance">Number tolerance</label>
+                    <input type="text" id="numberTolerance" placeholder="0" size="5" aria-label="Absolute numeric tolerance">
+                </div>
+            </div>
+
             <div class="button-group">
                 <button id="compareBtn" class="btn btn-primary">Compare JSON</button>
+                <button id="patchBtn" class="btn btn-secondary">Generate JSON Patch</button>
                 <button id="swapBtn" class="btn btn-secondary">&#8644; Swap A / B</button>
+                <button id="shareBtn" class="btn btn-secondary">Share link</button>
                 <button id="clearBtn" class="btn btn-secondary">Clear</button>
             </div>
 
             <div id="outputSection">
                 <div id="diffOutput"></div>
+
+                <div id="patchWrap" style="display:none; margin-top:18px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+                        <h3 style="margin:0;font-size:15px;">JSON Patch (RFC 6902)</h3>
+                        <button id="copyPatchBtn" class="btn btn-secondary">Copy patch</button>
+                    </div>
+                    <p class="jd-note" style="margin:0 0 8px;">Apply this patch to document A to produce document B. Compatible with <code>fast-json-patch</code>, <code>jsonpatch</code> (Python) and any RFC 6902 client.</p>
+                    <pre id="patchOutput" style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:14px;font-size:13px;overflow-x:auto;white-space:pre-wrap;"></pre>
+                </div>
             </div>
 
             <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:1.5rem 0;">
@@ -233,8 +384,10 @@
                     <li><strong style="color:#155724;">+ Added (green)</strong> — key exists in B but not in A</li>
                     <li><strong style="color:#721c24;">&minus; Removed (red)</strong> — key exists in A but not in B</li>
                     <li><strong style="color:#856404;">~ Changed (yellow)</strong> — key exists in both but the value differs</li>
+                    <li><strong style="color:#1c3d7a;">&#8645; Moved (blue)</strong> — the same array element appears at a different position, with its contents unchanged</li>
                 </ul>
-                <p>Nested paths are shown in dot notation (e.g., <code>user.address.city</code>) so you can pinpoint exactly where the difference is.</p>
+                <p>Nested paths are shown in dot notation (e.g., <code>user.address.city</code>) so you can pinpoint exactly where the difference is. Array elements matched by identity show as <code>[id=42].status</code> rather than a bare index, so the path still means something after a reorder.</p>
+                <p>Click any summary badge to filter the table down to that change type — useful when a large diff has a handful of real changes buried among many additions.</p>
                 <p>Need to format your JSON first? Use the <a href="formatter.html">JSON Formatter</a>. Need to validate? Try the <a href="json-validator.html">JSON Validator</a>.</p>
             </div>
         </section>
@@ -250,7 +403,7 @@
         <section class="info-section">
             <h2>Worked example</h2>
             <p>Comparing two versions of the same record — one field edited, one removed, one added:</p>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:0 0 1rem;">
+            <div class="example-pair">
                 <div>
                     <p style="margin:0 0 0.35rem;font-weight:600;">JSON A (original)</p>
 <pre style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:6px;padding:0.9rem 1.1rem;overflow-x:auto;font-size:0.85rem;line-height:1.5;margin:0;"><code>{
@@ -311,11 +464,27 @@
             </details>
             <details>
                 <summary>Does JSON Diff handle arrays with reordered elements?</summary>
-                <p>Array comparison is index-based — element 0 in A is compared to element 0 in B. If elements are reordered, the diff will show multiple changes even though the same values are present. This is standard behaviour for structural JSON diffing; semantic array diffing (ignoring order) is not supported.</p>
+                <p>Yes. By default arrays of objects are matched by an identity key — <code>id</code>, <code>_id</code>, <code>uuid</code>, <code>key</code>, <code>name</code>, <code>slug</code> or <code>code</code> — chosen automatically when that property is present and unique on every element. Elements are then compared to their true counterpart rather than to whatever sits at the same index, so a reordered list reports "moved" instead of flagging every field as changed. You can name the key explicitly, or switch to position matching if index order is what you actually care about. Arrays of primitives are always compared positionally.</p>
+            </details>
+            <details>
+                <summary>How do I ignore timestamps and other noisy fields?</summary>
+                <p>Enter path patterns in the "Ignore paths" box, separated by commas. A pattern such as <code>*.updatedAt</code> excludes that field at any depth, and <code>meta.requestId</code> excludes one specific path. This is the usual way to compare two API responses where timestamps, request IDs and generated tokens would otherwise bury the differences that matter.</p>
+            </details>
+            <details>
+                <summary>Can I export the differences as a JSON Patch?</summary>
+                <p>Yes. Click "Generate JSON Patch" to produce a standard RFC 6902 patch — an array of <code>add</code>, <code>remove</code> and <code>replace</code> operations with JSON Pointer paths — that transforms document A into document B. It works with <code>fast-json-patch</code> in JavaScript, the <code>jsonpatch</code> library in Python, and any other RFC 6902 compliant client.</p>
+            </details>
+            <details>
+                <summary>Can I ignore small floating point differences?</summary>
+                <p>Yes. Set a number tolerance and any two numbers within that absolute distance of each other are treated as equal. This is useful when comparing computed values, currency rounding or results from different floating point implementations, where <code>1.0000001</code> and <code>1.0</code> are not meaningfully different.</p>
             </details>
             <details>
                 <summary>Can I compare JSON with different key ordering?</summary>
-                <p>Yes. Both inputs are parsed before comparison so key order in objects does not matter. <code>{"a":1,"b":2}</code> and <code>{"b":2,"a":1}</code> will show no differences.</p>
+                <p>Yes. Both inputs are parsed before comparison so key order in objects does not matter. <code>{"a":1,"b":2}</code> and <code>{"b":2,"a":1}</code> show no differences.</p>
+            </details>
+            <details>
+                <summary>When should I use JSON Diff?</summary>
+                <p>Use JSON Diff when comparing two versions of an API response to see what changed, auditing configuration differences between environments (dev vs. prod), reviewing JSON data migrations, or confirming a refactor did not accidentally change a response contract.</p>
             </details>
         </section>
 
@@ -356,6 +525,7 @@
     <script src="js/navbar-component.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <script src="js/json-diff-tool.js"></script>
     <script src="js/dark-mode.js"></script>
     <script src="js/codemirror-diff.js"></script>
