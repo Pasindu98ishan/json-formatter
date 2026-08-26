@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PostgreSQL ERROR: relation &quot;x&quot; does not exist (SQLSTATE 42P01) — case folding, search_path, wrong database, and the privilege case that looks identical.">
+    <meta name="keywords" content="relation does not exist postgres, postgresql relation does not exist, ERROR 42P01, undefined_table, postgres table not found, search_path postgres, postgres case sensitive table name">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/postgres-relation-does-not-exist.html">
+    <meta property="og:title" content="PostgreSQL ERROR: relation &quot;x&quot; does not exist — causes and fixes">
+    <meta property="og:description" content="Why PostgreSQL says a table you can see does not exist: identifier case folding, search_path, wrong database, non-table relations, and the one privilege case that produces this exact message.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/postgres-relation-does-not-exist.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>PostgreSQL ERROR: relation "x" does not exist — Causes and Fixes</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "relation does not exist", "item": "https://jsondevtools.org/errors/postgres-relation-does-not-exist.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "PostgreSQL ERROR: relation \"x\" does not exist — Causes and Fixes",
+  "description": "PostgreSQL raises 'relation \"x\" does not exist' (SQLSTATE 42P01) when a name cannot be resolved from the current session. This reference covers identifier case folding, search_path, wrong database, non-table relations, temp tables under pooling, and the privilege case that produces the same message.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-26",
+  "dateModified": "2026-08-26",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I fix \"relation does not exist\" in PostgreSQL?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Run SELECT to_regclass('your_table'); first. If it returns NULL the name cannot be resolved from this session, so search every schema with a pg_class query. If the table turns up in another schema, either schema-qualify the query or add that schema to search_path. If it turns up nowhere, you are connected to the wrong database or the migration that creates it has not run." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the error show my table name in lower case?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because PostgreSQL folds unquoted identifiers to lower case before looking them up, and the error quotes the folded name it actually searched for. If you wrote SELECT * FROM Users and the error says relation \"users\" does not exist, that lower-case spelling is the tell: the table was created as \"Users\" with double quotes, so its real name is mixed case and only a quoted reference will match it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this error mean I lack permission on the table?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Usually not. Missing table privileges produce 'permission denied for table x', and a schema-qualified query against a schema you lack USAGE on produces 'permission denied for schema x'. There is one exception: if the schema is on your search_path but you lack USAGE on it, PostgreSQL skips that schema during name resolution and you get 'relation does not exist' instead. Granting USAGE on the schema resolves that case." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the query work in psql but fail from my application?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The two connections almost always differ in database, role, or search_path. psql may connect as a superuser whose role name matches a schema, satisfying the \"$user\" entry in the default search_path, while the application connects as a different role. Run SELECT current_database(), current_user, current_schemas(true); from both and compare the output rather than assuming they match." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does \"relation\" mean only tables?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. In PostgreSQL a relation is any object in pg_class: tables, views, materialized views, sequences, indexes, and partitioned tables. That is why nextval('users_id_seq') on a missing sequence reports relation \"users_id_seq\" does not exist rather than something sequence-specific, and why the same message appears for a view or a materialized view you have not created yet." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I check whether a table exists without triggering the error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Use to_regclass, which returns NULL instead of raising: SELECT to_regclass('public.users'); It resolves the name through the same search_path rules a query would use, so a NULL result tells you the name is genuinely unresolvable from this session rather than merely absent from one schema. It is safe inside a transaction because it never aborts one." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did this start after restoring a database dump?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A dump restores objects into the schemas they came from, which may not be the schemas your application expects, and pg_dump writes its own SET search_path statements during restore. If the source database kept tables in a named schema and the target role's search_path does not include it, every unqualified query fails even though the restore reported success. Check where the objects actually landed with a pg_class query before assuming the restore was incomplete." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>relation does not exist</span>
+            </nav>
+            <h1>PostgreSQL ERROR: relation "x" does not exist</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;">
+                    <li>Run <code>SELECT to_regclass('users');</code> &mdash; <code>NULL</code> means the name doesn't resolve through your current <code>search_path</code>, <em>not</em> that the table exists nowhere.</li>
+                    <li>Error quotes a <strong>lower-case</strong> name you didn't type? The table was created with double quotes &mdash; query it as <code>"Users"</code>.</li>
+                    <li>Table exists but only when schema-qualified? It isn't on your <code>search_path</code>.</li>
+                    <li>Still <code>NULL</code> when you schema-qualify it? Wrong database, or the migration never ran.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>ERROR:  relation "users" does not exist
+LINE 1: SELECT * FROM users;
+                      ^
+
+-- the same 42P01 error from a write, with the caret in a different column:
+ERROR:  relation "missing_tbl" does not exist
+LINE 1: INSERT INTO missing_tbl (id) VALUES (1);
+                    ^
+
+-- and from a sequence, which is also a "relation":
+ERROR:  relation "orders_id_seq" does not exist
+LINE 1: SELECT nextval('orders_id_seq');
+                       ^</code></pre>
+            </div>
+
+            <p>PostgreSQL raises this whenever a relation name can't be resolved <em>from the current session</em>. That last part is the whole difficulty: the message says "does not exist," but what it actually means is "I could not find this name using this database, this <code>search_path</code>, and this role." The object frequently does exist &mdash; three feet away, in a schema you aren't looking in.</p>
+
+            <p>The error code is <strong>SQLSTATE <code>42P01</code></strong>, whose symbolic name is <code>undefined_table</code>. Its close neighbour <code>42703</code> (<code>undefined_column</code>) produces <code>column "x" does not exist</code> and means something quite different &mdash; the table resolved fine, the column inside it didn't.</p>
+
+            <h2>Anatomy of the message</h2>
+
+            <p>Two parts of the output carry diagnostic weight, and both are routinely skipped over:</p>
+
+            <ul>
+                <li><strong>The quoted name is the name PostgreSQL actually searched for</strong>, after case folding &mdash; not necessarily what you typed. If you wrote <code>SELECT * FROM Users</code> and the error says <code>relation "users" does not exist</code>, the lower-casing happened during parsing, and it is the single strongest clue on the page (see Fix&nbsp;2).</li>
+                <li><strong>The <code>LINE n:</code> and caret</strong> point at the exact token that failed to resolve. In a long query with several joins this tells you <em>which</em> relation is the problem rather than leaving you to guess. Note that a few statement types &mdash; <code>REFRESH MATERIALIZED VIEW</code>, for instance &mdash; report the error with no <code>LINE</code>/caret at all.</li>
+            </ul>
+
+            <p>Notably, PostgreSQL offers <strong>no hint</strong> pointing you at another schema. If the table sits in <code>reporting</code> and you query it unqualified, the message is bare &mdash; identical to the one you'd get if the table had never been created. Distinguishing those two situations is what the rest of this page is about.</p>
+
+            <h2>Triage: three queries, in this order</h2>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 660 300" role="img" aria-label="Three-step triage for relation does not exist. Step one: run SELECT current_database and current_schemas to confirm you are on the right database and see the effective search path. Step two: run SELECT to_regclass on the table name; NULL means the name does not resolve through the current search path, which is not the same as the table existing nowhere. Step three: query pg_class joined to pg_namespace to find which schema the relation actually lives in. If it is found in another schema, qualify the name or add that schema to the search path. If it is found in no schema at all, you are connected to the wrong database or the migration that creates it never ran.">
+                    <defs>
+                        <marker id="pgrel-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="pgrel-ok" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-ok)"/></marker>
+                        <marker id="pgrel-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+
+                    <rect class="dg-box" x="105" y="6" width="450" height="42" rx="8"/>
+                    <text class="dg-m" x="330" y="25" text-anchor="middle">SELECT current_database(), current_schemas(true);</text>
+                    <text class="dg-s" x="330" y="41" text-anchor="middle">right database? which schemas actually resolve?</text>
+                    <line class="dg-ln" x1="330" y1="48" x2="330" y2="70" marker-end="url(#pgrel-a)"/>
+
+                    <rect class="dg-box" x="105" y="76" width="450" height="42" rx="8"/>
+                    <text class="dg-m" x="330" y="95" text-anchor="middle">SELECT to_regclass('users');</text>
+                    <text class="dg-s" x="330" y="111" text-anchor="middle">NULL = doesn't resolve via search_path (never raises)</text>
+                    <line class="dg-ln" x1="330" y1="118" x2="330" y2="140" marker-end="url(#pgrel-a)"/>
+
+                    <rect class="dg-box" x="105" y="146" width="450" height="42" rx="8"/>
+                    <text class="dg-m" x="330" y="165" text-anchor="middle">SELECT n.nspname FROM pg_class c JOIN pg_namespace n ...</text>
+                    <text class="dg-s" x="330" y="181" text-anchor="middle">which schema does it really live in?</text>
+
+                    <path class="dg-ln" d="M330,188 L330,206 L170,206 L170,224" marker-end="url(#pgrel-ok)"/>
+                    <path class="dg-ln" d="M330,188 L330,206 L500,206 L500,224" marker-end="url(#pgrel-bad)"/>
+
+                    <rect class="dg-box-ok" x="35" y="224" width="270" height="62" rx="8"/>
+                    <text class="dg-t" x="170" y="246" text-anchor="middle">Found in another schema</text>
+                    <text class="dg-s" x="170" y="264" text-anchor="middle">qualify it, or add that schema</text>
+                    <text class="dg-s" x="170" y="278" text-anchor="middle">to search_path</text>
+
+                    <rect class="dg-box-bad" x="365" y="224" width="270" height="62" rx="8"/>
+                    <text class="dg-t" x="500" y="246" text-anchor="middle">Found in no schema</text>
+                    <text class="dg-s" x="500" y="264" text-anchor="middle">wrong database, or the</text>
+                    <text class="dg-s" x="500" y="278" text-anchor="middle">migration never ran</text>
+                </svg>
+                <p class="dg-cap">Steps 1&ndash;2 tell you whether the name <em>resolves</em>; only step 3 tells you whether the relation <em>exists</em>. The two halves have completely different fixes.</p>
+            </div>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- 1. Where am I, and what does the path actually resolve to?
+SELECT current_database(), current_user, current_schemas(true);
+--  appdb | postgres | {pg_catalog,public}
+
+-- 2. Non-throwing existence check (NULL = cannot be resolved from here)
+SELECT to_regclass('users');
+
+-- 3. Find it in ANY schema, whatever kind of relation it is.
+--    lower() = lower() matches case variants (so a quoted "Users" still
+--    shows up) without ILIKE's pattern semantics, where _ and % are wildcards.
+SELECT n.nspname AS schema, c.relname AS name,
+       CASE c.relkind WHEN 'r' THEN 'table'   WHEN 'v' THEN 'view'
+                      WHEN 'm' THEN 'matview' WHEN 'S' THEN 'sequence'
+                      WHEN 'p' THEN 'partitioned table'
+                      ELSE c.relkind::text END AS kind
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE lower(c.relname) = lower('users')
+ORDER BY 1;</code></pre>
+            </div>
+
+            <p>Read the <code>name</code> column carefully rather than just noting that a row came back: if you searched for <code>users</code> and the result says <code>Users</code>, you've found the case-folding problem in Fix&nbsp;2. Two deliberate variants of that <code>WHERE</code> clause are worth knowing:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- exact, case-sensitive: "is there a relation named precisely this?"
+WHERE c.relname = 'users'
+
+-- fuzzy, when you only remember part of the name (here _ and % ARE wildcards)
+WHERE c.relname ILIKE '%user%'</code></pre>
+            </div>
+
+            <p><code>current_schemas(true)</code> is the query most troubleshooting guides omit, and it's more useful than <code>SHOW search_path</code>: it shows the <em>effective, resolved</em> list after <code>"$user"</code> expansion and after dropping schemas that don't exist or that you can't access. A <code>search_path</code> of <code>"$user", public</code> resolving to just <code>{pg_catalog,public}</code> tells you the <code>$user</code> schema isn't contributing anything.</p>
+
+            <h2>Fix 1: it genuinely isn't there yet (migrations)</h2>
+
+            <p>The most common cause is the least interesting one: the table hasn't been created in the database you're connected to. This is nearly always a migration problem, and the tell is that step 3 above returns zero rows.</p>
+
+            <p>Check that migrations ran <em>against this database</em>, not just that they ran. Every ORM keeps its own bookkeeping table &mdash; <code>schema_migrations</code> (Rails, Django), <code>_prisma_migrations</code> (Prisma), <code>alembic_version</code> (Alembic), <code>flyway_schema_history</code> (Flyway). If that table is missing too, no migration has ever run here; if it's present but short, migrations ran partially:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- does the migration bookkeeping table itself exist?
+SELECT to_regclass('schema_migrations'), to_regclass('_prisma_migrations');
+
+-- list every table the current session can actually see
+SELECT schemaname, tablename FROM pg_tables
+WHERE schemaname NOT IN ('pg_catalog','information_schema')
+ORDER BY 1, 2;</code></pre>
+            </div>
+
+            <p>A frequent variant in test suites: the test database was created but never migrated, so the suite fails on the first query while the development database is perfectly healthy. Another: the app reads <code>DATABASE_URL</code> from an environment file the migration command doesn't load, so the two act on different databases.</p>
+
+            <h2>Fix 2: unquoted names are folded to lower case</h2>
+
+            <p>PostgreSQL folds unquoted identifiers to <strong>lower case</strong> before lookup. The SQL standard says to fold to upper case, so this is a documented incompatibility, not a bug. Double-quoting an identifier both preserves its case and makes it case-sensitive:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>CREATE TABLE "Users" (id int);   -- real name is: Users
+
+-- ❌ fails — "Users" folds to "users", which doesn't exist
+--    SELECT * FROM Users;
+--    ERROR:  relation "users" does not exist
+
+-- ✅ works — quoted, so the case is preserved
+SELECT * FROM "Users";</code></pre>
+            </div>
+
+            <p>Note how the failing message quoted <code>"users"</code> even though the query said <code>Users</code>. Whenever the case in the error doesn't match the case you typed, this is your cause. It shows up most often when a schema was created by a GUI tool or an ORM that quotes everything (older Entity Framework and some Rails configurations both do), and then someone queries it by hand.</p>
+
+            <p>The long-term fix is to pick one convention: use <code>snake_case</code> everywhere and never quote, which is idiomatic PostgreSQL, or quote consistently in every single reference. Mixing the two is what produces this error. If you inherit a mixed-case schema and want out, rename rather than quote forever &mdash; <code>ALTER TABLE "Users" RENAME TO users;</code>.</p>
+
+            <h2>Fix 3: the table is in a schema that isn't on your search_path</h2>
+
+            <p>An unqualified name is resolved against <code>search_path</code>, whose default is <code>"$user", public</code>. The <code>"$user"</code> entry means "a schema named after the current role," and is silently ignored when no such schema exists. So by default only <code>public</code> is really searched &mdash; anything in <code>app</code>, <code>reporting</code>, or a tenant schema is invisible unless you qualify it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>CREATE SCHEMA app;
+CREATE TABLE app.orders (id int);
+
+-- ❌ ERROR:  relation "orders" does not exist
+--    SELECT * FROM orders;
+
+-- ✅ schema-qualified — always works, regardless of search_path
+SELECT * FROM app.orders;
+
+-- ✅ or put the schema on the path for this session
+SET search_path = app, public;
+
+-- ✅ or persist it for a role / database
+ALTER ROLE myapp SET search_path = app, public;
+ALTER DATABASE appdb SET search_path = app, public;</code></pre>
+            </div>
+
+            <p>A per-role or per-database <code>search_path</code> is a perfectly sound convention and plenty of well-run applications rely on one. The thing to avoid is depending on a <em>session-level</em> setting: for critical application queries and migrations, schema qualification makes name resolution explicit rather than inheriting state that survives locally and vanishes behind a connection pooler handing you a different backend on the next request.</p>
+
+            <h2>Fix 4: you're connected to a different database than you think</h2>
+
+            <p>Step 1 of the triage already told you which database you're on; this section is about how you ended up on the wrong one. The usual causes:</p>
+
+            <ul>
+                <li>The connection string ends in <code>/postgres</code> (the default maintenance database) rather than your application database &mdash; easy to miss in a long URL.</li>
+                <li>An environment variable came from the wrong <code>.env</code> file, or a container is still holding a stale one from an earlier run.</li>
+                <li>A port-forward or SSH tunnel points at staging while you believe you're on local.</li>
+            </ul>
+
+            <p>If you're chasing an intermittent version of this in a containerised setup, the connection may be failing over to a different host entirely &mdash; see <a href="postgres-too-many-clients.html">FATAL: sorry, too many clients already</a> for the related pooling failure mode, and <a href="err-connection-refused.html">ERR_CONNECTION_REFUSED</a> when nothing is listening at all.</p>
+
+            <h2>Fix 5: it isn't a table &mdash; sequences, views and matviews</h2>
+
+            <p>"Relation" in PostgreSQL means any entry in <code>pg_class</code>: tables, views, materialized views, sequences, indexes and partitioned tables all qualify. So this same message appears when:</p>
+
+            <ul>
+                <li><code>nextval('orders_id_seq')</code> names a sequence that doesn't exist &mdash; frequently after a restore that didn't bring sequences across, or because the real sequence name isn't what you assumed. Ask PostgreSQL: <code>SELECT pg_get_serial_sequence('t_real','id');</code> returns the true name, e.g. <code>public.t_real_id_seq</code>.</li>
+                <li>A view or materialized view hasn't been created yet &mdash; common when migrations create tables and views in separate steps and only one has run.</li>
+                <li><code>REFRESH MATERIALIZED VIEW</code> targets a matview that was dropped and recreated as a plain view, or never created at all.</li>
+            </ul>
+
+            <p>The <code>relkind</code> column in the step-3 query above tells you what kind of object actually exists under that name, which resolves the case where you're issuing a table operation against a view (or the reverse).</p>
+
+            <h2>Fix 6: temp tables and pooled connections</h2>
+
+            <p>Temporary tables live in a per-session schema (<code>pg_temp_1</code>, <code>pg_temp_3</code>, and so on) and disappear when that session ends. Another connection cannot see them &mdash; not a permissions issue, they're genuinely not in its namespace:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- session 1
+CREATE TEMP TABLE staging_rows (id int);
+SELECT count(*) FROM staging_rows;   -- works
+
+-- session 2 (a different connection)
+SELECT count(*) FROM staging_rows;
+-- ERROR:  relation "staging_rows" does not exist</code></pre>
+            </div>
+
+            <p>This becomes a production-only bug behind PgBouncer in transaction pooling mode, or any pool that doesn't pin a connection for the life of a request: you create the temp table on one backend and the follow-up query is handed a different one. If you need a scratch table that survives across statements in a pooled environment, use a real table with a cleanup strategy, or ensure the whole unit of work runs inside a single transaction on a pinned connection.</p>
+
+            <h2>Fix 7: the privilege case that looks identical</h2>
+
+            <p>This distinction is worth knowing precisely, because it's widely mis-stated. Missing privileges usually produce their <em>own</em> error, not this one:</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>Error you get</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Schema-qualified query, no <code>USAGE</code> on the schema</td><td><code>permission denied for schema private</code></td></tr>
+                    <tr><td><code>USAGE</code> granted, but no <code>SELECT</code> on the table</td><td><code>permission denied for table noselect</code></td></tr>
+                    <tr><td><strong>Unqualified</strong> name, schema on <code>search_path</code>, no <code>USAGE</code></td><td><code>relation "secrets" does not exist</code></td></tr>
+                    <tr><td><code>CREATE</code> in <code>public</code> by a role with no explicit grant (PostgreSQL 15+)</td><td><code>permission denied for schema public</code></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>Only the third row produces our error. When a schema is on your <code>search_path</code> but you lack <code>USAGE</code> on it, PostgreSQL skips it during name resolution rather than reporting a privilege problem &mdash; so the object is invisible and the message is the generic "does not exist." Granting the schema privilege fixes it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>GRANT USAGE ON SCHEMA private TO lowpriv;
+GRANT SELECT ON private.secrets TO lowpriv;</code></pre>
+            </div>
+
+            <h3>A related trap: the PostgreSQL 15 <code>public</code> schema change</h3>
+
+            <p>This one does <em>not</em> emit <code>42P01</code> directly &mdash; it's one step removed, which is exactly why it wastes so much time. <strong>Since PostgreSQL 15</strong>, the <code>public</code> schema no longer grants <code>CREATE</code> to the <code>PUBLIC</code> role by default (earlier versions did, and upgraded clusters keep the old grant). The chain runs:</p>
+
+            <ol>
+                <li>A migration tries to create a table in <code>public</code> as a role that no longer has the implicit grant &rarr; it fails with <code>permission denied for schema public</code>.</li>
+                <li>That failure is swallowed, retried, or simply scrolled past in CI output.</li>
+                <li>The application then queries the table that was never created &rarr; <code>relation "x" does not exist</code>.</li>
+            </ol>
+
+            <p>So the <code>42P01</code> you're looking at is a symptom two steps downstream of a privilege failure. If a migration suite started failing only after moving to a fresh 15+ cluster, read the <em>first</em> error in the migration log rather than the last one your application reported:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>-- grant it explicitly to the migrating role (preferred over re-opening it to PUBLIC)
+GRANT CREATE ON SCHEMA public TO myapp;</code></pre>
+            </div>
+
+            <h2>Related errors, and how to tell them apart</h2>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>SQLSTATE</th><th>Means</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>relation "x" does not exist</code></td><td><code>42P01</code></td><td>Name couldn't be resolved from this session</td></tr>
+                    <tr><td><code>column "x" does not exist</code></td><td><code>42703</code></td><td>Relation resolved; the column inside it didn't</td></tr>
+                    <tr><td><code>function x(...) does not exist</code></td><td><code>42883</code></td><td>No function with that name <em>and argument types</em></td></tr>
+                    <tr><td><code>permission denied for table x</code></td><td><code>42501</code></td><td>Object found; your role can't touch it</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>If you're staring at a raw driver exception rather than clean <code>psql</code> output, paste the trace into the <a href="../error-log-analyzer.html">Error Log Analyzer</a> &mdash; it matches the message against this reference set and routes you to the matching page.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>SELECT current_database(), current_user, current_schemas(true);</code> before anything else</li>
+                <li>&#10003; <code>SELECT to_regclass('your_table');</code> &mdash; <code>NULL</code> means unresolvable here, not necessarily absent</li>
+                <li>&#10003; Compare the case in the error message against the case you typed</li>
+                <li>&#10003; Search every schema via <code>pg_class</code> &#43; <code>pg_namespace</code>, not just <code>\dt</code></li>
+                <li>&#10003; Confirm the migration bookkeeping table exists <em>in this database</em></li>
+                <li>&#10003; Schema-qualify the query once as a test &mdash; if that works, it's a <code>search_path</code> problem</li>
+                <li>&#10003; Temp table involved? Check whether a pooler handed you a different backend</li>
+                <li>&#10003; Run the same three queries from the <em>application's</em> connection, not only from psql</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How do I fix "relation does not exist" in PostgreSQL?</summary>
+                    <p>Run <code>SELECT to_regclass('your_table');</code> first. If it returns <code>NULL</code> the name cannot be resolved from this session, so search every schema with a <code>pg_class</code> query. If the table turns up in another schema, either schema-qualify the query or add that schema to <code>search_path</code>. If it turns up nowhere, you are connected to the wrong database or the migration that creates it has not run.</p>
+                </details>
+                <details>
+                    <summary>Why does the error show my table name in lower case?</summary>
+                    <p>Because PostgreSQL folds unquoted identifiers to lower case before looking them up, and the error quotes the folded name it actually searched for. If you wrote <code>SELECT * FROM Users</code> and the error says <code>relation "users" does not exist</code>, that lower-case spelling is the tell: the table was created as <code>"Users"</code> with double quotes, so its real name is mixed case and only a quoted reference will match it.</p>
+                </details>
+                <details>
+                    <summary>Does this error mean I lack permission on the table?</summary>
+                    <p>Usually not. Missing table privileges produce <code>permission denied for table x</code>, and a schema-qualified query against a schema you lack <code>USAGE</code> on produces <code>permission denied for schema x</code>. There is one exception: if the schema is on your <code>search_path</code> but you lack <code>USAGE</code> on it, PostgreSQL skips that schema during name resolution and you get <code>relation does not exist</code> instead. Granting <code>USAGE</code> on the schema resolves that case.</p>
+                </details>
+                <details>
+                    <summary>Why does the query work in psql but fail from my application?</summary>
+                    <p>The two connections almost always differ in database, role, or <code>search_path</code>. psql may connect as a superuser whose role name matches a schema, satisfying the <code>"$user"</code> entry in the default <code>search_path</code>, while the application connects as a different role. Run <code>SELECT current_database(), current_user, current_schemas(true);</code> from both and compare the output rather than assuming they match.</p>
+                </details>
+                <details>
+                    <summary>Does "relation" mean only tables?</summary>
+                    <p>No. In PostgreSQL a relation is any object in <code>pg_class</code>: tables, views, materialized views, sequences, indexes, and partitioned tables. That is why <code>nextval('users_id_seq')</code> on a missing sequence reports <code>relation "users_id_seq" does not exist</code> rather than something sequence-specific, and why the same message appears for a view or a materialized view you have not created yet.</p>
+                </details>
+                <details>
+                    <summary>How do I check whether a table exists without triggering the error?</summary>
+                    <p>Use <code>to_regclass</code>, which returns <code>NULL</code> instead of raising: <code>SELECT to_regclass('public.users');</code> It resolves the name through the same <code>search_path</code> rules a query would use, so a <code>NULL</code> result tells you the name is genuinely unresolvable from this session rather than merely absent from one schema. It is safe inside a transaction because it never aborts one.</p>
+                </details>
+                <details>
+                    <summary>Why did this start after restoring a database dump?</summary>
+                    <p>A dump restores objects into the schemas they came from, which may not be the schemas your application expects, and <code>pg_dump</code> writes its own <code>SET search_path</code> statements during restore. If the source database kept tables in a named schema and the target role's <code>search_path</code> does not include it, every unqualified query fails even though the restore reported success. Check where the objects actually landed with a <code>pg_class</code> query before assuming the restore was incomplete.</p>
+                </details>
+            </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS" target="_blank" rel="noopener">Identifiers and Key Words</a> (PostgreSQL Documentation)</li>
+                <li><a href="https://www.postgresql.org/docs/current/ddl-schemas.html#DDL-SCHEMAS-PATH" target="_blank" rel="noopener">The Schema Search Path</a> (PostgreSQL Documentation)</li>
+                <li><a href="https://www.postgresql.org/docs/current/errcodes-appendix.html" target="_blank" rel="noopener">PostgreSQL Error Codes</a> (PostgreSQL Documentation)</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>More database &amp; backend errors</h3>
+                <p>Browse the full reference &mdash; exact message, cause, and fix &mdash; or paste a stack trace and let the analyzer find the match.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../error-log-analyzer.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Error Log Analyzer</a>
+                    <a href="postgres-duplicate-key-unique-constraint.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">duplicate key value violates unique constraint</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="postgres-duplicate-key-unique-constraint.html">duplicate key value violates unique constraint</a> &mdash; the table resolved fine; the row conflicts</li>
+                <li><a href="postgres-too-many-clients.html">FATAL: sorry, too many clients already</a> &mdash; connection pooling limits, the other half of the pooler story</li>
+                <li><a href="postgres-deadlock-detected.html">ERROR: deadlock detected</a> &mdash; two transactions waiting on each other</li>
+                <li><a href="mongodb-e11000-duplicate-key-error.html">E11000 duplicate key error collection</a> &mdash; the MongoDB equivalent uniqueness failure</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a></li>
+                <li><a href="../json-to-csv.html">JSON to CSV Converter</a> &mdash; for moving query results into a spreadsheet</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
