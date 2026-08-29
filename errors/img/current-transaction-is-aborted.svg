@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 268" width="700" height="268" role="img" aria-labelledby="ctaTitle ctaDesc">
+  <title id="ctaTitle">psql session showing a transaction abort cascade</title>
+  <desc id="ctaDesc">A real psql session. BEGIN starts a transaction and the prompt changes to appdb=*#. An INSERT violates a unique constraint and raises ERROR duplicate key value violates unique constraint accounts_pkey with DETAIL Key id=1 already exists. The prompt then changes to appdb=!# meaning the transaction has failed. A following SELECT 1 returns ERROR current transaction is aborted, commands ignored until end of transaction block. Finally COMMIT is answered with ROLLBACK, because PostgreSQL cannot commit an aborted transaction.</desc>
+  <style>
+    .bg{fill:#1e2227}
+    .bar{fill:#2b3138}
+    .mono{font-family:'JetBrains Mono','SFMono-Regular','Consolas','Menlo',monospace;font-size:12px}
+    .dot1{fill:#ff5f57}.dot2{fill:#febc2e}.dot3{fill:#28c840}
+    .bartext{fill:#8b949e;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px}
+    .prompt{fill:#7ee787}
+    .promptbad{fill:#ffa657;font-weight:700}
+    .cmd{fill:#e6edf3}
+    .ok{fill:#8b949e}
+    .err{fill:#ff7b72;font-weight:700}
+    .detail{fill:#a9b4c0}
+    .roll{fill:#ffa657;font-weight:700}
+  </style>
+
+  <rect class="bg" x="0" y="0" width="700" height="268" rx="8"/>
+  <rect class="bar" x="0" y="0" width="700" height="28" rx="8"/>
+  <rect class="bar" x="0" y="20" width="700" height="8"/>
+  <circle class="dot1" cx="18" cy="14" r="5"/>
+  <circle class="dot2" cx="36" cy="14" r="5"/>
+  <circle class="dot3" cx="54" cy="14" r="5"/>
+  <text class="bartext" x="350" y="18" text-anchor="middle">psql — PostgreSQL 16.15</text>
+
+  <!-- line 1 -->
+  <text class="mono" x="16" y="52">
+    <tspan class="prompt">appdb=# </tspan><tspan class="cmd">BEGIN;</tspan>
+  </text>
+  <text class="mono ok" x="16" y="70">BEGIN</text>
+
+  <!-- line 2: still healthy, prompt gains the * -->
+  <text class="mono" x="16" y="94">
+    <tspan class="prompt">appdb=*# </tspan><tspan class="cmd">INSERT INTO accounts VALUES (1, 'duplicate');</tspan>
+  </text>
+  <text class="mono err" x="16" y="112">ERROR:  duplicate key value violates unique constraint "accounts_pkey"</text>
+  <text class="mono detail" x="16" y="130">DETAIL:  Key (id)=(1) already exists.</text>
+
+  <!-- line 3: prompt flips to ! — the transaction has failed -->
+  <text class="mono" x="16" y="154">
+    <tspan class="promptbad">appdb=!# </tspan><tspan class="cmd">SELECT 1;</tspan>
+  </text>
+  <text class="mono err" x="16" y="172">ERROR:  current transaction is aborted, commands ignored until end of transaction block</text>
+
+  <!-- line 4: COMMIT answered with ROLLBACK -->
+  <text class="mono" x="16" y="196">
+    <tspan class="promptbad">appdb=!# </tspan><tspan class="cmd">COMMIT;</tspan>
+  </text>
+  <text class="mono roll" x="16" y="214">ROLLBACK</text>
+
+  <text class="mono ok" x="16" y="244">&#8593; you asked to COMMIT and PostgreSQL answered ROLLBACK &#8212; nothing was saved.</text>
+</svg>

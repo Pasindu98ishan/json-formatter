@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PostgreSQL 25P02: current transaction is aborted. This is not your real error — find the first failure, then ROLLBACK or use SAVEPOINT to recover.">
+    <meta name="keywords" content="current transaction is aborted commands ignored until end of transaction block, 25P02, InFailedSqlTransaction, psycopg2 InFailedSqlTransaction, PSQLException current transaction is aborted, idle in transaction (aborted), postgres savepoint, ON_ERROR_ROLLBACK">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/postgres-current-transaction-is-aborted.html">
+    <meta property="og:title" content="current transaction is aborted, commands ignored until end of transaction block">
+    <meta property="og:description" content="PostgreSQL 25P02 is a symptom, not a cause: an earlier statement failed and poisoned the transaction. How to find the original error, recover with SAVEPOINT, and stop it recurring.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/postgres-current-transaction-is-aborted.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/current-transaction-is-aborted.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/current-transaction-is-aborted.svg">
+    <title>current transaction is aborted, commands ignored until end of transaction block</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "current transaction is aborted", "item": "https://jsondevtools.org/errors/postgres-current-transaction-is-aborted.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "current transaction is aborted, commands ignored until end of transaction block",
+  "description": "PostgreSQL error 25P02 means an earlier statement in the same transaction failed. This reference shows how to recover the original error from the server log and pg_stat_activity, how to recover with ROLLBACK or SAVEPOINT, why COMMIT silently becomes ROLLBACK, and why you can hit it without ever writing BEGIN.",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/current-transaction-is-aborted.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/current-transaction-is-aborted.svg",
+    "caption": "A psql session where a duplicate key error aborts the transaction, a later SELECT returns 25P02, and COMMIT is answered with ROLLBACK.",
+    "width": 700,
+    "height": 268
+  },
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-29",
+  "dateModified": "2026-08-29",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I fix \"current transaction is aborted, commands ignored until end of transaction block\"?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Issue ROLLBACK to end the transaction, then fix the statement that failed first. This message is never the real problem — it means an earlier statement in the same transaction raised an error, and PostgreSQL now refuses every command until the transaction ends. Find that first error in the PostgreSQL server log, where it appears immediately above the first 25P02 line along with the exact statement that caused it." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find the original error that aborted the transaction?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Look in the PostgreSQL server log. With the default log_min_error_statement of error, every error is logged with a STATEMENT line naming the exact SQL, and the true cause sits directly above the first 'current transaction is aborted' entry. On a live system you can also query pg_stat_activity: a session in state 'idle in transaction (aborted)' shows the last statement it ran in the query column. In application code, log the first exception rather than only the last one your framework surfaces." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does COMMIT return ROLLBACK instead of committing?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because PostgreSQL cannot commit a transaction that has already failed. Issuing COMMIT on an aborted transaction ends it and discards all its work, and psql echoes ROLLBACK rather than COMMIT to tell you so. This surprises people who assume a successful COMMIT call means the data was saved — if any statement in the transaction errored and was not rolled back to a savepoint, nothing in that transaction is persisted." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do I get this error when I never wrote BEGIN?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because something opened the transaction for you. The PostgreSQL JDBC driver itself defaults to autoCommit=true, but Spring, connection pools and container-managed datasources routinely turn it off; Spring's @Transactional and Hibernate wrap your work in a transaction; and Python's psycopg2 opens one implicitly before the first statement unless autocommit is set to True. You never typed BEGIN, but you are inside a transaction block all the same, so the first error poisons everything that follows on that connection." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I continue a transaction after an error instead of losing it?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Use SAVEPOINT before the statement that might fail, and ROLLBACK TO SAVEPOINT when it does. That rewinds only to the savepoint, leaving the surrounding transaction usable so you can continue and commit. psql can do this automatically with \\set ON_ERROR_ROLLBACK on, which issues an implicit savepoint before each command in a transaction block, and the PostgreSQL JDBC driver offers the same behaviour through its autosave parameter." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is SQLSTATE 25P02?",
+      "acceptedAnswer": { "@type": "Answer", "text": "25P02 is the PostgreSQL error code for this message, and its symbolic name is in_failed_sql_transaction. Drivers surface it under their own names: psycopg2 raises psycopg2.errors.InFailedSqlTransaction, the JDBC driver raises PSQLException, and ActiveRecord raises PG::InFailedSqlTransaction. They all mean the same thing — the transaction is in a failed state and will accept nothing but ROLLBACK, COMMIT, or a rollback to a savepoint." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the error keep appearing on requests that should be unrelated?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A connection pool handed the poisoned connection to the next request. If code catches a database exception and returns the connection to the pool without rolling back, the transaction stays aborted, and every later borrower of that connection sees 25P02 for queries that are perfectly valid. Make rollback unconditional in your error path, and set idle_in_transaction_session_timeout so an abandoned aborted transaction is terminated rather than left to circulate." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>current transaction is aborted</span>
+            </nav>
+            <h1>PostgreSQL: current transaction is aborted, commands ignored until end of transaction block</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;">
+                    <li><strong>This is not your error.</strong> An earlier statement in the same transaction failed; everything after it reports this instead.</li>
+                    <li>Find the real one in the server log &mdash; it sits directly <em>above</em> the first <code>25P02</code> line, with its <code>STATEMENT:</code>.</li>
+                    <li><code>ROLLBACK</code> clears the state. <code>SAVEPOINT</code> + <code>ROLLBACK TO SAVEPOINT</code> keeps the transaction alive instead.</li>
+                    <li>Never wrote <code>BEGIN</code>? Your driver or ORM opened the transaction for you.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>ERROR:  current transaction is aborted, commands ignored until end of transaction block
+
+-- the same 25P02 through each driver:
+psycopg2.errors.InFailedSqlTransaction: current transaction is aborted, commands ignored until end of transaction block
+org.postgresql.util.PSQLException: ERROR: current transaction is aborted, commands ignored until end of transaction block
+ActiveRecord::StatementInvalid: PG::InFailedSqlTransaction: ERROR:  current transaction is aborted
+django.db.utils.InternalError: current transaction is aborted, commands ignored until end of transaction block</code></pre>
+            </div>
+
+            <p>PostgreSQL aborts the <em>entire</em> transaction as soon as any statement inside it raises an error, and from that moment every command &mdash; even <code>SELECT 1</code> &mdash; is rejected with this message. It is a status report, not a diagnosis: the statement it names is not the statement that broke anything.</p>
+
+            <p>The error code is <strong>SQLSTATE <code>25P02</code></strong>, symbolic name <code>in_failed_sql_transaction</code>. This behaviour is deliberate and it differs from MySQL and SQL Server, which roll back only the failing statement and let the transaction carry on. PostgreSQL requires you to decide explicitly what to do.</p>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/current-transaction-is-aborted.svg" width="700" height="268" loading="lazy"
+                     alt="psql session: BEGIN succeeds and the prompt becomes appdb=*#. An INSERT raises ERROR duplicate key value violates unique constraint accounts_pkey with DETAIL Key (id)=(1) already exists. The prompt changes to appdb=!# and a following SELECT 1 returns ERROR current transaction is aborted, commands ignored until end of transaction block. COMMIT is then answered with ROLLBACK.">
+                <figcaption>A real psql session on PostgreSQL 16.15. Two details are easy to miss: the prompt changes from <code>appdb=*#</code> to <code>appdb=!#</code> the moment the transaction fails, and the final <code>COMMIT</code> is answered with <strong>ROLLBACK</strong>.</figcaption>
+            </figure>
+
+            <p>That prompt character is documented psql behaviour and the fastest signal you have: <code>%x</code> renders <code>*</code> inside a transaction block, and <code>!</code> once the transaction has failed. If your prompt shows <code>!</code>, nothing you type will work until you end the transaction.</p>
+
+            <h2>Fix 1: find the error that actually broke it</h2>
+
+            <p>Everything else on this page is mechanical once you know what failed. The original error is in the <strong>PostgreSQL server log</strong>, immediately above the first <code>25P02</code> entry &mdash; and because <code>log_min_error_statement</code> defaults to <code>error</code>, it is logged together with the SQL that produced it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>2026-08-29 08:40:24.488 UTC [114] ERROR:  division by zero
+2026-08-29 08:40:24.488 UTC [114] STATEMENT:  SELECT 1/0;                 &lt;-- the real cause
+2026-08-29 08:40:24.488 UTC [114] ERROR:  current transaction is aborted, commands ignored until end of transaction block
+2026-08-29 08:40:24.488 UTC [114] STATEMENT:  SELECT pg_sleep(25);        &lt;-- merely the next victim</code></pre>
+            </div>
+
+            <p>The bracketed number is the backend PID, so you can follow one session's statements even on a busy server. On a managed host the log lives wherever the provider exposes it &mdash; RDS "Logs &amp; events", Cloud SQL "Logs", Heroku <code>heroku logs</code>, or <code>docker logs &lt;container&gt;</code> for a local container.</p>
+
+            <p>If it is happening <em>right now</em> and you can reach the database, <code>pg_stat_activity</code> tells you the same thing live. A session sitting in an aborted transaction reports a distinctive state, and its <code>query</code> column still holds the statement that broke it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>SELECT pid, state, xact_start, left(query, 60) AS last_statement
+FROM pg_stat_activity
+WHERE state = 'idle in transaction (aborted)';
+
+--  pid | state                         | xact_start | last_statement
+--  138 | idle in transaction (aborted) | ...        | SELECT 1/0;</code></pre>
+            </div>
+
+            <p>In application code the equivalent mistake is logging only the exception that reached your handler. That is the <em>last</em> error, which is always this one. Log the first database exception per request, and this class of problem stops being mysterious.</p>
+
+            <h2>Fix 2: <code>ROLLBACK</code> to clear the state</h2>
+
+            <p>Once a transaction is aborted, PostgreSQL accepts only statements that <em>end</em> it: <code>ROLLBACK</code> (and its alias <code>ABORT</code>), <code>COMMIT</code> (which behaves as a rollback, see below), and <code>ROLLBACK TO SAVEPOINT</code>. Everything else returns 25P02 &mdash; including commands people assume are exempt. On 16.15, <code>SET</code>, <code>SHOW</code>, <code>RESET</code>, <code>SET TRANSACTION</code>, <code>SAVEPOINT</code> and <code>RELEASE SAVEPOINT</code> are all rejected too:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>BEGIN;
+INSERT INTO accounts VALUES (1, 'duplicate');
+-- ERROR:  duplicate key value violates unique constraint "accounts_pkey"
+
+SELECT 1;
+-- ERROR:  current transaction is aborted, commands ignored until end of transaction block
+
+ROLLBACK;     -- the only way out; the session is usable again immediately</code></pre>
+            </div>
+
+            <p>In application code that rollback must be <strong>unconditional</strong> in the error path &mdash; Fix 5 covers what happens when it isn't.</p>
+
+            <h3>The surprise: <code>COMMIT</code> silently becomes <code>ROLLBACK</code></h3>
+
+            <p>Committing an aborted transaction does not commit anything. PostgreSQL ends the transaction and throws the work away, and psql answers your <code>COMMIT</code> with the word <code>ROLLBACK</code> &mdash; visible in the screenshot above. Verified on 16.15:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>BEGIN;
+INSERT INTO accounts VALUES (1, 'dup again');   -- ERROR: duplicate key ...
+COMMIT;
+-- ROLLBACK                                      &lt;-- psql's reply
+
+SELECT count(*) FROM accounts;   -- still 1: nothing from the transaction was saved</code></pre>
+            </div>
+
+            <p>This matters because a lot of code treats "the commit call returned without raising" as proof the data landed. It is not.</p>
+
+            <h2>Fix 3: <code>SAVEPOINT</code>, when you need the transaction to survive</h2>
+
+            <p>If a statement is <em>expected</em> to fail sometimes &mdash; an optimistic insert, a best-effort update &mdash; wrap it in a savepoint. Rolling back to the savepoint discards only that statement and leaves the transaction usable:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>BEGIN;
+INSERT INTO accounts VALUES (2, 'bob');
+
+SAVEPOINT sp1;
+INSERT INTO accounts VALUES (1, 'will collide');   -- ERROR: duplicate key ...
+ROLLBACK TO SAVEPOINT sp1;                         -- transaction is healthy again
+
+INSERT INTO accounts VALUES (3, 'carol');
+COMMIT;      -- bob and carol are both saved; the collision is discarded</code></pre>
+            </div>
+
+            <p>Two tools automate exactly this pattern:</p>
+
+            <ul>
+                <li><strong>psql:</strong> <code>\set ON_ERROR_ROLLBACK on</code>. The documentation describes it precisely &mdash; it works "by issuing an implicit <code>SAVEPOINT</code> for you, just before each command that is in a transaction block, and then rolling back to the savepoint if the command fails." The default is <code>off</code>. Use <code>interactive</code> to get it at the prompt but not in scripts.</li>
+                <li><strong>JDBC:</strong> the PostgreSQL driver's <code>autosave</code> connection parameter (<code>autosave=always</code>) does the same thing for Java applications.</li>
+                <li><strong>Django:</strong> a nested <code>with transaction.atomic():</code> block is implemented as a savepoint, which is why catching <code>IntegrityError</code> <em>outside</em> the inner block works and catching it without one does not.</li>
+            </ul>
+
+            <p>Savepoints are not free &mdash; each one has overhead, and issuing one before every statement in a large batch is measurably slower. Use them where a failure is genuinely expected, not as a blanket setting on a hot write path. If you are inserting rows that may already exist, <code>INSERT ... ON CONFLICT DO NOTHING</code> avoids the error entirely and is far cheaper than a savepoint per row; the <a href="postgres-duplicate-key-unique-constraint.html">duplicate key reference</a> covers that pattern.</p>
+
+            <h2>Fix 4: "but I never wrote BEGIN"</h2>
+
+            <p>This is the most confusing version of the error, and it has a simple explanation: something opened a transaction on your behalf. You do not need to type <code>BEGIN</code> to be inside a transaction block.</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Environment</th><th>Who opened the transaction</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>JDBC / Java</td><td>The driver itself defaults to <code>autoCommit=true</code>; Spring, connection pools and container-managed datasources routinely turn it off, and then a transaction opens on the first statement</td></tr>
+                    <tr><td>Spring / Hibernate</td><td><code>@Transactional</code> wraps the whole method; a caught exception inside it still leaves the transaction aborted</td></tr>
+                    <tr><td>psycopg2 (Python)</td><td>Opens a transaction implicitly before the first statement unless <code>autocommit = True</code></td></tr>
+                    <tr><td>Django</td><td><code>ATOMIC_REQUESTS</code>, or any <code>transaction.atomic()</code> block</td></tr>
+                    <tr><td>Rails</td><td>Implicit transaction around <code>save</code>/<code>create</code>, plus the test-suite transaction</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>Two checks settle it. In psql, the prompt itself shows <code>*</code> or <code>!</code> whenever a transaction is open. From another session, <code>pg_stat_activity</code> reports that backend's <code>state</code> as <code>idle in transaction</code> rather than plain <code>idle</code>.</p>
+
+            <p>One test that looks right but is not: <code>txid_current_if_assigned()</code> stays <code>NULL</code> until the transaction actually <em>writes</em> something, because PostgreSQL does not assign a transaction ID for reads. On 16.15, inside an open <code>BEGIN</code> it returns <code>NULL</code> before an <code>INSERT</code> and a number after &mdash; so a read-only transaction is indistinguishable from no transaction at all by that measure. Use the prompt or <code>pg_stat_activity</code> instead.</p>
+
+            <p>The durable fix is at the driver, not in SQL: if you want statements to stand alone, turn autocommit on explicitly &mdash; <code>conn.autocommit = True</code> in psycopg2, <code>connection.setAutoCommit(true)</code> in JDBC &mdash; rather than assuming it is the default.</p>
+
+            <h2>Fix 5: poisoned pooled connections</h2>
+
+            <p>If the error appears on requests that have nothing to do with the one that failed, a connection pool is handing out a connection that is still in an aborted transaction. The sequence is always the same: some code catches a database exception, does not roll back, and returns the connection to the pool. The next borrower inherits the aborted state and sees 25P02 for a perfectly valid query.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ the shape that poisons a pooled connection
+#    try:
+#        cur.execute(sql)
+#    except IntegrityError:
+#        log.warning("row already exists")   # no rollback — connection is now toxic
+
+# ✅ rollback unconditionally in the error path
+try:
+    cur.execute(sql)
+except IntegrityError:
+    conn.rollback()
+    log.warning("row already exists")</code></pre>
+            </div>
+
+            <p>Two defences are worth adding regardless. Set <code>idle_in_transaction_session_timeout</code> so an abandoned transaction cannot sit open indefinitely &mdash; it defaults to <code>0</code>, meaning no limit, and when it fires the session is closed with <code>FATAL: terminating connection due to idle-in-transaction timeout</code>. And if you run PgBouncer, <code>server_reset_query = DISCARD ALL</code> ensures a connection is cleaned before reuse. The same pooling layer is involved in <a href="postgres-too-many-clients.html">too many clients already</a>, for related reasons.</p>
+
+            <h2>Fix 6: test suites that leave the transaction dirty</h2>
+
+            <p>Test frameworks typically wrap each test in a transaction and roll it back afterwards, which is fast and clean &mdash; until a test triggers a database error. From that point every remaining query in the test fails with 25P02, and teardown hooks that touch the database fail too, often burying the original assertion failure under a pile of transaction errors.</p>
+
+            <p>The fix is the same as everywhere else: roll back to a savepoint at the point the error is expected, so the wrapping transaction stays usable. In pytest with psycopg2, take a savepoint at the start of any test that deliberately provokes an integrity error; in RSpec, ensure the <code>after</code> hook rolls back before it queries anything.</p>
+
+            <h2>Related errors, and how to tell them apart</h2>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>SQLSTATE</th><th>Means</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>current transaction is aborted&hellip;</code></td><td><code>25P02</code></td><td>An earlier statement failed; this one was refused</td></tr>
+                    <tr><td><code>there is no transaction in progress</code></td><td><code>25P01</code></td><td><code>COMMIT</code>/<code>ROLLBACK</code> with nothing open (a warning)</td></tr>
+                    <tr><td><code>deadlock detected</code></td><td><code>40P01</code></td><td>Two transactions waiting on each other</td></tr>
+                    <tr><td><code>could not serialize access&hellip;</code></td><td><code>40001</code></td><td>Serialization failure &mdash; safe to retry the transaction</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>Note the distinction between 25P02 and 40001: a serialization failure is a genuine invitation to retry the whole transaction, whereas 25P02 means you must first find and fix whatever failed. Retrying blindly on 25P02 just reproduces the original error. If you are working from a raw driver trace rather than clean <code>psql</code> output, the <a href="../error-log-analyzer.html">Error Log Analyzer</a> will match the message and route you to the right page.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the server log <em>above</em> the first 25P02 line &mdash; the real error is there with its <code>STATEMENT:</code></li>
+                <li>&#10003; Live system? <code>SELECT * FROM pg_stat_activity WHERE state = 'idle in transaction (aborted)'</code></li>
+                <li>&#10003; In psql, check the prompt for <code>!</code> before typing anything else</li>
+                <li>&#10003; Make <code>rollback()</code> unconditional in every database error handler</li>
+                <li>&#10003; Expecting a statement to fail? Wrap it in <code>SAVEPOINT</code> / <code>ROLLBACK TO SAVEPOINT</code></li>
+                <li>&#10003; Don't trust a commit that "succeeded" &mdash; on an aborted transaction it saved nothing</li>
+                <li>&#10003; Error on unrelated requests? Look at the pool, not the query</li>
+                <li>&#10003; Set <code>idle_in_transaction_session_timeout</code> so a leaked transaction can't linger</li>
+                <li>&#10003; Never wrote <code>BEGIN</code>? Check the driver's autocommit setting</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How do I fix "current transaction is aborted, commands ignored until end of transaction block"?</summary>
+                    <p>Issue <code>ROLLBACK</code> to end the transaction, then fix the statement that failed first. This message is never the real problem — it means an earlier statement in the same transaction raised an error, and PostgreSQL now refuses every command until the transaction ends. Find that first error in the PostgreSQL server log, where it appears immediately above the first <code>25P02</code> line along with the exact statement that caused it.</p>
+                </details>
+                <details>
+                    <summary>How do I find the original error that aborted the transaction?</summary>
+                    <p>Look in the PostgreSQL server log. With the default <code>log_min_error_statement</code> of <code>error</code>, every error is logged with a <code>STATEMENT</code> line naming the exact SQL, and the true cause sits directly above the first "current transaction is aborted" entry. On a live system you can also query <code>pg_stat_activity</code>: a session in state <code>idle in transaction (aborted)</code> shows the last statement it ran in the <code>query</code> column. In application code, log the first exception rather than only the last one your framework surfaces.</p>
+                </details>
+                <details>
+                    <summary>Why does COMMIT return ROLLBACK instead of committing?</summary>
+                    <p>Because PostgreSQL cannot commit a transaction that has already failed. Issuing <code>COMMIT</code> on an aborted transaction ends it and discards all its work, and psql echoes <code>ROLLBACK</code> rather than <code>COMMIT</code> to tell you so. This surprises people who assume a successful COMMIT call means the data was saved — if any statement in the transaction errored and was not rolled back to a savepoint, nothing in that transaction is persisted.</p>
+                </details>
+                <details>
+                    <summary>Why do I get this error when I never wrote BEGIN?</summary>
+                    <p>Because something opened the transaction for you. The PostgreSQL JDBC driver itself defaults to <code>autoCommit=true</code>, but Spring, connection pools and container-managed datasources routinely turn it off; Spring's <code>@Transactional</code> and Hibernate wrap your work in a transaction; and Python's psycopg2 opens one implicitly before the first statement unless <code>autocommit</code> is set to <code>True</code>. You never typed <code>BEGIN</code>, but you are inside a transaction block all the same, so the first error poisons everything that follows on that connection.</p>
+                </details>
+                <details>
+                    <summary>How do I continue a transaction after an error instead of losing it?</summary>
+                    <p>Use <code>SAVEPOINT</code> before the statement that might fail, and <code>ROLLBACK TO SAVEPOINT</code> when it does. That rewinds only to the savepoint, leaving the surrounding transaction usable so you can continue and commit. psql can do this automatically with <code>\set ON_ERROR_ROLLBACK on</code>, which issues an implicit savepoint before each command in a transaction block, and the PostgreSQL JDBC driver offers the same behaviour through its <code>autosave</code> parameter.</p>
+                </details>
+                <details>
+                    <summary>What is SQLSTATE 25P02?</summary>
+                    <p><code>25P02</code> is the PostgreSQL error code for this message, and its symbolic name is <code>in_failed_sql_transaction</code>. Drivers surface it under their own names: psycopg2 raises <code>psycopg2.errors.InFailedSqlTransaction</code>, the JDBC driver raises <code>PSQLException</code>, and ActiveRecord raises <code>PG::InFailedSqlTransaction</code>. They all mean the same thing — the transaction is in a failed state and will accept nothing but <code>ROLLBACK</code>, <code>COMMIT</code>, or a rollback to a savepoint.</p>
+                </details>
+                <details>
+                    <summary>Why does the error keep appearing on requests that should be unrelated?</summary>
+                    <p>A connection pool handed the poisoned connection to the next request. If code catches a database exception and returns the connection to the pool without rolling back, the transaction stays aborted, and every later borrower of that connection sees 25P02 for queries that are perfectly valid. Make rollback unconditional in your error path, and set <code>idle_in_transaction_session_timeout</code> so an abandoned aborted transaction is terminated rather than left to circulate.</p>
+                </details>
+            </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://www.postgresql.org/docs/current/errcodes-appendix.html" target="_blank" rel="noopener">PostgreSQL Error Codes</a> (PostgreSQL Documentation)</li>
+                <li><a href="https://www.postgresql.org/docs/current/sql-savepoint.html" target="_blank" rel="noopener">SAVEPOINT</a> (PostgreSQL Documentation)</li>
+                <li><a href="https://www.postgresql.org/docs/current/app-psql.html" target="_blank" rel="noopener">psql &mdash; ON_ERROR_ROLLBACK and prompt substitutions</a> (PostgreSQL Documentation)</li>
+                <li><a href="https://www.postgresql.org/docs/current/monitoring-stats.html" target="_blank" rel="noopener">The Statistics Collector &mdash; pg_stat_activity</a> (PostgreSQL Documentation)</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>More database &amp; backend errors</h3>
+                <p>Browse the full reference &mdash; exact message, cause, and fix &mdash; or paste a stack trace and let the analyzer find the match.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../error-log-analyzer.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Error Log Analyzer</a>
+                    <a href="postgres-duplicate-key-unique-constraint.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">duplicate key value violates unique constraint</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="postgres-duplicate-key-unique-constraint.html">duplicate key value violates unique constraint</a> &mdash; the single most common statement to abort a transaction</li>
+                <li><a href="postgres-relation-does-not-exist.html">ERROR: relation "x" does not exist</a> &mdash; another frequent first failure inside a transaction</li>
+                <li><a href="postgres-deadlock-detected.html">ERROR: deadlock detected</a> &mdash; a different transaction failure, and one worth retrying</li>
+                <li><a href="postgres-too-many-clients.html">FATAL: sorry, too many clients already</a> &mdash; when leaked connections become a capacity problem</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a></li>
+                <li><a href="../json-to-csv.html">JSON to CSV Converter</a> &mdash; for moving query results into a spreadsheet</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

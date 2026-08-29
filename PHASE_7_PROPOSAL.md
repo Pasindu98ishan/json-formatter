@@ -190,7 +190,7 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 - [ ] PG `password authentication failed for user "X"`
 - [ ] PG `syntax error at or near "X"`
 - [ ] PG `null value in column "X" violates not-null constraint`
-- [ ] PG `current transaction is aborted, commands ignored until end of transaction block`
+- [x] PG `current transaction is aborted, commands ignored until end of transaction block` — built 2026-08-29, diagnosis style, framed as "this is not your error". Fills gaps the top-ranking pages all miss: finding the original error via server log + `pg_stat_activity` state `idle in transaction (aborted)`, COMMIT silently returning ROLLBACK, psql `%x` prompt flag, `ON_ERROR_ROLLBACK`, JDBC `autosave`, implicit transactions ("I never wrote BEGIN"), poisoned pooled connections, `idle_in_transaction_session_timeout`. First page with a real captured-terminal SVG (`errors/img/current-transaction-is-aborted.svg`). All output verified against PostgreSQL 16.15 in a container. ~2,400 words.
 - [ ] MySQL `ERROR 1045 (28000): Access denied for user`
 - [ ] MySQL `ERROR 1062 (23000): Duplicate entry 'X' for key`
 - [ ] MySQL `ERROR 1146: Table 'X' doesn't exist`
