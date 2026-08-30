@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ModuleNotFoundError: No module named 'X' — usually the wrong interpreter, or an import name that differs from the install name. Diagnose it with sys.executable.">
+    <meta name="keywords" content="ModuleNotFoundError, No module named, python no module named, modulenotfounderror no module named sklearn, pip installed but not found, sys.executable, python -m pip, jupyter no module named, import name vs package name">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/modulenotfounderror-no-module-named.html">
+    <meta property="og:title" content="ModuleNotFoundError: No module named 'X' — causes and fixes">
+    <meta property="og:description" content="Why Python can't find a module you just installed: interpreter mismatch, import name vs install name, notebook kernels, and files that shadow the standard library.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/modulenotfounderror-no-module-named.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>ModuleNotFoundError: No module named 'X' — Causes and Fixes</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named", "item": "https://jsondevtools.org/errors/modulenotfounderror-no-module-named.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "ModuleNotFoundError: No module named 'X' — Causes and Fixes",
+  "description": "Python raises ModuleNotFoundError when an import cannot be resolved on sys.path. This reference covers interpreter mismatch between pip and python, import names that differ from install names, notebook kernels, local files that shadow the standard library, and standard-library modules missing from a custom build.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-08-30",
+  "dateModified": "2026-08-30",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "I ran pip install and Python still says No module named. Why?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because pip and python are almost certainly two different interpreters. A bare pip command resolves through PATH and may belong to a completely different Python installation than the one running your script. Print sys.executable in the failing script, then install with that exact interpreter using python -m pip install, which guarantees the package lands where the running interpreter will look for it. Running python -m pip --version confirms which interpreter pip is attached to." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does pip install sklearn not fix No module named 'sklearn'?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because the name you import is not always the name you install. The library is published as scikit-learn and imported as sklearn, so the correct command is pip install scikit-learn. The same mismatch catches cv2 (install opencv-python), PIL (install Pillow), yaml (install PyYAML), bs4 (install beautifulsoup4) and dateutil (install python-dateutil). The error always quotes the import name, never the install name." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between ModuleNotFoundError and ImportError?",
+      "acceptedAnswer": { "@type": "Answer", "text": "ModuleNotFoundError is a subclass of ImportError, added in Python 3.6, raised specifically when the module itself cannot be located. If the module is found but a name inside it is not, you get a plain ImportError reading 'cannot import name X from Y' followed by the file path. That distinction tells you where to look: ModuleNotFoundError is an environment or path problem, while 'cannot import name' means the module loaded and the attribute is genuinely absent, misspelled, or unavailable in that version." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does it work in the terminal but not in Jupyter or VS Code?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The notebook kernel or editor interpreter is a different Python from your terminal. Run import sys; print(sys.executable) inside the notebook cell itself and compare it to the terminal — they will differ. Install from within the notebook using the %pip install magic, which targets the running kernel, rather than a terminal pip. In VS Code, use the interpreter picker to select the environment you actually installed into." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my own file cause No module named?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because the directory of the script you run is placed first on sys.path, so a local file shadows any installed module with the same name. A file called json.py in your project directory is imported instead of the standard library json, and a folder without __init__.py that Python treats as a plain module produces the distinctive message 'No module named X.Y; X is not a package'. Rename the offending file and delete its stale .pyc cache." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I see where Python is actually looking for modules?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Print sys.path from inside the failing program: python -c \"import sys; print(sys.path)\". It lists every directory searched, in order. The first entry is the script's own directory when running a file, or the empty string meaning the current directory when using python -c or the REPL — which is why the same import can succeed interactively and fail as a script. If the directory containing your package is not in that list, the import cannot succeed no matter what is installed." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is a standard library module like _lzma or fcntl missing?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Two different reasons. Modules such as fcntl, pwd and termios are Unix-only and simply do not exist on Windows, so no installation will provide them. Modules such as _lzma, _bz2 and _ssl are optional C extensions that are only built if the matching system library and headers were present when Python was compiled — a common gap with pyenv builds. Installing the development package such as liblzma-dev and rebuilding that Python version restores them; pip cannot help in either case." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ModuleNotFoundError</span>
+            </nav>
+            <h1>Python: ModuleNotFoundError: No module named 'X'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published August 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;">
+                    <li>Already ran <code>pip install</code>? <strong>Make sure that <code>pip</code> belongs to the same Python that runs your code</strong> &mdash; install with <code>python -m pip install X</code>.</li>
+                    <li>The import name often isn't the install name &mdash; <code>import sklearn</code> needs <code>pip install <strong>scikit-learn</strong></code>.</li>
+                    <li>Works in the terminal but not in Jupyter/VS Code? Different kernel. Use <code>%pip install</code> inside the notebook.</li>
+                    <li>Got <code>; 'X' is not a package</code> on the end? It's <em>your</em> file shadowing something &mdash; see Fix 5.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "app.py", line 1, in &lt;module&gt;
+    import requests
+ModuleNotFoundError: No module named 'requests'
+
+# a missing submodule quotes the full dotted path:
+ModuleNotFoundError: No module named 'json.nosuchsub'
+
+# and this suffix means something quite different — see Fix 5:
+ModuleNotFoundError: No module named 'collections.abc'; 'collections' is not a package</code></pre>
+            </div>
+
+            <p>Python raises this when an <code>import</code> cannot be resolved against <code>sys.path</code> &mdash; the ordered list of directories it searches. The important consequence: <strong>"not found" is a statement about <em>this</em> interpreter's search path, not about whether the package exists on your machine.</strong> It is entirely normal for a package to be installed, importable from one shell, and invisible to the interpreter that just failed.</p>
+
+            <p>Verified on <strong>CPython 3.14.6</strong> throughout this page.</p>
+
+            <h2>Anatomy of the message</h2>
+
+            <p>The exception carries more than the text shows. Catching it gives you a machine-readable module name, which is useful in library code that wants to offer a helpful install hint:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>try:
+    import some_missing_pkg
+except ModuleNotFoundError as e:
+    print(type(e).__name__)               # ModuleNotFoundError
+    print(repr(e.name))                   # 'some_missing_pkg'   <-- just the name
+    print(str(e))                          # No module named 'some_missing_pkg'
+    print(isinstance(e, ImportError))     # True  <-- it is a subclass</code></pre>
+            </div>
+
+            <p>Two details decide which fix you need:</p>
+
+            <ul>
+                <li><strong>A dotted name</strong> (<code>'json.nosuchsub'</code>) means the <em>parent</em> imported fine and the child is missing &mdash; a layout or version problem, not a missing install.</li>
+                <li><strong>The <code>; 'X' is not a package</code> suffix</strong> means Python found something named <code>X</code>, but it was a plain module rather than a package it can import <em>from</em>. Sometimes that is legitimate &mdash; <code>import os.nonexistent</code> reports <code>'os' is not a package</code> because <code>os</code> genuinely is a module, not a package. But when <code>X</code> is a name you recognise from your own project, it is your file shadowing something. Jump to Fix&nbsp;5.</li>
+            </ul>
+
+            <h2>Triage: three commands, in this order</h2>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 660 300" role="img" aria-label="Three-step triage for ModuleNotFoundError. Step one: print sys.executable inside the failing script to identify which interpreter is running. Step two: run that same interpreter with dash m pip show to see whether the package is installed for it. If it is not installed, install it with python dash m pip install, checking that the install name matches the import name. If it is installed but still not importable, print sys.path and check for a local file shadowing the module or a package directory missing from the path.">
+                    <defs>
+                        <marker id="mnf-a" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-line)"/></marker>
+                        <marker id="mnf-ok" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-ok)"/></marker>
+                        <marker id="mnf-bad" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dg-bad)"/></marker>
+                    </defs>
+
+                    <rect class="dg-box" x="95" y="6" width="470" height="42" rx="8"/>
+                    <text class="dg-m" x="330" y="25" text-anchor="middle">import sys; print(sys.executable)</text>
+                    <text class="dg-s" x="330" y="41" text-anchor="middle">which interpreter is actually running?</text>
+                    <line class="dg-ln" x1="330" y1="48" x2="330" y2="70" marker-end="url(#mnf-a)"/>
+
+                    <rect class="dg-box" x="95" y="76" width="470" height="42" rx="8"/>
+                    <text class="dg-m" x="330" y="95" text-anchor="middle">&lt;that python&gt; -m pip show &lt;package&gt;</text>
+                    <text class="dg-s" x="330" y="111" text-anchor="middle">is it installed for THAT interpreter?</text>
+
+                    <path class="dg-ln" d="M330,118 L330,138 L170,138 L170,158" marker-end="url(#mnf-bad)"/>
+                    <path class="dg-ln" d="M330,118 L330,138 L500,138 L500,158" marker-end="url(#mnf-ok)"/>
+                    <text class="dg-s" x="170" y="133" text-anchor="middle">not installed</text>
+                    <text class="dg-s" x="500" y="133" text-anchor="middle">installed</text>
+
+                    <rect class="dg-box-bad" x="35" y="158" width="270" height="56" rx="8"/>
+                    <text class="dg-t" x="170" y="180" text-anchor="middle">Install it for that interpreter</text>
+                    <text class="dg-s" x="170" y="198" text-anchor="middle">check install name != import name</text>
+
+                    <rect class="dg-box-ok" x="365" y="158" width="270" height="56" rx="8"/>
+                    <text class="dg-t" x="500" y="180" text-anchor="middle">Path problem, not install</text>
+                    <text class="dg-s" x="500" y="198" text-anchor="middle">print sys.path</text>
+
+                    <line class="dg-ln" x1="500" y1="214" x2="500" y2="236" marker-end="url(#mnf-a)"/>
+                    <rect class="dg-box-muted" x="365" y="236" width="270" height="52" rx="8"/>
+                    <text class="dg-s" x="500" y="257" text-anchor="middle">shadowing file? wrong venv?</text>
+                    <text class="dg-s" x="500" y="273" text-anchor="middle">package dir not on the path?</text>
+                </svg>
+                <p class="dg-cap">Step 1 is non-negotiable. Almost every "but I already installed it" ends at step 2 with the package installed somewhere the running interpreter never looks.</p>
+            </div>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># 1. Which interpreter is running? Put this in the FAILING script/notebook.
+python -c "import sys; print(sys.executable)"
+
+# 2. Ask THAT interpreter whether it has the package (use its full path if needed)
+python -m pip show requests
+python -m pip --version      # prints "... (python 3.14)" — the interpreter pip serves
+
+# 3. Still stuck? See exactly which directories are searched, in order
+python -c "import sys; print(*sys.path, sep='\n')"</code></pre>
+            </div>
+
+            <h2>Fix 1: <code>pip</code> and <code>python</code> are different interpreters</h2>
+
+            <p>This is the single most common cause, and the reason "I already installed it" is such a frequent complaint. A bare <code>pip</code> is resolved through <code>PATH</code> and belongs to whichever Python installation happens to come first &mdash; not necessarily the one running your code. Install using the interpreter path you captured in triage step 1, not whatever <code>python</code> means in your current shell:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ ambiguous — whose pip is this?
+#    pip install requests
+
+# ✅ the reliable form: install with the EXACT interpreter that failed
+#    (paste the path sys.executable printed in triage step 1)
+/path/to/that/python -m pip install requests
+
+# ✅ shorthand — only once you've confirmed `python` IS that interpreter:
+python -m pip install requests</code></pre>
+            </div>
+
+            <p>Confirm that before trusting the shorthand &mdash; <code>python -m pip --version</code> ends with the interpreter it serves, for example <code>pip 26.1.2 from .../site-packages/pip (python 3.14)</code>. If that doesn't match the <code>sys.executable</code> from triage step 1, the bare <code>python</code> in your shell is not the one running your code, and only the full-path form will help. This matters most where the two are guaranteed to differ: notebooks, IDE run configurations, cron jobs and systemd units.</p>
+
+            <h2>Fix 2: the import name isn't the install name</h2>
+
+            <p>The error always quotes the name you <em>imported</em>, which frequently is not the name you <em>install</em>. This is why <code>pip install sklearn</code> is such a persistent trap: it is a deprecated placeholder package, and the real library is <code>scikit-learn</code>. Every pair below is real:</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>You wrote</th><th>You must install</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>import sklearn</code></td><td><code>pip install scikit-learn</code></td></tr>
+                    <tr><td><code>import cv2</code></td><td><code>pip install opencv-python</code></td></tr>
+                    <tr><td><code>import PIL</code></td><td><code>pip install Pillow</code></td></tr>
+                    <tr><td><code>import yaml</code></td><td><code>pip install PyYAML</code></td></tr>
+                    <tr><td><code>import bs4</code></td><td><code>pip install beautifulsoup4</code></td></tr>
+                    <tr><td><code>import dateutil</code></td><td><code>pip install python-dateutil</code></td></tr>
+                    <tr><td><code>import serial</code></td><td><code>pip install pyserial</code></td></tr>
+                    <tr><td><code>import docx</code></td><td><code>pip install python-docx</code></td></tr>
+                    <tr><td><code>import jwt</code></td><td><code>pip install PyJWT</code></td></tr>
+                    <tr><td><code>import Crypto</code></td><td><code>pip install pycryptodome</code></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>When in doubt, search the project on PyPI rather than guessing from the import. A wrong guess sometimes <em>succeeds</em> &mdash; installing an unrelated or squatted package &mdash; which is worse than failing. If your import is a JWT library, note that <code>import jwt</code> is satisfied by <code>PyJWT</code>; the <a href="jwt-invalid-signature-malformed.html">JWT signature errors reference</a> covers what usually goes wrong next.</p>
+
+            <h2>Fix 3: you're using the wrong virtual environment</h2>
+
+            <p>The common case is an unactivated venv: you type <code>python</code>, get the system interpreter, and the package installed in <code>.venv</code> is invisible to it. Worth being precise about the mechanism though &mdash; <strong>activation is a convenience, not a requirement.</strong> All that matters is that the script runs with the Python executable <em>inside</em> the environment where the package is installed, which is why <code>.venv/bin/python app.py</code> works perfectly well with nothing activated. Activation just puts that executable first on your <code>PATH</code>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># does sys.prefix differ from sys.base_prefix? then a venv IS active
+python -c "import sys; print(sys.prefix); print(sys.base_prefix)"
+
+# activate, then verify the interpreter moved
+source .venv/bin/activate        # macOS / Linux
+.venv\Scripts\activate           # Windows
+python -c "import sys; print(sys.executable)"</code></pre>
+            </div>
+
+            <p>A related trap on Debian, Ubuntu and Homebrew Python: installing into the system interpreter is now blocked outright, which surfaces as a different error entirely &mdash; see <a href="externally-managed-environment.html">error: externally-managed-environment</a>. The correct response there is a virtual environment, not <code>--break-system-packages</code>.</p>
+
+            <h2>Fix 4: notebooks and editors run a different interpreter</h2>
+
+            <p>"It works in the terminal but not in Jupyter" is one of the most-reported forms of this error, and it is always the same thing: the kernel is a different Python. Do not guess &mdash; ask the kernel directly, from inside a cell:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># run this IN THE NOTEBOOK CELL, not the terminal
+import sys
+print(sys.executable)     # compare against your terminal's sys.executable
+
+# install into the running kernel — the %pip magic targets it correctly
+%pip install requests</code></pre>
+            </div>
+
+            <p>Use <code>%pip</code> rather than <code>!pip</code>. The <code>!</code> form shells out and hits the same PATH ambiguity as Fix 1, while the magic is routed to the kernel's own interpreter. In VS Code, the interpreter is chosen per-workspace through the interpreter picker; selecting the environment you installed into fixes it without touching any code.</p>
+
+            <h2>Fix 5: your own files are shadowing the module</h2>
+
+            <p>Python puts the running script's own directory <strong>first</strong> on <code>sys.path</code>. A local file therefore wins over an installed package or even the standard library. Name a file <code>json.py</code> and every <code>import json</code> in that directory gets your file:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># project/json.py   <-- an innocent-looking file name
+# project/main.py:
+import json
+json.dumps({"a": 1})
+
+# AttributeError: module 'json' has no attribute 'dumps' (consider renaming
+# '.../project/json.py' since it has the same name as the standard library
+# module named 'json' and prevents importing that standard library module)</code></pre>
+            </div>
+
+            <p>That parenthetical hint is a recent CPython nicety &mdash; verified on 3.14.6. On older versions you get the bare <code>AttributeError</code> with no explanation at all, which is why this cause has a reputation for wasting whole afternoons. If you shadow a <em>package</em> rather than a module, you get our error instead, with the tell-tale suffix:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># project/collections.py exists, then:
+import collections.abc
+# ModuleNotFoundError: No module named 'collections.abc'; 'collections' is not a package</code></pre>
+            </div>
+
+            <p>Rename the offending file. If Python keeps resolving the old module afterwards, delete the <code>__pycache__</code> directory beside it &mdash; a leftover <code>.pyc</code> can outlive the <code>.py</code> and keep the shadow alive. To clear them all at once:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># run from your project root — both forms delete recursively
+
+# macOS / Linux
+find . -name '__pycache__' -type d -exec rm -rf {} +
+
+# Windows PowerShell
+Get-ChildItem -Path . -Filter __pycache__ -Recurse -Directory | Remove-Item -Recurse -Force</code></pre>
+            </div>
+
+            <p>The same first-entry rule explains a related puzzle: <code>sys.path[0]</code> is the script's directory when you run a file, but the empty string (meaning the current directory) under <code>python -c</code> and the REPL &mdash; so an import can genuinely succeed interactively and fail as a script from a different working directory.</p>
+
+            <h2>Fix 6: it's a standard library module that isn't there</h2>
+
+            <p><code>pip</code> cannot help when the missing module belongs to the standard library. There are two distinct reasons, and they have different fixes:</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Module</th><th>Why it's missing</th><th>Fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>fcntl</code>, <code>pwd</code>, <code>termios</code>, <code>grp</code></td><td>Unix-only; they do not exist on Windows</td><td>Guard the import per-platform, or run under WSL</td></tr>
+                    <tr><td><code>_lzma</code>, <code>_bz2</code>, <code>_ssl</code>, <code>_sqlite3</code></td><td>Optional C extensions, only built when the matching system library and headers were present at compile time &mdash; a classic pyenv gap</td><td>Install the dev package (e.g. <code>liblzma-dev</code>) and <strong>rebuild</strong> that Python version</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>The give-away for the second row is that the name starts with an underscore: those are C accelerator modules, so a missing one means the interpreter itself was built incomplete. Reinstalling packages will never fix it.</p>
+
+            <h2>Related errors, and how to tell them apart</h2>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>Exception</th><th>Means</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>No module named 'X'</code></td><td><code>ModuleNotFoundError</code></td><td>The module wasn't found on <code>sys.path</code></td></tr>
+                    <tr><td><code>No module named 'X.Y'; 'X' is not a package</code></td><td><code>ModuleNotFoundError</code></td><td><code>X</code> resolved to a plain module &mdash; usually your own file</td></tr>
+                    <tr><td><code>cannot import name 'Y' from 'X'</code></td><td><code>ImportError</code></td><td>Module loaded fine; the <em>name</em> inside it is missing</td></tr>
+                    <tr><td><code>module 'X' has no attribute 'Y'</code></td><td><code>AttributeError</code></td><td>Import succeeded, attribute access failed &mdash; often shadowing</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p><code>ModuleNotFoundError</code> has been a subclass of <code>ImportError</code> since <strong>Python 3.6</strong>, so <code>except ImportError</code> still catches it &mdash; useful for optional-dependency fallbacks. The third row is a genuinely different problem; when it names a partially initialized module, you are looking at a circular import rather than a missing package. If you are reading a raw traceback rather than a clean terminal, paste it into the <a href="../error-log-analyzer.html">Error Log Analyzer</a> and it will route you to the right page.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; <code>print(sys.executable)</code> <em>inside the failing program</em> &mdash; before anything else</li>
+                <li>&#10003; Install with <code>python -m pip install</code>, never a bare <code>pip</code></li>
+                <li>&#10003; Confirm <code>python -m pip --version</code> names the same interpreter</li>
+                <li>&#10003; Check the install name really is the import name (<code>sklearn</code> &rarr; <code>scikit-learn</code>)</li>
+                <li>&#10003; In a notebook, use <code>%pip install</code> and check the kernel's own <code>sys.executable</code></li>
+                <li>&#10003; Venv active? Compare <code>sys.prefix</code> with <code>sys.base_prefix</code></li>
+                <li>&#10003; Suffix says <code>is not a package</code>? Look for your own file with that name</li>
+                <li>&#10003; Clear <code>__pycache__</code> after renaming a shadowing file</li>
+                <li>&#10003; Underscore-prefixed stdlib module? Rebuild Python with the dev headers &mdash; pip can't fix it</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>I ran pip install and Python still says No module named. Why?</summary>
+                    <p>Because <code>pip</code> and <code>python</code> are almost certainly two different interpreters. A bare <code>pip</code> command resolves through <code>PATH</code> and may belong to a completely different Python installation than the one running your script. Print <code>sys.executable</code> in the failing script, then install with that exact interpreter using <code>python -m pip install</code>, which guarantees the package lands where the running interpreter will look for it. Running <code>python -m pip --version</code> confirms which interpreter pip is attached to.</p>
+                </details>
+                <details>
+                    <summary>Why does pip install sklearn not fix No module named 'sklearn'?</summary>
+                    <p>Because the name you import is not always the name you install. The library is published as <code>scikit-learn</code> and imported as <code>sklearn</code>, so the correct command is <code>pip install scikit-learn</code>. The same mismatch catches <code>cv2</code> (install <code>opencv-python</code>), <code>PIL</code> (install <code>Pillow</code>), <code>yaml</code> (install <code>PyYAML</code>), <code>bs4</code> (install <code>beautifulsoup4</code>) and <code>dateutil</code> (install <code>python-dateutil</code>). The error always quotes the import name, never the install name.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between ModuleNotFoundError and ImportError?</summary>
+                    <p><code>ModuleNotFoundError</code> is a subclass of <code>ImportError</code>, added in Python 3.6, raised specifically when the module itself cannot be located. If the module is found but a name inside it is not, you get a plain <code>ImportError</code> reading "cannot import name X from Y" followed by the file path. That distinction tells you where to look: <code>ModuleNotFoundError</code> is an environment or path problem, while "cannot import name" means the module loaded and the attribute is genuinely absent, misspelled, or unavailable in that version.</p>
+                </details>
+                <details>
+                    <summary>Why does it work in the terminal but not in Jupyter or VS Code?</summary>
+                    <p>The notebook kernel or editor interpreter is a different Python from your terminal. Run <code>import sys; print(sys.executable)</code> inside the notebook cell itself and compare it to the terminal — they will differ. Install from within the notebook using the <code>%pip install</code> magic, which targets the running kernel, rather than a terminal <code>pip</code>. In VS Code, use the interpreter picker to select the environment you actually installed into.</p>
+                </details>
+                <details>
+                    <summary>Why does my own file cause No module named?</summary>
+                    <p>Because the directory of the script you run is placed first on <code>sys.path</code>, so a local file shadows any installed module with the same name. A file called <code>json.py</code> in your project directory is imported instead of the standard library <code>json</code>, and a folder without <code>__init__.py</code> that Python treats as a plain module produces the distinctive message "No module named X.Y; X is not a package". Rename the offending file and delete its stale <code>.pyc</code> cache.</p>
+                </details>
+                <details>
+                    <summary>How do I see where Python is actually looking for modules?</summary>
+                    <p>Print <code>sys.path</code> from inside the failing program: <code>python -c "import sys; print(sys.path)"</code>. It lists every directory searched, in order. The first entry is the script's own directory when running a file, or the empty string meaning the current directory when using <code>python -c</code> or the REPL — which is why the same import can succeed interactively and fail as a script. If the directory containing your package is not in that list, the import cannot succeed no matter what is installed.</p>
+                </details>
+                <details>
+                    <summary>Why is a standard library module like _lzma or fcntl missing?</summary>
+                    <p>Two different reasons. Modules such as <code>fcntl</code>, <code>pwd</code> and <code>termios</code> are Unix-only and simply do not exist on Windows, so no installation will provide them. Modules such as <code>_lzma</code>, <code>_bz2</code> and <code>_ssl</code> are optional C extensions that are only built if the matching system library and headers were present when Python was compiled — a common gap with pyenv builds. Installing the development package such as <code>liblzma-dev</code> and rebuilding that Python version restores them; pip cannot help in either case.</p>
+                </details>
+            </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://docs.python.org/3/reference/import.html" target="_blank" rel="noopener">The import system</a> (Python Language Reference)</li>
+                <li><a href="https://docs.python.org/3/library/sys.html#sys.path" target="_blank" rel="noopener">sys.path</a> (Python Standard Library)</li>
+                <li><a href="https://docs.python.org/3/library/exceptions.html#ModuleNotFoundError" target="_blank" rel="noopener">ModuleNotFoundError</a> (Built-in Exceptions)</li>
+                <li><a href="https://packaging.python.org/en/latest/tutorials/installing-packages/" target="_blank" rel="noopener">Installing Packages</a> (Python Packaging User Guide)</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>More Python errors</h3>
+                <p>Browse the full reference &mdash; exact message, cause, and fix &mdash; or paste a traceback and let the analyzer find the match.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../errors.html" class="btn btn-primary">All Error References</a>
+                    <a href="../error-log-analyzer.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Error Log Analyzer</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">HTTP Status Codes</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="externally-managed-environment.html">error: externally-managed-environment</a> &mdash; pip refusing to install into a system Python, the usual next step</li>
+                <li><a href="nonetype-no-attribute.html">AttributeError: 'NoneType' object has no attribute 'X'</a> &mdash; the other Python error most often caused by a wrong assumption</li>
+                <li><a href="indentationerror-unexpected-indent.html">IndentationError: unexpected indent</a></li>
+                <li><a href="cannot-find-module.html">Node.js: Cannot find module 'X'</a> &mdash; the same class of resolution failure in the Node ecosystem</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a></li>
+                <li><a href="../http-status.html">HTTP Status Codes Reference</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
