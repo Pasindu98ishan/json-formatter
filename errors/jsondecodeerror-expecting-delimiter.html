@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="JSONDecodeError: Expecting ',' delimiter — the column points where the parser gave up, not where you went wrong. Eight different mistakes produce this one message.">
+    <meta name="keywords" content="JSONDecodeError Expecting delimiter, Expecting ',' delimiter python, json.decoder.JSONDecodeError, expecting comma delimiter line column char, python json missing comma, json leading zero, truncated json response python">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/jsondecodeerror-expecting-delimiter.html">
+    <meta property="og:title" content="JSONDecodeError: Expecting ',' delimiter — causes and fixes">
+    <meta property="og:description" content="Eight distinct mistakes produce this one Python message — missing commas, leading zeros, unescaped quotes, truncated responses. Read the position correctly and each is obvious.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/jsondecodeerror-expecting-delimiter.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>JSONDecodeError: Expecting ',' delimiter — Causes and Fixes</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "JSONDecodeError: Expecting ',' delimiter", "item": "https://jsondevtools.org/errors/jsondecodeerror-expecting-delimiter.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "JSONDecodeError: Expecting ',' delimiter — Causes and Fixes",
+  "description": "Python raises Expecting ',' delimiter when the JSON parser reaches a token it cannot follow. This reference decodes the line, column and char position, shows the eight distinct malformed inputs that produce this one message, and explains why the reported position is where parsing stopped rather than where the mistake is.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-09-01",
+  "dateModified": "2026-09-01",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I fix JSONDecodeError: Expecting ',' delimiter?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Look at the character at the reported position, then look at what comes immediately before it. The parser finished a complete value and then found something that was neither a comma nor a closing bracket. The most common causes are a missing comma between items, an unescaped double quote that ended a string early, and a number written with a leading zero such as 01. Slice the raw string around e.pos to see the region rather than counting columns by hand." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the reported column point at valid-looking JSON?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because the position marks where the parser gave up, not where the mistake is. A comma missing at the end of one line is only detected when the parser reaches the next token, so the error is frequently reported on the following line and at a column that looks perfectly fine. Always read backwards from the reported position to the end of the previous complete value; the omission is almost always there." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a leading zero like 01 cause this error?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because JSON forbids leading zeros in numbers. RFC 8259 states plainly that leading zeros are not allowed, so when Python reads {\"a\": 01} it parses the 0 as a complete number, then finds a 1 where it expected a comma or a closing brace. Zero-padded values such as ports, zip codes and IDs must be quoted as strings, so write {\"port\": \"0080\"} rather than {\"port\": 0080}." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a trailing comma cause Expecting ',' delimiter?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Not on current Python. A trailing comma produces its own message — Illegal trailing comma before end of object, or before end of array — verified on CPython 3.14.6. Older versions reported it less specifically, which is why many guides still list trailing commas under this error. If you are reading advice that does not match your actual message, check which Python version it was written for." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I see exactly where the JSON broke?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Catch the exception and slice the original document around the failure position. JSONDecodeError carries msg, pos, lineno, colno and doc, where doc is the exact string you passed in, so printing doc[max(0, pos-40):pos+40] shows the offending region with its surrounding context. This is far more reliable than counting to a column number by hand, particularly in minified JSON that is one enormous line." }
+    },
+    {
+      "@type": "Question",
+      "name": "What if the error is at the very end of the input?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Then the JSON is truncated rather than malformed. A response cut short by a timeout, a partial file write, or a size limit ends mid-structure, and the parser reports Expecting ',' delimiter with a position equal to the length of the string. Check the byte count you actually received against Content-Length, and confirm that the writer closed and flushed the file before you read it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Python accept NaN and Infinity but reject my leading zero?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because Python's json module deliberately extends the standard in one direction while enforcing it in another. NaN, Infinity and -Infinity are accepted by default even though RFC 8259 has no such literals, whereas leading zeros are rejected as the specification requires. If you need strict behaviour, pass parse_constant to raise on those literals, otherwise data that no other language's parser will accept can pass silently through your service." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>Expecting ',' delimiter</span>
+            </nav>
+            <h1>Python: json.decoder.JSONDecodeError: Expecting ',' delimiter</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published September 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;">
+                    <li><strong>The position is where the parser <em>gave up</em>, not where you went wrong.</strong> Read backwards from it.</li>
+                    <li>Look at the previous complete value &mdash; a missing comma after it is the most common cause.</li>
+                    <li>Position equal to the string length? The JSON is <strong>truncated</strong>, not malformed.</li>
+                    <li>Number with a leading zero (<code>01</code>, <code>0080</code>)? JSON forbids those &mdash; quote it.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "app.py", line 3, in &lt;module&gt;
+    data = json.loads(raw)
+json.decoder.JSONDecodeError: Expecting ',' delimiter: line 1 column 17 (char 16)
+
+# the same error surfaces through requests when a response body isn't valid JSON:
+requests.exceptions.JSONDecodeError: Expecting ',' delimiter: line 1 column 17 (char 16)</code></pre>
+            </div>
+
+            <p>Python raises this when the parser has finished reading a complete value and the next non-whitespace character is neither a comma nor the bracket that would close the current structure. In other words: <strong>the JSON was fine right up to that point, and then something appeared that cannot legally follow.</strong></p>
+
+            <p>Everything on this page was verified against <strong>CPython 3.14.6</strong>.</p>
+
+            <h2>Anatomy of the message</h2>
+
+            <p>The message carries three coordinates for the same spot, and knowing which to trust saves most of the debugging time:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Expecting ',' delimiter: line 1 column 17 (char 16)
+                         ^^^^^^  ^^^^^^^^^  ^^^^^^^^
+                         |       |          |
+                         |       |          +-- e.pos    — 0-based index into the string
+                         |       +------------- e.colno  — 1-based column on that line
+                         +--------------------- e.lineno — 1-based line number</code></pre>
+            </div>
+
+            <p>The <strong>char</strong> value is the useful one. It is a zero-based offset you can slice with directly, whereas the column is only meaningful if your JSON has newlines at all &mdash; minified JSON is a single line, so "column 84213" tells you nothing you can act on.</p>
+
+            <h3>The position is where parsing <em>stopped</em></h3>
+
+            <p>This is the detail that makes the error feel wrong, and almost no guide mentions it. A missing comma is only noticed when the parser arrives at the <em>next</em> token, which may be on a later line entirely:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>{
+  "a": 1        &lt;-- the comma is missing HERE, at the end of line 2
+  "b": 2
+}
+
+# Expecting ',' delimiter: line 3 column 3 (char 13)
+#                          ^^^^^^ reported on line 3 — the next token, not the omission</code></pre>
+            </div>
+
+            <p>So the rule is: <strong>go to the reported position, then read backwards to the end of the previous complete value.</strong> The problem sits in that gap. Pasting the document into the <a href="../formatter.html">JSON Formatter</a> or <a href="../json-validator.html">JSON Validator</a> does the same walk for you and highlights the spot.</p>
+
+            <h2>Eight inputs, one message</h2>
+
+            <p>This single message covers a surprising range of mistakes. Each row below was run through <code>json.loads()</code> and produced exactly this error &mdash; the third column is the character the parser stopped on, which is your fastest clue:</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Malformed input</th><th>Real problem</th><th>Stops on</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>{"name": "John" "age": 25}</code></td><td>Missing comma between pairs</td><td><code>"</code></td></tr>
+                    <tr><td><code>[1 2, 3]</code></td><td>Missing comma between array items</td><td><code>2</code></td></tr>
+                    <tr><td><code>{"name": "Alice "dev""}</code></td><td>Unescaped quote ended the string early</td><td><code>d</code></td></tr>
+                    <tr><td><code>{"a": 01}</code></td><td>Leading zero &mdash; illegal in JSON</td><td><code>1</code></td></tr>
+                    <tr><td><code>{"port": 0080}</code></td><td>Zero-padded value that must be a string</td><td><code>0</code></td></tr>
+                    <tr><td><code>{"a": 0x1F}</code></td><td>Hex literal &mdash; JSON has no hex numbers</td><td><code>x</code></td></tr>
+                    <tr><td><code>{"a": 1 // note}</code></td><td>Comment &mdash; JSON has no comments</td><td><code>/</code></td></tr>
+                    <tr><td><code>{"a": 1, "b": {"c": 2</code></td><td><strong>Truncated</strong> &mdash; input ended mid-structure</td><td><em>end of input</em></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>Notice how different these causes are. A missing comma is a typo; a leading zero is a data-modelling problem; a truncated document is a network or I/O problem. The message is identical, which is why "add a comma" advice so often fails to help.</p>
+
+            <h2>Fix 1: read the actual failure region</h2>
+
+            <p>Stop counting columns by hand. The exception carries the original document, so slice it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import json
+
+try:
+    data = json.loads(raw)
+except json.JSONDecodeError as e:
+    print(f"{e.msg} at pos {e.pos} (line {e.lineno}, col {e.colno})")
+    lo, hi = max(0, e.pos - 40), e.pos + 40
+    print(repr(e.doc[lo:hi]))          # e.doc is the exact string you passed in
+    print(" " * (e.pos - lo + 1) + "^")</code></pre>
+            </div>
+
+            <p>Running that on <code>{"users": [{"id": 1, "name": "Ann"} {"id": 2}]}</code> prints the context with a caret under the offending <code>{</code> &mdash; the missing comma between the two objects becomes obvious immediately. <code>JSONDecodeError</code> subclasses <code>ValueError</code>, so existing <code>except ValueError</code> handlers already catch it if you would rather not import the specific type.</p>
+
+            <h2>Fix 2: the missing comma (and where to actually look)</h2>
+
+            <p>The dominant cause, and usually the result of hand-editing or string concatenation. Because the parser reports the <em>next</em> token, look at the line <em>above</em> the reported one:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ broken — no comma after the first object
+#    '[{"id": 1} {"id": 2}]'
+
+# ✅ fixed
+'[{"id": 1}, {"id": 2}]'</code></pre>
+            </div>
+
+            <p>If you are building JSON by joining strings, stop and use <code>json.dumps()</code> instead &mdash; it cannot produce a missing delimiter. Hand-assembled JSON is the single largest source of this error, and every minute spent debugging the output is a minute the serializer would have saved.</p>
+
+            <h2>Fix 3: an unescaped quote ended the string early</h2>
+
+            <p>This one is deceptive because the JSON <em>looks</em> balanced. The parser closes the string at the second quote, then finds a bare word where a comma should be:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ the string ends after "Alice " — then 'dev' is unparseable
+#    '{"name": "Alice "dev""}'
+#    Expecting ',' delimiter — stops on 'd'
+
+# ✅ escape the inner quotes
+'{"name": "Alice \\"dev\\""}'</code></pre>
+            </div>
+
+            <p>In Python source, remember you are escaping twice: once for the Python string literal and once for JSON. Using a raw string (<code>r'...'</code>) or, better, letting <code>json.dumps()</code> build the value removes the ambiguity entirely. If the stray character inside your string is a real newline or tab rather than a quote, you get a different message &mdash; see <a href="bad-control-character-in-json.html">Invalid control character</a>.</p>
+
+            <h2>Fix 4: numbers JSON won't accept</h2>
+
+            <p>Three number forms that are perfectly ordinary in other languages are illegal in JSON, and all three land on this error. <strong>RFC 8259 §6</strong> is explicit: "Leading zeros are not allowed."</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ all three are invalid JSON
+#    {"a": 01}        leading zero
+#    {"port": 0080}   zero-padded port
+#    {"a": 0x1F}      hex literal
+
+# ✅ quote anything whose leading zeros are significant
+{"port": "0080", "zip": "01970", "id": "007"}</code></pre>
+            </div>
+
+            <p>This is a data-modelling signal, not just a syntax fix. A zero-padded value is a <em>string</em> with a fixed format &mdash; a zip code, a port, an account number &mdash; and storing it as a number would silently destroy the padding even if JSON allowed it. Quote it at the source.</p>
+
+            <h2>Fix 5: the JSON is truncated, not malformed</h2>
+
+            <p>When <code>e.pos</code> equals the length of the string, nothing is wrong with the syntax &mdash; the document simply stopped early. The parser hit end-of-input while still waiting for a comma or a closing brace:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>except json.JSONDecodeError as e:
+    if e.pos &gt;= len(e.doc.rstrip()):
+        print(f"Truncated: got {len(e.doc)} chars, JSON ends mid-structure")</code></pre>
+            </div>
+
+            <p>Common origins: a response cut short by a read timeout, a file read while another process was still writing it, a size or memory limit in a serverless function, or a proxy that closed the connection early. Check the length you received against the <code>Content-Length</code> header, and make sure any writer closed and flushed before you read.</p>
+
+            <p><strong>Which message you get depends on where the cut landed</strong>, which is a useful signal in itself:</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Cut point</th><th>Example</th><th>Message</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Between values, or mid-structure</td><td><code>{"a": 1, "b": {"c": 2</code></td><td>This error</td></tr>
+                    <tr><td>Inside a string</td><td><code>{"a": "unfinis</code></td><td><a href="jsondecodeerror-unterminated-string.html">Unterminated string starting at</a></td></tr>
+                    <tr><td>Not cut at all &mdash; a second document follows</td><td><code>{"a": 1}{"b": 2}</code></td><td><a href="jsondecodeerror-extra-data.html">Extra data</a></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>So if you are chasing a truncation bug and the message is <em>Unterminated string</em>, the payload was cut while a string was open &mdash; same root cause, different landing point. Both are worth checking against the same byte-count evidence.</p>
+
+            <h2>What this error is <em>not</em></h2>
+
+            <p>Two things are widely misattributed to this message. Both were checked on 3.14.6:</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Input</th><th>What actually happens</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>{"a": 1,}</code> (trailing comma)</td><td><code>Illegal trailing comma before end of object</code> &mdash; its own message, <strong>not</strong> this one</td></tr>
+                    <tr><td><code>[1, 2,]</code></td><td><code>Illegal trailing comma before end of array</code></td></tr>
+                    <tr><td><code>{"a": NaN}</code></td><td><strong>Parses successfully.</strong> Python accepts <code>NaN</code>/<code>Infinity</code> by default</td></tr>
+                    <tr><td><code>{'a': 1}</code> (single quotes)</td><td><a href="expecting-property-name-double-quotes.html">Expecting property name enclosed in double quotes</a></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>The trailing-comma row matters because many guides still list it as a cause of this error. Modern CPython gives it a dedicated message; if the advice you are reading doesn't match the message you actually got, it was written for an older Python.</p>
+
+            <p>The <code>NaN</code> row is worth pausing on. Python's parser accepts <code>NaN</code>, <code>Infinity</code> and <code>-Infinity</code> even though RFC 8259 defines no such literals, so a document that Python reads happily may be rejected by every other language in your stack. Pass <code>parse_constant</code> to <code>json.loads()</code> if you need to reject them at the boundary.</p>
+
+            <h2>Sibling errors in the JSONDecodeError family</h2>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>Means</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>Expecting ',' delimiter</code></td><td>A complete value was read; what followed couldn't continue the structure</td></tr>
+                    <tr><td><a href="jsondecodeerror-expecting-value.html"><code>Expecting value</code></a></td><td>No value at all where one was required &mdash; often HTML or an empty body</td></tr>
+                    <tr><td><a href="jsondecodeerror-extra-data.html"><code>Extra data</code></a></td><td>A valid document, then more content &mdash; usually NDJSON fed to <code>loads()</code></td></tr>
+                    <tr><td><a href="jsondecodeerror-unterminated-string.html"><code>Unterminated string starting at</code></a></td><td>A string opened and never closed</td></tr>
+                    <tr><td><code>Expecting ':' delimiter</code></td><td>A key was read but no colon followed</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>All of them share the same coordinates and the same <code>e.doc</code>/<code>e.pos</code> slicing trick, so the debugging technique in Fix 1 works across the whole family. Paste a raw traceback into the <a href="../error-log-analyzer.html">Error Log Analyzer</a> and it will route you to the right one.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Slice <code>e.doc</code> around <code>e.pos</code> &mdash; don't count columns by hand</li>
+                <li>&#10003; Read <em>backwards</em> from the position to the previous complete value</li>
+                <li>&#10003; <code>e.pos</code> == length of input? It's truncated, not malformed</li>
+                <li>&#10003; Check the value before the position for an unescaped <code>"</code></li>
+                <li>&#10003; Any number with a leading zero must be quoted</li>
+                <li>&#10003; Building JSON by string concatenation? Use <code>json.dumps()</code> instead</li>
+                <li>&#10003; Reading a file? Confirm the writer closed and flushed it first</li>
+                <li>&#10003; Message doesn't match the advice you're reading? Check the Python version it targets</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How do I fix JSONDecodeError: Expecting ',' delimiter?</summary>
+                    <p>Look at the character at the reported position, then look at what comes immediately before it. The parser finished a complete value and then found something that was neither a comma nor a closing bracket. The most common causes are a missing comma between items, an unescaped double quote that ended a string early, and a number written with a leading zero such as <code>01</code>. Slice the raw string around <code>e.pos</code> to see the region rather than counting columns by hand.</p>
+                </details>
+                <details>
+                    <summary>Why does the reported column point at valid-looking JSON?</summary>
+                    <p>Because the position marks where the parser gave up, not where the mistake is. A comma missing at the end of one line is only detected when the parser reaches the next token, so the error is frequently reported on the following line and at a column that looks perfectly fine. Always read backwards from the reported position to the end of the previous complete value; the omission is almost always there.</p>
+                </details>
+                <details>
+                    <summary>Why does a leading zero like 01 cause this error?</summary>
+                    <p>Because JSON forbids leading zeros in numbers. RFC 8259 states plainly that leading zeros are not allowed, so when Python reads <code>{"a": 01}</code> it parses the <code>0</code> as a complete number, then finds a <code>1</code> where it expected a comma or a closing brace. Zero-padded values such as ports, zip codes and IDs must be quoted as strings, so write <code>{"port": "0080"}</code> rather than <code>{"port": 0080}</code>.</p>
+                </details>
+                <details>
+                    <summary>Does a trailing comma cause Expecting ',' delimiter?</summary>
+                    <p>Not on current Python. A trailing comma produces its own message — <code>Illegal trailing comma before end of object</code>, or before end of array — verified on CPython 3.14.6. Older versions reported it less specifically, which is why many guides still list trailing commas under this error. If you are reading advice that does not match your actual message, check which Python version it was written for.</p>
+                </details>
+                <details>
+                    <summary>How do I see exactly where the JSON broke?</summary>
+                    <p>Catch the exception and slice the original document around the failure position. <code>JSONDecodeError</code> carries <code>msg</code>, <code>pos</code>, <code>lineno</code>, <code>colno</code> and <code>doc</code>, where <code>doc</code> is the exact string you passed in, so printing <code>doc[max(0, pos-40):pos+40]</code> shows the offending region with its surrounding context. This is far more reliable than counting to a column number by hand, particularly in minified JSON that is one enormous line.</p>
+                </details>
+                <details>
+                    <summary>What if the error is at the very end of the input?</summary>
+                    <p>Then the JSON is truncated rather than malformed. A response cut short by a timeout, a partial file write, or a size limit ends mid-structure, and the parser reports <code>Expecting ',' delimiter</code> with a position equal to the length of the string. Check the byte count you actually received against <code>Content-Length</code>, and confirm that the writer closed and flushed the file before you read it.</p>
+                </details>
+                <details>
+                    <summary>Why does Python accept NaN and Infinity but reject my leading zero?</summary>
+                    <p>Because Python's <code>json</code> module deliberately extends the standard in one direction while enforcing it in another. <code>NaN</code>, <code>Infinity</code> and <code>-Infinity</code> are accepted by default even though RFC 8259 has no such literals, whereas leading zeros are rejected as the specification requires. If you need strict behaviour, pass <code>parse_constant</code> to raise on those literals, otherwise data that no other language's parser will accept can pass silently through your service.</p>
+                </details>
+            </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://docs.python.org/3/library/json.html#json.JSONDecodeError" target="_blank" rel="noopener">json.JSONDecodeError</a> (Python Standard Library)</li>
+                <li><a href="https://docs.python.org/3/library/json.html#json.loads" target="_blank" rel="noopener">json.loads</a> (Python Standard Library)</li>
+                <li><a href="https://www.rfc-editor.org/rfc/rfc8259.html#section-6" target="_blank" rel="noopener">RFC 8259 §6 — Numbers</a> (IETF)</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>Find the broken character instantly</h3>
+                <p>Paste the JSON and the formatter points straight at the failure &mdash; no column counting.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../json-validator.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">JSON Validator</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="jsondecodeerror-expecting-value.html">JSONDecodeError: Expecting value</a> &mdash; no value at all where one was required</li>
+                <li><a href="jsondecodeerror-extra-data.html">JSONDecodeError: Extra data</a> &mdash; a valid document followed by more content</li>
+                <li><a href="jsondecodeerror-unterminated-string.html">JSONDecodeError: Unterminated string starting at</a> &mdash; a string that never closed</li>
+                <li><a href="expecting-property-name-double-quotes.html">Expecting property name enclosed in double quotes</a> &mdash; what single-quoted keys produce instead</li>
+                <li><a href="bad-control-character-in-json.html">Invalid control character</a> &mdash; a raw newline or tab inside a string</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter &amp; Validator</a></li>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
