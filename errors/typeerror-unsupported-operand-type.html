@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeError: unsupported operand type(s) — read the operator and both type names to find the fix. Includes why swapping the operands changes the message entirely.">
+    <meta name="keywords" content="TypeError unsupported operand type, unsupported operand type(s) for +: 'int' and 'str', unsupported operand type for -: 'str' and 'int', can only concatenate str, python int str addition error, NoneType unsupported operand">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/typeerror-unsupported-operand-type.html">
+    <meta property="og:title" content="TypeError: unsupported operand type(s) — causes and fixes">
+    <meta property="og:description" content="The message names the operator and both operand types, in source order. Read all three and the fix follows — including why 1 + '2' and '2' + 1 raise different errors.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/typeerror-unsupported-operand-type.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>TypeError: unsupported operand type(s) — Causes and Fixes</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "TypeError: unsupported operand type(s)", "item": "https://jsondevtools.org/errors/typeerror-unsupported-operand-type.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError: unsupported operand type(s) — Causes and Fixes",
+  "description": "Python raises TypeError: unsupported operand type(s) when an operator has no implementation for the pair of types given. This reference decodes the operator and both type names, explains why reversing the operands produces a different message, and covers the sources that silently supply strings — input, JSON, os.environ and CSV — plus sum(), None, forgotten parentheses and the union syntax.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-09-08",
+  "dateModified": "2026-09-08",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I fix TypeError: unsupported operand type(s) for +: 'int' and 'str'?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Decide which type you actually want, then convert at the source rather than at the point of the error. If both values are meant to be numbers, wrap the string one in int() or float(). If you are building a message, convert the number with str() or use an f-string. The more durable fix is to convert where the string entered your program — the input() call, the JSON field, the environment variable — so the rest of the code works with real numbers." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do 1 + '2' and '2' + 1 give different error messages?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because Python tries the left operand's __add__ first. With 1 + '2' the int does not know how to add a str, the str's __radd__ also declines, and you get the generic unsupported operand type(s) message. With '2' + 1 the str's own __add__ handles it and raises a more specific complaint: can only concatenate str (not \"int\") to str. Same underlying mistake, two different messages, decided purely by which value is on the left." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does sum() raise this error on a list of strings?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because sum() starts from 0, an integer, and then adds each element to that running total. The very first addition is therefore int plus str, which is exactly the unsupported combination. Convert the elements first with sum(int(x) for x in values), and note that sum() refuses strings even with a string start value — it raises a dedicated message telling you to use ''.join(seq) instead." }
+    },
+    {
+      "@type": "Question",
+      "name": "What does it mean when the message says 'NoneType'?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It means one operand is None, so a function returned nothing where you expected a value, a dictionary lookup produced a default of None, or an attribute was never assigned. The fix is not to convert None but to trace where it came from — a function that falls off the end without a return statement returns None implicitly, and that is by far the most common source." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the message mention builtin_function_or_method?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because you referenced a function without calling it. Writing total += len instead of total += len(items) adds the function object itself, and Python reports its type as builtin_function_or_method. Any time that type name appears in an operand error, look for a missing pair of parentheses on the line the traceback points to." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does int | None fail on my machine but work elsewhere?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because the X | Y union syntax was introduced by PEP 604 in Python 3.10. On an earlier interpreter the pipe operator between types raises unsupported operand type(s) for |: 'type' and 'NoneType'. Either upgrade, or use typing.Optional[int] and typing.Union, which work on older versions. Adding from __future__ import annotations also helps when the union only appears in annotations rather than at runtime." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I find which value in a list is the wrong type?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Loop with enumerate and catch the TypeError per item, printing the index, the repr and the type. That turns one unhelpful traceback into the exact position and value that broke — far quicker than inspecting a large dataset by eye. For data that arrives from JSON or CSV, validating types at the boundary is better still, since one stray string in a thousand rows will otherwise fail only at the moment it is used." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>unsupported operand type(s)</span>
+            </nav>
+            <h1>Python: TypeError: unsupported operand type(s) for +: 'int' and 'str'</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published September 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;">
+                    <li>The message names three things &mdash; <strong>the operator, the left type, the right type</strong>, in source order. All three matter.</li>
+                    <li>Numbers meant to be numbers? Convert <em>where the string entered</em> (<code>input()</code>, JSON, <code>os.environ</code>), not at the error.</li>
+                    <li>Says <code>'NoneType'</code>? Nothing to convert &mdash; a function returned <code>None</code>. Trace it back.</li>
+                    <li>Says <code>'builtin_function_or_method'</code>? You forgot the <strong>parentheses</strong> on a call.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "app.py", line 2, in &lt;module&gt;
+    total = count + suffix
+TypeError: unsupported operand type(s) for +: 'int' and 'str'
+
+# the same error shape, other operators and types you'll see in the wild:
+TypeError: unsupported operand type(s) for -: 'str' and 'int'
+TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'
+TypeError: unsupported operand type(s) for +=: 'int' and 'builtin_function_or_method'
+TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'</code></pre>
+            </div>
+
+            <p>Python raises this when an operator has no implementation for that <em>pair</em> of types. It is not saying either value is invalid &mdash; both are perfectly good objects. It is saying the combination has no defined meaning, which is deliberate: unlike JavaScript or PHP, Python refuses to silently guess whether you meant arithmetic or concatenation.</p>
+
+            <p>Everything below was verified on <strong>CPython 3.14.6</strong>.</p>
+
+            <h2>Anatomy of the message</h2>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>unsupported operand type(s) for  +:  'int'  and  'str'
+                                 ^    ^^^^^       ^^^^^
+                                 |    |           |
+                                 |    |           +-- type of the RIGHT operand
+                                 |    +-------------- type of the LEFT operand
+                                 +------------------- the operator that failed</code></pre>
+            </div>
+
+            <p>The two type names appear in <strong>source order</strong>: left operand first. That is more useful than it sounds, because it tells you <em>which side</em> to convert without having to reason about the expression. If you see <code>'int' and 'str'</code>, the string is on the right; <code>'str' and 'int'</code> means it is on the left.</p>
+
+            <h3>Swapping the operands changes the message</h3>
+
+            <p>This trips people up constantly, and no other guide covers it. The same conceptual mistake produces two entirely different errors depending on operand order:</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Expression</th><th>Message</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>1 + '2'</code></td><td><code>unsupported operand type(s) for +: 'int' and 'str'</code></td></tr>
+                    <tr><td><code>'2' + 1</code></td><td><code>can only concatenate str (not "int") to str</code></td></tr>
+                    <tr><td><code>[1] + 'a'</code></td><td><code>can only concatenate list (not "str") to list</code></td></tr>
+                    <tr><td><code>'a' + b'b'</code></td><td><code>can only concatenate str (not "bytes") to str</code></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>The reason is the protocol described in the <a href="https://docs.python.org/3/reference/datamodel.html#object.__add__" target="_blank" rel="noopener">data model</a>: Python asks the left operand's <code>__add__</code> first. With <code>1 + '2'</code>, <code>int.__add__</code> returns <code>NotImplemented</code>, Python then tries <code>str.__radd__</code>, that declines too, and only then does the interpreter emit the generic message. With <code>'2' + 1</code> the <code>str</code> handles the call itself and raises its own, more specific complaint before the fallback is ever reached.</p>
+
+            <p><strong>Both messages mean the same thing</strong> &mdash; you mixed a number and a string &mdash; so if you searched for one and landed here, the fixes below apply either way.</p>
+
+            <h2>Fix 1: find where the string came from</h2>
+
+            <p>Converting at the point of the error is a patch. The durable fix is to convert at the boundary, because these four sources hand you strings whether you expect them or not:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># 1. input() ALWAYS returns str, even when the user types a number
+age = input("Age: ")          # '30'
+# age + 1  ->  can only concatenate str (not "int") to str
+age = int(input("Age: "))     # convert here, once
+
+# 2. JSON keeps whatever type the producer sent — "3" stays a string
+data = json.loads('{"qty": "3", "price": 2}')
+# data["qty"] + data["price"]  ->  can only concatenate str (not "int") to str
+qty = int(data["qty"])
+
+# 3. environment variables are always str
+port = int(os.environ["PORT"])       # never os.environ["PORT"] + 1
+
+# 4. CSV columns are str unless you convert (pandas: dtype 'object')
+df["qty"] = pd.to_numeric(df["qty"], errors="coerce")</code></pre>
+            </div>
+
+            <p>The JSON case is worth dwelling on because it is invisible until it isn't: an API that returns <code>{"qty": "3"}</code> parses without complaint, and the failure surfaces much later at the first arithmetic. If you are unsure what types a payload actually contains, run it through the <a href="../formatter.html">JSON Formatter</a> &mdash; quoted values are strings, bare ones are numbers. The same mismatch in Go produces <a href="go-json-cannot-unmarshal.html">json: cannot unmarshal string into Go value of type int</a>, which at least fails at parse time instead of later.</p>
+
+            <h2>Fix 2: <code>sum()</code> hides an <code>int + str</code></h2>
+
+            <p><code>sum()</code> starts its running total at <code>0</code>. The first element is therefore added to an integer, and a list of strings fails on the very first step:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ sum(['1', '2'])
+#    TypeError: unsupported operand type(s) for +: 'int' and 'str'
+
+# ✅ convert as you go
+sum(int(x) for x in ['1', '2'])        # 3
+
+# joining strings? sum() refuses outright, with its own message:
+# sum(['a', 'b'], '')
+#    TypeError: sum() can't sum strings [use ''.join(seq) instead]
+''.join(['a', 'b'])                    # 'ab'</code></pre>
+            </div>
+
+            <p>Note that the error names <code>'int' and 'str'</code> even though your list contains no integers at all &mdash; the <code>int</code> is <code>sum()</code>'s own start value. That mismatch between the message and your data is why this case is so often misread.</p>
+
+            <h2>Fix 3: <code>'NoneType'</code> means something returned nothing</h2>
+
+            <p>When one of the type names is <code>'NoneType'</code>, there is nothing to convert. A value you assumed existed is <code>None</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'
+
+def get_discount(user):
+    if user.is_premium:
+        return 0.2
+    # ❌ falls off the end -> returns None implicitly for everyone else
+
+price - get_discount(user)      # float - None</code></pre>
+            </div>
+
+            <p>The usual sources are a function with a conditional <code>return</code> that misses a branch, <code>dict.get()</code> with no default, a regex <code>search()</code> that found nothing, or a method that mutates in place and returns <code>None</code> &mdash; <code>list.sort()</code> and <code>list.append()</code> both do. Fix the origin rather than defaulting to zero, or you will hide a real bug. The related <a href="nonetype-no-attribute.html">'NoneType' object has no attribute</a> comes from the same class of mistake reached through attribute access instead of an operator.</p>
+
+            <h2>Fix 4: <code>'builtin_function_or_method'</code> means missing parentheses</h2>
+
+            <p>This type name only ever appears for one reason &mdash; you referenced a function without calling it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ total += len
+#    TypeError: unsupported operand type(s) for +=: 'int' and 'builtin_function_or_method'
+
+total += len(items)      # ✅ call it</code></pre>
+            </div>
+
+            <p>Whenever <code>'function'</code>, <code>'builtin_function_or_method'</code> or <code>'method'</code> shows up as an operand type, go to the line in the traceback and look for a name that should have been followed by <code>()</code>.</p>
+
+            <h2>Fix 5: <code>|</code> between types needs Python 3.10+</h2>
+
+            <p>The <code>X | Y</code> union syntax was introduced by <strong>PEP 604 in Python 3.10</strong>. On an older interpreter it fails as an operand error, which is confusing because the code looks like a type annotation rather than an expression:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># on Python 3.9 and earlier:
+#   def f(x: int | None): ...
+#   TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
+
+from typing import Optional
+def f(x: Optional[int]): ...          # ✅ works on every supported version
+
+# or defer annotation evaluation entirely
+from __future__ import annotations     # ✅ then `int | None` is fine as an annotation</code></pre>
+            </div>
+
+            <p>The <code>__future__</code> import works because annotations then stay unevaluated strings at runtime; it does <em>not</em> help if you use <code>int | None</code> as a real expression, such as in a <code>TypeAlias</code> assignment or an <code>isinstance()</code> check.</p>
+
+            <h2>Fix 6: dates and times don't all support arithmetic</h2>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Expression</th><th>Result</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>datetime - datetime</code></td><td>✅ a <code>timedelta</code></td></tr>
+                    <tr><td><code>time - time</code></td><td>❌ <code>unsupported operand type(s) for -: 'datetime.time' and 'datetime.time'</code></td></tr>
+                    <tr><td><code>date + int</code></td><td>❌ <code>unsupported operand type(s) for +: 'datetime.date' and 'int'</code></td></tr>
+                    <tr><td><code>date + timedelta(days=1)</code></td><td>✅ a <code>date</code></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>A <code>time</code> is a wall-clock reading with no date attached, so subtracting two of them has no well-defined answer across a midnight boundary &mdash; combine them with a date first (<code>datetime.combine</code>). And date arithmetic takes a <code>timedelta</code>, never a bare integer, because "plus 1" is ambiguous about its unit.</p>
+
+            <h2>Locate the offending value, don't hunt for it</h2>
+
+            <p>When the bad value is one row in a large dataset, the traceback tells you the line but not the item. Catch per iteration instead:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>total = 0
+for i, row in enumerate(rows):
+    try:
+        total += row
+    except TypeError as e:
+        print(f"row {i} = {row!r} ({type(row).__name__}) -> {e}")
+        # row 2 = '3' (str) -> unsupported operand type(s) for +=: 'int' and 'str'
+
+# or find every offender at once, before doing any arithmetic
+bad = [(i, v) for i, v in enumerate(rows) if not isinstance(v, (int, float))]</code></pre>
+            </div>
+
+            <h2>Two combinations that <em>don't</em> raise</h2>
+
+            <p>Worth knowing, because both silently produce wrong results rather than an error:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>1 * '2'      # '2'   — int * str REPEATS the string, it doesn't multiply
+3 * 'ab'     # 'ababab'
+1 + True     # 2     — bool is a subclass of int, so this is valid arithmetic
+sum([True, True, False])   # 2  — sometimes useful, sometimes a lurking bug</code></pre>
+            </div>
+
+            <p>So a stray string that would fail under <code>+</code> may sail through <code>*</code> and corrupt your output instead. If you are validating input, check the types rather than relying on an exception to catch the mistake.</p>
+
+            <h2>Reading any variant of this message</h2>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Type name in the message</th><th>What to do</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>'str'</code></td><td>Convert with <code>int()</code>/<code>float()</code>, or convert the other side with <code>str()</code></td></tr>
+                    <tr><td><code>'NoneType'</code></td><td>Don't convert &mdash; find what returned <code>None</code> (Fix 3)</td></tr>
+                    <tr><td><code>'builtin_function_or_method'</code>, <code>'function'</code></td><td>Add the missing <code>()</code> (Fix 4)</td></tr>
+                    <tr><td><code>'list'</code>, <code>'dict'</code>, <code>'tuple'</code></td><td>You're operating on the container, not an element &mdash; index or iterate</td></tr>
+                    <tr><td><code>'type'</code></td><td>You're operating on a class object itself &mdash; usually the <code>|</code> union case (Fix 5)</td></tr>
+                    <tr><td><code>'Decimal'</code> with <code>'float'</code></td><td>Convert the float: <code>Decimal(str(x))</code> &mdash; never mix the two</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>Paste a raw traceback into the <a href="../error-log-analyzer.html">Error Log Analyzer</a> if you want it routed to the matching reference automatically.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read all three parts &mdash; operator, left type, right type &mdash; before changing anything</li>
+                <li>&#10003; The types are in source order; that tells you which side to convert</li>
+                <li>&#10003; Convert at the boundary (<code>input()</code>, JSON, <code>os.environ</code>, CSV), not at the error</li>
+                <li>&#10003; <code>'NoneType'</code>? Find the function that returned nothing</li>
+                <li>&#10003; <code>'builtin_function_or_method'</code>? Add the missing parentheses</li>
+                <li>&#10003; <code>sum()</code> failing on strings? Its start value is the <code>int</code> in the message</li>
+                <li>&#10003; Bad value hiding in a dataset? Loop with <code>enumerate</code> and catch per item</li>
+                <li>&#10003; Remember <code>1 * '2'</code> and <code>1 + True</code> succeed &mdash; absence of an error isn't proof of correct types</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>How do I fix TypeError: unsupported operand type(s) for +: 'int' and 'str'?</summary>
+                    <p>Decide which type you actually want, then convert at the source rather than at the point of the error. If both values are meant to be numbers, wrap the string one in <code>int()</code> or <code>float()</code>. If you are building a message, convert the number with <code>str()</code> or use an f-string. The more durable fix is to convert where the string entered your program — the <code>input()</code> call, the JSON field, the environment variable — so the rest of the code works with real numbers.</p>
+                </details>
+                <details>
+                    <summary>Why do 1 + '2' and '2' + 1 give different error messages?</summary>
+                    <p>Because Python tries the left operand's <code>__add__</code> first. With <code>1 + '2'</code> the int does not know how to add a str, the str's <code>__radd__</code> also declines, and you get the generic unsupported operand type(s) message. With <code>'2' + 1</code> the str's own <code>__add__</code> handles it and raises a more specific complaint: can only concatenate str (not "int") to str. Same underlying mistake, two different messages, decided purely by which value is on the left.</p>
+                </details>
+                <details>
+                    <summary>Why does sum() raise this error on a list of strings?</summary>
+                    <p>Because <code>sum()</code> starts from <code>0</code>, an integer, and then adds each element to that running total. The very first addition is therefore int plus str, which is exactly the unsupported combination. Convert the elements first with <code>sum(int(x) for x in values)</code>, and note that <code>sum()</code> refuses strings even with a string start value — it raises a dedicated message telling you to use <code>''.join(seq)</code> instead.</p>
+                </details>
+                <details>
+                    <summary>What does it mean when the message says 'NoneType'?</summary>
+                    <p>It means one operand is <code>None</code>, so a function returned nothing where you expected a value, a dictionary lookup produced a default of <code>None</code>, or an attribute was never assigned. The fix is not to convert <code>None</code> but to trace where it came from — a function that falls off the end without a <code>return</code> statement returns <code>None</code> implicitly, and that is by far the most common source.</p>
+                </details>
+                <details>
+                    <summary>Why does the message mention builtin_function_or_method?</summary>
+                    <p>Because you referenced a function without calling it. Writing <code>total += len</code> instead of <code>total += len(items)</code> adds the function object itself, and Python reports its type as <code>builtin_function_or_method</code>. Any time that type name appears in an operand error, look for a missing pair of parentheses on the line the traceback points to.</p>
+                </details>
+                <details>
+                    <summary>Why does int | None fail on my machine but work elsewhere?</summary>
+                    <p>Because the <code>X | Y</code> union syntax was introduced by PEP 604 in Python 3.10. On an earlier interpreter the pipe operator between types raises <code>unsupported operand type(s) for |: 'type' and 'NoneType'</code>. Either upgrade, or use <code>typing.Optional[int]</code> and <code>typing.Union</code>, which work on older versions. Adding <code>from __future__ import annotations</code> also helps when the union only appears in annotations rather than at runtime.</p>
+                </details>
+                <details>
+                    <summary>How do I find which value in a list is the wrong type?</summary>
+                    <p>Loop with <code>enumerate</code> and catch the <code>TypeError</code> per item, printing the index, the repr and the type. That turns one unhelpful traceback into the exact position and value that broke — far quicker than inspecting a large dataset by eye. For data that arrives from JSON or CSV, validating types at the boundary is better still, since one stray string in a thousand rows will otherwise fail only at the moment it is used.</p>
+                </details>
+            </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://docs.python.org/3/reference/datamodel.html#object.__add__" target="_blank" rel="noopener">Emulating numeric types — __add__ and __radd__</a> (Python Language Reference)</li>
+                <li><a href="https://docs.python.org/3/library/functions.html#sum" target="_blank" rel="noopener">sum()</a> (Python Standard Library)</li>
+                <li><a href="https://peps.python.org/pep-0604/" target="_blank" rel="noopener">PEP 604 — Allow writing union types as X | Y</a> (Python 3.10)</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>Check what types your JSON actually contains</h3>
+                <p>Quoted values are strings, bare ones are numbers &mdash; the formatter makes the difference obvious before it reaches your arithmetic.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../formatter.html" class="btn btn-primary">JSON Formatter</a>
+                    <a href="../error-log-analyzer.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Error Log Analyzer</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="nonetype-no-attribute.html">AttributeError: 'NoneType' object has no attribute 'X'</a> &mdash; the same "something returned None" bug, reached through attribute access</li>
+                <li><a href="string-indices-must-be-integers.html">TypeError: string indices must be integers</a> &mdash; the other Python type-confusion error, usually from JSON</li>
+                <li><a href="go-json-cannot-unmarshal.html">json: cannot unmarshal string into Go value of type int</a> &mdash; the same string-vs-number mismatch, caught at parse time in Go</li>
+                <li><a href="java-numberformatexception-for-input-string.html">NumberFormatException: For input string</a> &mdash; Java's version of a string that should have been a number</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../formatter.html">JSON Formatter &amp; Validator</a></li>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
