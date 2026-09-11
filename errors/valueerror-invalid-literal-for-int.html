@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ValueError: invalid literal for int() with base 10 — the quoted value is a repr, so it reveals invisible characters. Empty string is the top cause.">
+    <meta name="keywords" content="invalid literal for int() with base 10, ValueError invalid literal, python int empty string, invalid literal for int with base 10 '', int() base 10 error, isdigit unreliable, python string to int error">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/valueerror-invalid-literal-for-int.html">
+    <meta property="og:title" content="ValueError: invalid literal for int() with base 10 — causes and fixes">
+    <meta property="og:description" content="The quoted value in the message is a repr — it shows exactly what int() received, invisible characters and all. Covers the empty-string case, decimals, and why isdigit() is the wrong check.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/valueerror-invalid-literal-for-int.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>ValueError: invalid literal for int() with base 10 — Causes and Fixes</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "invalid literal for int() with base 10", "item": "https://jsondevtools.org/errors/valueerror-invalid-literal-for-int.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "ValueError: invalid literal for int() with base 10 — Causes and Fixes",
+  "description": "Python raises this ValueError when int() receives a string it cannot parse in the given base. This reference explains that the quoted value is a repr revealing invisible characters, covers the empty-string case that dominates real reports, and corrects two widespread claims: that int() needs .strip(), and that isdigit() is a safe pre-check.",
+  "image": "https://jsondevtools.org/og-image.png",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-09-11",
+  "dateModified": "2026-09-11",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does invalid literal for int() with base 10 actually mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It means int() received a string that is not a valid whole number written in base 10. The phrase 'base 10' is not decoration — it is the second argument to int(), which defaults to 10, so the message is telling you which number system it tried to read the text in. The value printed after the colon is the exact string it received, shown as a Python repr, so quotes, spaces and invisible characters all appear in it." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does int('') fail with an empty string?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because an empty string contains no digits at all, and int() has nothing to parse. This is the most reported form of the error and it almost never comes from a literal empty string in your code — it comes from a blank CSV field, a trailing newline producing an empty final line, an unfilled form input, or splitting a string on a delimiter that appears twice in a row. Find the source of the blank rather than wrapping the conversion in a try block." }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to call .strip() before int()?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. int() already ignores surrounding whitespace, so int(' 42 ') and int('42\\n') both return 42 without any help. Many guides show .strip() as a required step, which is simply wrong on any modern Python. Whitespace inside the number is a different matter — int('4 2') genuinely fails, and .strip() will not rescue that because the space is not at either end." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is isdigit() a safe way to check before converting?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No, and it is wrong in both directions. '-5'.isdigit() is False even though int('-5') works, so you would reject valid input; and '²'.isdigit() is True even though int('²') raises, so you would accept invalid input. The same applies to ' 42 ' and '1_000', both of which convert fine while isdigit() reports False. The reliable check is to attempt the conversion inside try/except ValueError." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does int('196.41') fail when it is clearly a number?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because int() parses integers only, and a decimal point is not part of an integer literal. First decide whether the value really is a whole number: if it is a price, measurement or rate then float(s) is the correct conversion, and Decimal(s) is better for money. Only if your application genuinely requires an integer should you go through int(float(s)), which truncates toward zero and silently discards the fractional part, or round(float(s)) for nearest-integer behaviour." }
+    },
+    {
+      "@type": "Question",
+      "name": "The string looks like a number but still fails. What now?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Print repr(value) and compare its length to what you expect. The error message already does this for you — it shows the value as a repr, so a zero-width space appears as \\u200b and a byte order mark as \\ufeff. Those characters are invisible in a terminal but fatal to int(). Interestingly a non-breaking space is not fatal, because Python treats it as whitespace and strips it, which is why some invisible characters break the conversion and others do not." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between this and TypeError from int(None)?",
+      "acceptedAnswer": { "@type": "Answer", "text": "ValueError means int() understood the type it was given but could not read the contents, whereas TypeError means the argument was the wrong type entirely. int('abc') raises ValueError: invalid literal for int() with base 10, while int(None) raises TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'. If you are catching one, decide deliberately whether you need to catch the other too." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>invalid literal for int()</span>
+            </nav>
+            <h1>Python: ValueError: invalid literal for int() with base 10</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published September 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;">
+                    <li><strong>The quoted value is a <code>repr</code> of exactly what <code>int()</code> got</strong> &mdash; read it literally, invisible characters included.</li>
+                    <li>Message ends in <code>: ''</code>? An <strong>empty string</strong> &mdash; find the blank field, not the conversion.</li>
+                    <li>Decimal like <code>'196.41'</code>? Go through float: <code>int(float(s))</code>.</li>
+                    <li><strong>You do <em>not</em> need <code>.strip()</code></strong> &mdash; <code>int()</code> already ignores surrounding whitespace.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "app.py", line 2, in &lt;module&gt;
+    qty = int(row["qty"])
+ValueError: invalid literal for int() with base 10: ''
+
+# the same error, different inputs — the value after the colon is always the real input:
+ValueError: invalid literal for int() with base 10: 'abc'
+ValueError: invalid literal for int() with base 10: '196.41'
+ValueError: invalid literal for int() with base 10: '1,234'
+ValueError: invalid literal for int() with base 10: '42​'</code></pre>
+            </div>
+
+            <p>Python raises this when <code>int()</code> is handed a string it cannot read as a whole number in the requested base. The type was fine &mdash; a string is a perfectly acceptable argument &mdash; but the <em>contents</em> could not be parsed.</p>
+
+            <p>Everything below was verified on <strong>CPython 3.14.6</strong>.</p>
+
+            <h2>Anatomy of the message</h2>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>invalid literal for int() with base 10: '196.41'
+                             ^^^^^^^^   ^^^^^^^^
+                             |          |
+                             |          +-- repr() of the exact string received
+                             +------------- the base argument, which defaults to 10</code></pre>
+            </div>
+
+            <p>Two things are easy to skim past, and both save time:</p>
+
+            <ul>
+                <li><strong>"base 10" is not boilerplate.</strong> It is the second parameter of <code>int()</code>. Seeing it confirms nobody passed a different base, and it hints at the fix when your text really is hexadecimal or binary &mdash; see Fix&nbsp;5.</li>
+                <li><strong>The value is a <code>repr</code>, not the raw text.</strong> That is a gift: a trailing newline shows as <code>'42\n'</code>, a zero-width space as <code>'42​'</code>, and an empty string as <code>''</code>. Python is already showing you the invisible characters &mdash; most readers just don't realise the quotes and backslashes are meaningful.</li>
+            </ul>
+
+            <h2>Fix 1: the empty string</h2>
+
+            <p>This form dominates real-world reports &mdash; the Stack Overflow question for <code>invalid literal for int() with base 10: ''</code> has over four million views, more than every other variant of this error combined. When the message ends in <code>: ''</code> there is nothing wrong with your conversion; you were handed a blank. It almost never comes from a literal in your code, so chase the source:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># consecutive delimiters produce an empty field
+'1,2,,4'.split(',')        # ['1', '2', '', '4']   <- index 2 is ''
+
+# a trailing newline produces an empty final line
+'a\n\n'.splitlines()       # ['a', '']
+
+# splitting an empty string does NOT give an empty list
+''.split(',')              # ['']  <- one empty string, so the loop still runs once</code></pre>
+            </div>
+
+            <p>The usual culprits are a blank CSV cell, a header row being parsed as data, an unfilled form field, a missing environment variable that defaulted to <code>''</code>, or a file ending with a newline. Handle it explicitly at the boundary:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>raw = row.get("qty", "")
+qty = int(raw) if raw.strip() else 0      # decide what a blank MEANS
+
+# reading a file — skip blanks rather than letting them reach int()
+for line in f:
+    line = line.strip()
+    if not line:
+        continue
+    process(int(line))</code></pre>
+            </div>
+
+            <p>Decide deliberately whether a blank means zero, means "unknown", or means the row should be rejected. Silently defaulting to <code>0</code> is a common way to turn a data problem into a wrong number.</p>
+
+            <h2>Fix 2: you don't need <code>.strip()</code></h2>
+
+            <p>Most guides on this error show <code>.strip()</code> as a required step. It isn't, and believing otherwise sends you looking in the wrong place:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>int(' 42 ')        # 42   — surrounding spaces are ignored
+int('42\n')        # 42   — trailing newline is ignored
+int('\t42\r\n')    # 42   — tabs and CRLF too
+
+int('4 2')         # ❌ ValueError — the space is INSIDE the number
+</code></pre>
+            </div>
+
+            <p>So if your value only has whitespace around the edges, it already works and something else is wrong. Reach for <code>.strip()</code> only when you want to detect a blank (as in Fix 1), not to make a conversion succeed.</p>
+
+            <h2>Fix 3: decimals, separators and exponents</h2>
+
+            <p><code>int()</code> parses integers, and will not round or reinterpret for you. <strong>Before reaching for a conversion, decide whether the value is genuinely an integer.</strong> If <code>'196.41'</code> is a price, a measurement or a rate, the right type is <code>float</code> (or <code>Decimal</code> for money) &mdash; forcing it through <code>int()</code> discards the fractional part permanently:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>price = float('196.41')        # ✅ 196.41 — keep the precision you were given
+
+# only if your application genuinely requires a whole number:
+int(float('196.41'))           # 196  — truncates toward zero, .41 is GONE
+round(float('196.41'))         # 196  — nearest integer, different rule
+
+from decimal import Decimal
+Decimal('196.41')              # ✅ exact, for money</code></pre>
+            </div>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Input</th><th>Result</th><th>What to do</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>int('196.41')</code></td><td>❌ ValueError</td><td>Usually <code>float(s)</code>. Truncate only if you mean to</td></tr>
+                    <tr><td><code>int('1e3')</code></td><td>❌ ValueError</td><td><code>float(s)</code> &rarr; 1000.0; <code>int(float(s))</code> if a whole number is required</td></tr>
+                    <tr><td><code>int('1,234')</code></td><td>❌ ValueError</td><td><code>int(s.replace(',', ''))</code></td></tr>
+                    <tr><td><code>int('1_000')</code></td><td>✅ 1000</td><td>Underscores are legal (PEP 515, Python 3.6+)</td></tr>
+                    <tr><td><code>int('+42')</code>, <code>int('-42')</code></td><td>✅ 42, -42</td><td>Signs are fine &mdash; but <code>'- 42'</code> is not</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>The underscore row surprises people: <code>int('1_000')</code> returns 1000, though <code>'_100'</code> and <code>'100_'</code> both fail because an underscore may only sit between digits. For thousands separators, strip them explicitly &mdash; and if the data is locale-formatted (a comma as the <em>decimal</em> point, as in much of Europe) do the locale conversion deliberately rather than deleting characters and hoping.</p>
+
+            <h2>Fix 4: it looks like a number but isn't</h2>
+
+            <p>When the value in the message looks perfectly valid, compare its length against what you expect. The error's <code>repr</code> already reveals the culprit if you read the escapes:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>print(repr(value), len(value))
+# '42​' 3     <- three characters, not two</code></pre>
+            </div>
+
+            <p>Which invisible characters are fatal is not what most people assume, so this is worth knowing precisely:</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Character</th><th><code>int('42' + c)</code></th><th>Why</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Non-breaking space <code>U+00A0</code></td><td>✅ 42</td><td>Python classes it as whitespace, so it is stripped</td></tr>
+                    <tr><td>Zero-width space <code>U+200B</code></td><td>❌ ValueError</td><td>Not whitespace &mdash; it is a real character</td></tr>
+                    <tr><td>Byte order mark <code>U+FEFF</code></td><td>❌ ValueError</td><td>Common at the start of a UTF-8 file</td></tr>
+                    <tr><td>RTL mark <code>U+200F</code></td><td>❌ ValueError</td><td>Arrives with copied bidirectional text</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>The BOM case is the one to watch in data pipelines, because a UTF-8 file may begin with <code>﻿</code> and only the very first field of the very first row will fail &mdash; every other row converts cleanly, which makes it look like a data problem rather than an encoding one. Read such files with <code>encoding='utf-8-sig'</code>, which consumes the mark for you. Our <a href="../csv-to-json.html">CSV to JSON converter</a> strips it automatically for the same reason.</p>
+
+            <h2>Fix 5: when the text isn't base 10</h2>
+
+            <p>If your string is hexadecimal, binary or octal, the fix is to tell <code>int()</code> the base rather than to clean the string:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>int('ff')           # ❌ ValueError — 'f' is not a base-10 digit
+int('ff', 16)       # 255
+int('0xff', 16)     # 255  — the 0x prefix is allowed when the base matches
+int('1010', 2)      # 10
+
+int('0xff', 0)      # 255  — base 0 means "infer from the prefix"</code></pre>
+            </div>
+
+            <p>Base <code>0</code> is the useful one for config files and user input that may arrive in any notation: it reads <code>0x</code>, <code>0o</code> and <code>0b</code> prefixes and falls back to decimal.</p>
+
+            <h2>Don't validate with <code>isdigit()</code></h2>
+
+            <p>This is the most commonly recommended pre-check, and it is wrong in <em>both</em> directions &mdash; it rejects valid input and accepts invalid input:</p>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Value</th><th><code>isdigit()</code></th><th><code>int()</code></th><th>Verdict</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>'-5'</code></td><td>False</td><td>✅ -5</td><td>False negative &mdash; rejects a valid number</td></tr>
+                    <tr><td><code>' 42 '</code></td><td>False</td><td>✅ 42</td><td>False negative</td></tr>
+                    <tr><td><code>'1_000'</code></td><td>False</td><td>✅ 1000</td><td>False negative</td></tr>
+                    <tr><td><code>'²'</code></td><td><strong>True</strong></td><td>❌ ValueError</td><td><strong>False positive</strong> &mdash; passes the check, then crashes</td></tr>
+                    <tr><td><code>'٣'</code> (Arabic-Indic)</td><td>True</td><td>✅ 3</td><td>Correct, but probably not what you intended</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>The only reliable test is the conversion itself:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>def to_int(s, default=None):
+    try:
+        return int(s)
+    except (ValueError, TypeError):     # TypeError catches None and non-strings
+        return default</code></pre>
+            </div>
+
+            <p>That last row is worth a thought for anything user-facing: <code>int('٣')</code> returns 3 because Python accepts any Unicode <em>decimal digit</em>, not just ASCII. If you need ASCII-only input, check explicitly rather than relying on the conversion to reject it.</p>
+
+            <h2>ValueError or TypeError?</h2>
+
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>Call</th><th>Exception</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>int('abc')</code></td><td><code>ValueError: invalid literal for int() with base 10: 'abc'</code></td></tr>
+                    <tr><td><code>int(None)</code></td><td><code>TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'</code></td></tr>
+                    <tr><td><code>int([])</code></td><td><code>TypeError: ... not 'list'</code></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p><strong>ValueError</strong> means the type was acceptable but the contents weren't; <strong>TypeError</strong> means the argument was never parseable to begin with. A bare <code>except ValueError</code> around a conversion will let a <code>None</code> straight through, which is why the helper above catches both. A <code>None</code> arriving here usually has the same origin as <a href="typeerror-unsupported-operand-type.html">unsupported operand type(s)</a> &mdash; a function that returned nothing.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the quoted value as a <code>repr</code> &mdash; escapes in it are real characters</li>
+                <li>&#10003; Ends in <code>: ''</code>? Find the blank field, don't patch the conversion</li>
+                <li>&#10003; Compare <code>len(value)</code> against the digits you can see</li>
+                <li>&#10003; Don't add <code>.strip()</code> hoping it helps &mdash; <code>int()</code> already ignores outer whitespace</li>
+                <li>&#10003; Decimal or exponent? Go through <code>float()</code> first</li>
+                <li>&#10003; CSV from Excel failing on row 1 only? Read it with <code>encoding='utf-8-sig'</code></li>
+                <li>&#10003; Hex or binary? Pass the base &mdash; <code>int(s, 16)</code> or <code>int(s, 0)</code></li>
+                <li>&#10003; Never gate the conversion on <code>isdigit()</code>; use <code>try/except</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does invalid literal for int() with base 10 actually mean?</summary>
+                    <p>It means <code>int()</code> received a string that is not a valid whole number written in base 10. The phrase "base 10" is not decoration — it is the second argument to <code>int()</code>, which defaults to 10, so the message is telling you which number system it tried to read the text in. The value printed after the colon is the exact string it received, shown as a Python <code>repr</code>, so quotes, spaces and invisible characters all appear in it.</p>
+                </details>
+                <details>
+                    <summary>Why does int('') fail with an empty string?</summary>
+                    <p>Because an empty string contains no digits at all, and <code>int()</code> has nothing to parse. This is the most reported form of the error and it almost never comes from a literal empty string in your code — it comes from a blank CSV field, a trailing newline producing an empty final line, an unfilled form input, or splitting a string on a delimiter that appears twice in a row. Find the source of the blank rather than wrapping the conversion in a try block.</p>
+                </details>
+                <details>
+                    <summary>Do I need to call .strip() before int()?</summary>
+                    <p>No. <code>int()</code> already ignores surrounding whitespace, so <code>int(' 42 ')</code> and <code>int('42\n')</code> both return 42 without any help. Many guides show <code>.strip()</code> as a required step, which is simply wrong on any modern Python. Whitespace inside the number is a different matter — <code>int('4 2')</code> genuinely fails, and <code>.strip()</code> will not rescue that because the space is not at either end.</p>
+                </details>
+                <details>
+                    <summary>Is isdigit() a safe way to check before converting?</summary>
+                    <p>No, and it is wrong in both directions. <code>'-5'.isdigit()</code> is False even though <code>int('-5')</code> works, so you would reject valid input; and <code>'²'.isdigit()</code> is True even though <code>int('²')</code> raises, so you would accept invalid input. The same applies to <code>' 42 '</code> and <code>'1_000'</code>, both of which convert fine while <code>isdigit()</code> reports False. The reliable check is to attempt the conversion inside <code>try/except ValueError</code>.</p>
+                </details>
+                <details>
+                    <summary>Why does int('196.41') fail when it is clearly a number?</summary>
+                    <p>Because <code>int()</code> parses integers only, and a decimal point is not part of an integer literal. First decide whether the value really is a whole number: if it is a price, measurement or rate then <code>float(s)</code> is the correct conversion, and <code>Decimal(s)</code> is better for money. Only if your application genuinely requires an integer should you go through <code>int(float(s))</code>, which truncates toward zero and silently discards the fractional part, or <code>round(float(s))</code> for nearest-integer behaviour.</p>
+                </details>
+                <details>
+                    <summary>The string looks like a number but still fails. What now?</summary>
+                    <p>Print <code>repr(value)</code> and compare its length to what you expect. The error message already does this for you — it shows the value as a <code>repr</code>, so a zero-width space appears as <code>​</code> and a byte order mark as <code>﻿</code>. Those characters are invisible in a terminal but fatal to <code>int()</code>. Interestingly a non-breaking space is not fatal, because Python treats it as whitespace and strips it, which is why some invisible characters break the conversion and others do not.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between this and TypeError from int(None)?</summary>
+                    <p><code>ValueError</code> means <code>int()</code> understood the type it was given but could not read the contents, whereas <code>TypeError</code> means the argument was the wrong type entirely. <code>int('abc')</code> raises <code>ValueError: invalid literal for int() with base 10</code>, while <code>int(None)</code> raises <code>TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'</code>. If you are catching one, decide deliberately whether you need to catch the other too.</p>
+                </details>
+            </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://docs.python.org/3/library/functions.html#int" target="_blank" rel="noopener">int()</a> (Python Standard Library)</li>
+                <li><a href="https://docs.python.org/3/library/stdtypes.html#str.isdigit" target="_blank" rel="noopener">str.isdigit</a> (Python Standard Library)</li>
+                <li><a href="https://peps.python.org/pep-0515/" target="_blank" rel="noopener">PEP 515 — Underscores in Numeric Literals</a> (Python 3.6)</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>Data arriving as strings?</h3>
+                <p>The CSV converter strips the BOM and can infer real numbers, so blanks and hidden characters never reach your <code>int()</code> call.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../csv-to-json.html" class="btn btn-primary">CSV to JSON</a>
+                    <a href="../error-log-analyzer.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Error Log Analyzer</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="java-numberformatexception-for-input-string.html">NumberFormatException: For input string</a> &mdash; Java's version, which unlike Python does <em>not</em> ignore surrounding whitespace</li>
+                <li><a href="typeerror-unsupported-operand-type.html">TypeError: unsupported operand type(s)</a> &mdash; what happens if you skip the conversion and do arithmetic on the string</li>
+                <li><a href="unicodedecodeerror-utf-8-codec.html">UnicodeDecodeError: 'utf-8' codec can't decode byte</a> &mdash; the other error caused by unexpected bytes in a data file</li>
+                <li><a href="string-indices-must-be-integers.html">TypeError: string indices must be integers</a> &mdash; another string-where-a-number-was-expected mistake</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../csv-to-json.html">CSV to JSON Converter</a></li>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
