@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TypeError: Cannot convert undefined or null to object — a fix-first playbook for Object.keys/values/entries/assign throwing on a null or undefined value, with guards that make it never happen again.">
+    <meta name="description" content="TypeError: Cannot convert undefined or null to object — why Object.keys/values/entries/assign throws on a null value, and the guards that stop it recurring.">
     <meta name="keywords" content="Cannot convert undefined or null to object, Object.keys null, Object.entries undefined, Object.assign null, TypeError convert undefined to object">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/cannot-convert-undefined-or-null-to-object.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/cannot-convert-undefined-or-null-to-object.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/cannot-convert-undefined-or-null-to-object.svg">
     <title>TypeError: Cannot convert undefined or null to object — Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "TypeError: Cannot convert undefined or null to object — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/cannot-convert-undefined-or-null-to-object.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/cannot-convert-undefined-or-null-to-object.svg",
+    "caption": "Chrome DevTools console showing Uncaught TypeError: Cannot convert undefined or null to object thrown from Object.keys.",
+    "width": 700,
+    "height": 155
+  },
   "description": "Object.keys/values/entries/assign throw this when given null or undefined. This playbook covers the fastest fix and every common trigger.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -130,6 +144,14 @@ Object.entries(response.data.profile);
 // Uncaught TypeError: Cannot convert undefined or null to object
 //   -&gt; response.data.profile is null for this record</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/cannot-convert-undefined-or-null-to-object.svg" width="700" height="155" loading="lazy"
+                     alt="Chrome DevTools console showing Uncaught TypeError: Cannot convert undefined or null to object, with stack frames at Object.keys (<anonymous>) and at app.js line 3.">
+                <figcaption>Captured from Chrome 152 with the stack expanded. The top frame &mdash; <code>at Object.keys (&lt;anonymous&gt;)</code> &mdash; is the useful part: the message itself never says <em>which</em> built-in rejected your value, but the first frame does.</figcaption>
+            </figure>
             <p>The message doesn't say <em>which</em> call site or variable &mdash; the stack trace's top frame names the file:line, and that's the exact value that turned out to be empty.</p>
 
             <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
@@ -184,6 +206,23 @@ Object.keys(order.profile);   // ✅ always safe from here on</code></pre>
 
             <h2>Why this happens</h2>
             <p><code>Object.keys</code>, <code>Object.values</code>, <code>Object.entries</code>, and <code>Object.assign</code>'s target all internally call the abstract operation <strong><code>ToObject</code></strong> on their argument before doing anything else. <code>ToObject</code> can wrap almost any value in an object wrapper &mdash; a number, a string, a boolean &mdash; but the spec explicitly makes <code>null</code> and <code>undefined</code> the two exceptions that throw a <code>TypeError</code> instead. Contrast this with <strong>object spread</strong> (<code>{...value}</code>), which the spec defines to silently skip a <code>null</code>/<code>undefined</code> source and produce an empty object &mdash; a deliberate difference, not an inconsistency, so switching between spread and <code>Object.keys</code> isn't purely stylistic.</p>
+
+            <h2>Why only null and undefined, and not other "empty" values</h2>
+
+            <p>The message names <code>undefined</code> and <code>null</code> specifically, and that is exact rather than illustrative. <code>Object.keys()</code> begins by coercing its argument to an object, and <em>every</em> JavaScript value has an object wrapper &mdash; except those two. A number gets a <code>Number</code> wrapper with no own enumerable keys; a string gets a <code>String</code> wrapper whose own keys are its character indices:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Object.keys(0);          // ✅ []            — Number wrapper, no own keys
+Object.keys("");         // ✅ []            — empty String wrapper
+Object.keys("ab");       // ✅ ["0", "1"]    — character indices, not an error
+Object.keys(false);      // ✅ []
+
+Object.keys(null);       // ❌ TypeError: Cannot convert undefined or null to object
+Object.keys(undefined);  // ❌ TypeError: Cannot convert undefined or null to object</code></pre>
+            </div>
+
+            <p>Verified on Node&nbsp;v24.15.0. Two practical consequences follow. First, a falsy guard is the wrong shape of check here: <code>if (x)</code> also rejects <code>0</code> and <code>""</code>, which were never going to throw &mdash; <code>x ?? {}</code> or <code>x != null</code> targets the actual failure. Second, the string case is a genuine silent bug rather than a crash: passing a string where an object was expected returns a plausible-looking array of index keys, and you will not find out here. If the value came from <a href="jsondecodeerror-expecting-value.html">a parsed API response</a>, check its type before its contents.</p>
 
             <h2>What does and doesn't throw</h2>
             <table>
