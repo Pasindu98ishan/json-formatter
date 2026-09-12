@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ReferenceError: require is not defined in ES module scope — why require() does not exist in an ES module, and how to fix it with import, createRequire, a .cjs extension, or __dirname replacements.">
+    <meta name="description" content="ReferenceError: require is not defined in ES module scope — why require() doesn't exist in an ES module, and how to fix it with import, createRequire or .cjs.">
     <meta name="keywords" content="require is not defined in ES module scope, require is not defined, createRequire, __dirname is not defined, esm require error, you can use import instead, require is not defined typescript, require is not defined ts-node, commonjs vs es modules">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/require-is-not-defined-es-module-scope.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/require-is-not-defined-es-module-scope.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/require-is-not-defined-es-module-scope.svg">
     <title>ReferenceError: require is not defined in ES module scope — Cause and Fix | JSON Dev Tools</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -43,11 +41,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "ReferenceError: require is not defined in ES module scope — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/require-is-not-defined-es-module-scope.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/require-is-not-defined-es-module-scope.svg",
+    "caption": "A terminal showing ReferenceError: require is not defined in ES module scope together with Node's full explanation.",
+    "width": 700,
+    "height": 224
+  },
   "description": "Node.js throws 'require is not defined in ES module scope' when CommonJS require() runs inside an ES module. This reference explains why require, module.exports, __dirname, and __filename do not exist in ESM, and shows every fix.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-06-25",
-  "dateModified": "2026-06-25",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -106,21 +120,6 @@
   ]
 }
     </script>
-    <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  "name": "How to fix require is not defined in ES module scope",
-  "description": "Steps to resolve CommonJS require() running inside an ES module.",
-  "step": [
-    { "@type": "HowToStep", "position": 1, "name": "Confirm the file is an ES module", "text": "Check whether the file ends in .mjs or the nearest package.json has \"type\": \"module\". If so, require() is unavailable." },
-    { "@type": "HowToStep", "position": 2, "name": "Replace require with import", "text": "Convert require() calls to import statements and module.exports to export. This is the idiomatic ESM fix." },
-    { "@type": "HowToStep", "position": 3, "name": "Or recreate require with createRequire", "text": "When you must keep require (e.g. for JSON or require.resolve), use createRequire(import.meta.url) from node:module." },
-    { "@type": "HowToStep", "position": 4, "name": "Replace __dirname and __filename", "text": "Derive them from import.meta.url with fileURLToPath, or use import.meta.dirname on newer Node." },
-    { "@type": "HowToStep", "position": 5, "name": "Or force CommonJS with .cjs", "text": "If the file should stay CommonJS, rename it to .cjs so Node runs it as CommonJS regardless of the package type." }
-  ]
-}
-    </script>
 </head>
 <body>
     <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
@@ -159,6 +158,14 @@ extension and '/app/package.json' contains "type": "module". To treat it
 as a CommonJS script, rename it to use the '.cjs' file extension.
     at file:///app/index.js:1:17</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/require-is-not-defined-es-module-scope.svg" width="700" height="224" loading="lazy"
+                     alt="Terminal running node build.js. Node throws ReferenceError: require is not defined in ES module scope, you can use import instead, then explains the file is an ES module because of its .js extension and package.json type: module, and that renaming to .cjs would treat it as CommonJS.">
+                <figcaption>Captured on Node.js v24.15.0. Unusually, the fix is inside the error: Node names the cause (<code>"type": "module"</code> in package.json) <em>and</em> two ways out (use <code>import</code>, or rename the file to <code>.cjs</code>). Most readers stop at line one and miss both.</figcaption>
+            </figure>
 
             <p>Node's message is unusually helpful: it tells you exactly <em>why</em> the file is ESM (a <code>.js</code> extension plus <code>"type": "module"</code>) and offers the <code>.cjs</code> escape hatch. The root cause is always the same &mdash; CommonJS <code>require()</code> in an ES module context.</p>
 

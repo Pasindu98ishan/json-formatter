@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running? — the real causes (daemon not started, wrong context, stale DOCKER_HOST, WSL2 integration) and how to fix each.">
+    <meta name="description" content="Cannot connect to the Docker daemon at unix:///var/run/docker.sock — the real causes (daemon stopped, wrong context, stale DOCKER_HOST, WSL2) and each fix.">
     <meta name="keywords" content="cannot connect to the docker daemon, is the docker daemon running, docker.sock, docker daemon not running, DOCKER_HOST, docker context, wsl2 docker not running, docker compose cannot connect to the docker daemon, rootless docker, dial unix /var/run/docker.sock">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/docker-cannot-connect-to-daemon.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/docker-cannot-connect-to-daemon.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/docker-cannot-connect-to-daemon.svg">
     <title>Cannot Connect to the Docker Daemon at unix:///var/run/docker.sock (6 Fixes)</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Docker: Cannot connect to the Docker daemon — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/docker-cannot-connect-to-daemon.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/docker-cannot-connect-to-daemon.svg",
+    "caption": "A terminal showing Cannot connect to the Docker daemon at unix:///var/run/docker.sock alongside its newer and Windows variants.",
+    "width": 740,
+    "height": 254
+  },
   "description": "The Docker CLI failed to reach the daemon at all, before it ever got to your image or container. This reference covers every real cause: the daemon isn't running, a wrong or stale Docker context, a bad DOCKER_HOST, socket permissions, WSL2 integration, and remote/Docker-in-Docker setups.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-13",
-  "dateModified": "2026-07-13",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -156,6 +170,14 @@
 error during connect: this error may indicate that the docker daemon is not running:
 open //./pipe/docker_engine: The system cannot find the file specified.</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/docker-cannot-connect-to-daemon.svg" width="740" height="254" loading="lazy"
+                     alt="Terminal showing three wordings of the same failure: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?; a newer CLI reporting failed to connect to the docker API at that socket; and the Windows form naming the named pipe docker_engine.">
+                <figcaption>All three captured this session. The wording depends on your <strong>CLI version and platform</strong>, not on the cause &mdash; Docker&nbsp;24 prints the classic <em>Is the docker daemon running?</em> line, newer CLIs print <code>failed to connect to the docker API at ...</code>, and on Windows the endpoint is a named pipe rather than a unix socket. If you searched one form and found nothing, that is why.</figcaption>
+            </figure>
 
             <p>The <code>docker</code> command you run is a thin client. It sends every request over a socket (or named pipe on Windows) to a separate background process &mdash; the daemon, <code>dockerd</code> &mdash; which actually pulls images, starts containers, and manages networks. This error fires at the very first step, the connection itself, so it is never about your Dockerfile, your image, or your container: something is wrong with the daemon's availability or how the client is trying to reach it.</p>
 

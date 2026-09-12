@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TypeError: Failed to construct 'URL': Invalid URL — why the URL constructor rejects a string, the two-argument base-URL form, and how to validate a URL before building it.">
+    <meta name="description" content="TypeError: Failed to construct 'URL': Invalid URL — why the constructor rejects a string, the two-argument base form, and how to validate a URL first.">
     <meta name="keywords" content="Failed to construct URL Invalid URL, TypeError Invalid URL, new URL invalid url, URL constructor javascript, relative URL without base">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/failed-to-construct-url-invalid-url.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/failed-to-construct-url-invalid-url.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/failed-to-construct-url-invalid-url.svg">
     <title>TypeError: Failed to construct 'URL': Invalid URL — Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "TypeError: Failed to construct 'URL': Invalid URL — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/failed-to-construct-url-invalid-url.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/failed-to-construct-url-invalid-url.svg",
+    "caption": "Chrome DevTools console showing Uncaught TypeError: Failed to construct 'URL': Invalid URL.",
+    "width": 700,
+    "height": 121
+  },
   "description": "The URL constructor throws this when its input isn't a valid absolute URL and no base was given. This reference covers every common cause and the two-argument fix.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -126,6 +140,14 @@ new URL("example.com");
 //   -&gt; no protocol, so this isn't a recognizable absolute URL</code></pre>
             </div>
 
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/failed-to-construct-url-invalid-url.svg" width="700" height="121" loading="lazy"
+                     alt="Chrome DevTools console showing a red error row reading Uncaught TypeError: Failed to construct 'URL': Invalid URL, sourced to app.js line 3.">
+                <figcaption>Captured from Chrome 152. The wording is browser-specific and worth knowing: Node raises the identical failure as <code>TypeError: Invalid URL</code> with <code>code: 'ERR_INVALID_URL'</code> and no <em>Failed to construct</em> prefix. Same bug, two search strings.</figcaption>
+            </figure>
+
             <h2>Why this throws instead of returning something empty</h2>
             <p>Unlike most JavaScript string handling, the <code>URL</code> constructor validates its input against the URL spec <strong>immediately and synchronously</strong> &mdash; there's no "empty URL" fallback the way <code>Number("abc")</code> gives you <code>NaN</code>. If the input isn't a parseable absolute URL (and no base was given to resolve a relative one against), it throws right there, which is exactly why this needs a <code>try/catch</code> around any URL coming from outside your control.</p>
 
@@ -189,6 +211,75 @@ new URL(`${base}/${endpoint}`);
 // ❌ builds "https://api.example.com/undefined" — technically parses,
 //    but is not the URL you meant; log the built string to catch this</code></pre>
             </div>
+
+            <h2>The same failure, two different messages</h2>
+
+            <p>The wording in the heading of this page is <strong>browser-specific</strong>. The <code>Failed to construct 'URL':</code> prefix comes from the WebIDL layer that wraps constructors in the browser, and Node has no such layer &mdash; so identical code produces a visibly different string depending on where it runs:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Chrome 152 (and any Chromium browser)
+Uncaught TypeError: Failed to construct 'URL': Invalid URL
+
+// Node.js v24.15.0 — same bug, different text, plus a machine-readable code
+TypeError: Invalid URL
+    at new URL (node:internal/url:825:25) {
+  code: 'ERR_INVALID_URL',
+  input: '/api/users'
+}</code></pre>
+            </div>
+
+            <p>Two practical consequences. First, if you searched one form and found nothing useful, search the other. Second, Node's version is strictly more helpful for debugging: it attaches <code>code: 'ERR_INVALID_URL'</code> (stable across versions, so safe to branch on) and an <code>input</code> property containing <em>the exact string that failed</em> &mdash; which is the one thing the browser message never tells you.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>try {
+  new URL(value);
+} catch (err) {
+  if (err.code === "ERR_INVALID_URL") {
+    console.error("bad URL:", err.input);   // ✅ Node prints the offending string
+  }
+  throw err;
+}</code></pre>
+            </div>
+
+            <h2>Check without throwing: URL.canParse() and URL.parse()</h2>
+
+            <p>The <code>try/catch</code> in Cause 3 above is no longer the only option. Two static methods now answer the same question without using exceptions for control flow:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>URL.canParse("/api/users");                          // false — returns a boolean, never throws
+URL.canParse("/api/users", "https://api.example.com"); // true  — base makes it resolvable
+
+URL.parse("/api/users");                             // null instead of throwing
+const url = URL.parse(userInput, base);
+if (url === null) {
+  showError("Please enter a valid URL, including https://");
+} else {
+  fetch(url);                                        // ✅ already a URL object
+}</code></pre>
+            </div>
+
+            <p>Both take the same <code>(input, base)</code> arguments as the constructor. <code>URL.canParse()</code> landed in Chrome&nbsp;120, Firefox&nbsp;115, Safari&nbsp;17 and Node&nbsp;19.9; the static <code>URL.parse()</code> is newer &mdash; Chrome&nbsp;126, Firefox&nbsp;126, Safari&nbsp;18 and Node&nbsp;22.1. Prefer <code>URL.parse()</code> where your baseline allows it: <code>canParse()</code> followed by <code>new URL()</code> parses the string twice, while <code>parse()</code> validates and gives you the object in one pass. If you must support older targets, keep the <code>try/catch</code>.</p>
+
+            <h2>The base argument: a trailing slash changes the answer</h2>
+
+            <p>Once you start passing a base URL to fix Cause 1, a subtler bug replaces the original one. The base is resolved using the normal relative-URL rules, which means <strong>the last path segment of the base is discarded unless the base ends in a slash</strong>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>new URL("users", "https://api.example.com/v1/").href
+// ✅ "https://api.example.com/v1/users"   — base ends in "/", v1 is a directory
+
+new URL("users", "https://api.example.com/v1").href
+// ❌ "https://api.example.com/users"      — no slash, so "v1" is replaced
+
+new URL("/users", "https://api.example.com/v1/").href
+// ❌ "https://api.example.com/users"      — a leading "/" ignores the base path entirely</code></pre>
+            </div>
+
+            <p>All three of these parse successfully, so nothing throws &mdash; you get a <code>404</code> from your API instead, which is a much longer debugging session than an exception would have been. Verified identically on Chrome&nbsp;152 and Node&nbsp;v24.15.0. The rule worth memorising: <em>base paths end in a slash, relative paths do not begin with one.</em> When a request 404s just after you added a base URL, log <code>url.href</code> before the fetch and this will be visible immediately.</p>
 
             <h2>Common variants at a glance</h2>
             <table>

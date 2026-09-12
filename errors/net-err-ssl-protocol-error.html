@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="net::ERR_SSL_PROTOCOL_ERROR — a fix-first playbook for HTTP-vs-HTTPS port mismatches, TLS version incompatibility, and misconfigured local dev servers, with the exact commands to diagnose which one you have.">
+    <meta name="description" content="net::ERR_SSL_PROTOCOL_ERROR — fixes for HTTP-vs-HTTPS port mismatches, TLS version incompatibility and misconfigured dev servers, and how to tell which.">
     <meta name="keywords" content="ERR_SSL_PROTOCOL_ERROR, net::ERR_SSL_PROTOCOL_ERROR, ssl protocol error chrome, this site can't provide a secure connection, TLS version mismatch">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/net-err-ssl-protocol-error.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/net-err-ssl-protocol-error.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/net-err-ssl-protocol-error.svg">
     <title>net::ERR_SSL_PROTOCOL_ERROR — Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "net::ERR_SSL_PROTOCOL_ERROR — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/net-err-ssl-protocol-error.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/net-err-ssl-protocol-error.svg",
+    "caption": "Chrome's ERR_SSL_PROTOCOL_ERROR page after an https request hit a plain-HTTP port.",
+    "width": 700,
+    "height": 324
+  },
   "description": "The TLS handshake itself failed before any certificate was validated. This playbook covers HTTP/HTTPS port confusion, TLS version mismatches, and broken local TLS setups.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -130,6 +144,14 @@ ERR_SSL_PROTOCOL_ERROR
 // in a background request, the browser console instead shows:
 Failed to load resource: net::ERR_SSL_PROTOCOL_ERROR</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/net-err-ssl-protocol-error.svg" width="700" height="324" loading="lazy"
+                     alt="Chrome's error page reading This site can't provide a secure connection, localhost sent an invalid response, with the code ERR_SSL_PROTOCOL_ERROR.">
+                <figcaption>Captured from Chrome 152 by requesting <code>https://</code> against a port serving plain HTTP. <em>Sent an invalid response</em> is literal: the server answered, but with something that was not a TLS handshake. That is why this so often turns out to be a port or scheme mistake rather than a certificate problem.</figcaption>
+            </figure>
             <p>Unlike a certificate-trust error, there is usually no "Advanced &rarr; Proceed anyway" option here at all &mdash; because the failure happens before a certificate was ever presented for the browser to evaluate. That absence of a click-through option is itself a diagnostic clue: it tells you the problem is at the handshake/protocol layer, not the certificate-trust layer covered by <a href="net-err-cert-authority-invalid.html">ERR_CERT_AUTHORITY_INVALID</a>.</p>
 
             <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">

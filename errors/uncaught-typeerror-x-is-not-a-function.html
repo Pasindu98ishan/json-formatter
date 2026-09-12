@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/uncaught-typeerror-x-is-not-a-function.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/uncaught-typeerror-x-is-not-a-function.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/uncaught-typeerror-x-is-not-a-function.svg">
     <title>Uncaught TypeError: X is not a function — Cause & Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Uncaught TypeError: X is not a function — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/uncaught-typeerror-x-is-not-a-function.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/uncaught-typeerror-x-is-not-a-function.svg",
+    "caption": "Chrome DevTools console showing Uncaught TypeError: utils.format is not a function.",
+    "width": 700,
+    "height": 121
+  },
   "description": "JavaScript throws 'is not a function' when you call a value that isn't callable. This reference covers the common import, typo, and shadowing causes and how to fix each.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -126,6 +140,14 @@ foo();
 // Uncaught TypeError: foo is not a function</code></pre>
             </div>
 
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/uncaught-typeerror-x-is-not-a-function.svg" width="700" height="121" loading="lazy"
+                     alt="Chrome DevTools console showing a red error row reading Uncaught TypeError: utils.format is not a function, sourced to app.js line 4.">
+                <figcaption>Captured from Chrome 152. The property was <em>present</em> &mdash; <code>utils.format</code> held the string <code>"json"</code>. That is the distinction from <a href="uncaught-referenceerror-x-is-not-defined.html">ReferenceError</a>: the name resolved fine, the value just wasn't callable.</figcaption>
+            </figure>
+
             <h2>How to diagnose it in 30 seconds</h2>
             <p>Right before the failing call, log <code>console.log(typeof X, X)</code>. The type tells you which cause applies: <strong><code>"undefined"</code></strong> &mdash; the import/export is mismatched or the property doesn't exist; <strong><code>"object"</code></strong> &mdash; you have the whole module or a data object instead of the function itself; <strong>a function, but the wrong one</strong> &mdash; a shadowing variable further down in scope.</p>
 
@@ -193,6 +215,35 @@ helper();
 // Common causes: tree-shaking dropped an export it thought was unused,
 // or a CommonJS/ESM interop mismatch changed the shape of the import.</code></pre>
             </div>
+
+            <h2>Read the message as a path, not as a name</h2>
+
+            <p>V8 prints the <strong>whole expression it tried to call</strong>, not just the final identifier, and that is the fastest diagnostic on the page. The part before the last dot is the value to inspect:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>TypeError: utils.format is not a function
+//         ^^^^^  — inspect `utils`: it exists, but has no callable `format`
+
+TypeError: res.data.map is not a function
+//         ^^^^^^^^  — inspect `res.data`: it is not an array
+
+TypeError: _lodash.default.debounce is not a function
+//         ^^^^^^^^^^^^^^^^  — a transpiled interop wrapper: the import shape is wrong</code></pre>
+            </div>
+
+            <p>That third form is worth recognising on sight. When the path contains <code>.default</code>, an underscore prefix, or a name you never wrote, you are looking at bundler interop output &mdash; which means the problem is how the module was imported (default vs named, CommonJS vs ESM), not the function itself.</p>
+
+            <h2>The 10-second check</h2>
+
+            <p>Log the container rather than the call. <code>typeof</code> alone is rarely enough, because the answer is usually <code>"object"</code> either way:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>console.log(typeof utils, utils, Object.keys(utils ?? {}));</code></pre>
+            </div>
+
+            <p>The key list is what resolves it. If the function you wanted appears nested under <code>default</code>, it is an import-shape problem. If the object is empty, the module never initialised &mdash; often a <a href="cannot-access-before-initialization-tdz.html">circular import</a>. If the keys are there but the one you want is spelled differently, it is a rename or a version change. And if <code>utils</code> is <code>undefined</code> entirely, you have <a href="cannot-read-properties-of-undefined.html">a different error waiting</a> one line up.</p>
 
             <h2>Common variants at a glance</h2>
             <table>

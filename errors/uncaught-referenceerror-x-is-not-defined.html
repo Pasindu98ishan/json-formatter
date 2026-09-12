@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/uncaught-referenceerror-x-is-not-defined.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/uncaught-referenceerror-x-is-not-defined.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/uncaught-referenceerror-x-is-not-defined.svg">
     <title>Uncaught ReferenceError: X is not defined — Cause & Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Uncaught ReferenceError: X is not defined — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/uncaught-referenceerror-x-is-not-defined.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/uncaught-referenceerror-x-is-not-defined.svg",
+    "caption": "Chrome DevTools console showing Uncaught ReferenceError: apiKey is not defined.",
+    "width": 700,
+    "height": 121
+  },
   "description": "JavaScript throws 'X is not defined' when no variable by that name exists anywhere in scope. This reference covers the common typo, script-order, and scope causes.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -126,6 +140,14 @@ $(".menu").toggle();
 //   -&gt; jQuery's <code>&lt;script&gt;</code> tag never loaded, or loads after this line</code></pre>
             </div>
 
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/uncaught-referenceerror-x-is-not-defined.svg" width="700" height="121" loading="lazy"
+                     alt="Chrome DevTools console showing a red error row reading Uncaught ReferenceError: apiKey is not defined, sourced to app.js line 3.">
+                <figcaption>Captured from Chrome 152. <strong>ReferenceError</strong>, not <code>TypeError</code> &mdash; the engine could not resolve the name in any scope, so nothing was even evaluated. When the name <em>does</em> resolve but holds the wrong kind of value you get a <a href="uncaught-typeerror-x-is-not-a-function.html">TypeError</a> instead.</figcaption>
+            </figure>
+
             <h2>How to diagnose it in 30 seconds</h2>
             <p>First check <strong>spelling and case</strong> &mdash; JavaScript is case-sensitive, so <code>userName</code> and <code>username</code> are different identifiers. If the name looks right, the identifier is either never declared, or declared somewhere this code can't reach: a script that loads later, a different module's top-level scope, or a block scope (<code>{ }</code>) that ended before this line runs.</p>
 
@@ -176,6 +198,39 @@ console.log(import.meta.env.VITE_API_URL);   // Vite's client-exposed env</code>
 &lt;!-- config.js --&gt;  export const apiUrl = "https://api.example.com";
 &lt;!-- app.js   --&gt;  import { apiUrl } from "./config.js";</code></pre>
             </div>
+
+            <h2>Three ReferenceErrors that are not the same bug</h2>
+
+            <p>Before you go looking for a missing script tag, check which message you actually have. All three are <code>ReferenceError</code>, and they mean different things:</p>
+
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>What it means</th><th>Where to look</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>x is not defined</code></td><td>The name resolves in no scope at all</td><td>Load order, typo, wrong environment</td></tr>
+                    <tr><td><code>Cannot access 'x' before initialization</code></td><td>The name <em>exists</em> but is in the <a href="cannot-access-before-initialization-tdz.html">temporal dead zone</a></td><td>A <code>let</code>/<code>const</code>/<code>class</code> declared lower down, or a circular import</td></tr>
+                    <tr><td><code>x is not a function</code> (a <a href="uncaught-typeerror-x-is-not-a-function.html">TypeError</a>)</td><td>The name resolved fine; the value is not callable</td><td>Export shape, not load order</td></tr>
+                </tbody>
+            </table>
+
+            <p>The distinction is worth the ten seconds. <em>Is not defined</em> is the only one of the three where "the script did not load" or "this is the wrong runtime" is a plausible explanation.</p>
+
+            <h2>Probing safely with typeof &mdash; and its one exception</h2>
+
+            <p><code>typeof</code> is the only operator that can inspect a name that may not exist without throwing. That makes it the correct feature-detection tool for globals that exist in one environment but not another:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>if (typeof window !== "undefined") { /* browser-only code */ }
+if (typeof process !== "undefined") { /* Node-only code */ }
+
+console.log(typeof neverDeclared);   // ✅ "undefined" — no error</code></pre>
+            </div>
+
+            <p>The exception, verified on Node&nbsp;v24.15.0, is the temporal dead zone: <code>typeof</code> on a <code>let</code> or <code>const</code> that is declared later in the same scope throws <code>ReferenceError: Cannot access 'x' before initialization</code> rather than returning <code>"undefined"</code>. So the guard is safe for <em>globals you may not have</em>, and unsafe for <em>your own bindings further down the file</em>.</p>
+
+            <p>For environment-specific globals there is now a better answer than guarding at all: <code>globalThis</code> is defined in every modern runtime, so <code>globalThis.fetch</code> or <code>globalThis.crypto</code> reads as a plain property access &mdash; and a missing property is simply <code>undefined</code>, never a <code>ReferenceError</code>.</p>
 
             <h2>Common variants at a glance</h2>
             <table>

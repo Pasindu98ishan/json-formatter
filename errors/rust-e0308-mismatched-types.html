@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="error[E0308]: mismatched types — Rust's compiler caught two incompatible types at the same point. The five real causes (integer width, &amp;T vs T, Option/Result unwrapping, String vs &amp;str, if-branch mismatch) and the fix for each.">
+    <meta name="description" content="error[E0308]: mismatched types — the five real causes (integer width, &amp;T vs T, Option/Result unwrapping, String vs &amp;str, if-branch mismatch) and each fix.">
     <meta name="keywords" content="E0308 rust, mismatched types rust, rust expected found error, rust integer type mismatch, rust string vs str">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0308-mismatched-types.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/rust-e0308-mismatched-types.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/rust-e0308-mismatched-types.svg">
     <title>Rust: error[E0308]: mismatched types — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "error[E0308]: mismatched types — Cause and Fix (Rust)",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/rust-e0308-mismatched-types.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/rust-e0308-mismatched-types.svg",
+    "caption": "A terminal showing rustc error E0308: mismatched types, expected i32 found i64, with a try_into help block.",
+    "width": 700,
+    "height": 284
+  },
   "description": "Rust's compiler found two incompatible types where one specific type was expected. Covers integer-width mismatches, reference vs owned value, Option/Result unwrapping, String vs &str, and if/match branch mismatches.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-09",
-  "dateModified": "2026-07-09",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -132,6 +146,14 @@ help: you can convert a `u64` to an `i32` and panic if the converted
 4 |     let x: i32 = get_count().try_into().unwrap();
   |                             ++++++++++++++++++++</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/rust-e0308-mismatched-types.svg" width="700" height="284" loading="lazy"
+                     alt="Terminal running rustc. It reports error[E0308]: mismatched types with expected i32, found i64, an expected due to this annotation, and a help block suggesting count.try_into().unwrap().">
+                <figcaption>Captured on <code>rustc&nbsp;1.83.0</code>. Two things are easy to skim past. The <code>expected due to this</code> span points at the <em>annotation</em> that set the expectation, not at the value &mdash; so it tells you which side to change. And the <code>help:</code> block is literally copy-pasteable: rustc prints the corrected line with <code>+</code> markers under the inserted text.</figcaption>
+            </figure>
             <p>Every E0308 error follows this shape: a caret pointing at the exact expression, an <code>expected &lt;type&gt;, found &lt;type&gt;</code> line naming both sides precisely, and very often a <code>help:</code> suggestion with the exact conversion call to insert. Reading the expected/found pair first &mdash; before scrolling past it to reason about the code yourself &mdash; is the fastest way to diagnose which of the five causes below applies.</p>
 
             <h2>Cause 1: two different integer types (no implicit numeric coercion)</h2>

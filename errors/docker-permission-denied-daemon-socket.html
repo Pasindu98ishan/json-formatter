@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/docker-permission-denied-daemon-socket.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/docker-permission-denied-daemon-socket.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/docker-permission-denied-daemon-socket.svg">
     <title>Docker: Got Permission Denied on the Daemon Socket — The Real Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Docker: Got permission denied while trying to connect to the Docker daemon socket — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/docker-permission-denied-daemon-socket.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/docker-permission-denied-daemon-socket.svg",
+    "caption": "A terminal showing permission denied while trying to connect to the Docker daemon socket.",
+    "width": 720,
+    "height": 176
+  },
   "description": "This Docker error means the daemon is running but your user lacks permission to access /var/run/docker.sock. This reference explains the socket's group ownership and the correct fix — adding your user to the docker group — plus why sudo is only a workaround and the rootless-mode alternative.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-14",
-  "dateModified": "2026-07-14",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -147,6 +161,14 @@ Got permission denied while trying to connect to the Docker daemon socket
 at unix:///var/run/docker.sock: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.45/containers/json":
 dial unix /var/run/docker.sock: connect: permission denied</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/docker-permission-denied-daemon-socket.svg" width="720" height="176" loading="lazy"
+                     alt="Terminal where a user with uid 1000 runs docker ps and gets permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock, ending in dial unix: connect: permission denied.">
+                <figcaption>Captured by running the Docker CLI as uid&nbsp;1000 against a mounted socket. The distinction from <a href="docker-cannot-connect-to-daemon.html">Cannot connect to the Docker daemon</a> is worth being precise about: here the daemon is running and the socket exists &mdash; your user just has no permission to open it. That is a group-membership fix, not a service-start fix.</figcaption>
+            </figure>
 
             <p>Docker is a client&ndash;daemon system. The <code>docker</code> command talks to the background daemon (<code>dockerd</code>) over a Unix socket at <code>/var/run/docker.sock</code>. That socket is owned by <code>root</code> and the <code>docker</code> group, with group read/write permission &mdash; so to use it, you must be <code>root</code> or a member of the <code>docker</code> group. This error means the daemon is up and the socket is there; your user simply isn't allowed to open it. That's a crucial distinction from <a href="docker-cannot-connect-to-daemon.html">&ldquo;Cannot connect to the Docker daemon&rdquo;</a>, which means the daemon isn't running at all.</p>
 

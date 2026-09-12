@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Response to preflight request doesn't pass access control check — how the CORS preflight (OPTIONS request) mechanism actually works, why it fails, and how to fix your server's response to it.">
+    <meta name="description" content="Response to preflight request doesn't pass access control check — how the CORS preflight OPTIONS request works, why it fails, and how to fix your server.">
     <meta name="keywords" content="response to preflight request doesn't pass access control check, CORS preflight error, OPTIONS request CORS fix, access-control-allow-origin preflight">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/cors-preflight-does-not-pass-access-control-check.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/cors-preflight-does-not-pass-access-control-check.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/cors-preflight-does-not-pass-access-control-check.svg">
     <title>CORS: Response to preflight request doesn't pass access control check — Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Response to preflight request doesn't pass access control check — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/cors-preflight-does-not-pass-access-control-check.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/cors-preflight-does-not-pass-access-control-check.svg",
+    "caption": "Chrome DevTools console showing a blocked CORS preflight together with net::ERR_FAILED and Failed to fetch.",
+    "width": 760,
+    "height": 242
+  },
   "description": "The browser's automatic OPTIONS preflight request failed CORS validation before your actual request was ever sent to the server application code.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -123,6 +137,14 @@
 Response to preflight request doesn't pass access control check:
 It does not have HTTP ok status.</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/cors-preflight-does-not-pass-access-control-check.svg" width="760" height="242" loading="lazy"
+                     alt="Chrome DevTools console showing three rows from one blocked preflight: the CORS policy message saying Response to preflight request doesn't pass access control check because no Access-Control-Allow-Origin header is present, a Failed to load resource: net::ERR_FAILED line, and a rejected promise reading Failed to fetch.">
+                <figcaption>Captured from Chrome 152 against a server that answers <code>OPTIONS</code> with <code>204</code> and no CORS headers. One block produces <strong>three</strong> messages, and only the first names the actual cause &mdash; which is why <code>Failed to fetch</code> and <code>net::ERR_FAILED</code> are such common and misleading things to search for.</figcaption>
+            </figure>
             <p>The message can also end with variants like <em>"No 'Access-Control-Allow-Origin' header is present on the requested resource"</em> or <em>"The value of the 'Access-Control-Allow-Origin' header in the response must not be the wildcard '*' when the request's credentials mode is 'include'"</em> &mdash; all describing the same underlying mechanism failing for different specific reasons, covered as separate causes below.</p>
 
             <h2>How to read this error in 30 seconds</h2>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Container exited with code 137 (OOMKilled) — how to confirm it was actually the OOM killer (not a manual kill), find what used the memory, and fix it with limits, heap sizing, or a real memory leak fix.">
+    <meta name="description" content="Container exited with code 137 (OOMKilled) — how to confirm the OOM killer really did it, find what used the memory, and fix it with limits or heap sizing.">
     <meta name="keywords" content="container exited with code 137, docker exit code 137, OOMKilled, docker container killed out of memory, kubernetes OOMKilled, exit code 137 meaning, docker memory limit">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/docker-container-exited-code-137-oomkilled.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/docker-container-exited-code-137-oomkilled.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/docker-container-exited-code-137-oomkilled.svg">
     <title>Docker: Container Exited with Code 137 (OOMKilled) — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Docker: Container exited with code 137 (OOMKilled) — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/docker-container-exited-code-137-oomkilled.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/docker-container-exited-code-137-oomkilled.svg",
+    "caption": "A terminal showing a container exiting with code 137 and docker inspect confirming OOMKilled=true.",
+    "width": 700,
+    "height": 188
+  },
   "description": "Exit code 137 means the container's main process received SIGKILL — most often from the kernel's out-of-memory killer, but not exclusively. This reference shows how to confirm the real cause with docker inspect and dmesg, then fix it with a correct memory limit, proper heap sizing, or a genuine memory-leak fix.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-13",
-  "dateModified": "2026-07-13",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -151,6 +165,14 @@ a1b2c3d4e5f6   my-api      Exited (137) 3 minutes ago
 $ docker inspect a1b2c3d4e5f6 --format='{{.State.OOMKilled}}'
 true</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/docker-container-exited-code-137-oomkilled.svg" width="700" height="188" loading="lazy"
+                     alt="Terminal showing a container run with a 32 megabyte limit exiting as Exited (137), and docker inspect reporting ExitCode=137 OOMKilled=true.">
+                <figcaption>Captured by capping a container at <code>-m&nbsp;32m</code> and letting it allocate. This is the check the whole page turns on: <code>137</code> on its own only tells you the process received <code>SIGKILL</code>, which is equally what <code>docker&nbsp;kill</code> or an operator would produce. <code>OOMKilled=true</code> is the field that proves the <em>kernel</em> did it for memory &mdash; and if it reads <code>false</code>, you are debugging the wrong thing entirely.</figcaption>
+            </figure>
             <p>137 is Docker's convention of <code>128 + signal number</code>, and signal 9 is <code>SIGKILL</code> &mdash; an unconditional, un-catchable kill with no chance for the process to clean up. The OOM killer always uses SIGKILL, which is why 137 is strongly associated with memory exhaustion. But it is not the <em>only</em> thing that sends SIGKILL, which is exactly why the confirmation step above matters before you spend time chasing a memory leak that doesn't exist.</p>
 
             <h2>Troubleshooting at a glance</h2>

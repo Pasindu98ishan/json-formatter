@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TS7006: Parameter 'x' implicitly has an 'any' type — why noImplicitAny flags untyped parameters, and how to fix it by annotating the type, typing the callback, or adding a declaration.">
+    <meta name="description" content="TS7006: Parameter 'x' implicitly has an 'any' type — why noImplicitAny flags untyped parameters, and how to fix it by annotating or typing the callback.">
     <meta name="keywords" content="TS7006, Parameter implicitly has an any type, noImplicitAny, typescript implicit any parameter, typescript callback parameter type, element implicitly has any type">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/ts7006-parameter-implicitly-has-an-any-type.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/ts7006-parameter-implicitly-has-an-any-type.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/ts7006-parameter-implicitly-has-an-any-type.svg">
     <title>TS7006: Parameter Implicitly Has an 'any' Type — How to Fix It</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "TS7006: Parameter 'x' implicitly has an 'any' type — How to Fix It",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/ts7006-parameter-implicitly-has-an-any-type.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/ts7006-parameter-implicitly-has-an-any-type.svg",
+    "caption": "A terminal showing TypeScript error TS7006: Parameter 'order' implicitly has an 'any' type.",
+    "width": 700,
+    "height": 170
+  },
   "description": "TypeScript raises TS7006 under noImplicitAny when a function parameter has no annotation and no context to infer a type from. This reference explains why it happens and how to fix it — annotate the parameter, let a typed callback provide contextual types, type the enclosing function, or handle event and JSON-shaped values properly.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-14",
-  "dateModified": "2026-07-14",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -151,6 +165,14 @@ const data = JSON.parse(raw);
 const names = data.map((item) =&gt; item.name);
 // error TS7006: Parameter 'item' implicitly has an 'any' type.</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/ts7006-parameter-implicitly-has-an-any-type.svg" width="700" height="170" loading="lazy"
+                     alt="Terminal running npx tsc -p . with strict enabled. tsc prints app.ts:3:19 - error TS7006: Parameter 'order' implicitly has an 'any' type, echoes function totalFor(order) { and underlines order with tildes.">
+                <figcaption>Captured on TypeScript 5.9.3 with <code>"strict": true</code>. Note what is <em>not</em> flagged: a callback parameter TypeScript can infer contextually never raises TS7006. Only a parameter with no inferable type reaches <code>noImplicitAny</code>.</figcaption>
+            </figure>
 
             <p>TypeScript's job is to know the type of every value. When a parameter has no annotation, TypeScript tries to <em>infer</em> one from context &mdash; and when there's no context to infer from, it would have to fall back to <code>any</code>, which disables type-checking for that value entirely. The <code>noImplicitAny</code> flag (on by default in <code>strict</code> mode) turns that silent fallback into the TS7006 error, so the untyped value can't slip through unnoticed.</p>
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TypeError: Cannot read properties of undefined (reading 'X') — why a value is undefined instead of null, how destructuring and missing function returns cause it, and how to fix it with defaults and optional chaining.">
+    <meta name="description" content="TypeError: Cannot read properties of undefined (reading 'X') — why a value is undefined, how destructuring and missing returns cause it, and how to fix it.">
     <meta name="keywords" content="Cannot read properties of undefined, reading map, reading length, reading id, cannot read property of undefined, destructuring undefined, optional chaining javascript">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/cannot-read-properties-of-undefined.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/cannot-read-properties-of-undefined.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/cannot-read-properties-of-undefined.svg">
     <title>TypeError: Cannot read properties of undefined (reading 'X') — Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "TypeError: Cannot read properties of undefined (reading 'X') — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/cannot-read-properties-of-undefined.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/cannot-read-properties-of-undefined.svg",
+    "caption": "Chrome DevTools console showing Uncaught TypeError: Cannot read properties of undefined (reading 'email').",
+    "width": 700,
+    "height": 121
+  },
   "description": "JavaScript throws this when a value is undefined instead of the object you expected. This reference explains the common ways a value becomes undefined and how to fix each.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -129,6 +143,14 @@ console.log(getUser().name);
 //   -&gt; getUser() returned undefined</code></pre>
             </div>
 
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/cannot-read-properties-of-undefined.svg" width="700" height="121" loading="lazy"
+                     alt="Chrome DevTools console showing a red error row reading Uncaught TypeError: Cannot read properties of undefined (reading 'email'), sourced to app.js line 3.">
+                <figcaption>Captured from Chrome 152. The parenthesised name is the property you tried to <em>read</em>, which means the <code>undefined</code> value is whatever sits immediately to its left &mdash; in <code>user.profile.email</code> that is <code>user.profile</code>, not <code>user</code> and not <code>email</code>. Reading the message this way skips most of the debugging.</figcaption>
+            </figure>
+
             <h2>How this differs from the "null" version</h2>
             <p>This is the same rule as <a href="cannot-read-properties-of-null.html">Cannot read properties of null</a> &mdash; you can't read a property off a non-object &mdash; but the empty value tells you something different. <strong><code>undefined</code></strong> almost always means <em>"this was never assigned"</em>: a missing object key, an unreturned function, an out-of-range array index. <strong><code>null</code></strong> usually means <em>"explicitly set to nothing"</em>: <code>getElementById</code> finding no match, a database <code>NULL</code>, a React <code>useState(null)</code>. Knowing which one you have narrows down where to look first.</p>
 
@@ -198,6 +220,26 @@ console.log(order.shipping.trackingNumber);
 const tracking = order.shipping?.trackingNumber ?? "Not shipped yet";</code></pre>
             </div>
             <p>Paste the raw response into the <a href="../formatter.html">JSON Formatter</a> to see exactly which fields exist on a given response before you write the access chain.</p>
+
+            <h2>The optional-chaining mistake that still throws</h2>
+
+            <p>Adding a single <code>?.</code> at the front of a chain is the most common attempted fix, and it is the one that keeps the bug. <code>?.</code> guards <strong>only the link it is attached to</strong> &mdash; once that link is non-nullish, the rest of the chain evaluates exactly as before:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const res = {};            // res exists; res.data does not
+
+res?.data.email;
+// ❌ TypeError: Cannot read properties of undefined (reading 'email')
+//    res is fine, so ?. short-circuits nothing — then .email runs on undefined
+
+res?.data?.email;          // ✅ undefined — every link guarded
+(res.data ?? {}).email;    // ✅ undefined — same result, no chaining</code></pre>
+            </div>
+
+            <p>Verified on Node&nbsp;v24.15.0. The rule: the <code>?.</code> has to sit at the link that is actually missing, and the message tells you which one that is &mdash; <code>(reading 'email')</code> means the value immediately to the left of <code>.email</code> was the undefined one. Guard <em>there</em>, not at the start of the expression.</p>
+
+            <p>Guarding every link is not automatically right either. <code>a?.b?.c?.d</code> silently produces <code>undefined</code> whether the data is legitimately absent or your API contract just changed underneath you &mdash; which converts a loud crash into a value that spreads. Guard the links that are genuinely optional, and let the ones that should always exist throw.</p>
 
             <h2>Common variants of this message</h2>
             <table>

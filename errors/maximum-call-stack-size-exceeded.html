@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="RangeError: Maximum call stack size exceeded — how to find the recursion that overflows the stack, and fix it with a base case, iteration, cycle tracking, or React render-loop fixes. Includes a worked JSON example and common variants.">
+    <meta name="description" content="RangeError: Maximum call stack size exceeded — how to find the recursion overflowing the stack and fix it with a base case, iteration, or a React loop fix.">
     <meta name="keywords" content="Maximum call stack size exceeded, RangeError call stack, infinite recursion javascript, stack overflow javascript, circular reference recursion, react too many re-renders">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/maximum-call-stack-size-exceeded.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/maximum-call-stack-size-exceeded.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/maximum-call-stack-size-exceeded.svg">
     <title>RangeError: Maximum call stack size exceeded — Cause &amp; Fix | JSON Dev Tools</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "RangeError: Maximum call stack size exceeded — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/maximum-call-stack-size-exceeded.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/maximum-call-stack-size-exceeded.svg",
+    "caption": "Chrome DevTools console showing Uncaught RangeError: Maximum call stack size exceeded with one frame repeating.",
+    "width": 700,
+    "height": 223
+  },
   "description": "JavaScript throws this RangeError when the call stack overflows from infinite or too-deep recursion. This reference shows how to find the cycle and fix it with base cases, iteration, visited sets, React fixes, and common variants.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-06-28",
-  "dateModified": "2026-06-28",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -143,6 +157,14 @@ f();
 // Node prints a long repeated stack trace ending in:
 // RangeError: Maximum call stack size exceeded</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/maximum-call-stack-size-exceeded.svg" width="700" height="223" loading="lazy"
+                     alt="Chrome DevTools console showing Uncaught RangeError: Maximum call stack size exceeded followed by the frame at walk repeated many times at the same line and column.">
+                <figcaption>Captured from Chrome 152. The diagnosis is the <em>shape</em> of the stack, not the message: one frame repeating at an identical <code>line:column</code> is the call that never reaches its base case. Where the repeating block cycles between two or three different frames instead, you have mutual recursion.</figcaption>
+            </figure>
 
             <h2>How to find the recursion</h2>
             <p>A stack overflow trace is the diagnosis: the <strong>same one or two frames repeat</strong> hundreds of times &mdash; that repeating frame is your loop, and the bottom of the trace is where it started. If the trace is truncated, widen it before you re-run:</p>
@@ -250,6 +272,25 @@ useEffect(() =&gt; { setN(n + 1); }, [n]);
 // ✅ update in response to an event or a one-time effect
 useEffect(() =&gt; { setN(1); }, []);   // runs once</code></pre>
             </div>
+
+            <h2>How deep the stack actually is (and why the number moves)</h2>
+
+            <p>There is no fixed limit to look up. The stack is a fixed <em>byte</em> budget, so the number of frames you get depends on how large each frame is &mdash; measured on Node&nbsp;v24.15.0:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>let d = 0;
+const f = () =&gt; { d++; f(); };
+try { f(); } catch (e) { console.log(d); }     // ≈ 12,473 frames
+
+let d2 = 0;
+const g = (n) =&gt; { d2++; return n ? g(n - 1) : 0; };
+try { g(1e6); } catch (e) { console.log(d2); } // ≈ 10,394 frames — one argument, fewer frames</code></pre>
+            </div>
+
+            <p>Two useful consequences. First, the depth is not a number to code against: the same function reaches a different depth after a refactor that adds a local variable, which is why a recursion that "always worked" can start overflowing on data it used to handle. Second, and more practically, <strong>a few thousand frames is nowhere near enough for per-item recursion</strong> &mdash; if you are recursing once per element of a collection, you will overflow on a list that a loop would handle without noticing.</p>
+
+            <p>If you genuinely need deeper recursion in Node, <code>--stack-size</code> raises the budget, but treat it as a diagnostic rather than a fix: it moves the cliff without removing it, and setting it beyond what the OS thread actually allocated crashes the process outright instead of throwing a catchable <code>RangeError</code>.</p>
 
             <h2>Common variants of this message</h2>
             <table>

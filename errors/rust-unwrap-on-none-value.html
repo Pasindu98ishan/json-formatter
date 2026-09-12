@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Rust: called Option::unwrap() on a None value — why unwrap panics, and the safe ladder of fixes: match, if let, unwrap_or, unwrap_or_else, expect, and the ? operator.">
+    <meta name="description" content="Rust: called Option::unwrap() on a None value — why unwrap panics, and the safe ladder: match, if let, unwrap_or, unwrap_or_else, expect and the ? operator.">
     <meta name="keywords" content="called Option unwrap on a None value, rust unwrap panic, rust option none panic, unwrap_or, rust if let, rust question mark operator, rust expect vs unwrap">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/rust-unwrap-on-none-value.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/rust-unwrap-on-none-value.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/rust-unwrap-on-none-value.svg">
     <title>Rust: called Option::unwrap() on a None Value — Why &amp; How to Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Rust: called Option::unwrap() on a None value — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/rust-unwrap-on-none-value.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/rust-unwrap-on-none-value.svg",
+    "caption": "A terminal showing the Rust panic: called `Option::unwrap()` on a `None` value.",
+    "width": 700,
+    "height": 158
+  },
   "description": "Rust panics with 'called Option::unwrap() on a None value' when you unwrap an Option that is None. This reference shows the safe alternatives — match, if let, unwrap_or, unwrap_or_else, expect, and the ? operator — and when to use each.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-14",
-  "dateModified": "2026-07-14",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -147,6 +161,14 @@ let first = items.iter().find(|&amp;&amp;x| x &gt; 10).unwrap();
 // thread 'main' panicked at 'called `Option::unwrap()` on a `None` value', src/main.rs:3:52
 // note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/rust-unwrap-on-none-value.svg" width="700" height="158" loading="lazy"
+                     alt="Terminal running a compiled Rust binary. It panics with thread 'main' panicked at unwrap.rs:4:26, called `Option::unwrap()` on a `None` value, and notes RUST_BACKTRACE=1 for a backtrace.">
+                <figcaption>Captured on <code>rustc&nbsp;1.83.0</code>. The <code>line:column</code> is precise &mdash; <code>4:26</code> is the <code>.unwrap()</code> call itself, not wherever the <code>None</code> came from. When the <code>Option</code> travelled some distance before being unwrapped, that distinction is the whole debugging task, and <code>.expect("...")</code> with a real message is what closes it.</figcaption>
+            </figure>
 
             <p>An <code>Option&lt;T&gt;</code> is either <code>Some(value)</code> or <code>None</code> &mdash; Rust's way of forcing you to acknowledge that a value might be absent. Calling <code>.unwrap()</code> says &ldquo;I'm certain this is <code>Some</code>; give me the value, and crash if I'm wrong.&rdquo; When the <code>Option</code> is actually <code>None</code>, that's exactly what happens: the current thread panics (and the program aborts unless something catches it, e.g. with <code>catch_unwind</code>, or the panic strategy is set to <code>abort</code>, in which case the whole process ends immediately). The fix is never to make unwrap &ldquo;work&rdquo; &mdash; it's to decide what should happen when the value is missing, and use the method that expresses it.</p>
 

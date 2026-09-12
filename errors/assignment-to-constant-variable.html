@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/assignment-to-constant-variable.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/assignment-to-constant-variable.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/assignment-to-constant-variable.svg">
     <title>TypeError: Assignment to constant variable — Cause & Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "TypeError: Assignment to constant variable — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/assignment-to-constant-variable.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/assignment-to-constant-variable.svg",
+    "caption": "Chrome DevTools console showing Uncaught TypeError: Assignment to constant variable.",
+    "width": 700,
+    "height": 121
+  },
   "description": "JavaScript throws this when code tries to reassign a const binding. This reference explains reassignment vs mutation and when to use let instead.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -127,6 +141,14 @@ total += 10;
 // Uncaught TypeError: Assignment to constant variable.</code></pre>
             </div>
 
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/assignment-to-constant-variable.svg" width="700" height="121" loading="lazy"
+                     alt="Chrome DevTools console showing a red error row reading Uncaught TypeError: Assignment to constant variable., sourced to app.js line 3.">
+                <figcaption>Captured from Chrome 152. The trailing full stop is genuinely part of V8's message &mdash; most V8 errors have none, so searching with it included is what matches. Note too that the error fires on <em>reassignment</em>, not on mutating the object a <code>const</code> points at.</figcaption>
+            </figure>
+
             <h2>Reassignment vs mutation</h2>
             <p>This is the single most important distinction for this error: <code>const</code> forbids pointing the variable at a <em>new</em> value (reassignment) but says nothing about changing an object or array's <em>existing contents</em> (mutation).</p>
             <div class="code-block">
@@ -190,6 +212,40 @@ page = page + 1;   // ❌ `page` is its own const binding, regardless of `query`
 let { page } = query;   // ✅ if you intend to reassign it
 page = page + 1;</code></pre>
             </div>
+
+            <h2>Where const genuinely surprises people: loops</h2>
+
+            <p>The rule "<code>const</code> forbids reassignment" has one consequence that catches almost everyone, because two loops that look equivalent behave differently:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>for (const item of items) { ... }     // ✅ fine — every iteration gets a NEW binding
+for (const key in object)  { ... }    // ✅ fine — same reason
+
+for (const i = 0; i &lt; 3; i++) { ... } // ❌ TypeError: Assignment to constant variable.</code></pre>
+            </div>
+
+            <p>The difference is not a special case for <code>for...of</code>; it follows from what each loop does. <code>for...of</code> and <code>for...in</code> create a <em>fresh binding on every pass</em>, so nothing is ever reassigned. The three-clause <code>for</code> loop creates the binding once and then runs <code>i++</code> against it, which is a reassignment &mdash; and so it throws on the very first increment. Use <code>let</code> there; <code>const</code> is correct and idiomatic in the other two.</p>
+
+            <p>This also explains a common misreading of closure advice: because <code>for...of</code> gives each iteration its own binding, a callback created inside the loop captures that iteration's value rather than the final one. That is the same mechanism, not a separate feature.</p>
+
+            <h2>Not this error: read-only properties and frozen objects</h2>
+
+            <p>Reassigning a <code>const</code> and writing to a frozen object both look like "you can't change that", but they are different errors with different messages &mdash; and mistaking one for the other sends you to the wrong fix:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const config = { retries: 3 };
+config = { retries: 5 };     // ❌ TypeError: Assignment to constant variable.
+config.retries = 5;          // ✅ allowed — const protects the binding, not the contents
+
+const frozen = Object.freeze({ retries: 3 });
+frozen.retries = 5;
+// ❌ (strict mode) TypeError: Cannot assign to read only property 'retries' of object '#&lt;Object&gt;'
+// ⚠️ (sloppy mode) fails SILENTLY — the write is simply discarded</code></pre>
+            </div>
+
+            <p>Verified on Node&nbsp;v24.15.0. Two things worth carrying away. If your message says <strong>read only property</strong> rather than <strong>constant variable</strong>, the problem is <code>Object.freeze()</code> somewhere upstream, not your declaration. And in sloppy mode a frozen write neither throws nor takes effect &mdash; which is precisely the kind of silent failure that ES modules avoid, since they are always strict.</p>
 
             <h2>Common variants at a glance</h2>
             <table>

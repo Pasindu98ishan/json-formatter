@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="RangeError: Invalid array length — why new Array() and .length assignments reject negative, non-integer, or oversized values, and how to fix the calculation that produced them.">
+    <meta name="description" content="RangeError: Invalid array length — why new Array() and .length reject negative, non-integer or oversized values, and how to fix the calculation behind them.">
     <meta name="keywords" content="Invalid array length, RangeError invalid array length, new Array negative length, array length must be a positive integer, javascript array length limit">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/rangeerror-invalid-array-length.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/rangeerror-invalid-array-length.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/rangeerror-invalid-array-length.svg">
     <title>RangeError: Invalid array length — Cause & Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "RangeError: Invalid array length — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/rangeerror-invalid-array-length.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/rangeerror-invalid-array-length.svg",
+    "caption": "Chrome DevTools console showing Uncaught RangeError: Invalid array length from a negative length.",
+    "width": 700,
+    "height": 121
+  },
   "description": "JavaScript array lengths must be a non-negative integer below 2^32-1. This reference covers the negative, non-integer, NaN, and oversized-length causes and how to fix each.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -129,6 +143,14 @@ arr.length = -1;
 // Uncaught RangeError: Invalid array length</code></pre>
             </div>
 
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/rangeerror-invalid-array-length.svg" width="700" height="121" loading="lazy"
+                     alt="Chrome DevTools console showing a red error row reading Uncaught RangeError: Invalid array length, sourced to app.js line 3.">
+                <figcaption>Captured from Chrome 152. <code>new Array(count)</code> where <code>count</code> was <code>-5</code>. The message never prints the offending value, which is the whole difficulty &mdash; log the number, not the array, and the bad subtraction shows itself immediately.</figcaption>
+            </figure>
+
             <h2>Why a single-number Array() argument is special</h2>
             <p><code>new Array(a, b, c)</code> with two or more arguments creates an array <em>containing</em> those values &mdash; but <code>new Array(n)</code> with exactly <strong>one number</strong> is special-cased by the spec to mean <em>"create a sparse array with this <code>length</code>"</em>, not "an array holding this one number." That's exactly why the number gets validated as a length and can throw. If you actually want a one-element array containing a number, use <code>Array.of(n)</code> or <code>[n]</code> instead &mdash; neither has this special case.</p>
             <div class="code-block">
@@ -174,6 +196,52 @@ new Array(itemCount).fill(null);
 const safeCount = Number.isInteger(itemCount) && itemCount &gt;= 0 ? itemCount : 0;
 new Array(safeCount).fill(null);   // ✅</code></pre>
             </div>
+
+            <h2>The exact boundary: what counts as a valid length</h2>
+
+            <p>An array length must be a <strong>whole number between 0 and 2<sup>32</sup>&nbsp;&minus;&nbsp;1 inclusive</strong> &mdash; that is 4,294,967,295, and it is a hard limit in the language, not a memory limit. One past it throws even though the array would never be allocated:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>new Array(4294967295).length   // ✅ 4294967295  (2**32 - 1, the maximum)
+new Array(4294967296)          // ❌ RangeError: Invalid array length  (2**32)
+
+const a = [1, 2];
+a.length = -1;                 // ❌ RangeError — assigning .length validates too
+a.length = 1.5;                // ❌ RangeError</code></pre>
+            </div>
+
+            <p>That second block matters because the error is not limited to the constructor. Any write to <code>.length</code> goes through the same validation, so a computed truncation such as <code>arr.length = arr.length - n</code> throws the moment <code>n</code> exceeds the current length. Verified on Node&nbsp;v24.15.0 and Chrome&nbsp;152.</p>
+
+            <h2>The silent failure that looks like this one</h2>
+
+            <p>The check applies <em>only</em> when <code>Array()</code> receives exactly one argument and that argument is a number. Change either condition and you get no error at all &mdash; and, usually, not the array you wanted:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>new Array(5)         // length 5, empty slots        — the "length" reading
+new Array(5, 6)      // [5, 6]                       — two args: they're elements
+new Array("5")       // ["5"]                        — a STRING, so it's an element
+new Array(-1)        // ❌ RangeError
+
+new Array(undefined) // length 1, holding undefined  — no error
+new Array(null)      // [null]                       — no error</code></pre>
+            </div>
+
+            <p>This is the trap worth knowing about, because it is the mirror image of the error. A count that arrives from <code>JSON.parse()</code>, a query string, or a form field is very often a <em>string</em>: <code>new Array("5")</code> quietly produces a one-element array containing <code>"5"</code>, and the bug surfaces hundreds of lines later as a wrong count rather than as a <code>RangeError</code> here. If you are reading a length from anywhere external, coerce it deliberately &mdash; and validate it, since <code>Number("abc")</code> is <code>NaN</code>, which <em>does</em> throw. The <a href="jsondecodeerror-expecting-value.html">same class of problem</a> shows up whenever external data is trusted to be the type you expected.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>function makeRows(rawCount) {
+  const n = Number(rawCount);
+  if (!Number.isInteger(n) || n &lt; 0 || n &gt; 2 ** 32 - 1) {
+    throw new Error(`bad row count: ${JSON.stringify(rawCount)}`);
+  }
+  return new Array(n);   // ✅ n is now known-valid
+}</code></pre>
+            </div>
+
+            <p>Where you actually want "an array holding this one number", <code>Array.of()</code> removes the ambiguity entirely: <code>Array.of(-1)</code> returns <code>[-1]</code> and never inspects its argument as a length.</p>
 
             <h2>Common variants at a glance</h2>
             <table>

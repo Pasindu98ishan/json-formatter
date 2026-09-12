@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="net::ERR_INTERNET_DISCONNECTED — a fix-first playbook for when Chrome's own network-state detector is wrong: captive portals, VPN adapter conflicts, IPv6-only routes, and flaky Wi-Fi drivers.">
+    <meta name="description" content="net::ERR_INTERNET_DISCONNECTED — for when Chrome's network detector is wrong: captive portals, VPN adapter conflicts, IPv6-only routes and flaky Wi-Fi.">
     <meta name="keywords" content="ERR_INTERNET_DISCONNECTED, net::ERR_INTERNET_DISCONNECTED, no internet chrome error, internet disconnected but wifi works, captive portal error">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/net-err-internet-disconnected.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/net-err-internet-disconnected.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/net-err-internet-disconnected.svg">
     <title>net::ERR_INTERNET_DISCONNECTED — Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "net::ERR_INTERNET_DISCONNECTED — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/net-err-internet-disconnected.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/net-err-internet-disconnected.svg",
+    "caption": "Chrome's offline error page showing ERR_INTERNET_DISCONNECTED with its local-connectivity suggestions.",
+    "width": 700,
+    "height": 345
+  },
   "description": "Chrome's OS-level network-state check disagrees with what other applications on the same machine can see. This playbook covers captive portals, VPN adapter conflicts, IPv6-only routing, and driver-level flakiness.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -128,6 +142,14 @@ Enable-NetAdapter -Name "Wi-Fi" -Confirm:$false</code></pre>
 There is something wrong with the proxy server, or the address is incorrect.
 ERR_INTERNET_DISCONNECTED</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/net-err-internet-disconnected.svg" width="700" height="345" loading="lazy"
+                     alt="Chrome's offline error page suggesting Checking the network cables, modem and router; Reconnecting to Wi-Fi; and Running Windows Network Diagnostics, above the code ERR_INTERNET_DISCONNECTED.">
+                <figcaption>Reproduced on Chrome&nbsp;152 by forcing the browser offline. Read the suggestions as a diagnosis, not as advice: every one of them is about <em>local</em> connectivity. Chrome raises this code when its own network stack believes the machine has no connection at all &mdash; it never even attempted a request. That is what separates it from <a href="net-err-connection-timed-out.html">ERR_CONNECTION_TIMED_OUT</a>, where the request went out and nothing answered, and it is also why the code appears behind captive portals and VPN adapter conflicts, where the machine is physically connected but Chrome's detector disagrees.</figcaption>
+            </figure>
             <p>This error is unusual among Chrome's network errors because it's not actually about the specific site you tried to reach at all. Before Chrome even attempts to resolve DNS or open a socket to a destination, it asks the operating system a much more basic question: "do you currently believe you have any network connectivity?" This error means the OS answered "no" — which is why it appears identically for every single site you try, and why the fix is almost never anything to do with the site itself.</p>
 
             <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">

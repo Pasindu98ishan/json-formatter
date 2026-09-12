@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ReferenceError: Cannot access 'X' before initialization — what the temporal dead zone is, why let/const behave differently from var, and how to fix the common causes.">
+    <meta name="description" content="ReferenceError: Cannot access 'X' before initialization — what the temporal dead zone is, why let/const differ from var, and how to fix the common causes.">
     <meta name="keywords" content="Cannot access before initialization, temporal dead zone, TDZ javascript, ReferenceError before initialization, let const hoisting">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/cannot-access-before-initialization-tdz.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/cannot-access-before-initialization-tdz.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/cannot-access-before-initialization-tdz.svg">
     <title>Cannot access 'X' before initialization (TDZ) — Cause & Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "ReferenceError: Cannot access 'X' before initialization — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/cannot-access-before-initialization-tdz.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/cannot-access-before-initialization-tdz.svg",
+    "caption": "Chrome DevTools console showing Uncaught ReferenceError: Cannot access 'total' before initialization.",
+    "width": 700,
+    "height": 121
+  },
   "description": "JavaScript's temporal dead zone blocks reading a let/const/class binding before its declaration executes. This reference explains why and the common triggers.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -128,6 +142,14 @@ let count = 10;
 }</code></pre>
             </div>
 
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/cannot-access-before-initialization-tdz.svg" width="700" height="121" loading="lazy"
+                     alt="Chrome DevTools console showing a red error row reading Uncaught ReferenceError: Cannot access 'total' before initialization, sourced to app.js line 2.">
+                <figcaption>Captured from Chrome 152. This is a <code>ReferenceError</code> even though the name <em>does</em> exist &mdash; that is precisely the temporal dead zone. Compare <a href="uncaught-referenceerror-x-is-not-defined.html">x is not defined</a>, where the name genuinely resolves nowhere; a <code>var</code> in the same position would have given you <code>undefined</code> instead.</figcaption>
+            </figure>
+
             <h2>Why let/const behave differently from var</h2>
             <p><code>var</code> declarations are hoisted <em>and</em> initialized to <code>undefined</code> immediately, so an early read just silently gives <code>undefined</code> &mdash; a quieter, harder-to-spot bug. <code>let</code>/<code>const</code>/<code>class</code> are hoisted but stay <strong>uninitialized</strong> from the top of the scope until their declaration line runs. That span is the temporal dead zone: any access inside it throws, on purpose, so the mistake surfaces immediately instead of silently producing <code>undefined</code>.</p>
             <div class="code-block">
@@ -193,6 +215,36 @@ let value = "outer";
   console.log(value);
 }</code></pre>
             </div>
+
+            <h2>The typeof escape hatch does not work here</h2>
+
+            <p>There is a long-standing JavaScript idiom for probing whether a name exists: <code>typeof x</code> returns the string <code>"undefined"</code> for a completely undeclared identifier instead of throwing. It is the one operator that is safe on a name that does not exist. <strong>That guarantee does not extend to the temporal dead zone:</strong></p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>"use strict";
+
+console.log(typeof neverDeclared);   // ✅ "undefined" — safe, no error
+console.log(typeof later);           // ❌ ReferenceError: Cannot access 'later' before initialization
+let later = 1;</code></pre>
+            </div>
+
+            <p>Verified on Node&nbsp;v24.15.0. This matters because <code>typeof</code> guards are exactly what people reach for when a value might not be ready yet &mdash; and here the guard itself is what throws. If you need a "has this been set up?" check, use a separate flag or a nullish check <em>after</em> the declaration; there is no expression that can safely inspect a binding while it is in the TDZ.</p>
+
+            <h2>class declarations are in the TDZ too</h2>
+
+            <p>The TDZ is usually taught as a <code>let</code>/<code>const</code> rule, which leaves out a case that produces the same message from code that contains neither keyword:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>new Thing();      // ❌ ReferenceError: Cannot access 'Thing' before initialization
+class Thing {}
+
+greet();          // ✅ works — function declarations ARE hoisted and initialized
+function greet() { console.log("hi"); }</code></pre>
+            </div>
+
+            <p>Classes are hoisted exactly like <code>let</code>: the binding exists from the top of the scope but stays uninitialized until the declaration is evaluated. Function declarations are the genuine exception &mdash; they are fully hoisted, which is why the two lines above behave differently despite looking parallel. If you are converting a codebase from function declarations to classes, this is the failure you will meet first, and it usually means a module is importing something in a circular loop or a file is being ordered by a bundler differently than you assumed.</p>
 
             <h2>Common variants at a glance</h2>
             <table>

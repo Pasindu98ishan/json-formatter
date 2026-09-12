@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Exception in thread &quot;main&quot; java.lang.ArrayIndexOutOfBoundsException — why Java arrays are fixed-length with no bounds negotiation, the classic off-by-one causes, and the fixes for loops, resizing, and multi-threaded access.">
+    <meta name="description" content="java.lang.ArrayIndexOutOfBoundsException — why Java arrays are fixed-length, the classic off-by-one causes, and the fixes for loops, resizing and threads.">
     <meta name="keywords" content="ArrayIndexOutOfBoundsException, java array index out of bounds, java off by one loop, java array length vs index, java arraylist vs array">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/java-arrayindexoutofboundsexception.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/java-arrayindexoutofboundsexception.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/java-arrayindexoutofboundsexception.svg">
     <title>Java: ArrayIndexOutOfBoundsException — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Exception in thread \"main\" java.lang.ArrayIndexOutOfBoundsException — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/java-arrayindexoutofboundsexception.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/java-arrayindexoutofboundsexception.svg",
+    "caption": "A terminal showing java.lang.ArrayIndexOutOfBoundsException: Index 3 out of bounds for length 3 from a loop that used i <= length.",
+    "width": 780,
+    "height": 140
+  },
   "description": "An index outside the valid 0..length-1 range was used on a Java array. Covers off-by-one loop bounds, stale indices after resizing, reversed-order iteration, and concurrent-modification causes.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-09",
-  "dateModified": "2026-07-09",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -123,6 +137,14 @@ Index 5 out of bounds for length 5
 	at com.example.App.printAll(App.java:12)
 	at com.example.App.main(App.java:6)</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/java-arrayindexoutofboundsexception.svg" width="780" height="140" loading="lazy"
+                     alt="Terminal running javac Report.java and java Report. The JVM prints Exception in thread "main" java.lang.ArrayIndexOutOfBoundsException: Index 3 out of bounds for length 3, with the frame at Report.main(Report.java:5).">
+                <figcaption>Captured on OpenJDK 21.0.11. The part people skip is <code>for length 3</code> &mdash; it tells you the array's size, so the only valid indexes were <code>0</code>, <code>1</code>, <code>2</code>. Seeing <code>Index 3</code> next to <code>length 3</code> is the off-by-one, stated outright.</figcaption>
+            </figure>
             <p>Modern Java (8+) prints both numbers explicitly: the index that was attempted (<code>5</code>) and the array's actual length (<code>5</code>) — which immediately tells you this is the classic off-by-one, since valid indices for a length-5 array only run from <code>0</code> to <code>4</code>. The stack trace's top frame names the exact line that performed the access, which is where to start looking regardless of which of the causes below applies.</p>
 
             <h2>Cause 1: an off-by-one loop bound (&lt;= instead of &lt;)</h2>

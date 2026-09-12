@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="cannot find module providing package X — how Go's module resolution actually walks go.mod, the module cache, and the network, and the exact fix for each stage where it can fail.">
+    <meta name="description" content="cannot find module providing package X — how Go resolution walks go.mod, the module cache and the network, and the exact fix for each stage that can fail.">
     <meta name="keywords" content="cannot find module providing package go, go module resolution error, go.mod missing require, GOFLAGS mod=mod, go mod tidy error">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/go-cannot-find-module-providing-package.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/go-cannot-find-module-providing-package.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/go-cannot-find-module-providing-package.svg">
     <title>Go: cannot find module providing package X — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "cannot find module providing package X — Cause and Fix (Go)",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/go-cannot-find-module-providing-package.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/go-cannot-find-module-providing-package.svg",
+    "caption": "A terminal showing Go reporting no required module provides package, suggesting go get.",
+    "width": 700,
+    "height": 140
+  },
   "description": "Go's module resolution walked go.mod, the local module cache, and the network and never found a module providing the imported package. A stage-by-stage breakdown of why, and the fix for each stage.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-09",
-  "dateModified": "2026-07-09",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -101,7 +115,7 @@
                 <a href="../errors.html">Error Reference</a> &rsaquo;
                 <span>cannot find module providing package (Go)</span>
             </nav>
-            <h1>no required module provides package X; to add it: go mod tidy</h1>
+            <h1>no required module provides package X; to add it: go get X</h1>
             <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
             <div class="article-meta">Published July 2026 &middot; Error reference</div>
         </div>
@@ -118,15 +132,26 @@
             <h2>The exact error string</h2>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
-<pre><code>$ go build .
-main.go:5:2: no required module provides package github.com/lib/pq;
-to add it:
-        go get github.com/lib/pq
+<pre><code>$ go build ./...
+main.go:5:2: no required module provides package github.com/lib/pq; to add it:
+	go get github.com/lib/pq
 
 // or, on an older Go toolchain / different code path:
-go: cannot find module providing package github.com/lib/pq</code></pre>
+go: cannot find module providing package github.com/lib/pq
+
+// and if there is no go.mod at all, the same line carries a different tail:
+main.go:3:1: no required module provides package github.com/lib/pq: go.mod file
+not found in current directory or any parent directory; see 'go help modules'</code></pre>
             </div>
-            <p>Both message shapes describe the same underlying failure &mdash; the resolution process below never located a module for the imported path &mdash; but the newer, friendlier form actually tells you the fix inline (<code>go get</code> for the specific missing module, or <code>go mod tidy</code> for a broader sweep of every unresolved import in the project).</p>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/go-cannot-find-module-providing-package.svg" width="700" height="140" loading="lazy"
+                     alt="Terminal running go build. Go reports no required module provides package github.com/gorilla/mux; to add it: followed by an indented go get github.com/gorilla/mux.">
+                <figcaption>Captured on <code>go1.23.12</code>. Note what the suggestion actually says: <code>go get &lt;path&gt;</code>. <code>go&nbsp;build</code>, <code>go&nbsp;run</code>, <code>go&nbsp;test</code> and <code>go&nbsp;vet</code> all print this identical line &mdash; none of them suggests <code>go&nbsp;mod&nbsp;tidy</code>, even though that also fixes it.</figcaption>
+            </figure>
+            <p>All three shapes describe the same underlying failure &mdash; the resolution process below never located a module for the imported path &mdash; but the modern form tells you the fix inline. One detail worth pinning down, because it trips people searching for the message: <strong>the suggestion Go prints is always <code>go get &lt;path&gt;</code>, never <code>go mod tidy</code></strong>. Verified on <code>go1.23.12</code>, where <code>go build</code>, <code>go run</code>, <code>go test</code> and <code>go vet</code> all emit the identical <code>to add it: go get &lt;path&gt;</code> line. <code>go mod tidy</code> remains an excellent fix &mdash; it sweeps every unresolved import at once rather than one at a time &mdash; it just isn't what the compiler suggests.</p>
 
             <h2>The module resolution walk, visually</h2>
             <div class="dg-wrap">

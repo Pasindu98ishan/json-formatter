@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="net::ERR_CONNECTION_TIMED_OUT — a fix-first playbook for firewall/security-group drops, DNS resolving to the wrong IP, an overloaded server, and dead keep-alive connections, with the exact commands to tell them apart.">
+    <meta name="description" content="net::ERR_CONNECTION_TIMED_OUT — fixes for firewall drops, DNS pointing at the wrong IP, an overloaded server and dead keep-alives, and how to tell them apart.">
     <meta name="keywords" content="ERR_CONNECTION_TIMED_OUT, net::ERR_CONNECTION_TIMED_OUT, connection timed out chrome, server took too long to respond, socket timeout fix">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/net-err-connection-timed-out.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/net-err-connection-timed-out.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/net-err-connection-timed-out.svg">
     <title>net::ERR_CONNECTION_TIMED_OUT — Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "net::ERR_CONNECTION_TIMED_OUT — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/net-err-connection-timed-out.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/net-err-connection-timed-out.svg",
+    "caption": "Chrome's ERR_CONNECTION_TIMED_OUT error page after a request went unanswered.",
+    "width": 700,
+    "height": 366
+  },
   "description": "The browser gave up waiting for a TCP handshake or response after sending SYN packets into silence. This playbook covers firewall drops, DNS pointing at the wrong host, server overload, and dead keep-alive connections.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -132,6 +146,14 @@ ERR_CONNECTION_TIMED_OUT
 // or, for a background API call:
 Failed to load resource: net::ERR_CONNECTION_TIMED_OUT</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/net-err-connection-timed-out.svg" width="700" height="366" loading="lazy"
+                     alt="Chrome's error page reading This site can't be reached, api.internal.example.com took too long to respond, listing Checking the connection, Checking the proxy and the firewall, and Running Windows Network Diagnostics, with the code ERR_CONNECTION_TIMED_OUT.">
+                <figcaption>Captured from Chrome 152 against an unroutable address. <em>Took too long to respond</em> is the distinguishing phrase: the packets went out and nothing came back, which is what a silent firewall drop looks like. A server that actively refuses the connection gives you <code>ERR_CONNECTION_REFUSED</code> instead &mdash; a different diagnosis.</figcaption>
+            </figure>
             <p>The word "timed out" is the important detail here, and it's worth distinguishing precisely from a rejection. When a server actively refuses a connection — nothing listening on the port — the operating system responds immediately with a TCP RST packet, and the browser reports <a href="net-err-blocked-by-client.html">a different, near-instant error</a>. A timeout means the client sent its SYN packet(s) and simply never got a reply of any kind within its wait window (commonly somewhere in the 60-180 second range depending on the OS/browser network stack) — the request went into silence, not rejection, and that distinction is the single most useful diagnostic signal you have.</p>
 
             <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">

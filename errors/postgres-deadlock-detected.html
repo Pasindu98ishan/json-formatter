@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ERROR: deadlock detected — why PostgreSQL aborts a transaction when two transactions each hold a lock the other needs, and how to fix it by ordering locks consistently, keeping transactions short, and retrying.">
+    <meta name="description" content="ERROR: deadlock detected — why PostgreSQL aborts a transaction when two each hold a lock the other needs, and how to fix it with lock ordering and retries.">
     <meta name="keywords" content="ERROR deadlock detected, postgres deadlock, deadlock detected postgresql, process waits for ShareLock, postgres lock ordering, retry deadlock">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/postgres-deadlock-detected.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/postgres-deadlock-detected.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/postgres-deadlock-detected.svg">
     <title>ERROR: deadlock detected (PostgreSQL) — Causes, Lock Ordering &amp; Retry Fix | JSON Dev Tools</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "ERROR: deadlock detected — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/postgres-deadlock-detected.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/postgres-deadlock-detected.svg",
+    "caption": "A psql session showing ERROR: deadlock detected with its DETAIL, HINT and CONTEXT lines, beside the server log naming both statements.",
+    "width": 700,
+    "height": 278
+  },
   "description": "PostgreSQL raises 'ERROR: deadlock detected' when two transactions each hold a lock the other needs. This reference explains lock ordering, short transactions, and the retry-the-victim pattern.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-06-27",
-  "dateModified": "2026-06-27",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -144,6 +158,14 @@ CONTEXT:  while updating tuple (0,7) in relation "accounts"
 SQLSTATE: 40P01</code></pre>
             </div>
 
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/postgres-deadlock-detected.svg" width="700" height="278" loading="lazy"
+                     alt="Terminal showing PostgreSQL ERROR: deadlock detected with DETAIL naming both waiting processes, HINT to see the server log, CONTEXT while updating tuple (0,1) in relation accounts, and ROLLBACK — followed by the server log entry containing the two conflicting UPDATE statements.">
+                <figcaption>Captured on PostgreSQL&nbsp;16.15 by running two transactions that update the same two rows in opposite order. Two details repay attention. <code>ERROR:</code> is followed by <strong>two</strong> spaces &mdash; useful if you are grepping logs. And the <code>HINT</code> is not boilerplate: the client error never shows the conflicting statements, while <em>the server log does</em>, naming both processes and exactly what each was running. That is the difference between guessing at a lock order and knowing it.</figcaption>
+            </figure>
+
             <p>Postgres detected a <strong>cycle</strong>: process 1234 waits on 4321, and 4321 waits on 1234. Neither can ever proceed, so Postgres aborts one to free the other. The aborted transaction gets the error; the survivor commits normally.</p>
 
             <h2>Why deadlocks happen</h2>
@@ -193,6 +215,40 @@ for attempt in range(3):
 
             <h2>Fix 3: keep transactions short</h2>
             <p>The longer locks are held, the wider the window for a collision. Don't do slow work &mdash; HTTP calls, file I/O, waiting on user input &mdash; <em>inside</em> a transaction. Read what you need, write quickly, and commit. Adding the right indexes also shrinks lock scope, because Postgres locks fewer rows when it can target them precisely.</p>
+
+            <h2>Get the conflicting statements out of the server log</h2>
+
+            <p>The <code>HINT: See server log for query details.</code> line is not boilerplate, and it is the single most useful thing on the page. The client error deliberately withholds the SQL &mdash; another session's statements are not yours to see &mdash; but the <strong>server log records both sides</strong>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>2026-09-12 05:10:11.270 UTC [117] ERROR:  deadlock detected
+2026-09-12 05:10:11.270 UTC [117] DETAIL:  Process 117 waits for ShareLock on transaction 734; blocked by process 116.
+        Process 116 waits for ShareLock on transaction 733; blocked by process 117.
+        Process 117: UPDATE accounts SET balance = balance + 10 WHERE id = 1;
+        Process 116: UPDATE accounts SET balance = balance + 10 WHERE id = 2;
+2026-09-12 05:10:11.270 UTC [117] CONTEXT:  while updating tuple (0,1) in relation "accounts"
+2026-09-12 05:10:11.270 UTC [117] STATEMENT:  UPDATE accounts SET balance = balance + 10 WHERE id = 1;</code></pre>
+            </div>
+
+            <p>Captured on PostgreSQL&nbsp;16.15. The two <code>Process N:</code> lines are the whole diagnosis: they show each transaction's <em>final</em> statement, and reading them side by side makes the inverted lock order obvious &mdash; one transaction reached <code>id = 1</code> last, the other reached <code>id = 2</code> last, so each already held what the other was waiting for. On a managed service (RDS, Cloud SQL, Supabase) this is in the Postgres error log, not in your application logs.</p>
+
+            <h2>The settings that matter</h2>
+
+            <table>
+                <thead>
+                    <tr><th>Setting</th><th>Default (PG&nbsp;16)</th><th>Why it matters here</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>deadlock_timeout</code></td><td><code>1s</code></td><td>How long a transaction waits before Postgres runs deadlock detection at all. Detection is not instant &mdash; it is deliberately deferred, because the check is expensive and most waits resolve on their own.</td></tr>
+                    <tr><td><code>log_lock_waits</code></td><td><code>off</code></td><td>Turn it <strong>on</strong>. It logs every wait that exceeds <code>deadlock_timeout</code>, which surfaces the near-misses that precede a real deadlock.</td></tr>
+                    <tr><td><code>lock_timeout</code></td><td><code>0</code> (disabled)</td><td>Caps how long a statement will wait for a lock. Setting it converts some would-be deadlocks into a quick, predictable failure you can retry.</td></tr>
+                </tbody>
+            </table>
+
+            <p>One consequence of that first row is worth stating plainly: because detection only runs after a full second of waiting, a deadlock costs at least <code>deadlock_timeout</code> of latency before anything is reported. If deadlocks are frequent enough to matter, that delay is part of your p99 &mdash; another reason to fix the lock ordering rather than rely on retries alone.</p>
+
+            <p>The SQLSTATE is <strong><code>40P01</code></strong> (<code>deadlock_detected</code>). It belongs to class <code>40</code>, transaction rollback &mdash; the same family as serialization failures &mdash; which is exactly why it is safe to retry: Postgres guarantees the aborted transaction changed nothing. Match on the code rather than the message text, since the message is localised.</p>
 
             <h2>Debugging checklist</h2>
             <ul style="list-style:none;padding-left:0;">

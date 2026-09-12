@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="java.lang.ClassNotFoundException vs java.lang.NoClassDefFoundError — the two-phase Java classloading model, why one happens at explicit reflective load time and the other at first use, and how to fix each.">
+    <meta name="description" content="ClassNotFoundException vs NoClassDefFoundError — the two-phase Java classloading model, why one throws at reflective load and one at first use, and the fixes.">
     <meta name="keywords" content="ClassNotFoundException vs NoClassDefFoundError, java classloading error, java classpath missing class, java static initializer failure, java NoClassDefFoundError fix">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/java-classnotfoundexception-noclassdeffounderror.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/java-classnotfoundexception-noclassdeffounderror.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/java-classnotfoundexception-noclassdeffounderror.svg">
     <title>Java: ClassNotFoundException vs NoClassDefFoundError — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "java.lang.ClassNotFoundException / NoClassDefFoundError — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/java-classnotfoundexception-noclassdeffounderror.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/java-classnotfoundexception-noclassdeffounderror.svg",
+    "caption": "A terminal contrasting ClassNotFoundException from Class.forName with NoClassDefFoundError and its Caused by line.",
+    "width": 700,
+    "height": 260
+  },
   "description": "Two related but distinct Java classloading failures. ClassNotFoundException fires on an explicit reflective load; NoClassDefFoundError fires when a class that compiled successfully can't be found or fully initialized at first use.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-09",
-  "dateModified": "2026-07-09",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -130,6 +144,14 @@ Caused by: java.lang.ClassNotFoundException: com.example.PaymentProcessor
 	at java.base/java.net.URLClassLoader.findClass(URLClassLoader.java:445)
 	... 1 more</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/java-classnotfoundexception-noclassdeffounderror.svg" width="700" height="260" loading="lazy"
+                     alt="Terminal showing both errors. java Reflect calls Class.forName on org.postgresql.Driver and throws java.lang.ClassNotFoundException. Then Helper.class is deleted and java App throws java.lang.NoClassDefFoundError: Helper followed by Caused by: java.lang.ClassNotFoundException: Helper.">
+                <figcaption>Both captured on OpenJDK 21.0.11, deliberately in one session. The distinction is in the second stack: <code>NoClassDefFoundError</code> arrives with a <code>Caused by:&nbsp;ClassNotFoundException</code> underneath it. The first form means <em>you asked</em> for a class by name; the second means the class linked at compile time and had vanished by first use.</figcaption>
+            </figure>
             <p>Note the second example: a <code>NoClassDefFoundError</code> can itself be <em>caused by</em> a <code>ClassNotFoundException</code> underneath — the JVM's implicit resolution mechanism internally uses the same by-name classloading lookup, and when that lookup fails, the outer implicit-load failure surfaces as the <code>Error</code>, with the inner <code>ClassNotFoundException</code> chained as its cause. Seeing both in one trace does not mean two separate bugs; it means one missing-classpath-entry problem, surfaced through the implicit-load path.</p>
 
             <h2>The two-phase classloading model, visually</h2>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="imported and not used: &quot;fmt&quot; — why Go refuses to compile with an unused import, why this is a deliberate design choice rather than a lint warning, and the exact fixes (blank identifier, goimports, actually using the package).">
+    <meta name="description" content="imported and not used: &quot;fmt&quot; — why Go refuses to compile with an unused import, and the exact fixes: the blank identifier, goimports, or using it.">
     <meta name="keywords" content="imported and not used go, go unused import error, go blank identifier import, goimports, go compile error import">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/go-imported-and-not-used.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/go-imported-and-not-used.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/go-imported-and-not-used.svg">
     <title>Go: imported and not used — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "imported and not used: \"X\" — Cause and Fix (Go compile error)",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/go-imported-and-not-used.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/go-imported-and-not-used.svg",
+    "caption": "A terminal showing the Go compile error \"os\" imported and not used.",
+    "width": 700,
+    "height": 140
+  },
   "description": "Go refuses to compile a file that imports a package it never references. Why this is a deliberate compiler decision, not a linter warning, and the exact fixes for every situation, including side-effect-only imports.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-09",
-  "dateModified": "2026-07-09",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -122,6 +136,14 @@
 ./main.go:4:2: imported and not used: "fmt"
 ./handler.go:6:2: imported and not used: "encoding/json" as jsonlib</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/go-imported-and-not-used.svg" width="700" height="140" loading="lazy"
+                     alt="Terminal running go build. The compiler prints command-line-arguments then ./unused.go:5:2: "os" imported and not used, and the build stops.">
+                <figcaption>Captured on <code>go1.23.12</code>. The line is prefixed <code>#&nbsp;command-line-arguments</code> because the build targeted a file rather than a package &mdash; <code>go&nbsp;build&nbsp;./...</code> prints your module path there instead. Either way this is an <strong>error</strong>, not a warning: there is no lint level that downgrades it.</figcaption>
+            </figure>
             <p>Notice this is not a warning printed alongside a successful build &mdash; it is a hard failure with a <code>file:line:column</code> location, and <code>go build</code> exits non-zero, producing no binary at all. Go is unusual among mainstream languages in refusing to compile a file with a dead import; most compilers either ignore unused imports entirely or leave the concern to an external linter that a team may or may not have wired into CI.</p>
 
             <h2>Cause 1: leftover import after removing the code that used it</h2>

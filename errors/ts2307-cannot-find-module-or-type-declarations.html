@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TS2307: Cannot find module 'X' or its corresponding type declarations — why TypeScript can't resolve an import (missing install, missing @types, wrong path, alias/moduleResolution mismatch) and how to fix each cause.">
+    <meta name="description" content="TS2307: Cannot find module 'X' or its corresponding type declarations — missing install, missing @types, wrong path or moduleResolution, and each fix.">
     <meta name="keywords" content="TS2307, Cannot find module or its corresponding type declarations, typescript cannot find module, cannot find module npm package types, typescript path alias not resolving, moduleResolution bundler node16">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/ts2307-cannot-find-module-or-type-declarations.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/ts2307-cannot-find-module-or-type-declarations.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/ts2307-cannot-find-module-or-type-declarations.svg">
     <title>TS2307: Cannot Find Module or Its Type Declarations — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "TS2307: Cannot find module 'X' or its corresponding type declarations — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/ts2307-cannot-find-module-or-type-declarations.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/ts2307-cannot-find-module-or-type-declarations.svg",
+    "caption": "A terminal showing TypeScript error TS2307: Cannot find module './table' or its corresponding type declarations.",
+    "width": 740,
+    "height": 170
+  },
   "description": "TypeScript raises TS2307 when its module resolver finds absolutely nothing for an import target — no JavaScript file, no .d.ts, no matching @types package. This reference walks through the six real causes: missing install, missing types, a wrong path, an unmirrored alias, a moduleResolution mismatch, and non-JS asset imports.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-13",
-  "dateModified": "2026-07-13",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -214,6 +228,14 @@
 import { helper } from "./Utils";
 // error TS2307: Cannot find module './Utils' or its corresponding type declarations.</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/ts2307-cannot-find-module-or-type-declarations.svg" width="740" height="170" loading="lazy"
+                     alt="Terminal running npx tsc -p . . tsc prints app.ts:1:27 - error TS2307: Cannot find module './table' or its corresponding type declarations, echoes the import line and underlines "./table" with tildes.">
+                <figcaption>Captured on TypeScript 5.9.3. The tildes sit under the <em>module specifier</em>, not the imported name &mdash; TS2307 is a resolution failure, and it fires just as readily when the file exists but ships no <code>.d.ts</code>.</figcaption>
+            </figure>
 
             <p>Both lines above throw the identical message, but for entirely different reasons &mdash; one is a third-party package with no types, the other is a local file whose name doesn't quite match. TypeScript deliberately collapses several distinct failures into one message, which is exactly why diagnosing TS2307 well means reading the <em>module specifier</em>, not just the error text.</p>
 

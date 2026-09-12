@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="error[E0597]: 'X' does not live long enough — how Rust's borrow checker compares a value's scope against how long a reference to it needs to survive, and the real fixes: reorder drops, return owned data, or extend the value's scope.">
+    <meta name="description" content="error[E0597]: 'X' does not live long enough — how the borrow checker compares a value's scope to its reference, and the fixes: reorder, return owned, extend.">
     <meta name="keywords" content="E0597 rust, does not live long enough rust, rust borrow checker lifetime, dropped while still borrowed, rust dangling reference">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0597-does-not-live-long-enough.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/rust-e0597-does-not-live-long-enough.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/rust-e0597-does-not-live-long-enough.svg">
     <title>Rust: error[E0597]: does not live long enough — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "error[E0597]: 'X' does not live long enough — Cause and Fix (Rust)",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/rust-e0597-does-not-live-long-enough.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/rust-e0597-does-not-live-long-enough.svg",
+    "caption": "A terminal showing rustc error E0597: `name` does not live long enough, with all four borrow spans.",
+    "width": 700,
+    "height": 302
+  },
   "description": "A reference outlived the value it pointed to. How Rust's borrow checker compares the scope of a value against the scope a reference to it needs, and the real fixes for the common ways this happens.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-09",
-  "dateModified": "2026-07-09",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -128,6 +142,14 @@
 4 | }
   | - `local_name` dropped here while still borrowed</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/rust-e0597-does-not-live-long-enough.svg" width="700" height="302" loading="lazy"
+                     alt="Terminal running rustc. It reports error[E0597]: `name` does not live long enough and annotates four lines: binding declared here, borrowed value does not live long enough, dropped here while still borrowed, and borrow later used here.">
+                <figcaption>Captured on <code>rustc&nbsp;1.83.0</code>. Read the four spans as a <em>timeline</em> rather than as one error: declared &rarr; borrowed &rarr; dropped &rarr; used. The conflict is always between the last two, and the fix is to move one of them &mdash; either keep the value alive longer, or stop using the borrow sooner.</figcaption>
+            </figure>
             <p>Every E0597 message names the value, the line it was declared on, the line the borrow occurs, and &mdash; critically &mdash; the exact line where the value is dropped while a reference to it is still expected to be valid. That last line is the key: it tells you precisely where the value's scope ends relative to where the reference is still needed.</p>
 
             <h2>The scope-vs-lifetime mismatch, visually</h2>

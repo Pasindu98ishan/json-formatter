@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TypeError: X.map is not a function — a fix-first playbook for when an API response isn't the array you expected, covering paginated responses, single-item responses, and Array.isArray guards.">
+    <meta name="description" content="TypeError: X.map is not a function — for when an API response isn't the array you expected: paginated responses, single-item responses, Array.isArray guards.">
     <meta name="keywords" content="X.map is not a function, data.map is not a function, response.map is not a function, TypeError map is not a function, array isarray javascript">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/x-map-is-not-a-function.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/x-map-is-not-a-function.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/x-map-is-not-a-function.svg">
     <title>TypeError: X.map is not a function — Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "TypeError: X.map is not a function — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/x-map-is-not-a-function.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/x-map-is-not-a-function.svg",
+    "caption": "Chrome DevTools console showing Uncaught TypeError: res.data.map is not a function.",
+    "width": 700,
+    "height": 121
+  },
   "description": "'.map is not a function' means the value you called it on isn't actually an array — almost always a mismatch between the API response shape and what your code assumed.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -129,6 +143,14 @@ response.map(u =&gt; u.name);
 //   -&gt; response is { data: [...], page: 1, total: 50 }, not a bare array</code></pre>
             </div>
 
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/x-map-is-not-a-function.svg" width="700" height="121" loading="lazy"
+                     alt="Chrome DevTools console showing a red error row reading Uncaught TypeError: res.data.map is not a function, sourced to app.js line 4.">
+                <figcaption>Captured from Chrome 152. The message names the <em>full path</em> it tried to call &mdash; <code>res.data.map</code>, not just <code>map</code> &mdash; which tells you exactly which value to inspect. Here <code>res.data</code> was an object, and only arrays carry <code>.map()</code>.</figcaption>
+            </figure>
+
             <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">
                 <p style="margin:0 0 .5rem;font-weight:700;">30-second triage</p>
                 <ul style="margin:0;padding-left:1.2rem;">
@@ -186,6 +208,35 @@ Array.isArray("hello");   // false — the correct, specific check</code></pre>
 
             <h2>Why this happens</h2>
             <p><code>map()</code> is defined on <code>Array.prototype</code>, so it only exists on actual arrays (or array-likes that explicitly borrow it). When code assumes a value is an array based on habit or documentation rather than checking, any deviation &mdash; a wrapping envelope object, a single-result shortcut, a <code>null</code> for "no results" &mdash; throws the moment <code>.map</code> is looked up and found missing. This is a shape mismatch, not a bug in <code>map()</code> itself; the fix is always to make the value actually be an array before calling it, or to explicitly not call <code>.map()</code> when it isn't.</p>
+
+            <h2>Two different errors, and the one word that separates them</h2>
+
+            <p>Before changing any code, read which message you actually got &mdash; they point at different bugs:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const x = null;   x.map(f);   // ❌ TypeError: Cannot read properties of null (reading 'map')
+const x = {};     x.map(f);   // ❌ TypeError: x.map is not a function
+const x = "abc";  x.map(f);   // ❌ TypeError: x.map is not a function</code></pre>
+            </div>
+
+            <p>Verified on Node&nbsp;v24.15.0. <strong><a href="cannot-read-properties-of-undefined.html">Cannot read properties of</a></strong> means the value was <code>null</code> or <code>undefined</code> &mdash; the property lookup never happened, so your request almost certainly failed or returned nothing. <strong>is not a function</strong> means the lookup succeeded and came back with something that is not callable &mdash; you got <em>data</em>, just not an array. That is usually a response-shape problem: an object wrapper, a single record where you expected a list, or a string of JSON that was never parsed.</p>
+
+            <h2>Array.isArray is the only reliable check</h2>
+
+            <p><code>typeof</code> is no help here &mdash; it returns <code>"object"</code> for arrays, plain objects and <code>null</code> alike. Check for the capability you actually need:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const rows = Array.isArray(res.data) ? res.data : [];
+rows.map(render);                        // ✅ never throws
+
+// array-LIKE but not an array (NodeList, arguments, {length: n}):
+Array.from(document.querySelectorAll("li")).map(render);   // ✅
+Array.from({ length: 2 }, (_, i) =&gt; i);                     // ✅ [0, 1]</code></pre>
+            </div>
+
+            <p>The second form matters in browser code specifically: a <code>NodeList</code> from <code>querySelectorAll</code> has <code>forEach</code> but has never had <code>map</code>, which produces this exact error from code that looks like it is already working with a list.</p>
 
             <h2>Common variants at a glance</h2>
             <table>

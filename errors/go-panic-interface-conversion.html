@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Go panic: interface conversion: interface {} is string, not int — why a type assertion panics, the comma-ok fix, and how it hits map[string]interface{} after json.Unmarshal.">
+    <meta name="description" content="Go panic: interface conversion: interface {} is string, not int — why a type assertion panics, the comma-ok fix, and how it hits map[string]interface{}.">
     <meta name="keywords" content="interface conversion interface is string not int, go type assertion panic, go interface conversion panic, comma ok type assertion, json unmarshal interface, map string interface go">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/go-panic-interface-conversion.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/go-panic-interface-conversion.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/go-panic-interface-conversion.svg">
     <title>Go panic: interface conversion — interface {} is X, not Y (The Fix)</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Go panic: interface conversion: interface {} is string, not int — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/go-panic-interface-conversion.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/go-panic-interface-conversion.svg",
+    "caption": "A terminal showing a Go panic: interface conversion: interface {} is string, not int.",
+    "width": 700,
+    "height": 206
+  },
   "description": "A Go type assertion panics when the concrete value stored in an interface is a different type than the one you asserted. This reference explains the comma-ok assertion, the type switch, and why this happens constantly with map[string]interface{} after json.Unmarshal.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-14",
-  "dateModified": "2026-07-14",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -150,6 +164,14 @@ goroutine 1 [running]:
 main.main()
         /app/main.go:8 +0x2c</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/go-panic-interface-conversion.svg" width="700" height="206" loading="lazy"
+                     alt="Terminal running go run. The program panics with interface conversion: interface {} is string, not int, with a goroutine trace pointing at assert.go line 11 and exit status 2.">
+                <figcaption>Captured on <code>go1.23.12</code> after decoding <code>{"port":"8080"}</code> into a <code>map[string]interface{}</code> and asserting <code>.(int)</code>. The message names both types in the order <em>actual</em>, then expected &mdash; <code>is string, not int</code>. This is the single most common way the panic appears, because <code>encoding/json</code> decodes every JSON number as <code>float64</code> and every JSON string as <code>string</code>, never as the type your struct field uses.</figcaption>
+            </figure>
 
             <p>An <code>interface{}</code> (or any interface) stores two things at runtime: a concrete <em>type</em> and a value of that type. A <strong>type assertion</strong> pulls the value back out under a specific type &mdash; but only if the stored type matches. When it doesn't, the single-value form panics, and the message spells out exactly what went wrong: <code>is string, not int</code> means the interface really held a <code>string</code>, but you asserted <code>int</code>.</p>
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="./main.go: undefined: X — why Go's compiler rejects a name it can't resolve, the four real causes (typo, missing import, unexported identifier, wrong build tags), and how to fix each one.">
+    <meta name="description" content="./main.go: undefined: X — why Go rejects a name it can't resolve: typo, missing import, unexported identifier or wrong build tags, and the fix for each.">
     <meta name="keywords" content="undefined: X go, go compile error undefined, go undefined function, go undefined variable, go unexported identifier">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/go-undefined-x.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/go-undefined-x.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/go-undefined-x.svg">
     <title>Go: undefined: X — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "undefined: X — Cause and Fix (Go compile error)",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/go-undefined-x.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/go-undefined-x.svg",
+    "caption": "A terminal showing Go compile errors undefined: calculateTotal and undefined: items.",
+    "width": 700,
+    "height": 158
+  },
   "description": "The Go compiler could not resolve a name at compile time. Covers typos, missing imports, unexported identifiers, build-tag exclusion, and the go vet/gopls tools that catch it before you even build.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-09",
-  "dateModified": "2026-07-09",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -122,6 +136,14 @@
 ./main.go:10:2: undefined: greetUser
 ./handler.go:22:9: undefined: strings.Trimm</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/go-undefined-x.svg" width="700" height="158" loading="lazy"
+                     alt="Terminal running go build. The compiler reports ./undef.go:4:11: undefined: calculateTotal and ./undef.go:4:26: undefined: items.">
+                <figcaption>Captured on <code>go1.23.12</code>. Go reports <em>every</em> unresolved name on the line separately, each with its own <code>line:column</code>. That is worth noticing before you start fixing: two undefined names on one line usually share a single root cause &mdash; a missing import or a file left out of the package.</figcaption>
+            </figure>
             <p>Go's build failures always carry a <code>file:line:column</code> prefix and stop the entire build &mdash; there is no partial binary, and no way to run code that references an unresolved name, even if that name is never actually called at runtime. This is a stricter guarantee than most dynamic languages offer: a Python or JavaScript program can run for hours before hitting an undefined name on a rarely-exercised code path, but Go's compiler resolves every identifier in every reachable file before producing anything at all.</p>
 
             <h2>How to read the message</h2>

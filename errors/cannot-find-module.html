@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Error: Cannot find module (MODULE_NOT_FOUND) in Node.js — what the require stack tells you, why it happens for npm packages and local files, and how to fix it including the ESM 'must provide file extension' variant.">
+    <meta name="description" content="Error: Cannot find module (MODULE_NOT_FOUND) in Node.js — what the require stack tells you, why it hits npm packages and local files, and how to fix each.">
     <meta name="keywords" content="Error Cannot find module, MODULE_NOT_FOUND, cannot find module node, require stack, cannot find module nodejs, ERR_MODULE_NOT_FOUND, node cannot find local file">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/cannot-find-module.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/cannot-find-module.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/cannot-find-module.svg">
     <title>Error: Cannot find module (MODULE_NOT_FOUND) — Cause and Fix | JSON Dev Tools</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -43,6 +41,14 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Error: Cannot find module (MODULE_NOT_FOUND) — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/cannot-find-module.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/cannot-find-module.svg",
+    "caption": "A terminal showing Error: Cannot find module 'express' with Node's Require stack.",
+    "width": 700,
+    "height": 260
+  },
   "description": "Node.js throws 'Error: Cannot find module' when require() or import cannot resolve a package or local file. This reference explains the require stack, MODULE_NOT_FOUND vs ERR_MODULE_NOT_FOUND, and fixes for every common cause.",
   "author": {
     "@type": "Person",
@@ -50,7 +56,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-20",
-  "dateModified": "2026-06-20",
+  "dateModified": "2026-09-12",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -114,21 +120,6 @@
   ]
 }
     </script>
-    <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  "name": "How to fix the Error: Cannot find module in Node.js",
-  "description": "Steps to diagnose and resolve a MODULE_NOT_FOUND error.",
-  "step": [
-    { "@type": "HowToStep", "position": 1, "name": "Identify whether it is a package or a path", "text": "Look at the module name in the error. A bare name like 'express' is an npm package; a name starting with ./ or ../ is a local file. The two have different fixes." },
-    { "@type": "HowToStep", "position": 2, "name": "For a missing package, install it", "text": "Run npm install to install everything in package.json, or npm install <package> if it was never added. Confirm it appears in node_modules and in package.json dependencies." },
-    { "@type": "HowToStep", "position": 3, "name": "For a local path, verify the file and casing", "text": "Confirm the file exists at the resolved path and that the casing matches exactly — Linux is case-sensitive even though macOS and Windows are not." },
-    { "@type": "HowToStep", "position": 4, "name": "Add the file extension for ES modules", "text": "In ESM (type: module), relative imports must include the extension: import './utils.js', not import './utils'." },
-    { "@type": "HowToStep", "position": 5, "name": "Read the require stack to locate the call site", "text": "The top entry of the Require stack is the file containing the broken import — fix the path or dependency there." }
-  ]
-}
-    </script>
 </head>
 <body>
     <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
@@ -173,6 +164,14 @@ Require stack:
   requireStack: [ '/app/src/server.js', '/app/index.js' ]
 }</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/cannot-find-module.svg" width="700" height="260" loading="lazy"
+                     alt="Terminal running node src/server.js. Node prints Error: Cannot find module 'express', then a Require stack listing /app/src/server.js, then frames through Module._resolveFilename and Module._load.">
+                <figcaption>Captured on Node.js v24.15.0. The <code>Require stack</code> is the part to read first: its top entry is the file whose <code>require()</code> failed, so that is the file to fix &mdash; not wherever the stack frames happen to point inside Node's internals.</figcaption>
+            </figure>
 
             <p>The ES module variant looks slightly different and carries a different code:</p>
 

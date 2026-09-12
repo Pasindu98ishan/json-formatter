@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="net::ERR_TOO_MANY_REDIRECTS — a fix-first playbook for the classic HTTPS/reverse-proxy redirect loop, mismatched cookie state, and buggy auth-middleware redirect chains, with the exact commands to trace the loop.">
+    <meta name="description" content="net::ERR_TOO_MANY_REDIRECTS — fixes for the classic HTTPS reverse-proxy redirect loop, mismatched cookie state and auth middleware, and how to trace it.">
     <meta name="keywords" content="ERR_TOO_MANY_REDIRECTS, net::ERR_TOO_MANY_REDIRECTS, redirected you too many times, redirect loop fix, this page isn't working redirect">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/net-err-too-many-redirects.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/net-err-too-many-redirects.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/net-err-too-many-redirects.svg">
     <title>net::ERR_TOO_MANY_REDIRECTS — Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "net::ERR_TOO_MANY_REDIRECTS — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/net-err-too-many-redirects.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/net-err-too-many-redirects.svg",
+    "caption": "Chrome's ERR_TOO_MANY_REDIRECTS error page for a redirect loop.",
+    "width": 700,
+    "height": 273
+  },
   "description": "The browser followed a chain of HTTP redirects that never terminated. This playbook covers SSL/proxy scheme loops, cookie-state loops, and buggy auth middleware.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-05",
-  "dateModified": "2026-07-05",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -123,6 +137,14 @@ example.com redirected you too many times.
 Try clearing your cookies.
 ERR_TOO_MANY_REDIRECTS</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/net-err-too-many-redirects.svg" width="700" height="273" loading="lazy"
+                     alt="Chrome's error page reading This page isn't working, app.example.com redirected you too many times, with the code ERR_TOO_MANY_REDIRECTS and a Reload button.">
+                <figcaption>Captured from Chrome 152. Two details matter: Chrome's own suggestion is <em>Try deleting your cookies</em> &mdash; useful, because a stale session cookie really is a common cause &mdash; and the heading says nothing about HTTPS, even though a proxy SSL-mode mismatch is the single most frequent trigger.</figcaption>
+            </figure>
             <p>Chrome's own suggestion in the error page — "try clearing your cookies" — is a decent generic hint but is far from the only cause, and often not even the most common one. The browser stops following redirects after roughly 20 hops specifically to abort loops like this rather than hanging indefinitely; the exact cap is an implementation detail (Firefox and Safari use similar but not identical limits), but the underlying meaning is the same across browsers: it visited the same effective destination over and over with no terminating <code>200 OK</code> in sight.</p>
 
             <div style="background:var(--light-bg);border:1px dashed var(--border-color);border-radius:8px;padding:1rem 1.25rem;margin:1.5rem 0;">

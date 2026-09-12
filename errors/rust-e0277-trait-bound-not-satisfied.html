@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="error[E0277]: the trait bound is not satisfied — what a trait bound actually is, why a type must opt in to a capability rather than structurally matching it, and the real fixes: derive, implement, borrow, or generic bound.">
+    <meta name="description" content="error[E0277]: the trait bound is not satisfied — what a trait bound is, why a type must opt in to a capability, and the fixes: derive, impl, borrow or bound.">
     <meta name="keywords" content="E0277 rust, trait bound not satisfied rust, rust doesn't implement trait, rust derive debug, rust generic where clause">
     <meta name="author" content="Pasindu Ishan">
     <meta name="robots" content="index, follow">
@@ -14,10 +14,8 @@
     <meta property="og:url" content="https://jsondevtools.org/errors/rust-e0277-trait-bound-not-satisfied.html">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/rust-e0277-trait-bound-not-satisfied.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/rust-e0277-trait-bound-not-satisfied.svg">
     <title>Rust: error[E0277]: trait bound not satisfied — Cause &amp; Fix</title>
 
     <link rel="stylesheet" href="../css/styles.css">
@@ -44,11 +42,27 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "error[E0277]: the trait bound is not satisfied — Cause and Fix (Rust)",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/rust-e0277-trait-bound-not-satisfied.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/rust-e0277-trait-bound-not-satisfied.svg",
+    "caption": "A terminal showing rustc error E0277: the trait bound `Id: Hash` is not satisfied.",
+    "width": 700,
+    "height": 248
+  },
   "description": "A type was used at a point requiring a trait it doesn't implement. Covers missing #[derive] attributes, generic functions with unstated bounds, formatting traits, and the operator-overload traits.",
-  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "author": {
+    "@type": "Person",
+    "name": "Pasindu Ishan",
+    "url": "https://jsondevtools.org/about.html"
+  },
   "datePublished": "2026-07-09",
-  "dateModified": "2026-07-09",
-  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+  "dateModified": "2026-09-12",
+  "publisher": {
+    "@type": "Organization",
+    "name": "JSON Dev Tools",
+    "url": "https://jsondevtools.org/"
+  }
 }
     </script>
     <script type="application/ld+json">
@@ -118,15 +132,34 @@
             <h2>The exact error string</h2>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
-<pre><code>error[E0277]: `User` doesn't implement `Debug`
- --> src/main.rs:8:22
+<pre><code>error[E0277]: the trait bound `Id: Hash` is not satisfied
+ --> src/main.rs:8:10
   |
-8 |     println!("{:?}", user);
-  |                       ^^^^ `User` cannot be formatted using `{:?}`
+8 |     seen.insert(Id(1));
+  |          ^^^^^^ the trait `Hash` is not implemented for `Id`
+  |
+note: required by a bound in `HashSet::&lt;T, S&gt;::insert`
+help: consider annotating `Id` with `#[derive(Hash)]`
+
+// the same error code also covers the formatting traits, where rustc
+// phrases it as a missing impl rather than an unsatisfied bound:
+error[E0277]: `User` doesn't implement `Debug`
+ --> src/main.rs:5:22
+  |
+5 |     println!("{:?}", user);
+  |                      ^^^^ `User` cannot be formatted using `{:?}`
   |
   = help: the trait `Debug` is not implemented for `User`
   = note: add `#[derive(Debug)]` to `User` or manually `impl Debug for User`</code></pre>
             </div>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/rust-e0277-trait-bound-not-satisfied.svg" width="700" height="248" loading="lazy"
+                     alt="Terminal running rustc. It reports error[E0277]: the trait bound `Id: Hash` is not satisfied, notes the bound is required by HashSet insert, and suggests annotating Id with #[derive(Hash)].">
+                <figcaption>Captured on <code>rustc&nbsp;1.83.0</code>. The <code>note: required by a bound in ...</code> line is the one that actually answers the question &mdash; it names <em>who demanded the trait</em>, here <code>HashSet::insert</code>. Without it you know a trait is missing but not why anything wanted it.</figcaption>
+            </figure>
             <p>Every E0277 message follows this shape: it names the concrete type, the exact trait it's missing, and almost always a <code>help:</code>/<code>note:</code> pair suggesting the fix directly &mdash; frequently the exact <code>#[derive(...)]</code> line to add. Reading those two lines is usually enough to resolve the error without reasoning through the trait system from scratch.</p>
 
             <h2>Cause 1: a struct used with {:?} without deriving Debug</h2>
