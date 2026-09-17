@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ERR_INVALID_ARG_TYPE: The &quot;path&quot; argument must be of type string. Why it is undefined, how to read the Received clause, and how to fix path.join() in Node.js.">
+    <meta name="keywords" content="ERR_INVALID_ARG_TYPE, The path argument must be of type string, Received undefined node, node path must be of type string, paths[0] argument must be of type string, TypeError ERR_INVALID_ARG_TYPE received null">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/err-invalid-arg-type-path-must-be-string.html">
+    <meta property="og:title" content="ERR_INVALID_ARG_TYPE: The &quot;path&quot; argument must be of type string — Cause and Fix">
+    <meta property="og:description" content="Node tells you three things in one line: which argument, what it accepts, and what it actually got. Read the Received clause and the fix is usually two lines away.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/err-invalid-arg-type-path-must-be-string.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/err-invalid-arg-type-path-must-be-string.svg">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/err-invalid-arg-type-path-must-be-string.svg">
+    <title>ERR_INVALID_ARG_TYPE: The "path" argument must be of type string — Cause &amp; Fix</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "ERR_INVALID_ARG_TYPE (Node.js)", "item": "https://jsondevtools.org/errors/err-invalid-arg-type-path-must-be-string.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "TypeError [ERR_INVALID_ARG_TYPE]: The \"path\" argument must be of type string — Cause and Fix",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/err-invalid-arg-type-path-must-be-string.svg",
+    "contentUrl": "https://jsondevtools.org/errors/img/err-invalid-arg-type-path-must-be-string.svg",
+    "caption": "A terminal showing TypeError [ERR_INVALID_ARG_TYPE]: The \"path\" argument must be of type string. Received undefined.",
+    "width": 740,
+    "height": 242
+  },
+  "description": "Node.js raises ERR_INVALID_ARG_TYPE when an API is handed an argument of the wrong type. The message names the argument, the types it accepts and the value it actually got, and this reference explains how to read all three — including the formats Node uses for the Received clause and the indexed paths[0] form. Observed on Node.js v24.15.0.",
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-09-17",
+  "dateModified": "2026-09-17",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does ERR_INVALID_ARG_TYPE actually mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A Node.js API was handed an argument of the wrong type and rejected it up front, before carrying out the operation you asked for. The message is built from three facts Node already has: which parameter failed, what that parameter accepts, and what it actually received."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the message say Received undefined when I passed a variable?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because the variable evaluated to undefined by the time the call ran. The common sources are an unset environment variable, a destructured key that does not exist, a command-line argument that was not supplied, and a function that returned nothing. Log the variable on the line above the failing call."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between Received undefined and Received type number (42)?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "They are two of the formats Node uses for the Received clause. undefined and null print bare, while other primitives print as the type followed by the value in parentheses, so the number form hands you the offending value directly. Objects print only their constructor name, which gives you the category but not the contents."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the message name paths[0] instead of path?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because path.join() and path.resolve() accept any number of segments, so Node indexes them to show which one failed, counting from zero. On a long join call that saves you checking each segment by hand."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do fs and path report different accepted types for the same path argument?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because they accept different things. path.join() works only with strings, while the fs functions also take a Buffer or a file URL, and each message states that function's real contract. That is why a URL object is a valid argument to fs.readFileSync() and not to path.join()."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "My path is undefined but I get ENOENT instead of this error. Why?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because you concatenated instead of passing the value as its own argument. undefined + \"/config.json\" produces a valid string, so the type check passes and the failure moves to the filesystem, giving you ENOENT for a path containing the literal word undefined. That literal undefined is the signature of the same bug."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I catch this specific error in code?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Branch on err.code === 'ERR_INVALID_ARG_TYPE' rather than matching the message text. The code is the documented, stable identifier, while the message embeds runtime values and its wording can change between Node.js releases."
+      }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>ERR_INVALID_ARG_TYPE</span>
+            </nav>
+            <h1>TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Software Developer</div>
+            <div class="article-meta">Published September 2026 &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;">
+                    <li><strong>Read the end of the line first.</strong> The <code>Received</code> clause names what Node actually got &mdash; that is your bug.</li>
+                    <li><code>Received undefined</code> is the common case: an unset env var, a missing object key, or a function that returned nothing.</li>
+                    <li>The quoted name (<code>"path"</code>, <code>"paths[0]"</code>, <code>"data"</code>) tells you <strong>which argument</strong> failed &mdash; the index counts from zero.</li>
+                    <li>Nothing is wrong with the file or the filesystem. Node never got that far.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string. Received undefined
+    at Object.join (node:path:513:7)
+    at Object.&lt;anonymous&gt; (/app/src/config.js:3:6)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14) {
+  code: 'ERR_INVALID_ARG_TYPE'
+}
+
+// fs accepts more types, so its wording is longer:
+TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string or an instance of Buffer or URL. Received undefined
+
+// a varargs call names the failing argument by index:
+TypeError [ERR_INVALID_ARG_TYPE]: The "paths[0]" argument must be of type string. Received an instance of Array
+
+// and it is not only about paths:
+TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined</code></pre>
+            </div>
+
+            <p>Node threw this <em>before carrying out the operation you asked for</em>. Node APIs commonly validate argument types up front, so in the <code>path.join()</code> case above nothing was read, written or resolved &mdash; the function looked at one argument, saw the wrong type, and stopped. That is usually why nothing is wrong with your file or your permissions: the value you passed in was already broken by the time the call happened.</p>
+
+            <h2>What it actually looks like</h2>
+
+            <figure class="perm-figure">
+                <img src="img/err-invalid-arg-type-path-must-be-string.svg" width="740" height="242" loading="lazy"
+                     alt="Terminal running node src/config.js. Node throws TypeError [ERR_INVALID_ARG_TYPE]: The &quot;path&quot; argument must be of type string. Received undefined, with a frame at Object.join in node:path and code: 'ERR_INVALID_ARG_TYPE'. Below, concatenating the same undefined value throws ENOENT on a path containing the literal word undefined.">
+                <figcaption>Both captured on Node <code>v24.15.0</code> from the same missing environment variable. The second form is the one that wastes time: concatenation stringifies <code>undefined</code>, so the type check passes and you get <code>ENOENT</code> for a directory literally named <code>undefined</code>.</figcaption>
+            </figure>
+
+            <h2>Anatomy of the message &mdash; three slots, three facts</h2>
+
+            <p>Every instance of this error is the same sentence with three blanks filled in. Once you can see the slots, the message stops being noise:</p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 470 180" role="img" aria-label="The message broken into three slots. The quoted name &quot;path&quot; is slot 1, which argument failed. The words of type string are slot 2, what this function accepts. The word undefined after Received is slot 3, what you actually passed — and it is the one to read first.">
+                    <defs>
+                        <marker id="iatArrow" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+                            <path d="M0,0 L7,3.2 L0,6.4 z" style="fill:var(--dg-line)"/>
+                        </marker>
+                        <marker id="iatArrowBad" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+                            <path d="M0,0 L7,3.2 L0,6.4 z" style="fill:var(--dg-bad)"/>
+                        </marker>
+                    </defs>
+
+                    <!-- baseline y=34; tspan centres measured in-browser: 64, 250, 398 -->
+                    <text class="dg-m" x="18" y="34">The <tspan class="dg-bad">"path"</tspan> argument must be <tspan class="dg-ok">of type string</tspan>. Received <tspan class="dg-bad">undefined</tspan></text>
+
+                    <path class="dg-ln" marker-end="url(#iatArrow)" d="M66,92 L64,48"/>
+                    <rect class="dg-box" x="4" y="96" width="124" height="46" rx="6"/>
+                    <text class="dg-s" x="66" y="116" text-anchor="middle">1. which argument</text>
+                    <text class="dg-s" x="66" y="132" text-anchor="middle">failed</text>
+
+                    <path class="dg-ln" marker-end="url(#iatArrow)" d="M250,92 L250,48"/>
+                    <rect class="dg-box" x="188" y="96" width="124" height="46" rx="6"/>
+                    <text class="dg-s" x="250" y="116" text-anchor="middle">2. what this</text>
+                    <text class="dg-s" x="250" y="132" text-anchor="middle">function accepts</text>
+
+                    <path class="dg-ln-bad" marker-end="url(#iatArrowBad)" d="M395,92 L398,48"/>
+                    <rect class="dg-box-bad" x="333" y="96" width="124" height="46" rx="6"/>
+                    <text class="dg-s" x="395" y="116" text-anchor="middle">3. what you passed</text>
+                    <text class="dg-bad" x="395" y="132" text-anchor="middle" style="font-size:11px">read this first</text>
+
+                    <text class="dg-s" x="235" y="166" text-anchor="middle">Slots 1 and 2 describe Node. Slot 3 describes your program.</text>
+                </svg>
+                <p class="dg-cap">The same sentence every time, with three blanks filled in.</p>
+            </div>
+
+            <p>Slot 3 is the one to read first, and it is the one most people skip. Slots 1 and 2 describe Node's expectations, which you can look up; slot 3 describes <em>your program</em>, which you cannot.</p>
+
+            <h3>Slot 1 &mdash; which argument</h3>
+
+            <p>Usually a plain parameter name in quotes: <code>"path"</code>, <code>"data"</code>, <code>"algorithm"</code>. Two variations matter. When the function takes a variable number of arguments, Node appends an <strong>index</strong>: <code>"paths[0]"</code> means the <em>first</em> segment you passed to <code>path.join()</code> or <code>path.resolve()</code>, counting from zero. And when the parameter has no name in Node's signature, the message falls back to a position: <code>The first argument must be of type string...</code>, which is what <code>Buffer.from()</code> produces.</p>
+
+            <h3>Slot 2 &mdash; what the function accepts</h3>
+
+            <p>This list is that specific function's real contract, not boilerplate, and it differs between modules that look interchangeable:</p>
+
+            <table>
+                <thead>
+                    <tr><th>Call</th><th>Accepted types in the message</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>path.join(...)</code></td><td><code>must be of type string</code></td></tr>
+                    <tr><td><code>fs.readFileSync(...)</code></td><td><code>must be of type string or an instance of Buffer or URL</code></td></tr>
+                    <tr><td><code>fs.writeFileSync(path, <strong>data</strong>)</code></td><td><code>must be of type string or an instance of Buffer, TypedArray, or DataView</code></td></tr>
+                    <tr><td><code>Buffer.from(...)</code></td><td><code>must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object</code></td></tr>
+                </tbody>
+            </table>
+
+            <p>That difference is load-bearing. A <code>URL</code> object is a perfectly good argument to <code>fs.readFileSync()</code> and a fatal one to <code>path.join()</code> &mdash; so "it worked when I passed it to fs" is not evidence that the value is fine.</p>
+
+            <h3>Slot 3 &mdash; how Node formats the Received clause</h3>
+
+            <p>Node does not print the value one uniform way. It picks a format based on what it found, and the format itself is diagnostic &mdash; before you read the value, the <em>shape</em> of the clause already tells you roughly what went wrong. The forms below were all observed on Node <code>v24.15.0</code>; exact wording can vary between Node.js releases, so treat the shapes rather than the strings as the durable part.</p>
+
+            <table>
+                <thead>
+                    <tr><th>Format</th><th>Examples</th><th>What it usually means</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>The bare word</td><td><code>Received undefined</code><br><code>Received null</code></td><td><code>undefined</code>: unset env var, missing object key, function returned nothing. <code>null</code>: an <em>explicit</em> empty &mdash; a DB <code>NULL</code>, a cleared field</td></tr>
+                    <tr><td>Type, then the value</td><td><code>Received type number (42)</code><br><code>Received type boolean (true)</code></td><td>Any other primitive. A port, ID or count used where a name was wanted &mdash; and the value is handed to you</td></tr>
+                    <tr><td>The constructor name</td><td><code>Received an instance of Object</code><br><code>Received an instance of Array</code><br><code>Received an instance of Promise</code></td><td>You passed a wrapper instead of a field on it, a list where segments were expected, or forgot an <code>await</code></td></tr>
+                    <tr><td>Function, then its name</td><td><code>Received function getConfigPath</code></td><td>A missing call: <code>getConfigPath</code> instead of <code>getConfigPath()</code></td></tr>
+                    <tr><td>An inspect-style dump</td><td><code>Received [Object: null prototype] {}</code></td><td>A fallback for values with no ordinary constructor &mdash; typically <code>Object.create(null)</code></td></tr>
+                </tbody>
+            </table>
+
+            <p>The practical split is between the second row and the third. A primitive prints <em>with</em> its value, so <code>Received type number (8080)</code> hands you the culprit outright. An object prints only its constructor name, so <code>Received an instance of Object</code> tells you the category and nothing more &mdash; you still have to log the thing yourself.</p>
+
+            <h2>Fix 1: Received undefined &mdash; find the missing value</h2>
+
+            <p>This is the dominant case. The error is downstream of whatever failed to produce a value, so fixing it means looking one line up, not at the call that threw:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const dir = process.env.DATA_DIR;   // never set → undefined
+path.join(dir, "config.json");
+// ❌ The "path" argument must be of type string. Received undefined
+
+// ✅ fail where the problem actually is, with a message that names it
+const dir = process.env.DATA_DIR;
+if (!dir) throw new Error("DATA_DIR is not set");
+path.join(dir, "config.json");</code></pre>
+            </div>
+
+            <p>A default is often better than a guard: <code>process.env.DATA_DIR ?? "./data"</code> uses <code>??</code> rather than <code>||</code> so an intentional empty string survives. If the variable should have come from a <code>.env</code> file that is not being read, the loading order is its own problem &mdash; see <a href="process-env-undefined.html">process.env.X is undefined</a>, which covers why <code>dotenv</code> so often runs too late.</p>
+
+            <p>Environment variables get the attention, but two other sources produce the identical <code>Received undefined</code> and are just as common. The first is destructuring a key that is not there &mdash; note that the destructure itself succeeds silently, and only the later use fails:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const config = { dataDir: "/var/data" };
+const { configPath } = config;      // ✅ no error — configPath is just undefined
+
+path.join(configPath, "settings.json");
+// ❌ The "path" argument must be of type string. Received undefined</code></pre>
+            </div>
+
+            <p>A typo or a renamed field in a config object lands here, and so does a response body whose shape changed. The second source is a command-line argument that was never supplied:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const targetDir = process.argv[2];  // `node build.js` with no argument
+
+path.join(targetDir, "config.json");
+// ❌ The "path" argument must be of type string. Received undefined
+
+// ✅ validate CLI input before using it
+if (!targetDir) {
+  console.error("usage: node build.js &lt;target-dir&gt;");
+  process.exit(1);
+}</code></pre>
+            </div>
+
+            <p>Both verified on Node <code>v24.15.0</code>. Note the naming in that last example: avoid calling the variable <code>path</code>, because doing so shadows the <code>path</code> module and the next line fails with <code>path.join is not a function</code> instead &mdash; a <a href="uncaught-typeerror-x-is-not-a-function.html">different error</a> that sends you looking in entirely the wrong place.</p>
+
+            <h2>Fix 2: Received an instance of Object &mdash; you passed the wrapper</h2>
+
+            <p>The second most common shape, and it comes from config objects and API responses:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const opts = { dir: "/var/data", name: "config.json" };
+path.join(opts, "config.json");
+// ❌ The "path" argument must be of type string. Received an instance of Object
+
+path.join(opts.dir, opts.name);   // ✅ pass the fields, not the wrapper</code></pre>
+            </div>
+
+            <p>When the message says <code>an instance of Array</code> instead, you probably have the segments already and just need to spread them: <code>path.join(...segments)</code> rather than <code>path.join(segments)</code>. That one produces <code>The "paths[0]" argument must be of type string. Received an instance of Array</code> &mdash; the index confirms Node looked at your array as if it were the first segment.</p>
+
+            <h2>Fix 3: Received function &mdash; a missing pair of parentheses</h2>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const getConfigPath = () =&gt; "/etc/app/config.json";
+
+fs.readFileSync(getConfigPath);
+// ❌ ... Received function getConfigPath
+
+fs.readFileSync(getConfigPath());   // ✅</code></pre>
+            </div>
+
+            <p>This grammar is the most generous of the four, because Node prints <code>function</code> followed by <strong>the function's own name</strong> &mdash; so the message hands you the exact identifier you forgot to call. A truly anonymous function has no name to print and the line simply ends after <code>function</code>, which is a small clue in itself that the value came from an inline expression rather than a named binding.</p>
+
+            <p>It is an easy one to stare past in an editor, because the identifier is spelled correctly and your linter is happy; only the <code>()</code> is absent.</p>
+
+            <h2>Fix 4: the async case &mdash; a Promise where a string belongs</h2>
+
+            <p>A forgotten <code>await</code> produces an object, so it surfaces as the Object grammar rather than anything mentioning promises:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const dir = resolveDataDir();        // async, not awaited
+fs.readFileSync(path.join(dir, "config.json"));
+// ❌ The "path" argument must be of type string. Received an instance of Promise
+
+const dir = await resolveDataDir();  // ✅</code></pre>
+            </div>
+
+            <p>When a <code>Promise</code> appears where a string was expected, check whether the value-producing call needs to be awaited before it reaches the path operation. That is usually the answer, and the <code>await</code> usually belongs upstream on the line that produced the value &mdash; but not always. Sometimes the real mistake is the API boundary: a function that legitimately returns a promise is being wired into synchronous code that should have been <code>async</code> itself.</p>
+
+            <h2>path.join() vs path.resolve() &mdash; both demand strings, for different jobs</h2>
+
+            <p>Both functions take a sequence of string segments, and both raise this error with the indexed <code>paths[n]</code> name when one of them is not a string. What they do with those strings is not the same, and picking the wrong one produces a working path that points somewhere you did not intend:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// join() concatenates and normalises. The result can be relative.
+path.join("a", "b");                     // "a/b"
+path.join("/app", "/etc", "f.json");     // "/app/etc/f.json"
+
+// resolve() walks right-to-left until it has an absolute path.
+path.resolve("a", "b");                  // "/current/working/dir/a/b"
+path.resolve("/app", "/etc", "f.json");  // "/etc/f.json"  ← "/app" discarded</code></pre>
+            </div>
+
+            <p>That last line is the one worth remembering. <code>resolve()</code> treats a leading <code>/</code> on any segment as a fresh start and throws away everything to its left, so a single user-supplied value beginning with a slash can silently relocate the whole path &mdash; whereas <code>join()</code> would have kept your prefix. Outputs shown in POSIX form; on Windows the separators are backslashes and <code>resolve()</code> prepends a drive letter.</p>
+
+            <p>The rule of thumb: use <code>join()</code> to build a path <em>underneath</em> a base you control, and <code>resolve()</code> when you genuinely need an absolute path from possibly-relative input. Either way, validate the segments first &mdash; that is what keeps <code>paths[0]</code> out of your logs.</p>
+
+            <h2>The trap: when this error does <em>not</em> fire</h2>
+
+            <p>Concatenating an undefined value does not trigger the type check at all, because string concatenation converts it first. The result is a valid string, so Node's guard passes and the failure moves downstream to the filesystem:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>const dir = process.env.DATA_DIR;   // undefined
+fs.readFileSync(dir + "/config.json");
+
+// no ERR_INVALID_ARG_TYPE — you get this instead:
+Error: ENOENT: no such file or directory, open '/app/undefined/config.json'
+  code: 'ENOENT',
+  path: '/app/undefined/config.json'</code></pre>
+            </div>
+
+            <p>Look at that path: the literal word <strong><code>undefined</code></strong> is now a directory name. That is the signature of exactly the same bug wearing a different error code, and it is worth recognising because <code>ENOENT</code> sends people hunting for a missing file that was never supposed to exist. The same reasoning applies to <code>`${dir}/config.json`</code> &mdash; template literals stringify too. Passing the value as its own argument, as <code>path.join(dir, "config.json")</code> does, is what lets Node catch the mistake at the point it happens.</p>
+
+            <p>An empty string is the other non-firing case: <code>path.join("")</code> is legal and returns <code>"."</code>, so a blank env var slips through the type check and quietly resolves to the current working directory.</p>
+
+            <h2>Catch it by code, never by message</h2>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>try {
+  fs.readFileSync(configPath);
+} catch (err) {
+  if (err.code === "ERR_INVALID_ARG_TYPE") {   // ✅ the documented error code
+    console.error("config path was not a string:", configPath);
+  }
+  throw err;
+}</code></pre>
+            </div>
+
+            <p>Use the documented error code rather than depending on the human-readable message. The <code>code</code> property is a stable identifier intended to be matched on; the message is not, since it embeds runtime values and its wording can change between Node.js releases. Error handling that greps the message is handling that can break on a Node upgrade without telling you.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <code>Received</code> clause before anything else &mdash; it names the actual defect</li>
+                <li>&#10003; Note the quoted argument name; an index like <code>paths[1]</code> counts from zero</li>
+                <li>&#10003; Log the variable on the line above the failing call, not the call itself</li>
+                <li>&#10003; <code>Received an instance of Promise</code>? A missing <code>await</code> upstream</li>
+                <li>&#10003; <code>Received function</code> followed by a name? A missing <code>()</code></li>
+                <li>&#10003; Seeing the literal word <code>undefined</code> inside an <code>ENOENT</code> path? Same bug, hidden by concatenation</li>
+                <li>&#10003; Branch on <code>err.code</code>, never on the message text</li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does ERR_INVALID_ARG_TYPE actually mean?</summary>
+                    <p>A Node.js API was handed an argument of the wrong type and rejected it up front, before carrying out the operation you asked for. The message is built from three facts Node already has: which parameter failed, what that parameter accepts, and what it actually received.</p>
+                </details>
+                <details>
+                    <summary>Why does the message say Received undefined when I passed a variable?</summary>
+                    <p>Because the variable evaluated to <code>undefined</code> by the time the call ran. The common sources are an unset environment variable, a destructured key that does not exist, a command-line argument that was not supplied, and a function that returned nothing. Log the variable on the line above the failing call.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between Received undefined and Received type number (42)?</summary>
+                    <p>They are two of the formats Node uses for the <code>Received</code> clause. <code>undefined</code> and <code>null</code> print bare, while other primitives print as the type followed by the value in parentheses, so the number form hands you the offending value directly. Objects print only their constructor name, which gives you the category but not the contents.</p>
+                </details>
+                <details>
+                    <summary>Why does the message name paths[0] instead of path?</summary>
+                    <p>Because <code>path.join()</code> and <code>path.resolve()</code> accept any number of segments, so Node indexes them to show which one failed, counting from zero. On a long join call that saves you checking each segment by hand.</p>
+                </details>
+                <details>
+                    <summary>Why do fs and path report different accepted types for the same path argument?</summary>
+                    <p>Because they accept different things. <code>path.join()</code> works only with strings, while the <code>fs</code> functions also take a <code>Buffer</code> or a file <code>URL</code>, and each message states that function's real contract. That is why a <code>URL</code> object is a valid argument to <code>fs.readFileSync()</code> and not to <code>path.join()</code>.</p>
+                </details>
+                <details>
+                    <summary>My path is undefined but I get ENOENT instead of this error. Why?</summary>
+                    <p>Because you concatenated instead of passing the value as its own argument. <code>undefined + "/config.json"</code> produces a valid string, so the type check passes and the failure moves to the filesystem, giving you <code>ENOENT</code> for a path containing the literal word <code>undefined</code>. That literal <code>undefined</code> is the signature of the same bug.</p>
+                </details>
+                <details>
+                    <summary>How do I catch this specific error in code?</summary>
+                    <p>Branch on <code>err.code === 'ERR_INVALID_ARG_TYPE'</code> rather than matching the message text. The code is the documented, stable identifier, while the message embeds runtime values and its wording can change between Node.js releases.</p>
+                </details>
+            </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://nodejs.org/api/errors.html#err_invalid_arg_type" target="_blank" rel="noopener">ERR_INVALID_ARG_TYPE</a> (Node.js Errors documentation)</li>
+                <li><a href="https://nodejs.org/api/path.html#pathjoinpaths" target="_blank" rel="noopener">path.join(...paths)</a> (Node.js Path documentation)</li>
+                <li><a href="https://nodejs.org/api/errors.html#errorcode" target="_blank" rel="noopener">error.code</a> (Node.js Errors documentation)</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>Not sure which error you have?</h3>
+                <p>Paste the stack trace and get routed straight to the cause-and-fix reference for it &mdash; entirely in your browser.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../error-log-analyzer.html" class="btn btn-primary">Error Log Analyzer</a>
+                    <a href="../deployment-readiness-checker.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">Deployment Readiness Checker</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="process-env-undefined.html">process.env.X is undefined</a> &mdash; where the <code>undefined</code> in <code>Received undefined</code> usually comes from</li>
+                <li><a href="cannot-find-module.html">Error: Cannot find module (MODULE_NOT_FOUND)</a> &mdash; the other Node error thrown before your code runs</li>
+                <li><a href="cannot-read-properties-of-undefined.html">TypeError: Cannot read properties of undefined</a> &mdash; the same missing value, caught by your code instead of Node's</li>
+                <li><a href="failed-to-construct-url-invalid-url.html">TypeError: Failed to construct 'URL': Invalid URL</a> &mdash; a string that passed the type check but not the parser</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a></li>
+                <li><a href="../blog/node-production-readiness-checklist.html">Node.js Production Readiness Checklist</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../blog/privacy-policy.html">Privacy Policy</a> | <a href="../blog/terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>

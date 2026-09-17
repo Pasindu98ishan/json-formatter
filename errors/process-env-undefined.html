@@ -162,6 +162,8 @@ Error: connect ECONNREFUSED — because the URL was undefined</code></pre>
 
             <p>There is no single &ldquo;undefined&rdquo; exception &mdash; <code>process.env.X</code> simply returns <code>undefined</code> when the key is not set, and the failure surfaces wherever you use the value. The fix depends entirely on <em>where</em> the code runs.</p>
 
+            <p>That downstream failure often arrives as a different error entirely. Pass the unset value straight into a Node built-in and you get <a href="err-invalid-arg-type-path-must-be-string.html"><code>ERR_INVALID_ARG_TYPE: The "path" argument must be of type string. Received undefined</code></a> &mdash; which is the good outcome, because it names the problem. Concatenate it instead (<code>dir + "/config.json"</code>) and the <code>undefined</code> is stringified, the type check passes, and you get an <code>ENOENT</code> for a directory literally named <code>undefined</code>. If you are chasing either of those, start here rather than at the line that threw.</p>
+
             <h2>Cause 1: dotenv loaded too late (Node)</h2>
             <p>In plain Node, <code>process.env</code> only contains variables from your <code>.env</code> file <em>after</em> <code>dotenv</code> has run. If a module that reads <code>process.env</code> is imported before <code>config()</code> executes, it sees <code>undefined</code>. Because <code>import</code> statements are hoisted and run top-to-bottom, this happens constantly with ESM.</p>
 
@@ -334,6 +336,7 @@ cd apps/api &amp;&amp; npm start
         <section class="related-tools">
             <h2>Related Errors</h2>
             <ul>
+                <li><a href="err-invalid-arg-type-path-must-be-string.html">TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string</a> &mdash; what Node throws when the undefined value reaches a built-in</li>
                 <li><a href="cannot-find-module.html">Error: Cannot find module</a> &mdash; if <code>dotenv</code> itself is not installed</li>
                 <li><a href="err-connection-refused.html">net::ERR_CONNECTION_REFUSED</a> &mdash; common when a URL env var is undefined</li>
                 <li><a href="../errors.html">&larr; All error references</a></li>
