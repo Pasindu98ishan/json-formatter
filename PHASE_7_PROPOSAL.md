@@ -15,21 +15,25 @@
 
 ### 1. Error & Exception Reference Cluster — PRIMARY IMPRESSION ENGINE — `/errors/`
 
-One page per **exact error string** (a real query developers paste verbatim). Each page **must** include:
+One page per **exact error string** (a real query developers paste verbatim).
 
-- [ ] Exact error string in the **H1 and body**
-- [ ] **Quick-answer snippet** (40–55 words) directly under the H1
-- [ ] **Code example** that produces the error (in the language that throws it)
-- [ ] **Cause + fix** explanation
-- [ ] **FAQ** section aligned 1:1 with FAQPage schema
-- [x] Schema: **BreadcrumbList + Article + FAQPage** (inline literal — the proven `http-status/` pattern). *Updated 2026-06-26: HowTo dropped — Google deprecated HowTo rich results, and it carried minor schema-mismatch risk. Recent pages now ship Breadcrumb + Article + FAQPage; legacy pages still carry HowTo (cleanup pending — see Cross-cutting work).*
+**Standing spec — applies to every page, not a to-do.** These were previously written as `- [ ]` checkboxes, which made five permanent false-opens pollute every progress count. `ERROR_PAGE_GUIDE.md` is now the authoritative and fuller version of these rules; this list is the summary:
+
+- Exact error string in the **H1 and body**
+- **Quick-answer snippet** (40–55 words) directly under the H1
+- **Code example** that produces the error (in the language that throws it)
+- **Cause + fix** explanation
+- **FAQ** section aligned 1:1 with FAQPage schema
+- Schema: **BreadcrumbList + Article + FAQPage** (inline literal — the proven `http-status/` pattern). *Updated 2026-06-26: HowTo dropped — Google deprecated HowTo rich results, and it carried minor schema-mismatch risk. Recent pages now ship Breadcrumb + Article + FAQPage; legacy pages still carry HowTo (cleanup pending — see Cross-cutting work).*
 
 **Template**: clone `http-status/404.html` (`data-root="../"`, `.quick-answer` box, `.code-block`/`.copy-code-btn`, FAQ `<details>`).
 **Hub**: `errors.html` (root) — filterable index mirroring `http-status.html`; register in `js/navbar-component.js` + `json-tools.html` + `sitemap.xml`.
 
 **Priority topics**: JSON parsing → network errors → CORS → Node/Python/JS runtime errors.
 
-**Competitor landscape (shapes string selection).** Dedicated error-page libraries already exist — FixDevs, TrackJS, Rollbar, Sentry, bobbyhadz — and they **saturate the famous JS errors** ("Cannot read properties of undefined", Next.js hydration). Do **not** chase those head terms. Our edge is strings that are **(a) newer** (post-2023 tooling), **(b) JSON/API-adjacent** so they cross-link into our formatter/validator/LLM calc, or **(c) too niche** for the monitoring vendors to bother with. No fabricated source URLs in the brief — every candidate below carries a **verify query** (run it on Stack Overflow, sort by newest, confirm 2025–2026 activity before building).
+**Competitor landscape (shapes string selection).** Dedicated error-page libraries already exist — FixDevs, TrackJS, Rollbar, Sentry, bobbyhadz — and they **saturate the famous JS errors** ("Cannot read properties of undefined", Next.js hydration). Do **not** chase those head terms.
+
+> **Superseded in practice (noted 2026-08-29).** Batch 5's goal — *every subcategory to ≥15 pages* — overrode this rule, and head terms were built deliberately: `cannot-read-properties-of-undefined.html` is one of the two examples named above. Batch 6b adds Next.js hydration, the other one. **The rule still holds as written for thin pages**; the override is only earned when the page beats the incumbents on depth, which is now testable — see `ERROR_PAGE_GUIDE.md` §10a (inventory what the top results omit, and build the sections they lack). Do not build a head term without doing that inventory first. Our edge is strings that are **(a) newer** (post-2023 tooling), **(b) JSON/API-adjacent** so they cross-link into our formatter/validator/LLM calc, or **(c) too niche** for the monitoring vendors to bother with. No fabricated source URLs in the brief — every candidate below carries a **verify query** (run it on Stack Overflow, sort by newest, confirm 2025–2026 activity before building).
 
 #### Batch 1 — NEW `/errors/` pages (no existing post — build these, ship together)
 - [x] `Bad control character in string literal in JSON`
@@ -53,7 +57,7 @@ Same page contract as Batch 1 (clone `http-status/404.html`: exact string in H1 
 - [x] `JsonWebTokenError: invalid signature` / `jwt malformed` (Node) → `errors/jwt-invalid-signature-malformed.html` (cross-links `jwt-decoder.html` + `blog/is-it-safe-to-decode-jwt-online.html`)
 - [~] `429 Too Many Requests` — retry/backoff (fetch/axios/Python) → **SKIPPED as duplicate-intent:** `http-status/429.html` already owns this (covers "Retrying a 429 the right way", rate-limit headers, the Python `requests` 429 error). Canonical rule forbids a competing `/errors/` page. Tie-in to LLM Cost Calculator can be a cross-link from the existing 429 page instead.
 - [x] `process.env.X is undefined` (dotenv not loading; incl. Vite `import.meta.env`, Next `NEXT_PUBLIC_`) → `errors/process-env-undefined.html` (cross-links `blog/env-file-format.html`)
-- [ ] **Optimize-in-place, NOT a new page:** add the verbatim modern V8 string `Unexpected token '<', "<!DOCTYPE"... is not valid JSON` to existing `blog/json-unexpected-token.html`. *Verify:* SO `Unexpected token DOCTYPE is not valid JSON`
+- [ ] *(optimize-in-place)* **NOT a new page:** add the verbatim modern V8 string `Unexpected token '<', "<!DOCTYPE"... is not valid JSON` to existing `blog/json-unexpected-token.html`. *Verify:* SO `Unexpected token DOCTYPE is not valid JSON`
 
 **Tier B — Node/JS module + build (high volume, broad):**
 - [x] `SyntaxError: Cannot use import statement outside a module` → `errors/cannot-use-import-statement-outside-a-module.html` (paired + cross-linked with the next item)
@@ -149,6 +153,28 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 > **Batch 4 progress (2026-07-01) — Batch 4 COMPLETE:** Built the final 10 pages — Tier 4 Go (nil pointer, index out of range, goroutine deadlock), Rust (E0382 moved value, E0499 mutable borrow), Java (NullPointerException), plus the remaining Python runtime entries (`nonetype-no-attribute`, `nonetype-not-subscriptable`, `indentationerror-unexpected-indent`) and the pip `externally-managed-environment` opportunity page. New hub category **Go / Rust / Java** added (chip + `.err-lang` tag + 6 table rows + static `#lang-errors` section); 4 Python rows added to the existing Python category; CollectionPage ItemList extended to 11 categories. All 10 registered in `sitemap.xml` (lastmod 2026-07-01). Every Batch 4 tier is now `[x]`.
 
 #### Batch 5 — authority build: every subcategory to ≥15 pages (proposed 2026-07-05; full plan in `.claude/plans/golden-inventing-wind.md`)
+
+> ### 📊 CLUSTER STATUS — audited 2026-09-20 (read this first)
+>
+> **136 pages live · 136 signature records · 1:1 parity holds.** (`ls errors/*.html | wc -l` and the key count of `data/error-signatures.json` — recount both rather than trusting this line.)
+>
+> The table below is the **Batch 5 tier ledger** only. Batch 6a/6b re-open R/N/TS/L and add K8, Python and Node; those open items are counted in the "Open work" line underneath, not in the table.
+>
+> | Tier | Built | Open | Status |
+> |---|---|---|---|
+> | R — JS Runtime | 11 | 0 | ✅ **Batch 5 COMPLETE** — re-opened in Batch 6b |
+> | N — Network | 9 | 0 | ✅ **Batch 5 COMPLETE** — re-opened in Batch 6b |
+> | TS — TypeScript | 8 | 0 | ✅ **Batch 5 COMPLETE** — re-opened in Batch 6b |
+> | L — Go/Rust/Java | 24 | 0 | ✅ **Batch 5 COMPLETE** — re-opened in Batch 6b |
+> | DB — Database | 6 (3 listed in tier + 3 Postgres pages built in Batch 4) | 9 | 9 queued |
+> | DK — Docker | 9 | 5 | 5 queued |
+>
+> **Two counting traps, both fixed 2026-08-29** — do not reintroduce them:
+> 1. The per-page spec near the top of this section used `- [ ]` for standing requirements, adding five permanent false-opens to every count. Now plain bullets.
+> 2. The `- [ ]` items under **Canonical / no-duplicate rule** are *optimize-in-place* blog tasks, **not** new pages. A per-tier count that includes them makes complete Tier L look unfinished.
+>
+> **Open work after this audit:** 14 queued (DB 9 + DK 5) + 6 Batch 6a Kubernetes + 18 Batch 6b top-ups (23 planned, 5 built 2026-08-30 → 2026-09-17: 3 Python, 1 Node, 1 JSON) = **38 open**.
+
 **Goal:** the cluster is 74 pages but lopsided — JSON 16 / Python 15 / Node 15 are deep, six categories are thin. Bring **every** subcategory to **≥15** so each reads as an authoritative mini-hub. **62 net-new pages**, all deduped against the current 74. **No new subcategories** (all map to existing hub tags). **No new tools** (a DB Connection String Parser was considered and declined to keep scope on the pages).
 **Template:** best-fit per page and **deliberately mixed** within each category (~70/30, never monolithic — avoids a programmatic footprint). Fix-first playbook (`econnreset`, `gyp-err` refs) for ops/config; diagnosis page (`go-nil-pointer`, `ts2322` refs) for semantic/type. Keep the standing plumbing: exact string in H1+body, **Breadcrumb + Article + FAQPage** (no HowTo), FAQ↔FAQPage 1:1, VS Code highlighting.
 **Linking (HARD):** every `.tool-cta` = **All Error References** + a **relevant tool** + **HTTP Status Codes** (`../http-status.html`), plus a deep `../http-status/<code>.html` link (403/429/500/502/503) when a code is directly implicated. Docker/DB lean on the HTTP-status reference as their primary tie-in (no strong JSON-tool fit).
@@ -160,7 +186,7 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 
 > **Batch 2 progress (2026-07-05):** Built the next 10 pages — the deferred Tier R item (`process is not defined`) plus all 9 Tier N Network items. New word-count bar applied to this batch: every page exceeds 1300 words (range 1577–2139, verified via script), written with senior-engineer depth — deeper mechanism sections (webpack polyfill history, TLS trust-chain walk, TCP handshake/backlog internals, OS connectivity-state heuristics, CORS preflight semantics), more causes per page, richer comparison tables, and FAQs expanded to 6–7. Template mix: 6 fix-first playbooks (`referenceerror-process-is-not-defined`, `net-err-cert-authority-invalid`, `net-err-ssl-protocol-error`, `net-err-too-many-redirects`, `net-err-connection-timed-out`, `net-err-internet-disconnected`, `net-err-blocked-by-client` — 7 total) + 3 diagnosis pages (`cors-preflight-does-not-pass-access-control-check`, `cors-request-header-not-allowed-preflight`, `mixed-content-insecure-resource-blocked`). All 10 registered in `err-runtime`/`err-network` table rows + `#js-runtime-errors`/`#network-errors` static sections + `sitemap.xml` (lastmod 2026-07-05). **Runtime is now 15/15, Network is now 15/15.** No new subcategories, no new tools; every page's `.tool-cta` links Errors hub + a relevant tool + HTTP Status Codes.
 
-**Tier R — JS Runtime (`err-runtime`, 4→15, +11):**
+**Tier R — JS Runtime (`err-runtime`, 4→15, +11): ✅ Batch 5 COMPLETE (11/11, finished 2026-07-05) — re-opened in Batch 6b (+4)**
 - [x] `TypeError: Cannot read properties of undefined (reading 'X')` → `errors/cannot-read-properties-of-undefined.html` (built 2026-07-05; diagnosis; the *undefined* sibling of the existing *null* page, reciprocal link added to both)
 - [x] `Uncaught TypeError: X is not a function` → `errors/uncaught-typeerror-x-is-not-a-function.html` (built 2026-07-05; diagnosis; import/typo/shadowing causes)
 - [x] `Uncaught ReferenceError: X is not defined` → `errors/uncaught-referenceerror-x-is-not-defined.html` (built 2026-07-05; diagnosis; script-order, Node-globals-in-browser, module scope)
@@ -173,7 +199,7 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 - [x] `RangeError: Invalid array length` → `errors/rangeerror-invalid-array-length.html` (built 2026-07-05; diagnosis)
 - [x] `ReferenceError: process is not defined` → `errors/referenceerror-process-is-not-defined.html` (built 2026-07-05; **fix-first playbook**; Vite/webpack/CRA env-var shimming, webpack 4→5 polyfill-removal history; 1914 words)
 
-**Tier N — Network (`err-network`, 6→15, +9):**
+**Tier N — Network (`err-network`, 6→15, +9): ✅ Batch 5 COMPLETE (9/9, finished 2026-07-05) — re-opened in Batch 6b (+2)**
 - [x] `net::ERR_CERT_AUTHORITY_INVALID` (+ `CERT_COMMON_NAME_INVALID` variant) → `errors/net-err-cert-authority-invalid.html` (built 2026-07-05; **fix-first playbook**; mkcert, corporate TLS-inspecting proxies, missing intermediate cert, TLS trust-chain mechanism)
 - [x] `net::ERR_SSL_PROTOCOL_ERROR` → `errors/net-err-ssl-protocol-error.html` (built 2026-07-05; **fix-first playbook**; HTTP/HTTPS port confusion, wrong server constructor, legacy TLS versions; 1899 words)
 - [x] `net::ERR_TOO_MANY_REDIRECTS` → `errors/net-err-too-many-redirects.html` (built 2026-07-05; **fix-first playbook**; Cloudflare Flexible-SSL loop, cookie-state loop, auth middleware self-redirect, WordPress siteurl mismatch)
@@ -184,7 +210,7 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 - [x] `Request header field X is not allowed by Access-Control-Allow-Headers in preflight` → `errors/cors-request-header-not-allowed-preflight.html` (built 2026-07-05; diagnosis; missing allow-list entry, config drift, credentialed wildcard limits, conditional headers)
 - [x] `Mixed Content: … requested an insecure resource` (blocked) → `errors/mixed-content-insecure-resource-blocked.html` (built 2026-07-05; diagnosis; hardcoded HTTP URLs, stale CMS content, third-party embeds, CSP upgrade-insecure-requests)
 
-**Tier DB — Database (`err-db`, 3→15, +12; spread Postgres/MySQL/Mongo):**
+**Tier DB — Database (`err-db`, 3→15, +12; spread Postgres/MySQL/Mongo): 🔄 9 OPEN** — *header math is misleading: three Postgres pages (`too-many-clients`, `deadlock-detected`, `duplicate-key-unique-constraint`) were built in Batch 4 and are not listed in this tier, so real coverage is **6 built / 15 target**, not 3.*
 - [x] PG `relation "X" does not exist` — built 2026-08-26, diagnosis style with a 3-step triage SVG. Covers identifier case folding, search_path/`current_schemas(true)`, wrong database, migration bookkeeping tables, non-table relations (sequence/view/matview), temp tables under pooling, and the schema-`USAGE` case that produces this message instead of "permission denied". All error strings verified against PostgreSQL 16.15 in a container. ~1,900 words.
 - [ ] PG `column "X" does not exist`
 - [ ] PG `password authentication failed for user "X"`
@@ -198,7 +224,7 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 - [x] MongoDB `E11000 duplicate key error collection` → `mongodb-e11000-duplicate-key-error.html` (built 2026-08-01; **fix-first playbook**; fastest-fix upsert card, 30-sec triage table, `updateOne`/`findOneAndUpdate` upsert, catch `err.code === 11000`/`keyValue` → 409, the `{ field: null }` missing-field trap → partial index, stale-index inspect/drop `getIndexes`/`dropIndex`, compound-index tuple, Mongoose `unique:true` is an index not a validator; cross-links `postgres-duplicate-key-unique-constraint.html` both ways; ~1650 words)
 - [ ] Mongo `MongooseServerSelectionError` / `connect ECONNREFUSED`
 
-**Tier DK — Docker (`err-docker`, 2→15, +13):**
+**Tier DK — Docker (`err-docker`, 2→15, +13): 🔄 5 OPEN**
 - [x] `Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?` → `errors/docker-cannot-connect-to-daemon.html` (built 2026-07-13; diagnosis; daemon-not-started, wrong/stale context, stale DOCKER_HOST, WSL2 integration, permission-denied lookalike, CI DooD/DinD; 1594 words)
 - [x] `Container exited with code 137` (OOMKilled) → `errors/docker-container-exited-code-137-oomkilled.html` (built 2026-07-13; diagnosis; OOMKilled flag confirmation via `docker inspect`, container-vs-host scope, Java/Node heap sizing inside a cgroup limit, real-leak vs needs-more-memory, Kubernetes OOMKilled vs Evicted, non-memory 137 causes; 1641 words)
 - [x] `pull access denied for X, repository does not exist or may require 'docker login'` → `errors/docker-pull-access-denied.html` (built 2026-08-11; diagnosis + **SVG 4-branch decision tree**; leads on *why* the message is ambiguous — the registry returns an identical denial for a missing repo and a private one so private names can't be probed, which is a privacy guarantee rather than a vague error; causes: unqualified name silently expanding to `docker.io/library/<name>` (the official-images namespace), typo in name/tag, per-host credentials (a Hub login does nothing for `ghcr.io`) with a 5-registry login table incl. ECR/Artifact Registry, authenticated-but-unauthorized (token scopes, org membership, cloud IAM as a second gate), and CI-has-no-credentials; `docker logout` + re-pull as the public/private test; BuildKit + Compose message variants; 5-way lookalike table vs `manifest not found`, push-side `denied`, `unauthorized`, and `toomanyrequests`; ~1900 words)
@@ -214,7 +240,7 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 - [ ] `unauthorized: incorrect username or password` (docker login)
 - [ ] `dockerfile parse error` / `unknown instruction`
 
-**Tier TS — TypeScript (`err-ts`, 7→15, +8; → JSON-to-TS tool):**
+**Tier TS — TypeScript (`err-ts`, 7→15, +8; → JSON-to-TS tool): ✅ Batch 5 COMPLETE (8/8) — re-opened in Batch 6b (+2)**
 - [x] `TS2307: Cannot find module 'X' or its corresponding type declarations` → `errors/ts2307-cannot-find-module-or-type-declarations.html` (built 2026-07-13; diagnosis; missing install, missing @types/ambient declaration, wrong/case-mismatched path, unmirrored alias, moduleResolution vs package exports map, non-JS asset imports, monorepo build-order worked example; distinguished from TS7016; 1999 words)
 - [x] `TS2304: Cannot find name 'X'` → `errors/ts2304-cannot-find-name.html` (built 2026-07-14; diagnosis; missing import, Node globals/@types/node, DOM lib, typo/TS2552, test-runner globals; 1446 words)
 - [x] `TS7006: Parameter 'x' implicitly has an 'any' type` → `errors/ts7006-parameter-implicitly-has-an-any-type.html` (built 2026-07-14; diagnosis; noImplicitAny, annotate vs type-the-source, JSON.parse→any cascade → JSON-to-TS tie-in, event handlers, destructuring/TS7031, don't-disable-the-flag; 1366 words)
@@ -224,7 +250,7 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 - [x] `TS18048: 'X' is possibly 'undefined'` → `ts18048-value-possibly-undefined.html` (built 2026-08-01; diagnosis; source triage (optional prop / `find` / `Map.get` / `noUncheckedIndexedAccess` / env var), guard, `?? / ?.`, default-at-source, non-null `!` caveat; distinguished from TS2532 + null siblings TS18047/TS2531; → JSON to TypeScript; ~1500 words)
 - [x] `TS2571: Object is of type 'unknown'` → `ts2571-object-is-of-type-unknown.html` (built 2026-08-01; diagnosis; caught-error `instanceof` narrowing, type predicates, `asserts v is T` / Zod validation for JSON, specific-assertion-not-`any`; covers sibling TS18046; → JSON to TypeScript; ~1550 words)
 
-**Tier L — Go/Rust/Java (`err-lang`, 6→15→30, +9 then +15; 3→5→10 per language):**
+**Tier L — Go/Rust/Java (`err-lang`, 6→15→30, +9 then +15; 3→5→10 per language): ✅ Batch 5 COMPLETE (24/24) — re-opened in Batch 6b (+6)**
 - [x] Go `undefined: X` (compile) → `errors/go-undefined-x.html` (built 2026-07-09; diagnosis; typo/missing import/unexported identifier/build-tag exclusion)
 - [x] Go `imported and not used: "X"` → `errors/go-imported-and-not-used.html` (built 2026-07-09; diagnosis; blank-identifier side-effect imports, goimports)
 - [x] Go `cannot find module providing package X` → `errors/go-cannot-find-module-providing-package.html` (built 2026-07-09; diagnosis + SVG module-resolution-walk diagram; go.mod → cache → network)
@@ -271,12 +297,90 @@ Extends the cluster beyond JS/Python/JSON into the TypeScript compiler-error lay
 
 > **Already covered — do NOT rebuild in Batch 2:** `Unexpected end of JSON input` is handled by the Batch 1 consolidation task (`blog/json-unexpected-end-input.html` + `blog/fetch-unexpected-end-json-input.html`). Recreating it would violate the canonical one-page-per-intent rule.
 
+#### Batch 6a — NEW Tier K8: Kubernetes (0 → 6) — proposed 2026-08-29
+
+The natural continuation of the 10-page Docker tier: same readers, strong cross-linking, high volume, and it lines up with the deployment direction of `PHASE_8_PROPOSAL.md`. Currently **zero** coverage. **This is the first new subcategory since Batch 4** (Batch 5 deliberately added none).
+
+| # | Error string | Template | Why it earns a page |
+|---|---|---|---|
+| 1 | `CrashLoopBackOff` | Diagnosis | The flagship. Divergent causes — bad command, missing config, failing probe, OOM — that must be told apart before any fix |
+| 2 | `ImagePullBackOff` / `ErrImagePull` | Diagnosis | Covers the `InvalidImageName` and `ErrImageNeverPull` variants; private-registry auth vs typo vs wrong tag |
+| 3 | `CreateContainerConfigError` | Fix-first | Almost always a missing ConfigMap/Secret key — and the message never says *which* key |
+| 4 | `0/n nodes are available: insufficient cpu` | Message-anatomy | The scheduler's message *is* the diagnosis — decode requests vs limits vs allocatable |
+| 5 | `node(s) had untolerated taint` | Diagnosis | Scheduling failure with a different root cause than #4; control-plane taints, `NoSchedule`, node pressure |
+| 6 | `Readiness probe failed: HTTP probe failed with statuscode: 503` | Consequence | The probe reports a *downstream* failure. Deep-links `http-status/503.html` — an interlink no other tier can make |
+
+- [ ] K8 1 — `CrashLoopBackOff`
+- [ ] K8 2 — `ImagePullBackOff` / `ErrImagePull`
+- [ ] K8 3 — `CreateContainerConfigError`
+- [ ] K8 4 — `0/n nodes are available: insufficient cpu`
+- [ ] K8 5 — `node(s) had untolerated taint`
+- [ ] K8 6 — `Readiness probe failed: HTTP probe failed with statuscode: 503`
+
+**Deliberate exclusion — no Kubernetes OOMKilled page.** `errors/docker-container-exited-code-137-oomkilled.html` already owns exit 137 and would be cannibalised. Cover the K8s angle (container `limits`, `OOMKilled` in `kubectl describe`) as a *section inside* K8 1, cross-linking the Docker page.
+
+**One-time category setup (beyond `ERROR_PAGE_GUIDE.md` §6):** an `.err-k8s` tag colour + `body.dark-mode .err-k8s` override in the `errors.html` `<style>` (alongside `.err-docker`/`.err-kafka`), and a new `<h2 id="k8s-errors">Kubernetes Errors</h2>` static section mirroring `#docker-errors`. The hub filter is a free-text input, not per-category chips, so no filter wiring. Build all six together so this setup is amortised.
+
+#### Batch 6b — re-open the completed tiers, plus Python and Node (+23) — proposed 2026-08-29
+
+Four tiers hit their Batch 5 target and stopped. Python and Node have real depth but have not been extended since **Batch 4**. Every slug below was collision-checked against **both** `errors/` and `blog/` on 2026-08-29; all 23 are free.
+
+**Tier R — JS Runtime (21 → 25)**
+- [ ] `Script error.` — opaque cross-origin error with no line, file, or stack; fixed with `crossorigin` + CORS headers. Ties into the three existing CORS pages.
+- [ ] `Hydration failed because the initial UI does not match what was rendered on the server` — React 18 / Next.js. **Head term** — see the superseded-rule note in §1: requires the §10a incumbent-gap inventory before building.
+- [ ] `Uncaught TypeError: Illegal invocation` — native method called with a detached `this`; reads as nonsense until explained.
+- [ ] `ResizeObserver loop completed with undelivered notifications` — floods Sentry/LogRocket dashboards and is badly served everywhere; strongest differentiation pick in this tier.
+
+**Tier N — Network (12 → 14)**
+- [ ] `net::ERR_CERT_DATE_INVALID` — expired certificate; distinct cause from the built `ERR_CERT_AUTHORITY_INVALID`, and reliably seasonal.
+- [ ] `net::ERR_CONNECTION_RESET` — TCP reset; distinct from the built `ERR_CONNECTION_REFUSED` and `ERR_CONNECTION_TIMED_OUT`.
+
+**Tier TS — TypeScript (15 → 17)**
+- [ ] `TS2554: Expected N arguments, but got M` — one of the most-hit TS codes with no page yet.
+- [ ] `TS2564: Property 'x' has no initializer and is not definitely assigned in the constructor` — the `strictPropertyInitialization` gate; pairs with the built `TS18048`/`TS2532` strict-null cluster.
+
+**Tier L — Go/Rust/Java (31 → 37)** — *promotes four strings from the "Cut candidates" note above, now selected*
+- [ ] Go `fatal error: concurrent map writes` — a *runtime crash*, unlike most of the built Go set which is compile-time.
+- [ ] Go `assignment mismatch: N variables but f returns M values` — compile error, very common for Go beginners.
+- [ ] Rust `E0106: missing lifetime specifier` — highest-volume Rust error still missing; per-code page at `doc.rust-lang.org/error_codes/E0106.html` for References.
+- [ ] Rust `E0507: cannot move out of borrowed content` — completes the ownership set beside the built `E0382`/`E0499`/`E0502`.
+- [ ] Java `NoSuchMethodError` — classic dependency-hell error; distinct from the built `ClassNotFoundException`/`NoClassDefFoundError` and must cross-link it.
+- [ ] Java `ClassCastException` — high volume; pairs with the built generics/collection pages.
+
+**Python (15 → 19)** — first extension since Batch 4
+- [x] `ModuleNotFoundError: No module named 'X'` → `errors/modulenotfounderror-no-module-named.html` (built 2026-08-30; **diagnosis** + SVG 3-step triage tree). Gap-led per §10a/§10b: the top incumbent covers 4 shallow causes, while the Stack Exchange API showed the real demand is unanswered — `sklearn` at **1.07M views with no accepted answer** (import name != install name, now a 10-row table) and the Jupyter-kernel mismatch appearing 3× in the top 10. Also covers pip-vs-python interpreter mismatch (`python -m pip`), `sys.executable`/`sys.path` triage, local files shadowing the stdlib (incl. the `; 'X' is not a package` tell), and stdlib modules missing from a pyenv build (`_lzma`, `fcntl`). All output verified against CPython 3.14.6. ~2,400 words.
+- [x] `TypeError: unsupported operand type(s) for +: 'int' and 'str'` -> `errors/typeerror-unsupported-operand-type.html` (built 2026-09-08; **message-anatomy**). Scope widened from the planned narrow `+: int/str` after the Stack Exchange API showed the unanswered volume is in the *variants*: `-: 'str' and 'int'` at **666k views with no accepted answer**, `-: 'float' and 'NoneType'` at 200k, `+=: 'builtin_function_or_method'` at 145k (forgotten parens), `|: 'type' and 'NoneType'` at 127k (PEP 604 needs 3.10+). Page teaches the message as three variables (operator, left type, right type, in source order). **Key verified finding no incumbent covers:** operand order changes the error entirely -- `1 + '2'` gives this message but `'2' + 1` gives `can only concatenate str (not "int") to str`, because `str.__add__` handles it before the fallback. Also covers sum() over strings (the `int` in the message is sum's own start value), boundary conversion for input()/JSON/os.environ/CSV, and the non-erroring traps `1 * '2'` and `1 + True`. Verified on CPython 3.14.6. ~2,500 words. **Note for a future page:** `can only concatenate str (not "int") to str` is a distinct high-volume string, covered here only as the mirror case in the anatomy section -- a dedicated page must differentiate from that section, per the canonical rule.
+- [x] `ValueError: invalid literal for int() with base 10` -> `errors/valueerror-invalid-literal-for-int.html` (built 2026-09-11; **message-anatomy**). Gap-led: the top-ranked incumbent scored **0/10** on the checks and contains two factual errors this page corrects, both verified on 3.14.6 -- (a) it presents `.strip()` as required, but `int(' 42 ')` and `int('42
+')` already work; (b) it presents `isdigit()` as safe validation, but it is wrong in BOTH directions (`'-5'` -> False yet converts; `'2'` superscript -> True yet raises). Flagship is the empty-string form: SO's `invalid literal for int() with base 10: ''` has **4.25M views and no accepted answer**, so Fix 1 traces where blanks come from (`'1,2,,4'.split(',')`, trailing newline, `''.split(',')` returning `['']`). Also: the quoted value is a **repr** so the message already reveals hidden characters; NBSP is stripped but zero-width/BOM/RTL are fatal (verified individually); base arg incl. `int(s, 0)`; underscores legal per PEP 515. Differentiated from the Java sibling on the whitespace behaviour rather than mirroring its structure. ~2,500 words.
+- [ ] `ImportError: cannot import name 'X' from partially initialized module (most likely due to a circular import)` — the message names its own cause; a **message-anatomy** fit.
+
+**Node.js (14 → 18)** — first extension since Batch 4
+- [ ] `ERR_MODULE_NOT_FOUND` — the **ESM** counterpart to the built CJS `cannot-find-module`; extension-required resolution, no bare-path imports.
+- [ ] `ERR_REQUIRE_ESM` — the CJS→ESM migration wall; pairs with the built `cannot-use-import-statement-outside-a-module` and `require-is-not-defined-es-module-scope`.
+- [ ] `npm ERR! code ETARGET — No matching version found for X` — completes the npm set beside the built `EACCES` and `ERESOLVE`.
+- [x] `TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string` — the most-hit Node runtime type error. **BUILT 2026-09-17** → `errors/err-invalid-arg-type-path-must-be-string.html` (2,455 words, **message-anatomy** template). Spine is the three-slot breakdown — which argument / what it accepts / what it got — with the **four grammars of the `Received` clause** tabulated (`Received undefined`, `Received type number (42)`, `Received an instance of Object`, `Received function <name>`), the indexed `paths[0]` form that names *which* varargs segment failed, and the fs-vs-path accepted-type divergence. Differentiator: the **concatenation trap** — `dir + "/x"` stringifies `undefined`, so the type check passes and you get `ENOENT` on a path containing the literal word `undefined`. All output verified on **Node v24.15.0**; captured-output SVG at `errors/img/err-invalid-arg-type-path-must-be-string.svg`. Reciprocal inline links added from the *indexed* siblings `process-env-undefined` and `unhandled-promise-rejection`. **Correction caught during verification:** a first draft claimed functions print as `Received function function` — that was an artifact of a test fixture whose object key was named `function`; Node actually prints `Received function <fn.name>`.
+
+**JSON moat (+1)**
+- [x] Python `json.decoder.JSONDecodeError: Expecting ',' delimiter` -> `errors/jsondecodeerror-expecting-delimiter.html` (built 2026-09-01; **message-anatomy**). Completes the JSONDecodeError family. Gap-led per SS10a/10b: the top incumbent covers surface syntax only and misses the central insight -- **the reported position is where the parser gave up, not where the mistake is** (verified: a comma missing on line 2 reports as line 3). Built around a verified table of **8 distinct inputs that all produce this one message** (missing comma, unescaped quote, leading zero, zero-padded port, hex literal, comment, truncated input), plus `e.doc`/`e.pos` slicing. **Corrects a widespread error in other guides:** a trailing comma does NOT produce this message on modern CPython -- it raises `Illegal trailing comma before end of object`. Also documents that Python accepts `NaN`/`Infinity` by default. All verified on CPython 3.14.6. ~2,300 words.
+
+**Build order (29 pages ≈ four sittings, in the established batches of 8–10):**
+1. **Python + Node (8)** — highest volume, both stale since Batch 4, no new tag/CSS work.
+2. **Kubernetes (6)** — one-time category setup lands here; build all six together.
+3. **JS Runtime + Network (6)** — `Script error.` and `ERR_CERT_DATE_INVALID` first; both cross-link existing CORS/TLS pages.
+4. **Go/Rust/Java + TypeScript + JSON (9)** — the compile-error tail, lowest urgency.
+
+**Rejected during the 2026-08-29 collision check (do not re-propose):** `Converting circular structure to JSON` → owned by `blog/json-circular-reference.html`, moved to the optimize-in-place list below. `Cannot use import statement outside a module` → already built at `errors/cannot-use-import-statement-outside-a-module.html` (tagged Node.js, which is why a JavaScript-tag search missed it).
+
 #### Canonical / no-duplicate rule (HARD) — verified against the actual `/blog/`
 Each error intent = **exactly one** page. Do **not** create competing `/errors/` pages for strings already covered.
-- [ ] `Unexpected token < in JSON at position 0` (the "API returned HTML" flagship) → **optimize existing** `blog/json-unexpected-token.html` to own this exact string; `blog/json-parse-unexpected-token-o.html` keeps the distinct `o` variant. No new page.
-- [ ] `Unexpected end of JSON input` → **existing duplicate to consolidate:** both `blog/json-unexpected-end-input.html` and `blog/fetch-unexpected-end-json-input.html` target this. Pick one canonical, point the other at it (canonical tag). **Fix before adding anything.**
-- [ ] Optimize-in-place + link from `errors.html` hub (don't recreate): `blog/json-missing-comma.html`, `blog/json-trailing-comma.html`, `blog/json-single-quotes.html`, `blog/json-comments-not-allowed.html`, `blog/json-nan-infinity.html`, `blog/json-parse-error-handling.html`, `blog/json-parse-returns-string-not-object.html`.
-- [ ] Cross-link existing error hubs `blog/common-json-errors.html` + `blog/10-json-errors.html` ↔ new `errors.html`.
+
+> ⚠️ **These are `optimize-in-place` blog tasks, NOT new pages.** Do not count them in any tier or `/errors/` page tally — doing so previously made the complete Tier L read as unfinished. They remain open because they are still real work.
+
+- [ ] *(optimize-in-place)* `Unexpected token < in JSON at position 0` (the "API returned HTML" flagship) → **optimize existing** `blog/json-unexpected-token.html` to own this exact string; `blog/json-parse-unexpected-token-o.html` keeps the distinct `o` variant. No new page.
+- [ ] *(optimize-in-place)* `Unexpected end of JSON input` → **existing duplicate to consolidate:** both `blog/json-unexpected-end-input.html` and `blog/fetch-unexpected-end-json-input.html` target this. Pick one canonical, point the other at it (canonical tag). **Fix before adding anything.**
+- [ ] *(optimize-in-place)* Optimize + link from `errors.html` hub (don't recreate): `blog/json-missing-comma.html`, `blog/json-trailing-comma.html`, `blog/json-single-quotes.html`, `blog/json-comments-not-allowed.html`, `blog/json-nan-infinity.html`, `blog/json-parse-error-handling.html`, `blog/json-parse-returns-string-not-object.html`.
+- [ ] *(optimize-in-place)* Cross-link existing error hubs `blog/common-json-errors.html` + `blog/10-json-errors.html` ↔ new `errors.html`.
+- [ ] *(optimize-in-place, added 2026-08-29)* `TypeError: Converting circular structure to JSON` → **optimize existing** `blog/json-circular-reference.html`. Rejected as a Batch 6b page during the collision check; it already has an owner.
 
 > The JSON-parse layer is mostly **optimize + consolidate existing posts**; Batch 1 net-new building is the **non-JSON** strings (CORS, network, Python, Node/npm) with no page yet.
 
