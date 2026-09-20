@@ -6,11 +6,13 @@ tooling scripts to jsondevtools.org. This script copies only what the site
 serves, then fails the build if:
 
   1. a sitemap URL has no file in _site/          (something real was dropped)
-  2. an internal href/src in _site/ points nowhere (a broken internal link)
+  2. an internal href/src in _site/ points nowhere (a broken internal link),
+     or a page carries malformed / unparseable JSON-LD
   3. a non-web or hidden file made it into _site/ (the allowlist leaked)
 
 Run locally before pushing:  python scripts/build_site.py
 """
+import json
 import os
 import re
 import shutil
@@ -36,6 +38,7 @@ SITE_DIRS = {
     'js': {'.js'},
 }
 KNOWN_SOURCES = {'.mjs', '.md'}         # js/cm6-entry.mjs is the bundle's source; skipped silently
+DEV_ONLY = {'js/ad-tests.js', 'js/tests.js'}   # console test harnesses, never published
 
 # Anything matching these must never be published.
 FORBIDDEN_EXT = {'.md', '.py', '.pdf', '.sh', '.db', '.sqlite', '.mjs', '.wsuo', '.vsidx', '.yml'}
@@ -71,6 +74,8 @@ def build():
             for f in files:
                 src = os.path.join(dirpath, f)
                 ext = os.path.splitext(f)[1].lower()
+                if src.replace(os.sep, '/') in DEV_ONLY:
+                    continue
                 if f.startswith('.') or ext not in allowed:
                     if ext not in KNOWN_SOURCES:
                         skipped.append(src)
@@ -101,6 +106,16 @@ def check():
                 continue
             page = os.path.join(dirpath, f)
             html = open(page, encoding='utf-8').read()
+            # structured data must be a well-formed ld+json tag with parseable JSON;
+            # a malformed tag (e.g. curly quotes) silently drops the schema
+            for m in re.finditer(r'<script([^>]*ld\+json[^>]*)>(.*?)</script>', html, flags=re.S | re.I):
+                if not re.search(r'type="application/ld\+json"', m.group(1)):
+                    problems.append(f'malformed JSON-LD script tag: {os.path.relpath(page, OUT)}')
+                    continue
+                try:
+                    json.loads(m.group(2))
+                except ValueError as e:
+                    problems.append(f'invalid JSON-LD: {os.path.relpath(page, OUT)} ({e})')
             # code samples and scripts contain example markup, not real links
             html = re.sub(r'<(pre|script|style)\b.*?</\1>', '', html, flags=re.S | re.I)
             for ref in re.findall(r'\b(?:href|src)="([^"]+)"', html):

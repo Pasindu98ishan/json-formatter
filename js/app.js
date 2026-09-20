@@ -310,8 +310,16 @@ function handleClear() {
     treeViewer.clear();
 }
 
+// Shared JSON travels in the URL fragment (#j=...). A fragment is never sent to a
+// server and analytics.js never reports it, so a pasted payload stays in the
+// browser. Legacy ?j= links (query string) are still read, then stripped.
+function getSharedPayload() {
+    if (location.hash.indexOf('#j=') === 0) return location.hash.slice(3);
+    return new URLSearchParams(location.search).get('j');
+}
+
 function restoreFormatterInput() {
-    if (new URLSearchParams(location.search).get('j')) return;
+    if (getSharedPayload()) return;
     const saved = localStorage.getItem('formatterInput');
     if (saved) document.getElementById('inputJSON').value = saved;
 }
@@ -370,7 +378,7 @@ function handleShare() {
     }
 
     const compressed = LZString.compressToEncodedURIComponent(text);
-    const url = location.origin + location.pathname + '?j=' + compressed;
+    const url = location.origin + location.pathname + '#j=' + compressed;
     const shareUrlInput = document.getElementById('shareUrl');
     const shareContainer = document.getElementById('shareContainer');
     shareUrlInput.value = url;
@@ -380,9 +388,15 @@ function handleShare() {
 }
 
 function loadSharedJSON() {
-    const params = new URLSearchParams(location.search);
-    const compressed = params.get('j');
+    const compressed = getSharedPayload();
     if (!compressed) return;
+    // Legacy link: drop the payload from the address bar (history, bookmarks, referrers).
+    if (new URLSearchParams(location.search).has('j')) {
+        const rest = new URLSearchParams(location.search);
+        rest.delete('j');
+        const qs = rest.toString();
+        history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    }
     try {
         if (typeof LZString === 'undefined') return;
         const json = LZString.decompressFromEncodedURIComponent(compressed);
