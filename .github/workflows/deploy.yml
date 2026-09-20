@@ -30,10 +30,17 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      # Publish an allowlisted _site/ instead of the repo root. Uploading '.'
+      # exposed .vs/ IDE databases, internal *.md planning docs and a PDF
+      # report on jsondevtools.org. The script also fails the deploy if a
+      # sitemap URL goes missing or an internal link breaks.
+      - name: Build publishable site
+        run: python3 scripts/build_site.py
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
 
       - name: Deploy to GitHub Pages
         id: deployment
