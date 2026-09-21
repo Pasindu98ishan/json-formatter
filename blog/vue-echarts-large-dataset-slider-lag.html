@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="My Vue + ECharts chart froze when I picked a large time window on the slider. How Vue's reactive proxies caused it, and how markRaw and toRaw fixed it.">
+    <meta name="keywords" content="vue echarts slow, vue echarts large data, echarts slider lag, vue markRaw, vue toRaw, vue reactivity performance, echarts dataset vue">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/blog/vue-echarts-large-dataset-slider-lag.html">
+    <meta property="og:title" content="Vue + ECharts Slider Lag on Large Data: How markRaw Fixed It">
+    <meta property="og:description" content="A chart that froze whenever a large time window was selected, the Vue reactivity cost behind it, and the markRaw / toRaw fix, with before-and-after numbers from a reproduction.">
+    <meta property="og:url" content="https://jsondevtools.org/blog/vue-echarts-large-dataset-slider-lag.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/og-image.png">
+    <title>Vue + ECharts Lag on Large Data: markRaw Fix | JSON Dev Tools Blog</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <style>
+        /* Inline SVG figures on this page (theme-aware) */
+        .vx-figure { margin: 28px 0; }
+        .vx-figure svg { width: 100%; height: auto; display: block; font-family: inherit; }
+        .vx-figure figcaption { font-size: 14px; color: #555; margin-top: 8px; text-align: center; }
+        .vx-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+        .vx-ink { fill: #1a1a1a; }
+        .vx-muted { fill: #5f6368; }
+        .vx-grid { stroke: #e3e5e8; }
+        .vx-axis { stroke: #9aa0a6; }
+        .vx-box { fill: #f5f7fa; stroke: #c4cad2; }
+        .vx-hot { fill: #fff1ea; stroke: #eb6834; }
+        .vx-arrow { stroke: #9aa0a6; fill: none; }
+        .vx-arrow-head { fill: #9aa0a6; }
+        .vx-before { stroke: #2a78d6; fill: #2a78d6; }
+        .vx-after { stroke: #eb6834; fill: #eb6834; }
+        .vx-ring { stroke: #ffffff; }
+        body.dark-mode .vx-figure figcaption { color: #aaa; }
+        body.dark-mode .vx-ink { fill: #f1f1f1; }
+        body.dark-mode .vx-muted { fill: #b0b4b9; }
+        body.dark-mode .vx-grid { stroke: #3a3a3a; }
+        body.dark-mode .vx-box { fill: #262626; stroke: #4a4a4a; }
+        body.dark-mode .vx-hot { fill: #3a2418; stroke: #d95926; }
+        body.dark-mode .vx-before { stroke: #3987e5; fill: #3987e5; }
+        body.dark-mode .vx-after { stroke: #d95926; fill: #d95926; }
+        body.dark-mode .vx-ring { stroke: #1a1a1a; }
+        .vx-line { fill: none !important; }
+        .vx-pt:hover circle { r: 7; }
+    </style>
+    <script src="/js/analytics.js"></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://jsondevtools.org/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Vue + ECharts Slider Lag", "item": "https://jsondevtools.org/blog/vue-echarts-large-dataset-slider-lag.html" }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Vue + ECharts Slider Lag on Large Data: How markRaw Fixed It",
+      "description": "A Vue Options API chart froze whenever a large time window was selected. Why Vue's deep reactivity caused it, and the markRaw and toRaw fix that removed it.",
+      "image": "https://jsondevtools.org/images/vue-echarts-repro-chart.png",
+      "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+      "datePublished": "2026-09-21",
+      "dateModified": "2026-09-21",
+      "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why is my Vue ECharts chart slow with large data?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A common cause is that the dataset, the chart option object or the ECharts instance is inside Vue's reactive state (data() in the Options API, or ref/reactive in the Composition API). Vue wraps it in Proxies, so every time ECharts reads the data during setOption, each property read goes through a Proxy get trap and dependency tracking. With tens of thousands of rows that overhead can be larger than the chart rendering itself." }
+        },
+        {
+          "@type": "Question",
+          "name": "What does markRaw do in Vue 3?",
+          "acceptedAnswer": { "@type": "Answer", "text": "markRaw marks an object so Vue never converts it into a reactive Proxy, even when it is placed inside reactive state. Reads are plain JavaScript property reads with no tracking. The trade-off is that mutating a markRaw object does not update the UI; to change it, replace the reference." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between markRaw and toRaw?",
+          "acceptedAnswer": { "@type": "Answer", "text": "markRaw is applied to a plain object before it enters reactive state and stops Vue from ever proxying it. toRaw takes an existing Vue proxy and returns the original object behind it, so you can read it without proxy overhead. markRaw changes how Vue treats the object from then on; toRaw is a one-off unwrap." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I put the ECharts instance in data()?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Only if the template needs it, and then wrap it with markRaw so Vue stores it as-is. The Vue docs list complex third-party class instances as values that should not be made reactive. If the template does not need the instance, keep it off the reactive state entirely." }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+    <noscript><nav class="noscript-nav" aria-label="Primary site navigation"><a href="/">Home</a> <a href="/formatter.html">JSON Formatter</a> <a href="/json-tools.html">All JSON Tools</a> <a href="/errors.html">Error Reference</a> <a href="/http-status.html">HTTP Status Codes</a> <a href="/blog/">Blog</a> <a href="/about.html">About</a> <a href="/contact.html">Contact</a></nav></noscript>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="./">Blog</a> &rsaquo;
+                <span>Vue + ECharts Slider Lag</span>
+            </nav>
+            <h1>Vue + ECharts Slider Lag on Large Data: How markRaw Fixed It</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Senior Software Engineer, Data Streaming</div>
+            <div class="article-meta">Published September 2026 &middot; 13 min read</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <p class="article-lede">The chart was fine as long as you looked at a short time range. Pick a bigger window on the slider and the API sent back a lot more data, around 2.4 MB of JSON for a large window, and the whole page started to stutter. My first instinct was that my own code was too slow, so I optimized it. That helped a little. The real problem turned out to be that I had handed Vue that 2.4 MB object and asked it to watch every property. This is what happened, why, and the small change that fixed it.</p>
+
+            <h2>The setup</h2>
+            <p>This was a dashboard at work, so I can't show the real code. What follows is a trimmed version with the same structure and generic names. It was a Vue component written with the Options API: a parent that loads the data for the selected time window, and a child that draws the chart. There were two sliders. A range slider in the UI picked the time window, and each change fetched the rows for that window from the API. ECharts' own <code>dataZoom</code> slider sat along the bottom of the chart for zooming inside the data that was already loaded. The child also rendered a <code>ChartLegend</code> component that needed the chart instance so it could toggle series.</p>
+
+            <figure class="vx-figure">
+                <img src="../images/vue-echarts-repro-chart.png" width="928" height="445" loading="lazy" alt="A Vue page with a time-window range slider above an ECharts line chart of three series (a, b and c), a dataZoom slider under the chart, and a row of legend toggle buttons below it.">
+                <figcaption>The same layout rebuilt as a standalone reproduction (the real dashboard can't be shown): a time-window slider on top, three line series, ECharts' dataZoom slider underneath and the legend buttons below.</figcaption>
+            </figure>
+
+            <p>Here is the child as I first wrote it, trimmed to the parts that matter:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// TrendChart.vue (before)
+export default {
+  components: { ChartLegend },
+  props: { chartData: { type: Array, required: true } },
+
+  data() {
+    return {
+      chart: null,                       // ECharts instance
+      options: {                         // full chart option
+        dataset: { source: this.chartData },
+        xAxis: { type: 'time' },
+        yAxis: { type: 'value' },
+        series: [ /* line series using encode: { x: 0, y: n } */ ],
+        dataZoom: [{ type: 'slider' }, { type: 'inside' }]
+      }
+    };
+  },
+
+  watch: {
+    chartData(rows) {                    // a new time window arrived
+      this.options.dataset.source = rows;
+      this.chart.setOption(this.options);
+    }
+  },
+
+  mounted() {
+    this.chart = echarts.init(this.$refs.chart);
+    this.chart.setOption(this.options);
+  }
+};
+
+// template: &lt;ChartLegend :chart-instance="chart" /&gt;</code></pre>
+            </div>
+            <p>And the parent, which loads a new window every time the range slider changes:</p>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// Parent (before)
+data() {
+  return { chartData: [] };
+},
+methods: {
+  async onWindowChange(range) {
+    this.chartData = await loadSeries(range);   // up to ~2.4 MB of rows
+  }
+}</code></pre>
+            </div>
+            <p>This looks like idiomatic Vue. Everything the component uses is declared in <code>data()</code>, which is exactly what the docs tell you to do for state. That turned out to be the problem.</p>
+
+            <h2>What I tried first: optimizing my own code</h2>
+            <p>Because the lag only showed up with big windows, I assumed my data handling was the slow part, and I refactored it. I cut down the loops and the <code>filter</code> passes the component made over the rows before they reached the chart. It was a reasonable thing to do, and it did help a bit. But the lag on large windows was still there, and it still grew with the size of the window.</p>
+            <p>In hindsight, that was the clue. I had removed work from <em>my</em> code, but the cost that scaled with the data wasn't in my code. It was in what Vue was doing every time anything read those rows.</p>
+            <p>If you are about to chart a payload this size, look at its shape first. Paste a sample into the <a href="../json-viewer.html">JSON Viewer</a> to see how deep the rows go, or into the <a href="../formatter.html">JSON Formatter</a> to read it. How many objects and arrays are nested inside each row is exactly what decides how much work Vue's reactivity will do, as the next section shows.</p>
+
+            <h2>What "reactive" actually means in Vue 3</h2>
+            <p>I knew Vue was "reactive", but I had never thought about what that costs. Here is the model that made the bug obvious once I had it.</p>
+            <p>When <code>data()</code> returns an object, Vue does not keep that object as it is. It wraps it in a JavaScript <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy" target="_blank" rel="noopener">Proxy</a>. A Proxy is a stand-in object that lets Vue run its own code on every operation:</p>
+            <ul>
+                <li><strong>get trap:</strong> every time something reads a property, Vue calls <code>track()</code> to record "the currently running effect depends on this property". That is how Vue knows which component to re-render later.</li>
+                <li><strong>set trap:</strong> every time something writes a property, Vue calls <code>trigger()</code> to re-run everything that depended on it.</li>
+            </ul>
+            <p>Reactivity is also <strong>deep</strong>. Nested objects are not converted up front. They are wrapped in their own <code>reactive()</code> proxy the moment they are <em>accessed</em>. So <code>this.options.dataset.source[5000][1]</code> means: a proxied <code>options</code>, returning a proxied <code>dataset</code>, returning a proxied <code>source</code> array, returning a proxied row, and finally a number, with a get trap and a <code>track()</code> call at every step.</p>
+            <p>For a form with ten fields, that cost is invisible. Now think about what ECharts does in <code>setOption</code>: it walks the dataset, reading every row and every value, to build its internal storage. With my data sitting inside <code>data()</code>, every one of those reads went through the Proxy machinery. The bigger the window, the more rows, and the more trap calls:</p>
+
+            <figure class="vx-figure">
+                <svg viewBox="0 0 640 470" role="img" aria-label="Flow of one time-window change before the fix. The user picks a large time window on the slider. The API returns about 73,000 rows, 2.4 MB. The rows are stored in data(), so Vue wraps them in a Proxy. ECharts setOption then reads every row and every value through the Proxy: each read runs the get trap, calls track(), and wraps the nested row in reactive(). The frame is painted hundreds of milliseconds later.">
+                    <defs>
+                        <marker id="vxArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                            <path class="vx-arrow-head" d="M0,0 L10,5 L0,10 z"/>
+                        </marker>
+                    </defs>
+                    <rect class="vx-box" x="80" y="10" width="480" height="50" rx="8" stroke-width="1.4"/>
+                    <text class="vx-ink" x="320" y="41" text-anchor="middle" font-size="16" font-weight="700">User picks a large time window</text>
+                    <line class="vx-arrow" x1="320" y1="60" x2="320" y2="84" stroke-width="1.6" marker-end="url(#vxArrow)"/>
+
+                    <rect class="vx-box" x="80" y="86" width="480" height="50" rx="8" stroke-width="1.4"/>
+                    <text class="vx-ink" x="320" y="117" text-anchor="middle" font-size="16" font-weight="700">API returns ~73,000 rows (2.4 MB)</text>
+                    <line class="vx-arrow" x1="320" y1="136" x2="320" y2="160" stroke-width="1.6" marker-end="url(#vxArrow)"/>
+
+                    <rect class="vx-box" x="80" y="162" width="480" height="62" rx="8" stroke-width="1.4"/>
+                    <text class="vx-ink" x="320" y="188" text-anchor="middle" font-size="16" font-weight="700">Rows land in data()</text>
+                    <text class="vx-muted" x="320" y="210" text-anchor="middle" font-size="13.5">Vue wraps them in a reactive Proxy</text>
+                    <line class="vx-arrow" x1="320" y1="224" x2="320" y2="248" stroke-width="1.6" marker-end="url(#vxArrow)"/>
+
+                    <rect class="vx-hot" x="40" y="250" width="560" height="130" rx="8" stroke-width="1.8"/>
+                    <text class="vx-ink" x="320" y="278" text-anchor="middle" font-size="16" font-weight="700">chart.setOption(): ECharts reads the whole dataset</text>
+                    <text class="vx-muted" x="320" y="304" text-anchor="middle" font-size="13.5">for each of ~73,000 rows:</text>
+                    <text class="vx-ink" x="320" y="328" text-anchor="middle" font-size="14" font-family="Consolas, Menlo, monospace">get trap &#8594; track() &#8594; reactive(row)</text>
+                    <text class="vx-muted" x="320" y="350" text-anchor="middle" font-size="13.5">for each value in the row:</text>
+                    <text class="vx-ink" x="320" y="370" text-anchor="middle" font-size="14" font-family="Consolas, Menlo, monospace">get trap &#8594; track()</text>
+                    <line class="vx-arrow" x1="320" y1="380" x2="320" y2="404" stroke-width="1.6" marker-end="url(#vxArrow)"/>
+
+                    <rect class="vx-box" x="80" y="406" width="480" height="50" rx="8" stroke-width="1.4"/>
+                    <text class="vx-ink" x="320" y="437" text-anchor="middle" font-size="16" font-weight="700">Frame painted ~330 ms later</text>
+                </svg>
+                <figcaption>One time-window change before the fix. The highlighted step is where the time went, and it grows with every extra row in the window.</figcaption>
+            </figure>
+
+            <p>The chart instance had the same problem in a different form. <code>this.chart = echarts.init(...)</code> stores the instance in reactive state, and when you read it back through <code>this.chart</code> you get a Proxy of ECharts' whole internal object graph. Calling <code>this.chart.setOption()</code> runs ECharts' own code with <code>this</code> bound to that Proxy. The Vue docs are direct about this: in the <a href="https://vuejs.org/api/reactivity-advanced.html#markraw" target="_blank" rel="noopener"><code>markRaw</code> section</a> they list "a complex 3rd party class instance" as something that simply should not be made reactive.</p>
+
+            <h2>Seeing it in a profile</h2>
+            <p>I can't publish profiles from the real dashboard, so to write this post with honest numbers I rebuilt the problem as a small standalone page (shown in the screenshot above). It uses Vue 3.5 with the Options API, ECharts 6.1, and a generated dataset of about 73,000 rows (<code>[timestamp, a, b, c]</code>, three line series), which is 2.4 MB as JSON. It has the same parent/child split, the same <code>ChartLegend</code> prop and the same <code>dataset.source</code> wiring. A CPU profile of ten updates in the "before" version shows where the time goes:</p>
+            <ul>
+                <li>About <strong>1.7 seconds</strong> of self time inside Vue itself, and 1.25 seconds of that in one function: the reactive <code>get</code> trap. <code>createReactiveObject</code> (wrapping rows as they are accessed) and <code>track</code> show up right behind it.</li>
+                <li>ECharts' own time was <strong>3.4 times higher</strong> than in the fixed version (4.9 s vs 1.4 s), because every property it read was a Proxy read instead of a plain one.</li>
+                <li>Garbage collection time roughly <strong>doubled</strong>, from all the short-lived proxy bookkeeping.</li>
+            </ul>
+            <p>None of that time is in the component's own loops or filters, which is why refactoring them couldn't fix it. The profile used Vue's development build so the function names are readable, which makes the absolute times higher. The proportions are what matter. The timings in the results section come from the production build.</p>
+
+            <h2>The fix I shipped</h2>
+            <p>The fix was to take the data out of Vue's reactivity. I made four changes in total, and each one is there for a reason.</p>
+
+            <h3>1. markRaw the data where it enters Vue</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { markRaw } from 'vue';
+
+// Parent (after)
+data() {
+  return { chartData: [] };
+},
+methods: {
+  async onWindowChange(range) {
+    this.chartData = markRaw(await loadSeries(range));
+  }
+}</code></pre>
+            </div>
+            <p><a href="https://vuejs.org/api/reactivity-advanced.html#markraw" target="_blank" rel="noopener"><code>markRaw()</code></a> marks the object so Vue will <em>never</em> convert it into a Proxy, even when it sits inside reactive state. <code>chartData</code> is still a reactive <em>property</em>: assigning a new window's array still triggers the child's watcher. But the array itself, and every row in it, stays a plain JavaScript object, so ECharts reads it at full speed.</p>
+            <p>This is the change that matters most. The data goes through one component on its way to the chart, and marking it once, at the point where it enters Vue, keeps it raw everywhere downstream. It is also worth checking how big a large window's payload really is. Running a sample response through the <a href="../json-minifier.html">JSON Minifier</a> shows its minified size, and often shows fields the chart never uses that could stay on the server.</p>
+
+            <h3>2. Move the options out of data()</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>import { toRaw } from 'vue';
+
+// TrendChart.vue (after)
+data() {
+  return { chart: null };   // options no longer declared here
+},
+
+created() {
+  // plain field on the instance: not reactive, never proxied
+  this.options = {
+    dataset: { source: toRaw(this.chartData) },
+    xAxis: { type: 'time' },
+    yAxis: { type: 'value' },
+    series: [ /* ... */ ],
+    dataZoom: [{ type: 'slider' }, { type: 'inside' }]
+  };
+},
+
+watch: {
+  chartData(rows) {
+    this.options.dataset.source = toRaw(rows);
+    this.chart.setOption(this.options);
+  }
+}</code></pre>
+            </div>
+            <p>The option object is only ever handed to <code>setOption</code>. Nothing in the template renders it, so there is nothing for Vue to track. A property assigned to <code>this</code> in <code>created()</code> without being declared in <code>data()</code> is just a normal property on the instance. Vue does not proxy it.</p>
+            <p>I did not <code>markRaw</code> the options as well. Once they are out of <code>data()</code>, Vue never sees them, so there is nothing left to opt out of.</p>
+
+            <h3>3. Keep the chart instance in data(), but markRaw it</h3>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>mounted() {
+  this.chart = markRaw(echarts.init(this.$refs.chart));
+  this.chart.setOption(this.options);
+}
+
+// template (unchanged):
+// &lt;ChartLegend :chart-instance="chart" /&gt;</code></pre>
+            </div>
+            <p>This one is different from the options on purpose. The template passes the instance to <code>ChartLegend</code> through <code>:chart-instance</code>, so it needs to be something the template can reach, and Vue has to notice when it goes from <code>null</code> to a real chart after mount. Declaring <code>chart</code> in <code>data()</code> gives me that. Wrapping the value in <code>markRaw</code> means that when Vue stores it, it stores the real ECharts instance and not a Proxy of it. The property is reactive, but the object inside it is not.</p>
+
+            <h3>4. toRaw in the child as a safety net</h3>
+            <p>The <code>toRaw(...)</code> calls in step 2 are deliberate belt-and-braces. The parent already passes raw data, so today they do nothing. But the child cannot know that. If someone later reuses <code>TrendChart</code> from a parent that forgets <code>markRaw</code>, the prop arrives as a reactive Proxy and the lag comes back quietly.</p>
+            <p><a href="https://vuejs.org/api/reactivity-advanced.html#toraw" target="_blank" rel="noopener"><code>toRaw()</code></a> returns the original object behind a Vue proxy, or the object itself if it was never proxied. It is cheap, it does not copy anything, and it does not mark the object. It is a one-off unwrap, which is why it belongs at the boundary where data leaves Vue and goes into a library. The docs call it "an escape hatch" for reading "without incurring proxy access / tracking overhead", which is exactly this situation.</p>
+            <p>Note what I did <em>not</em> do: deep-copy the data. <code>JSON.parse(JSON.stringify(data))</code> or <code>structuredClone</code> would also give ECharts a plain object, but they allocate a second copy of a multi-megabyte structure on every window change. <code>toRaw</code> just hands over the object that already exists. (If you need a real copy for other reasons, the trade-offs between copying approaches are covered in <a href="json-circular-reference.html">JSON circular references and structuredClone</a>.)</p>
+
+            <h2>The results</h2>
+            <p>These numbers come from the reproduction, <strong>not from the real dashboard</strong>. The environment was Chrome 153 on Windows 11 (8 logical cores), with Vue 3.5.43 (production build) and ECharts 6.1.0. Each time is measured from the moment the new data (or new slider value) reaches Vue until the next frame is painted, which includes ECharts' <code>setOption</code>. The API response is parsed <em>before</em> the timer starts, so network and <code>JSON.parse</code> time are not counted.</p>
+            <p>First, how the time to show a new window grows with the window's size. Each point is the median of three runs of seven loads:</p>
+
+            <figure class="vx-figure">
+                <svg viewBox="0 0 640 330" role="img" aria-label="Line chart of the time to show a new time window versus the size of that window's data. Before the fix: 72 ms at 300 KB, 101 ms at 600 KB, 180 ms at 1.2 MB, 331 ms at 2.4 MB. After the fix: 32 ms, 43 ms, 64 ms and 127 ms for the same sizes.">
+                    <!-- legend -->
+                    <line class="vx-before" x1="60" y1="16" x2="84" y2="16" stroke-width="2"/>
+                    <circle class="vx-before" cx="72" cy="16" r="4"/>
+                    <text class="vx-ink" x="92" y="21" font-size="13.5">Before (data in data())</text>
+                    <line class="vx-after" x1="262" y1="16" x2="286" y2="16" stroke-width="2"/>
+                    <circle class="vx-after" cx="274" cy="16" r="4"/>
+                    <text class="vx-ink" x="294" y="21" font-size="13.5">After (markRaw / toRaw)</text>
+                    <!-- grid + y ticks (0-350 ms) -->
+                    <line class="vx-grid" x1="56" y1="197.1" x2="520" y2="197.1" stroke-width="1"/>
+                    <line class="vx-grid" x1="56" y1="134.3" x2="520" y2="134.3" stroke-width="1"/>
+                    <line class="vx-grid" x1="56" y1="71.4" x2="520" y2="71.4" stroke-width="1"/>
+                    <line class="vx-axis" x1="56" y1="260" x2="520" y2="260" stroke-width="1"/>
+                    <text class="vx-muted" x="48" y="264" text-anchor="end" font-size="12">0</text>
+                    <text class="vx-muted" x="48" y="201" text-anchor="end" font-size="12">100</text>
+                    <text class="vx-muted" x="48" y="138" text-anchor="end" font-size="12">200</text>
+                    <text class="vx-muted" x="48" y="75" text-anchor="end" font-size="12">300 ms</text>
+                    <!-- x labels -->
+                    <text class="vx-ink" x="80" y="280" text-anchor="middle" font-size="12.5">300 KB</text>
+                    <text class="vx-ink" x="227" y="280" text-anchor="middle" font-size="12.5">600 KB</text>
+                    <text class="vx-ink" x="373" y="280" text-anchor="middle" font-size="12.5">1.2 MB</text>
+                    <text class="vx-ink" x="520" y="280" text-anchor="middle" font-size="12.5">2.4 MB</text>
+                    <text class="vx-muted" x="80" y="296" text-anchor="middle" font-size="11.5">9.2k rows</text>
+                    <text class="vx-muted" x="227" y="296" text-anchor="middle" font-size="11.5">18.3k rows</text>
+                    <text class="vx-muted" x="373" y="296" text-anchor="middle" font-size="11.5">36.6k rows</text>
+                    <text class="vx-muted" x="520" y="296" text-anchor="middle" font-size="11.5">73.2k rows</text>
+                    <text class="vx-muted" x="300" y="322" text-anchor="middle" font-size="12">Size of the selected time window's data (each step doubles)</text>
+                    <!-- before series -->
+                    <polyline class="vx-before vx-line" points="80,214.7 227,196.5 373,146.9 520,51.9" fill="none" stroke-width="2" stroke-linejoin="round"/>
+                    <g class="vx-pt"><title>Before, 300 KB: 72 ms</title><circle class="vx-before vx-ring" cx="80" cy="214.7" r="5" stroke-width="2"/></g>
+                    <g class="vx-pt"><title>Before, 600 KB: 101 ms</title><circle class="vx-before vx-ring" cx="227" cy="196.5" r="5" stroke-width="2"/></g>
+                    <g class="vx-pt"><title>Before, 1.2 MB: 180 ms</title><circle class="vx-before vx-ring" cx="373" cy="146.9" r="5" stroke-width="2"/></g>
+                    <g class="vx-pt"><title>Before, 2.4 MB: 331 ms</title><circle class="vx-before vx-ring" cx="520" cy="51.9" r="5" stroke-width="2"/></g>
+                    <!-- after series -->
+                    <polyline class="vx-after vx-line" points="80,239.9 227,233.0 373,219.8 520,180.2" fill="none" stroke-width="2" stroke-linejoin="round"/>
+                    <g class="vx-pt"><title>After, 300 KB: 32 ms</title><circle class="vx-after vx-ring" cx="80" cy="239.9" r="5" stroke-width="2"/></g>
+                    <g class="vx-pt"><title>After, 600 KB: 43 ms</title><circle class="vx-after vx-ring" cx="227" cy="233.0" r="5" stroke-width="2"/></g>
+                    <g class="vx-pt"><title>After, 1.2 MB: 64 ms</title><circle class="vx-after vx-ring" cx="373" cy="219.8" r="5" stroke-width="2"/></g>
+                    <g class="vx-pt"><title>After, 2.4 MB: 127 ms</title><circle class="vx-after vx-ring" cx="520" cy="180.2" r="5" stroke-width="2"/></g>
+                    <!-- direct end labels -->
+                    <text class="vx-ink" x="532" y="56" font-size="13" font-weight="700">331 ms</text>
+                    <text class="vx-ink" x="532" y="185" font-size="13" font-weight="700">127 ms</text>
+                </svg>
+                <figcaption>Time to show a new time window, by the size of that window's data (reproduction, not the real dashboard). Hover a point for its value.</figcaption>
+            </figure>
+
+            <p>This matches what I saw at work: small windows felt fine, and the lag grew with the window. Before the fix, the cost climbs steeply with every extra row. After the fix it still grows, because ECharts has real work to do with more data, but at the largest window it is about 2.6 times lower.</p>
+            <p>Then the full 2.4 MB window, split by which change does the work (median of three runs):</p>
+            <div style="overflow-x:auto;">
+            <table>
+                <thead><tr><th>Version</th><th>New 2.4 MB window arrives</th><th>Range slider moved</th></tr></thead>
+                <tbody>
+                    <tr><td>Before (everything in <code>data()</code>)</td><td>408 ms</td><td>360 ms</td></tr>
+                    <tr><td>Only step 1 (<code>markRaw</code> in the parent)</td><td>117 ms</td><td>117 ms</td></tr>
+                    <tr><td>Full fix (steps 1&ndash;4)</td><td>131 ms</td><td>100 ms</td></tr>
+                </tbody>
+            </table>
+            </div>
+            <p>Two things stand out. First, the update got about <strong>three times faster</strong> with nothing about the chart changed: same data, same options, same ECharts version. Second, <code>markRaw</code> in the parent does almost all of the work on its own. The other three changes barely move the number in this test, and the small differences between the last two rows are within run-to-run noise. (This run was also a little faster overall than the single-window run behind the chart above, which is why the 2.4 MB "before" figures differ slightly.) I still keep the other changes, because they make the component safe on its own (the <code>toRaw</code> safety net) and stop Vue from proxying objects it never needs to watch (the options and the ECharts instance).</p>
+            <p>The 100&ndash;130 ms that remains is ECharts doing real work with 73,000 rows. Sending less data for large windows, or aggregating on the server, are the next levers. For me the reactivity fix was enough.</p>
+            <p>One more observation from the reproduction: dragging ECharts' built-in <code>dataZoom</code> slider was smooth in <em>both</em> versions (a steady 17 ms per frame, no long tasks). That drag only zooms inside data ECharts has already loaded, and it doesn't go back through the Vue component, so the proxies never come into it. The expensive path is the one where new data goes through Vue and into <code>setOption</code>, which is exactly what a large time window triggers.</p>
+            <p>To try this on your own machine, you need a dataset big enough to hurt. The <a href="../mock-data-generator.html">Mock Data Generator</a> can produce thousands of realistic rows as JSON in one go, which is much quicker than hand-writing a loop.</p>
+
+            <h2>Trade-offs to know about</h2>
+            <ul>
+                <li><strong>A markRaw object does not update the UI when you mutate it.</strong> <code>this.chartData.push(row)</code> changes the array, but nothing re-renders. To change the data, replace the whole reference: <code>this.chartData = markRaw(newRows)</code>. The property is still reactive, so the assignment triggers the update. For data that arrives as a whole new response per time window, this is what you want anyway.</li>
+                <li><strong>Don't mix the raw and proxied versions of the same object.</strong> The Vue docs call this an <a href="https://vuejs.org/api/reactivity-advanced.html#markraw" target="_blank" rel="noopener">identity hazard</a>: a raw object and its proxy are not <code>===</code>. If you <code>markRaw</code> a parent object but put one of its nested objects into reactive state separately, that nested object gets proxied.</li>
+                <li><strong><code>toRaw</code> is for reading, not for keeping.</strong> The docs recommend against holding a persistent reference to the raw object of something that <em>is</em> reactive, because writes through it bypass Vue and the UI will not update.</li>
+                <li><strong>This is a large-data fix, not a general rule.</strong> For normal component state, Vue's deep reactivity is the reason Vue is pleasant to use. Vue's own <a href="https://vuejs.org/guide/best-practices/performance.html#reduce-reactivity-overhead-for-large-immutable-structures" target="_blank" rel="noopener">performance guide</a> says the overhead "typically becomes noticeable when dealing with large arrays of deeply nested objects".</li>
+            </ul>
+
+            <h2>My checklist for large datasets in Vue charts</h2>
+            <ol>
+                <li><strong>Profile before you optimize your own loops.</strong> If the Performance panel shows Vue's <code>get</code> trap or <code>track</code> near the top, the fix is in how you store the data, not in your code or the chart options. I lost time learning this.</li>
+                <li><strong>Mark data raw where it enters Vue.</strong> <code>markRaw</code> in the component or store that receives the API response, once.</li>
+                <li><strong>Keep library instances non-reactive.</strong> If the template needs the instance (like my <code>ChartLegend</code>), declare the property in <code>data()</code> but store <code>markRaw(instance)</code>. If it doesn't, don't put it in <code>data()</code> at all.</li>
+                <li><strong>Keep chart options out of <code>data()</code>.</strong> They are input for a library, not UI state. A plain field set in <code>created()</code> is enough.</li>
+                <li><strong>Unwrap at the library boundary.</strong> <code>toRaw()</code> on anything you pass into ECharts, as a safety net.</li>
+            </ol>
+            <p>If you're on the Composition API, the same idea applies: <a href="https://vuejs.org/api/reactivity-advanced.html#shallowref" target="_blank" rel="noopener"><code>shallowRef</code></a> tracks only <code>.value</code> and leaves the contents alone, and <code>markRaw</code> / <code>toRaw</code> work the same way. The data-loading side is also a good place to add types. Paste one row of the response into <a href="../json-to-typescript.html">JSON to TypeScript</a> and you get an interface for the row shape, which fits naturally now that the rows are plain objects.</p>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>Why is my Vue ECharts chart slow with large data?</summary>
+                    <p>A common cause is that the dataset, the chart option object or the ECharts instance is inside Vue's reactive state (<code>data()</code> in the Options API, or <code>ref</code>/<code>reactive</code> in the Composition API). Vue wraps it in Proxies, so every time ECharts reads the data during <code>setOption</code>, each property read goes through a Proxy get trap and dependency tracking. With tens of thousands of rows that overhead can be larger than the chart rendering itself.</p>
+                </details>
+                <details>
+                    <summary>What does markRaw do in Vue 3?</summary>
+                    <p><code>markRaw</code> marks an object so Vue never converts it into a reactive Proxy, even when it is placed inside reactive state. Reads are plain JavaScript property reads with no tracking. The trade-off is that mutating a <code>markRaw</code> object does not update the UI; to change it, replace the reference.</p>
+                </details>
+                <details>
+                    <summary>What is the difference between markRaw and toRaw?</summary>
+                    <p><code>markRaw</code> is applied to a plain object before it enters reactive state and stops Vue from ever proxying it. <code>toRaw</code> takes an existing Vue proxy and returns the original object behind it, so you can read it without proxy overhead. <code>markRaw</code> changes how Vue treats the object from then on; <code>toRaw</code> is a one-off unwrap.</p>
+                </details>
+                <details>
+                    <summary>Should I put the ECharts instance in data()?</summary>
+                    <p>Only if the template needs it, and then wrap it with <code>markRaw</code> so Vue stores it as-is. The Vue docs list complex third-party class instances as values that should not be made reactive. If the template does not need the instance, keep it off the reactive state entirely.</p>
+                </details>
+            </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://vuejs.org/guide/extras/reactivity-in-depth.html#how-reactivity-works-in-vue" target="_blank" rel="noopener">How Reactivity Works in Vue</a> (Vue docs, Reactivity in Depth)</li>
+                <li><a href="https://vuejs.org/guide/essentials/reactivity-fundamentals.html#deep-reactivity" target="_blank" rel="noopener">Deep Reactivity</a> (Vue docs, Reactivity Fundamentals)</li>
+                <li><a href="https://vuejs.org/api/reactivity-advanced.html#markraw" target="_blank" rel="noopener">markRaw()</a>, <a href="https://vuejs.org/api/reactivity-advanced.html#toraw" target="_blank" rel="noopener">toRaw()</a> and <a href="https://vuejs.org/api/reactivity-advanced.html#shallowref" target="_blank" rel="noopener">shallowRef()</a> (Vue docs, Reactivity API: Advanced)</li>
+                <li><a href="https://vuejs.org/api/options-state.html#data" target="_blank" rel="noopener">data</a> (Vue docs, Options: State)</li>
+                <li><a href="https://vuejs.org/guide/best-practices/performance.html#reduce-reactivity-overhead-for-large-immutable-structures" target="_blank" rel="noopener">Reduce Reactivity Overhead for Large Immutable Structures</a> (Vue docs, Performance)</li>
+                <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy" target="_blank" rel="noopener">Proxy</a> (MDN)</li>
+                <li><a href="https://echarts.apache.org/en/option.html#dataset.source" target="_blank" rel="noopener">dataset.source</a> and <a href="https://echarts.apache.org/en/option.html#dataZoom-slider" target="_blank" rel="noopener">dataZoom-slider</a> (Apache ECharts option reference)</li>
+                <li><a href="https://echarts.apache.org/handbook/en/concepts/dataset/" target="_blank" rel="noopener">Dataset</a> (Apache ECharts handbook)</li>
+            </ul>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a Senior Software Engineer working on data streaming systems, where the data behind a dashboard is rarely small. Pasindu builds the free, in-browser tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Tools</h2>
+            <ul>
+                <li><a href="../json-viewer.html">JSON Viewer</a> &mdash; expand a large payload and check how deeply nested each row is</li>
+                <li><a href="../json-minifier.html">JSON Minifier</a> &mdash; see the real size of the payload your chart receives</li>
+                <li><a href="../mock-data-generator.html">Mock Data Generator</a> &mdash; generate thousands of rows to reproduce chart lag locally</li>
+                <li><a href="../json-to-typescript.html">JSON to TypeScript</a> &mdash; type your chart rows from one sample</li>
+            </ul>
+        </section>
+        <section class="related-articles">
+            <h2>Related Articles</h2>
+            <ul>
+                <li><a href="json-circular-reference.html">JSON Circular Reference Error &ndash; Cause and Fix</a></li>
+                <li><a href="how-to-read-nested-json.html">How to Read Nested JSON Data</a></li>
+                <li><a href="read-ugly-json-api-response.html">How to Read a Minified JSON API Response</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../privacy-policy.html">Privacy Policy</a> | <a href="../terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script src="../js/code-highlight.js"></script>
+    <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pre = btn.nextElementSibling;
+                var text = pre ? pre.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
