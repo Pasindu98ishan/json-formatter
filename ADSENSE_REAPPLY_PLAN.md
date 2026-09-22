@@ -83,15 +83,15 @@ Audits on 2026-09-20 (content, technical, and `docs/audits/adsense-content-audit
 - [x] Off-page track started: first external post drafted in `docs/off-page/post-1-share-link-leak.md` (about the share-link leak and its fix). **You** review, edit and publish it by Day 5.
 
 **Days 3–4 (Wed–Thu Sep 23–24): consent, Terms, error hub**
-- [ ] **You:** set up and publish a GDPR message in AdSense → Privacy & messaging (Funding Choices); verify availability on a not-yet-approved account, else another certified CMP
-- [ ] CMP snippet added site-wide via the shared nav/header script
-- [ ] GA4 gated by Consent Mode v2 (default denied for EEA/UK); `defer` on the analytics script tag
-- [ ] Terms rewritten in plain language to match the Privacy Policy
-- [ ] `errors.html`: count baked into static HTML; `build_site.py` check fails if it differs from the number of `errors/*.html`
-- [ ] `errors.html`: real "Last updated" date (same check) or removed
-- [ ] `errors.html`: "authoritative" dropped; "Most-referenced… this month" removed or relabelled as an editor's pick
-- [ ] `errors.html`: scope statement added
-- [ ] `errors/nonetype-not-subscriptable.html`, `nonetype-no-attribute.html`: formatter links point to `formatter.html`; rest of the site grepped for the same mismatch
+*Code-side work done 2026-09-22 (two days early). Nothing committed yet. **Not fully done:** the one item only you can do is still open — nothing shows to a visitor until you publish the message.*
+- [ ] **You:** set up and publish a GDPR message in AdSense → Privacy & messaging (Funding Choices); verify availability on a not-yet-approved account, else another certified CMP. Until this is published, `js/consent.js`'s default-denied state for EEA/UK just sits there with nothing to update it — safe (fails closed, no tracking), but not yet a working consent flow.
+- [x] CMP snippet added site-wide (294 pages, all but the two meta-refresh stubs): `js/consent.js` (Consent Mode v2 defaults — denied by default for the EEA/EFTA/UK/Switzerland, granted elsewhere, matching prior behavior), Google's Funding Choices message loader, and `js/fc-present.js` (Google's standard "CMP is present" signal). All three are Google's documented integration pieces, not invented.
+- [x] GA4 gated by Consent Mode v2 (default denied for EEA/UK via `js/consent.js`, read before GA4's config call); `defer` added to the `<script src="/js/analytics.js">` tag on all 294 pages
+- [x] Terms rewritten in plain language to match the Privacy Policy; same section content (personal+commercial use, copyright, no warranty, liability limits, links, governing law, your input, acceptable use, suspension, contact), dated September 22, 2026
+- [x] `errors.html`: count baked into static HTML as **147** (not 136 — the table also carries 11 legacy error posts still hosted under `blog/`, which the original plan text didn't account for; corrected here). `build_site.py` now fails if `#errCount` doesn't match the table's real `<tbody>` row count (tested: changing it to 99 correctly fails the build).
+- [x] `errors.html`: "Last updated" now reads September 2026 and `build_site.py` fails if it stops matching `errors.html`'s own `sitemap.xml` `lastmod` (tested: reverting the text to "June 2026" correctly fails the build). Whoever edits `errors.html` again must bump both together.
+- [x] `errors.html`: "authoritative" dropped; "Most-referenced fixes… this month" relabelled "Worth a look first" with no time-bound claim; added a scope paragraph explaining which categories are core/researched vs. closest to the author's own production work (Java/Kafka/Flink/PostgreSQL) vs. newer/documentation-based (Go/Rust) — consistent with `about.html`
+- [x] `errors/nonetype-not-subscriptable.html`, `nonetype-no-attribute.html`: the 4 "JSON Formatter" / "Open JSON Formatter" links pointed at `index.html`; fixed to `formatter.html`. Grepped the other ~230 "JSON Dev Tools" bio-link and 5 other tool names sitewide for the same href/text mismatch — none found; this was isolated to those two files.
 
 **Day 5 (Fri Sep 25): head hygiene**
 - [ ] `scripts/check-meta-description.js` extended to root and `http-status/`, and to titles
@@ -152,12 +152,12 @@ Audits on 2026-09-20 (content, technical, and `docs/audits/adsense-content-audit
 | Privacy meta description, GDPR section, real revision date | yes | none / none / application day |
 | About/Contact/Terms/Privacy contradictions | 0 | 5+ |
 | Byline and About reflect real role and stack | yes | "Software Developer" |
-| `errors.html` static count equals `errors/*.html`, real date, no unverifiable claims, scope statement | yes | "0", June 2026, 2 claims, none |
+| `errors.html` count matches its own table, real date matches its own sitemap entry, no unverifiable claims, scope statement | yes — **done 2026-09-22** | "0", June 2026, 2 claims, none |
 | Kafka/Postgres/Java/Docker pages with a first-hand section | at least 8 | 0 |
 | Invalid JSON-LD blocks | 0 (enforced by build) | 8 blocks in 4 files |
 | Meta descriptions over 160 chars | 0 | 137 |
 | Titles over 70 / over 60 | 0 / under 40 | 130 / 201 |
-| CMP live and GA4 consent-gated | yes | none |
+| CMP live and GA4 consent-gated | yes | site-side integration done 2026-09-22; **message not yet published (your step)** |
 | Ad loader on non-content pages | 0 | 2 |
 | Placeholder slot / test scripts published | 0 | 1 slot, 2 scripts |
 | Author bio verbatim duplicates | under 30 pages per variant | 242 pages, 2 variants |
@@ -182,6 +182,8 @@ Audits on 2026-09-20 (content, technical, and `docs/audits/adsense-content-audit
 | 2026-09-20 | Plan written and approved | Baselines above. |
 | 2026-09-20 | Day 1 changes (see checklist) | `python scripts/build_site.py` passes, 426 files. Share link verified in a browser: new links use `#j=`, a legacy `?j=&x=1` link loads the JSON and the address bar becomes `?x=1`, and the `gtag('config')` call carries no `j=` value or fragment. Not committed. |
 | 2026-09-21 | Day 2 changes (see checklist) | `python scripts/build_site.py` passes, 428 files (two new root pages). Not committed. **Do not deploy Day 2 on its own:** Privacy section 6 says analytics/advertising cookies are set only after consent in the EEA/UK/Switzerland, which is true only once the Day 3-4 consent message is live. |
+| 2026-09-21 | New first-hand post: `blog/vue-echarts-large-dataset-slider-lag.html` (counts toward the 1-2 pages/week) | Story from the author's real fix (Options API, 2.4 MB dataset, markRaw/toRaw). All numbers are from a local reproduction (Vue 3.5.43, ECharts 6.1.0) and labelled as such in the post. Added to blog index and sitemap. Not committed. |
+| 2026-09-22 | Days 3-4 code-side changes (see checklist), two days early | `python scripts/build_site.py` passes, 432 files. Not committed. **Still open:** publishing the GDPR message in the AdSense console — nothing the code does can substitute for that. Two new build-time checks added (errCount vs. table, "Last updated" vs. sitemap lastmod) and both verified to actually fail on injected drift, then reverted. |
 
 **Day 1 audit results**
 - Persisted user input: only the formatter's `formatterInput` (`js/app.js:107`, `js/codemirror-setup.js:137`). `jsonHistory` in `js/utils.js` is dead code: `js/app-enhanced.js` is not loaded by any page. Other localStorage keys are settings (dark mode, toggles, `pxRemBase`, quiz state) and the mock-data field model. The privacy text can therefore say "the formatter saves what you type in this browser".

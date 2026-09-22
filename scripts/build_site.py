@@ -9,6 +9,7 @@ serves, then fails the build if:
   2. an internal href/src in _site/ points nowhere (a broken internal link),
      or a page carries malformed / unparseable JSON-LD
   3. a non-web or hidden file made it into _site/ (the allowlist leaked)
+  4. errors.html's baked-in count or "Last updated" date drifts from reality
 
 Run locally before pushing:  python scripts/build_site.py
 """
@@ -132,6 +133,33 @@ def check():
                     resolved = os.path.join(resolved, 'index.html')
                 if not os.path.exists(resolved):
                     problems.append(f'broken link: {os.path.relpath(page, OUT)} -> {ref}')
+
+    # 3b. the error hub's "N errors documented" count and "Last updated" date
+    # are baked into the static HTML (so a crawler without JS sees them too,
+    # unlike the old #errCount that only JS filled in) — check they still
+    # match reality instead of drifting silently, the way the "0" and
+    # "Last updated: June 2026" version did.
+    hub = os.path.join(OUT, 'errors.html')
+    if os.path.isfile(hub):
+        html = open(hub, encoding='utf-8').read()
+        m = re.search(r'<table[^>]*id="errTable"[^>]*>.*?</table>', html, re.S)
+        real_count = len(re.findall(r'<tr\b', re.search(r'<tbody\b.*?</tbody>', m.group(0), re.S).group(0))) if m else None
+        baked = re.search(r'<strong id="errCount">(\d+)</strong>', html)
+        if real_count is None or not baked:
+            problems.append('errors.html: could not locate the error table or the #errCount value to check')
+        elif int(baked.group(1)) != real_count:
+            problems.append(f'errors.html: #errCount says {baked.group(1)} but the table has {real_count} rows')
+
+        dated = re.search(r'Last updated:\s*([A-Za-z]+)\s+(\d{4})', html)
+        sm = re.search(r'<loc>https://jsondevtools\.org/errors\.html</loc>\s*<lastmod>(\d{4})-(\d{2})-\d{2}</lastmod>', sitemap)
+        if not dated or not sm:
+            problems.append('errors.html: could not find both the "Last updated" text and its sitemap.xml lastmod to compare')
+        else:
+            import calendar
+            shown = (dated.group(1), dated.group(2))
+            actual = (calendar.month_name[int(sm.group(2))], sm.group(1))
+            if shown != actual:
+                problems.append(f'errors.html: "Last updated: {shown[0]} {shown[1]}" does not match sitemap.xml lastmod ({actual[0]} {actual[1]}) — update both together')
 
     # 3. nothing internal leaked through
     for dirpath, dirnames, files in os.walk(OUT):
