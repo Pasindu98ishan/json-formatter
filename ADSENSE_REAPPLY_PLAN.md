@@ -84,7 +84,7 @@ Audits on 2026-09-20 (content, technical, and `docs/audits/adsense-content-audit
 
 **Days 3–4 (Wed–Thu Sep 23–24): consent, Terms, error hub**
 *Code-side work done 2026-09-22 (two days early). Nothing committed yet. **Not fully done:** the one item only you can do is still open — nothing shows to a visitor until you publish the message.*
-- [ ] **You:** set up and publish a GDPR message in AdSense → Privacy & messaging (Funding Choices); verify availability on a not-yet-approved account, else another certified CMP. Until this is published, `js/consent.js`'s default-denied state for EEA/UK just sits there with nothing to update it — safe (fails closed, no tracking), but not yet a working consent flow.
+- [x] **You:** GDPR message created in AdSense → Privacy & messaging (2026-09-22; logo from `docs/brand/`, "Do not consent" on for EEA + UK + Switzerland). **It cannot serve until the site is approved**, so `?fc=alwaysshow&fctype=gdpr` shows nothing today; that is expected. Site code is live (commit `c9d159a`). Until approval, EEA/UK visitors stay at default-denied (no GA4 counting for them). Confirm the message status says **Published**, not Draft, and re-test the banner after approval.
 - [x] CMP snippet added site-wide (294 pages, all but the two meta-refresh stubs): `js/consent.js` (Consent Mode v2 defaults — denied by default for the EEA/EFTA/UK/Switzerland, granted elsewhere, matching prior behavior), Google's Funding Choices message loader, and `js/fc-present.js` (Google's standard "CMP is present" signal). All three are Google's documented integration pieces, not invented.
 - [x] GA4 gated by Consent Mode v2 (default denied for EEA/UK via `js/consent.js`, read before GA4's config call); `defer` added to the `<script src="/js/analytics.js">` tag on all 294 pages
 - [x] Terms rewritten in plain language to match the Privacy Policy; same section content (personal+commercial use, copyright, no warranty, liability limits, links, governing law, your input, acceptable use, suspension, contact), dated September 22, 2026
@@ -157,7 +157,7 @@ Audits on 2026-09-20 (content, technical, and `docs/audits/adsense-content-audit
 | Invalid JSON-LD blocks | 0 (enforced by build) | 8 blocks in 4 files |
 | Meta descriptions over 160 chars | 0 | 137 |
 | Titles over 70 / over 60 | 0 / under 40 | 130 / 201 |
-| CMP live and GA4 consent-gated | yes | site-side integration done 2026-09-22; **message not yet published (your step)** |
+| CMP live and GA4 consent-gated | yes | site code live 2026-09-22; message created, serves only after approval |
 | Ad loader on non-content pages | 0 | 2 |
 | Placeholder slot / test scripts published | 0 | 1 slot, 2 scripts |
 | Author bio verbatim duplicates | under 30 pages per variant | 242 pages, 2 variants |

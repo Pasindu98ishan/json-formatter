@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="cannot import name 'X' from partially initialized module — the hint is a guess. Three situations cause it, and Python 3.13 changed the wording (CPython gh-136094).">
+    <meta name="keywords" content="cannot import name from partially initialized module, most likely due to a circular import, python circular import, consider renaming if it has the same name as a library, ImportError partially initialized, python 3.13 circular import wording">
+    <meta name="author" content="Pasindu Ishan">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jsondevtools.org/errors/importerror-cannot-import-name-circular-import.html">
+    <meta property="og:title" content="Python ImportError: cannot import name 'X' from partially initialized module">
+    <meta property="og:description" content="The parenthetical is a guess, not a diagnosis. Three distinct situations produce this message, and Python 3.13 swapped the hint — here is how to tell which one is yours.">
+    <meta property="og:url" content="https://jsondevtools.org/errors/importerror-cannot-import-name-circular-import.html">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://jsondevtools.org/errors/img/importerror-cannot-import-name-circular-import.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:image" content="https://jsondevtools.org/errors/img/importerror-cannot-import-name-circular-import.png">
+    <title>Python ImportError: cannot import name 'X' from partially initialized module</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/code-highlight.css">
+    <script src="/js/consent.js"></script>
+    <script async src="https://fundingchoicesmessages.google.com/i/ca-pub-3477621730217949?ers=1"></script>
+    <script src="/js/fc-present.js"></script>
+    <script src="/js/analytics.js" defer></script>
+    <meta name="google-adsense-account" content="ca-pub-3477621730217949">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3477621730217949" crossorigin="anonymous"></script>
+
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://jsondevtools.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Error Reference", "item": "https://jsondevtools.org/errors.html" },
+    { "@type": "ListItem", "position": 3, "name": "cannot import name from partially initialized module", "item": "https://jsondevtools.org/errors/importerror-cannot-import-name-circular-import.html" }
+  ]
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Python ImportError: cannot import name 'X' from partially initialized module (most likely due to a circular import)",
+  "description": "Python emits this message whenever a name is missing from a module that is still executing. Three unrelated situations satisfy that condition — a real import cycle, a local file shadowing an installed library, and a broken compiled install — and Python 3.13 replaced the circular-import hint with a shadowing hint under conditions this page pins down exactly.",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://jsondevtools.org/errors/img/importerror-cannot-import-name-circular-import.png",
+    "contentUrl": "https://jsondevtools.org/errors/img/importerror-cannot-import-name-circular-import.png",
+    "caption": "The same two-module circular import run on Python 3.12 and 3.13, producing two different diagnoses of identical code.",
+    "width": 1200,
+    "height": 630
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://jsondevtools.org/errors/importerror-cannot-import-name-circular-import.html" },
+  "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
+  "datePublished": "2026-09-23",
+  "dateModified": "2026-09-24",
+  "proficiencyLevel": "Beginner",
+  "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does partially initialized module actually mean?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It means Python has started running that module's top-level code but has not finished. Python registers a module in sys.modules before executing its body, precisely so that a second import of the same module returns the half-built object instead of looping forever. If your import of a name happens while the module is still on its way down its own file, the name simply has not been assigned yet, and you get this ImportError. The module is not broken and the name is not misspelled — you asked too early." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is the circular import hint always right?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. The hint is a guess derived from a single condition — the module was still initializing — and several unrelated situations satisfy that condition. A genuine import cycle is one. A local file that shadows an installed library is another; questions of that kind attract very heavy traffic on Stack Overflow, where cannot import name 'Flask' from partially initialized module 'flask' usually turns out to be a script saved as flask.py. A package whose compiled extension failed to build is a third. Check the file path in the message rather than trusting the parenthetical." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does Python 3.13 tell me to rename my file instead of mentioning a circular import?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Python 3.13 added a shadowing suggestion that replaces the circular-import hint when two conditions both hold: the failing module name has no dot in it, and its file was found in the directory Python placed at sys.path[0], which is your script's own directory. A plain two-module cycle in a flat project meets both, so it now reports 'consider renaming …' and never mentions circular imports. This was reported to CPython as issue gh-136094 and closed as not planned, so the behaviour is staying. If either condition fails — a dotted submodule, or modules imported from somewhere other than the script directory such as python -m or a test runner — you still get the original circular-import wording." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I tell a circular import apart from a shadowed library?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Read the file path printed at the end of the message and ask whether that is the file you meant to import from. In a real cycle it is your own module and you expected your own module. In a shadowing case it is your own file where you expected site-packages, which is the whole problem. A second tell on Python 3.13 and later is a single word: 'since it has the same name as the standard library module named X' is a confirmed collision, while 'if it has the same name as a library you intended to import' is only a guess and is what a genuine cycle also produces." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does the same file appearing twice in the traceback prove a circular import?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No, and this is a common misreading. During a normal circular import each module is executed only once, so each file appears as exactly one frame; what looks like a second occurrence is usually the text of an import statement inside another file, not a separate frame. The reliable test is different: the module named in the error also appears as an earlier, still-executing frame in the traceback. A file genuinely appearing as two frames means something else — you ran a module directly as a script while it is also imported by name, so Python built both __main__ and the named module from the same file and executed it twice." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does moving the import to the bottom of the file fix a circular import?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Not reliably, and it is one of the most commonly repeated bad fixes. Moving the import below your class and function definitions only decides which of the two modules survives being imported first. Import the other module first — from a test, a script, or a different entry point — and the same error comes back. Tested on CPython 3.14.6, the identical code imports cleanly via one module and fails via the other. Defer the import into the function that uses it instead, which works from every entry point." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does importlib.import_module avoid a circular import?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Not when you call it at module level, which is how it is usually shown. importlib.import_module performs exactly the same import at exactly the same moment as an import statement, so the cycle is untouched and the error is identical. It only helps when the call itself is deferred to runtime, inside a function — and at that point a plain import statement inside the function does the same job and is easier to read. Reach for importlib when the module name is genuinely dynamic, not to break a cycle." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does import module work when from module import name fails?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because the two forms need different things at different times. 'from module import name' has to read an attribute off the module object immediately, and that attribute does not exist yet. Plain 'import module' only binds the module object itself, which already exists in sys.modules, so it succeeds even mid-cycle. The catch is that you must also defer the attribute lookup: reading module.Name at the top level of your file fails exactly as before, because the name still is not there. It works when the lookup happens inside a function body, which runs after both modules have finished." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can type annotations cause this error, and does TYPE_CHECKING fix it?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. An import that exists only to annotate a parameter or return value is still a real runtime import and can close a cycle on its own. Putting it under 'if TYPE_CHECKING:' removes it at runtime while type checkers still see it. On Python 3.13 and earlier you also need 'from __future__ import annotations'; on 3.14 and later PEP 649 evaluates annotations lazily by default, so the future import is no longer required. Be aware of the trade: the name does not exist at runtime, so anything resolving annotations — typing.get_type_hints, Pydantic, FastAPI, some ORMs — will fail unless you make the name available again before it is resolved." }
+    }
+  ]
+}
+    </script>
+</head>
+<body>
+    <script>if(localStorage.getItem('darkMode')==='true')document.body.classList.add('dark-mode');</script>
+    <div id="nav-placeholder" data-root="../"></div>
+    <noscript><nav class="noscript-nav" aria-label="Primary site navigation"><a href="/">Home</a> <a href="/formatter.html">JSON Formatter</a> <a href="/json-tools.html">All JSON Tools</a> <a href="/errors.html">Error Reference</a> <a href="/http-status.html">HTTP Status Codes</a> <a href="/blog/">Blog</a> <a href="/about.html">About</a> <a href="/contact.html">Contact</a></nav></noscript>
+
+    <header class="article-header">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a> &rsaquo;
+                <a href="../errors.html">Error Reference</a> &rsaquo;
+                <span>cannot import name from partially initialized module</span>
+            </nav>
+            <h1>Python ImportError: cannot import name 'X' from partially initialized module</h1>
+            <div class="article-meta-author">By <a href="../about.html">Pasindu Ishan</a> &middot; Senior Software Engineer, Data Streaming</div>
+            <div class="article-meta">Published <time datetime="2026-09-23">23 September 2026</time> &middot; Updated <time datetime="2026-09-24">24 September 2026</time> &middot; Error reference</div>
+        </div>
+    </header>
+
+    <main>
+        <article class="blog-article">
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid var(--primary-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0;font-weight:600;">Quick answer</p>
+                <ul style="margin:0.5rem 0 0;">
+                    <li><strong>Don't start restructuring for a circular import.</strong> The parenthetical is a guess, and it is often not your problem.</li>
+                    <li><strong>Read the file path at the end of the message first.</strong> Is that the file you meant to import from?</li>
+                    <li>Not your file &mdash; you expected a library? You <a href="#cause-shadowing">shadowed it</a>. Rename your file.</li>
+                    <li>Your file, as intended? It is a <a href="#cause-cycle">real cycle</a> &mdash; the usual fix is a <a href="#fix-defer">deferred import</a>.</li>
+                    <li>Path inside <code>site-packages</code>? A <a href="#cause-install">broken install</a>, not a cycle.</li>
+                    <li><strong>Python 3.13+ changed the wording</strong> for flat projects &mdash; see the <a href="#version-matrix">version matrix</a> before trusting the hint.</li>
+                </ul>
+            </div>
+
+            <h2>The exact error string</h2>
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>Traceback (most recent call last):
+  File "/app/orders.py", line 1, in &lt;module&gt;
+    from customers import Customer
+  File "/app/customers.py", line 1, in &lt;module&gt;
+    from orders import Order
+ImportError: cannot import name 'Order' from partially initialized module 'orders' (most likely due to a circular import) (/app/orders.py)
+
+# Python 3.13+ replaces the hint in flat projects — same code, same cycle:
+ImportError: cannot import name 'Order' from 'orders' (consider renaming '/app/orders.py' if it has the same name as a library you intended to import)
+
+# the stdlib-collision wording, which names the module it clashes with:
+ImportError: cannot import name 'randint' from 'random' (consider renaming '/app/random.py' since it has the same name as the standard library module named 'random' and prevents importing that standard library module)
+
+# the AttributeError siblings — same cause, raised by attribute access rather than by "from ... import"
+AttributeError: partially initialized module 'customers' has no attribute 'RATE' (most likely due to a circular import)
+AttributeError: cannot access submodule 'models' of module 'pkg' (most likely due to a circular import)
+
+# Python 3.7 and earlier gave no hint at all:
+ImportError: cannot import name 'Order' from 'orders' (/app/orders.py)</code></pre>
+            </div>
+
+            <p>Python raises this when you ask a module for a name it has not defined <em>yet</em>. The module is mid-flight: Python has started executing its top-level code and has not reached the line that creates the name you want. Nothing is misspelled and nothing is missing from disk &mdash; the request simply arrived too early.</p>
+
+            <p>The important part is what the message does <em>not</em> know. Python observes one fact &mdash; the module was still initializing &mdash; and then guesses at the reason. That guess can be wrong, because several unrelated situations leave a module partially initialized.</p>
+
+            <p>Everything below was verified by running it: <strong>CPython 3.14.6</strong> locally, plus <strong>3.7, 3.8, 3.12 and 3.13</strong> in containers, and <strong>Pydantic 2.13.5</strong>.</p>
+
+            <h2 id="start-here">Start here: read the path, not the hint</h2>
+
+            <p>The message ends with a file path in parentheses. That path is a fact, while the hint before it is a guess, so the fastest route to the right fix is to ask one question about it: <strong>is that the file you meant to import from?</strong></p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 700 290" role="img" aria-label="Decision tree for diagnosing the error. Start by reading the file path at the end of the message. If it is not the file you meant, because you expected an installed library, the cause is shadowing and the fix is to rename your file. If it is the file you meant, ask whether the module named in the error also appears as an earlier still-executing frame in the traceback. If yes, it is a genuine circular import. If instead the failing frame is inside site-packages, it is a broken or half-built installation.">
+                    <defs>
+                        <marker id="dtArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--dg-line)"/>
+                        </marker>
+                    </defs>
+
+                    <rect class="dg-box" x="196" y="10" width="308" height="44" rx="6"/>
+                    <text class="dg-m" x="350" y="30" text-anchor="middle">Read the path at the end of the message</text>
+                    <text class="dg-s" x="350" y="47" text-anchor="middle">Is it the file you meant to import from?</text>
+
+                    <!-- NO branch -->
+                    <line class="dg-ln" x1="196" y1="32" x2="120" y2="32" />
+                    <line class="dg-ln" x1="120" y1="32" x2="120" y2="86" marker-end="url(#dtArrow)"/>
+                    <text class="dg-s dg-bad" x="128" y="52">NO</text>
+                    <rect class="dg-box dg-box-bad" x="10" y="88" width="220" height="58" rx="6"/>
+                    <text class="dg-m" x="22" y="108">Shadowing</text>
+                    <text class="dg-s" x="22" y="125">It's your file; you expected a</text>
+                    <text class="dg-s" x="22" y="140">library. Rename your file.</text>
+
+                    <!-- YES branch -->
+                    <line class="dg-ln" x1="350" y1="54" x2="350" y2="86" marker-end="url(#dtArrow)"/>
+                    <text class="dg-s dg-ok" x="358" y="74">YES</text>
+                    <rect class="dg-box" x="256" y="88" width="424" height="58" rx="6"/>
+                    <text class="dg-m" x="268" y="108">Does the module named in the error also appear</text>
+                    <text class="dg-m" x="268" y="125">as an earlier, still-running frame?</text>
+                    <text class="dg-s" x="268" y="140">(not just as import text &#8212; an actual File&#8230; frame above)</text>
+
+                    <!-- yes -> cycle -->
+                    <line class="dg-ln" x1="330" y1="146" x2="330" y2="192" marker-end="url(#dtArrow)"/>
+                    <text class="dg-s dg-ok" x="338" y="170">YES</text>
+                    <rect class="dg-box dg-box-bad" x="212" y="194" width="236" height="58" rx="6"/>
+                    <text class="dg-m" x="224" y="214">Circular import</text>
+                    <text class="dg-s" x="224" y="231">Two of your modules need each</text>
+                    <text class="dg-s" x="224" y="246">other's contents at import time.</text>
+
+                    <!-- no -> broken install -->
+                    <line class="dg-ln" x1="600" y1="146" x2="600" y2="192" marker-end="url(#dtArrow)"/>
+                    <text class="dg-s" x="530" y="170">frame is in site-packages</text>
+                    <rect class="dg-box dg-box-muted" x="470" y="194" width="220" height="58" rx="6"/>
+                    <text class="dg-m" x="482" y="214">Broken install</text>
+                    <text class="dg-s" x="482" y="231">A compiled extension is</text>
+                    <text class="dg-s" x="482" y="246">missing. Reinstall it.</text>
+
+                    <text class="dg-s" x="350" y="276" text-anchor="middle">The hint in the message plays no part in this &#8212; ignore it until you have an answer.</text>
+                </svg>
+                <p class="dg-cap">One path, one traceback question. This beats reading the parenthetical, which is right only some of the time.</p>
+            </div>
+
+            <h2>Anatomy of the message</h2>
+
+            <p>The message carries five pieces of information, and only the first four are facts:</p>
+
+            <div style="background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:1rem 1.5rem;margin:0 0 1.5rem;">
+                <p style="margin:0 0 0.5rem;"><code>cannot import name <strong>'Order'</strong></code> &rarr; the attribute lookup that failed</p>
+                <p style="margin:0 0 0.5rem;"><code><strong>partially initialized</strong> module</code> &rarr; that module started running and <strong>has not finished</strong></p>
+                <p style="margin:0 0 0.5rem;"><code>module <strong>'orders'</strong></code> &rarr; which module was asked for the name</p>
+                <p style="margin:0 0 0.5rem;"><code><strong>(/app/orders.py)</strong></code> &rarr; the file that module resolved to &mdash; <strong>read this one first</strong></p>
+                <p style="margin:0;"><code>(most likely due to a circular import)</code> &rarr; <strong>a guess at the reason</strong>, not an observation</p>
+            </div>
+
+            <p>If you wrote <code>from flask import Flask</code> and the path says <code>/app/flask.py</code>, you have your answer and no amount of restructuring will help. If you wrote <code>from orders import Order</code> and the path is your own <code>orders.py</code>, exactly as intended, then you are looking at a real cycle.</p>
+
+            <figure class="perm-figure">
+                <img src="img/importerror-cannot-import-name-circular-import.svg" alt="Terminal showing the same two-module circular import run under Python 3.12 and Python 3.13. The 3.12 run ends with ImportError: cannot import name 'Order' from partially initialized module 'orders' (most likely due to a circular import). The 3.13 run, on byte-identical code, ends with ImportError: cannot import name 'Order' from 'orders' (consider renaming '/app/orders.py' if it has the same name as a library you intended to import), with no mention of circular imports." width="760" height="356" loading="lazy">
+                <figcaption>The same two files, the same cycle, two Python versions. Note what changed and what did not: the traceback is identical and still shows <code>orders.py</code> &rarr; <code>customers.py</code>, but on 3.13 the words &ldquo;circular import&rdquo; have vanished and been replaced by advice to rename a file that collides with nothing.</figcaption>
+            </figure>
+
+            <h2 id="three-causes">The three situations that produce this message</h2>
+
+            <p>Everything on this page hangs off these three. The fixes differ completely, which is why identifying the situation first matters more than any individual fix.</p>
+
+            <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr><th>Situation</th><th>What is actually happening</th><th>Where to go</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>1. Circular import</strong></td>
+                        <td>Two of your modules each need the other's contents while still executing</td>
+                        <td><a href="#cause-cycle">Fixes 1&ndash;5</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>2. Shadowing</strong></td>
+                        <td>Your file has the same name as a library, so Python imports yours instead</td>
+                        <td><a href="#cause-shadowing">Rename the file</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>3. Broken install</strong></td>
+                        <td>A package's compiled extension is missing or built for another Python</td>
+                        <td><a href="#cause-install">Reinstall</a></td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>Situations 2 and 3 involve no cycle at all, yet on Python 3.12 and earlier both are reported as &ldquo;most likely due to a circular import.&rdquo;</p>
+
+            <h2 id="version-matrix">The hint changed in 3.8 and flipped in 3.13</h2>
+
+            <p>CPython has revised this message twice. Python 3.8 added the circular-import hint (3.7 had none). Python 3.13 then added a shadowing suggestion that <em>replaces</em> it under specific conditions &mdash; with the result that a genuine cycle in a flat project is now reported as a possible filename collision.</p>
+
+            <p>This is a known and deliberate outcome: it was reported to CPython as <a href="https://github.com/python/cpython/issues/136094" target="_blank" rel="noopener">issue gh-136094</a>, describing exactly this scenario on 3.13.5 versus 3.12.6, and <strong>closed as not planned</strong>. The behaviour is staying, so it is worth learning rather than waiting out.</p>
+
+            <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr><th>What is actually wrong</th><th>Python 3.8 &ndash; 3.12 says</th><th>Python 3.13+ says</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Real cycle, flat layout (<code>orders.py</code> &harr; <code>customers.py</code>, run from their own directory)</td>
+                        <td>circular import &mdash; <strong>correct</strong></td>
+                        <td>consider renaming &mdash; <strong>misleading</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Real cycle, package submodules (<code>pkg.models</code> &harr; <code>pkg.services</code>)</td>
+                        <td>circular import &mdash; <strong>correct</strong></td>
+                        <td>circular import &mdash; <strong>correct</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Real cycle, top-level modules imported from elsewhere (<code>python -m</code>, installed script, test runner)</td>
+                        <td>circular import &mdash; <strong>correct</strong></td>
+                        <td>circular import &mdash; <strong>correct</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Your <code>flask.py</code> shadows the installed Flask</td>
+                        <td>circular import &mdash; <strong>misleading</strong></td>
+                        <td>consider renaming &mdash; <strong>correct</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Your <code>random.py</code> shadows the standard library</td>
+                        <td>circular import &mdash; <strong>misleading</strong></td>
+                        <td>renaming, <em>and it names the module</em> &mdash; <strong>correct</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Package's compiled extension failed to build</td>
+                        <td>circular import &mdash; <strong>misleading</strong></td>
+                        <td>consider renaming &mdash; <strong>misleading</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+
+            <h3>Exactly when the 3.13 renaming hint appears</h3>
+
+            <p>It is not simply &ldquo;top-level modules.&rdquo; Two conditions must <strong>both</strong> hold, which is why the third row above keeps the old wording:</p>
+
+            <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr><th>Module name has no dot</th><th>Its file was found in <code>sys.path[0]</code></th><th>Python 3.13+ shows</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>yes</td><td>yes</td><td><strong>consider renaming</strong></td></tr>
+                    <tr><td>yes</td><td>no</td><td>most likely due to a circular import</td></tr>
+                    <tr><td>no (e.g. <code>pkg.models</code>)</td><td>yes</td><td>most likely due to a circular import</td></tr>
+                    <tr><td>no</td><td>no</td><td>most likely due to a circular import</td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p><code>sys.path[0]</code> is the directory of the script you ran (or the current directory for <code>python -c</code>). CPython checks it because that is the only place a file of yours can outrank an installed package &mdash; so the suggestion is only ever offered where shadowing is <em>possible</em>, not where it has been observed. The dotted-name exclusion mostly falls out of the same logic: a submodule lives one directory down, and a dotted name cannot shadow a top-level library anyway.</p>
+
+            <p>The practical consequence: the same cycle can produce <em>different</em> messages depending on how you launch it. Running <code>python orders.py</code> from its own folder gives the renaming hint; running the same code through <code>python -m</code>, an installed console script, or pytest with a different rootdir gives the circular-import hint. If your message and a colleague's disagree, this is why &mdash; neither install is broken.</p>
+
+            <p>There is also one genuinely reliable signal inside the 3.13+ wording, and it is a single word:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># CONFIRMED collision — "since", and it names the module you are colliding with:
+(consider renaming '/app/random.py' since it has the same name as the standard library
+ module named 'random' and prevents importing that standard library module)
+
+# UNCONFIRMED guess — "if", and it names nothing:
+(consider renaming '/app/orders.py' if it has the same name as a library you intended to import)</code></pre>
+            </div>
+
+            <p>CPython uses the definite <em>since</em> form only when it has actually matched your filename against a standard-library module name. The conditional <em>if</em> form means it checked nothing &mdash; which is what a real circular import produces, and also a shadowed <em>third-party</em> package like Flask. So <em>since</em> is a diagnosis; <em>if</em> is a prompt to go and look.</p>
+
+            <h2>Why a module is ever &ldquo;partially initialized&rdquo;</h2>
+
+            <p>Python inserts a module into <code>sys.modules</code> <em>before</em> it runs the module body, not after. That ordering is deliberate: it is what stops two mutually importing modules from recursing forever. The cost is that a half-built module is visible and importable, and its namespace fills in one statement at a time as the body executes.</p>
+
+            <div class="dg-wrap">
+                <svg viewBox="0 0 720 274" role="img" aria-label="Timeline of a circular import. Step one: Python registers orders in sys.modules as an empty module and begins executing orders.py. Step two: line one of orders.py runs from customers import Customer, so Python registers customers and begins executing customers.py. Step three: line one of customers.py runs from orders import Order. Python finds orders already in sys.modules and returns it immediately without re-running it. Step four: Python looks for the attribute Order on that module object, but orders.py never got past its own line one, so the class statement has not run and the attribute does not exist. The import fails.">
+                    <defs>
+                        <marker id="ciArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--dg-line)"/>
+                        </marker>
+                        <marker id="ciArrowBad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--dg-bad)"/>
+                        </marker>
+                    </defs>
+
+                    <text class="dg-t" x="10" y="18">sys.modules</text>
+
+                    <rect class="dg-box dg-box-muted" x="10" y="32" width="200" height="46" rx="6"/>
+                    <text class="dg-m" x="22" y="52">1. register 'orders' (empty)</text>
+                    <text class="dg-s" x="22" y="69">start running orders.py</text>
+
+                    <line class="dg-ln" x1="210" y1="55" x2="268" y2="55" marker-end="url(#ciArrow)"/>
+
+                    <rect class="dg-box dg-box-muted" x="270" y="32" width="216" height="46" rx="6"/>
+                    <text class="dg-m" x="282" y="52">2. line 1: from customers</text>
+                    <text class="dg-s" x="282" y="69">register 'customers', run it</text>
+
+                    <line class="dg-ln" x1="486" y1="55" x2="544" y2="55" marker-end="url(#ciArrow)"/>
+
+                    <rect class="dg-box dg-box-muted" x="546" y="32" width="164" height="46" rx="6"/>
+                    <text class="dg-m" x="558" y="52">3. line 1 of customers:</text>
+                    <text class="dg-s" x="558" y="69">from orders import Order</text>
+
+                    <line class="dg-ln" x1="628" y1="78" x2="628" y2="112" marker-end="url(#ciArrow)"/>
+
+                    <rect class="dg-box" x="360" y="114" width="350" height="46" rx="6"/>
+                    <text class="dg-m" x="372" y="134">4. 'orders' IS in sys.modules &#8212; returned at once</text>
+                    <text class="dg-s" x="372" y="151">Python does not re-run it. No infinite loop.</text>
+
+                    <line class="dg-ln-bad" x1="535" y1="160" x2="535" y2="192" marker-end="url(#ciArrowBad)"/>
+
+                    <rect class="dg-box dg-box-bad" x="300" y="194" width="410" height="58" rx="6"/>
+                    <text class="dg-m dg-bad" x="312" y="215">5. getattr(orders, 'Order') &#8594; does not exist</text>
+                    <text class="dg-s" x="312" y="232">orders.py never got past its own line 1, so</text>
+                    <text class="dg-s" x="312" y="247">&#8220;class Order:&#8221; has not executed yet.</text>
+
+                    <rect class="dg-box dg-box-muted" x="10" y="114" width="200" height="146" rx="6"/>
+                    <text class="dg-m" x="22" y="134">orders.py progress</text>
+                    <text class="dg-s" x="22" y="156">line 1 &#8594; <tspan class="dg-bad">blocked here</tspan></text>
+                    <text class="dg-s" x="22" y="176">line 2 &#8594; not run</text>
+                    <text class="dg-s" x="22" y="196">class Order &#8594; <tspan class="dg-bad">not run</tspan></text>
+                    <text class="dg-s" x="22" y="222">Its namespace is empty &#8212;</text>
+                    <text class="dg-s" x="22" y="238">that is what &#8220;partially</text>
+                    <text class="dg-s" x="22" y="254">initialized&#8221; means.</text>
+                </svg>
+                <p class="dg-cap">The cycle is not detected and rejected &mdash; it is allowed, and then fails on an attribute that has not been created yet.</p>
+            </div>
+
+            <p>Because each module runs only <strong>once</strong>, each file appears as exactly one frame in the traceback. That is worth stating plainly, because it makes a popular diagnostic wrong &mdash; see <a href="#twice-trap">the double-execution trap</a> below.</p>
+
+            <p>This is also why the fix is so often about <em>timing</em> rather than architecture. The two modules genuinely can depend on each other; they just cannot both need the other's contents <em>at import time</em>.</p>
+
+            <h2 id="cause-cycle">Situation 1 &mdash; a genuine circular import</h2>
+
+            <p>Five fixes follow, ordered by how little they disturb your design. They are variations on one idea: stop needing the other module's <em>contents</em> while your own module is still executing.</p>
+
+            <h3 id="fix-find">Fix 1 &mdash; read the traceback to find the actual cycle</h3>
+
+            <p>Before changing anything, name the loop. Read the traceback top-down and write down each file as it appears. The cycle runs from the frame for the module named in the error, down to the frame that tried to import from it.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># shown with the Python 3.8–3.12 wording; on 3.13+ this same run ends with
+# "(consider renaming '/app/orders.py' …)" instead — the frames are identical either way
+
+Traceback (most recent call last):
+  File "/app/main.py", line 1, in &lt;module&gt;
+    import orders                      #  entry point, not part of the cycle
+  File "/app/orders.py", line 1, in &lt;module&gt;    ← 'orders' starts here and never finishes
+    from customers import Customer
+  File "/app/customers.py", line 1, in &lt;module&gt;
+    from orders import Order           ← asks the unfinished 'orders' for a name
+ImportError: cannot import name 'Order' from partially initialized module 'orders'</code></pre>
+            </div>
+
+            <p>The test that works: <strong>the module named in the error also appears as an earlier, still-executing frame.</strong> Above, the error names <code>orders</code> and there is an <code>orders.py</code> frame higher up &mdash; that is the cycle. In a shadowing case the named module is the frame you are already in (the file imports itself), and in a broken install the frame sits in <code>site-packages</code>.</p>
+
+            <p>One practical note: the <strong>topmost</strong> frames are your entry point and usually irrelevant &mdash; do not start editing there. And the module named in the error is simply the target of the failing <code>from ... import</code>; in a three-module cycle the best edge to cut is often a different one entirely.</p>
+
+            <h3 id="fix-import-module">Fix 2 &mdash; import the module, not the name</h3>
+
+            <p>This is the smallest change that fixes a genuine cycle. <code>from orders import Order</code> must read an attribute <em>immediately</em>. Plain <code>import orders</code> only binds the module object, which already exists in <code>sys.modules</code> even while half-built &mdash; so the attribute lookup can happen later.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ❌ fails — needs Order to exist right now
+# from orders import Order
+#
+# class Customer:
+#     def new_order(self):
+#         return Order(self)
+
+# ✅ works — binds the module now, reads the attribute later
+import orders
+
+class Customer:
+    def new_order(self):
+        return orders.Order(self)      # looked up at call time, not import time</code></pre>
+            </div>
+
+            <p><strong>The qualification that matters: this only works when the name is needed at runtime rather than during module initialization.</strong> Swapping the import form is not enough on its own &mdash; if your module-level code still needs <code>Order</code> (to subclass it, to build a registry dict, as a default argument), the cycle is unchanged and you get the same failure, this time as <code>AttributeError: partially initialized module 'orders' has no attribute 'Order'</code>. The import form and the <em>use site</em> have to move together.</p>
+
+            <p>Verified on CPython 3.14.6: written this way, both <code>import orders</code> and <code>import customers</code> succeed from either entry point. That <code>AttributeError</code> is worth distinguishing from the far more common <a href="nonetype-no-attribute.html">AttributeError: 'NoneType' object has no attribute 'X'</a>, which looks similar in a log but means something entirely different.</p>
+
+            <h3 id="fix-defer">Fix 3 &mdash; move the import into the function that uses it</h3>
+
+            <p>When you need the name itself rather than the module, push the import down to the point of use. Function bodies do not run at import time, so the import happens on first call, when everything is loaded.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># pkg/models.py
+class User:
+    def notify(self):
+        from pkg.services import send     # runs on first call, not at import
+        return send(self.__class__.__name__)</code></pre>
+            </div>
+
+            <p>Verified from <em>both</em> entry points &mdash; <code>import pkg.models</code> and <code>import pkg.services</code> &mdash; which is the property that matters and the one the popular &ldquo;move it to the bottom&rdquo; advice lacks (see <a href="#non-fixes">below</a>). Costs: the import runs on every call (cheap after the first, since <code>sys.modules</code> caches it), it is invisible to tools that scan top-level imports, and it can hide a design problem. If you find yourself doing this in a dozen places, those two modules probably want to be one module, or want a third one between them.</p>
+
+            <h3 id="fix-typing">Fix 4 &mdash; type-only imports don't need to exist at runtime</h3>
+
+            <p>A large share of real cycles are created by imports that exist purely to annotate a signature. <code>TYPE_CHECKING</code> is <code>False</code> at runtime, so the import disappears from execution while type checkers still see it.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># pkg/models.py
+from __future__ import annotations       # not needed on Python 3.14+ (PEP 649)
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:                        # False at runtime — no import happens
+    from pkg.services import Notifier
+
+
+class User:
+    def notify_with(self, n: Notifier) -> str:
+        return n.send(self.name)</code></pre>
+            </div>
+
+            <p><strong>Version note:</strong> on Python 3.13 and earlier the <code>from __future__ import annotations</code> line is required, or the bare <code>Notifier</code> annotation is evaluated at class-creation time and raises <code>NameError</code>. On <strong>Python 3.14+</strong>, PEP 649 evaluates annotations lazily by default, so the future import is no longer needed &mdash; verified on 3.14.6, where the class above imports cleanly without it.</p>
+
+            <p><strong>Know the trade.</strong> The name genuinely does not exist at runtime, so anything that <em>resolves</em> annotations will fail. On 3.14.6, <code>typing.get_type_hints()</code> on that method raises <code>NameError: name 'Notifier' is not defined</code> even though calling the method works fine. (3.14 also adds <code>annotationlib</code>, whose <code>Format.FORWARDREF</code> returns <code>ForwardRef('Notifier')</code> instead of raising &mdash; useful for tools that must introspect without importing.)</p>
+
+            <p>That matters most with Pydantic, FastAPI and several ORMs, which read annotations at runtime by design. On Pydantic 2.13.5 the pattern above raises:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>pydantic.errors.PydanticUserError: `User` is not fully defined; you should define
+`Invoice`, then call `User.model_rebuild()`.</code></pre>
+            </div>
+
+            <p>Follow the message literally and it is not quite enough: calling <code>User.model_rebuild()</code> from another module raises <code>PydanticUndefinedAnnotation: name 'Invoice' is not defined</code>, because the name has to be resolvable <em>in the module that defines the model</em>. Do the real import there, after the class body, and then rebuild:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># pkg/models.py — bottom of the file, after class User is defined
+from services import Invoice     # safe here: User already exists, so the cycle closes
+User.model_rebuild()             # public API, no private keyword arguments</code></pre>
+            </div>
+
+            <p>Both forms were verified on Pydantic 2.13.5. If you cannot put the import there, the other public option is to bind the name onto the defining module before rebuilding &mdash; <code>models.Invoice = services.Invoice</code> then <code>models.User.model_rebuild()</code>. Avoid the <code>_types_namespace=</code> keyword you may find suggested elsewhere; the leading underscore marks it private and unstable.</p>
+
+            <h3 id="fix-init">Fix 5 &mdash; <code>__init__.py</code> re-export order</h3>
+
+            <p>This one catches well-structured projects, and the message blames the package rather than the submodule that caused it. A package's <code>__init__.py</code> re-exports its submodules for convenience; a submodule then imports a sibling <em>through the package</em>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># shop/__init__.py
+from shop.order import Order          # runs first…
+from shop.customer import Customer    # …so this line has not run yet
+
+# shop/order.py
+from shop import Customer             # ← asks the package for a name it hasn't bound
+
+# ImportError: cannot import name 'Customer' from 'shop'
+#   (consider renaming '.../shop/__init__.py' if it has the same name as a library…)</code></pre>
+            </div>
+
+            <p>Note where the path points: <code>shop/__init__.py</code>, not <code>order.py</code>. Two fixes, both verified:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># FIX A — reorder __init__.py so leaf modules are imported first
+from shop.customer import Customer    # no dependencies
+from shop.order import Order          # depends on customer
+
+# FIX B (preferred) — inside the package, import the submodule directly
+# shop/order.py
+from shop.customer import Customer    # bypasses the half-built package namespace</code></pre>
+            </div>
+
+            <p>Fix B is the more durable: Fix A works until someone adds an import and reorders the file. As a rule, a package's own submodules should import from each other by their real paths and leave the <code>__init__.py</code> re-exports for external callers.</p>
+
+            <h3 id="frameworks">Framework-specific forms of the same cycle</h3>
+
+            <p>Three ecosystems have a canonical answer that is better than any generic fix, because each gives you a way to refer to a class without importing it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># Django — refer to models by string, never by import, across apps
+class Order(models.Model):
+    customer = models.ForeignKey("customers.Customer", on_delete=models.CASCADE)
+# and in apps.py, import signal handlers inside ready(), not at module level:
+class ShopConfig(AppConfig):
+    def ready(self):
+        from . import signals          # deferred — the app registry is populated by now
+
+# SQLAlchemy — relationships take a string; the mapper resolves it later
+class Order(Base):
+    customer = relationship("Customer", back_populates="orders")
+
+# Flask — the app-factory pattern exists to break the app ↔ views cycle
+def create_app():
+    app = Flask(__name__)
+    from .views import bp             # imported inside the factory, after app exists
+    app.register_blueprint(bp)
+    return app</code></pre>
+            </div>
+
+            <p>In each case the framework is doing the same thing this page recommends: deferring the moment the name has to be resolved until after every module has finished loading.</p>
+
+            <h2 id="cause-shadowing">Situation 2 &mdash; your file is shadowing the library</h2>
+
+            <p>Questions of this shape attract very heavy traffic on Stack Overflow &mdash; <code>cannot import name 'Flask' from partially initialized module 'flask'</code> and its equivalents for <code>openai</code>, <code>dash</code> and <code>matplotlib</code> have tens of thousands of views each, frequently with no accepted answer &mdash; and on Python 3.12 and earlier the message actively points away from the cause. Save a script as <code>flask.py</code>, and <code>from flask import Flask</code> finds your file instead of the installed package, because the script's own directory comes first on <code>sys.path</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># flask.py  ← this file IS the problem
+from flask import Flask
+app = Flask(__name__)
+
+# Python 3.12:  cannot import name 'Flask' from partially initialized module 'flask'
+#               (most likely due to a circular import) (/app/flask.py)
+# Python 3.13+: cannot import name 'Flask' from 'flask'
+#               (consider renaming '/app/flask.py' …)</code></pre>
+            </div>
+
+            <p>Both are, strictly, accurate: the module <em>is</em> partially initialized, and it <em>is</em> importing itself, so 3.12 calling it a circular import is not a lie &mdash; it is just useless. There is no cycle to break and no code to restructure. Rename the file.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># confirm it before renaming — is there a file next to your script with that name?
+python -c "import pathlib; n='flask'; print([str(p) for p in pathlib.Path('.').glob(n+'.py')] + [str(p) for p in pathlib.Path('.').glob(n+'/__init__.py')])"
+
+# then rename it
+mv flask.py my_app.py</code></pre>
+            </div>
+
+            <p>You do <strong>not</strong> need to clear <code>__pycache__</code>. A cached <code>__pycache__/flask.cpython-314.pyc</code> becomes unimportable the moment <code>flask.py</code> is gone, because Python 3 only uses cached bytecode alongside its source &mdash; verified on 3.14.6. The one case that does linger is a stray <strong>top-level</strong> <code>flask.pyc</code> sitting where the source used to be, which is a valid sourceless module and will still shadow. That is rare, but if you have one, delete it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>ls flask.pyc 2>/dev/null && rm flask.pyc     # only the top-level one shadows; __pycache__ does not</code></pre>
+            </div>
+
+            <p>The names that bite most often in real reports are <code>flask.py</code>, <code>openai.py</code>, <code>dash.py</code>, <code>random.py</code>, <code>email.py</code>, <code>json.py</code>, <code>select.py</code> and <code>types.py</code>.</p>
+
+            <p>One caveat: shadowing does not always surface as <em>this</em> error. A local <code>email.py</code> shadowing the standard library gives <code>ModuleNotFoundError: No module named 'email.message'; 'email' is not a package</code> instead &mdash; different message, same root cause. If you are chasing that one, our <a href="modulenotfounderror-no-module-named.html">ModuleNotFoundError: No module named 'X'</a> reference covers the shadowing and <code>sys.path</code> triage in more depth.</p>
+
+            <h2 id="cause-install">Situation 3 &mdash; a broken or half-built install</h2>
+
+            <p>The third situation has no cycle and no shadowing anywhere. A package's <code>__init__.py</code> imports its own compiled extension module, the extension is missing or was built against a different Python, and the import fails <em>while the package is initializing</em> &mdash; which is enough to trigger the same hint:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># somepkg/__init__.py  (inside site-packages, not your code)
+from . import _speedups
+
+# Python 3.12:  cannot import name '_speedups' from partially initialized module 'somepkg'
+#               (most likely due to a circular import) (…/somepkg/__init__.py)
+# Python 3.13+: cannot import name '_speedups' from 'somepkg' (consider renaming …)</code></pre>
+            </div>
+
+            <p>Here <em>both</em> hints are misleading. The tells are that the failing frame is inside <code>site-packages</code> rather than your project, and that the missing name looks like a C extension &mdash; a leading underscore, or a name like <code>ft2font</code>. Real examples that generate steady search traffic: <code>_gi</code> from <code>gi</code>, <code>ft2font</code> from <code>matplotlib</code>, <code>_cffi_backend</code>.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># reinstall without the wheel cache, which may be holding the bad build
+python -m pip install --force-reinstall --no-cache-dir somepkg
+
+# check you're not looking at two installs of the same package
+python -c "import somepkg; print(somepkg.__file__)"
+python -m pip show somepkg</code></pre>
+            </div>
+
+            <p>If the package was built for a different interpreter &mdash; common after a Python upgrade, or when <code>pip</code> and <code>python</code> disagree &mdash; the underlying problem is the environment rather than the package. Use <code>python -m pip</code> rather than bare <code>pip</code> so the install always lands in the interpreter you are actually running. If that reinstall is itself refused, you have walked into <a href="externally-managed-environment.html">error: externally-managed-environment</a>, which is the distribution telling you to use a virtual environment first.</p>
+
+            <h2 id="twice-trap">The double-execution trap</h2>
+
+            <p>A widely repeated diagnostic says a circular import shows &ldquo;the same file twice in the traceback.&rdquo; It does not. Python executes each module exactly once, so in a normal cycle every file appears as exactly <em>one</em> frame &mdash; what looks like a second occurrence is the text of an <code>import</code> statement inside another file, not a frame of its own.</p>
+
+            <p>A file really does appear as two frames in one specific case, and it is a distinct bug worth recognising: <strong>running a module directly while it is also imported by name.</strong> Then <code>__main__</code> and <code>orders</code> are two separate module objects built from the same file, and the file is executed twice:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ python orders.py                       # NOT "python main.py"   — captured on CPython 3.14.6
+
+Traceback (most recent call last):
+  File "/app/orders.py", line 1, in &lt;module&gt;      ← running as __main__
+    from customers import Customer
+  File "/app/customers.py", line 1, in &lt;module&gt;
+    from orders import Order
+  File "/app/orders.py", line 1, in &lt;module&gt;      ← genuinely a SECOND frame, as 'orders'
+    from customers import Customer
+ImportError: cannot import name 'Customer' from 'customers' (consider renaming '/app/customers.py' if it has the same name as a library you intended to import)</code></pre>
+            </div>
+
+            <p>Note the error now names <code>customers</code>, not <code>orders</code> &mdash; the failure moved. Two frames for one file means your module-level code, class definitions and singletons all exist twice under two names, which causes problems far beyond this import error (<code>isinstance</code> checks failing against a seemingly identical class is the classic symptom). Run a launcher or <code>python -m package.module</code> instead of executing a module that is also imported.</p>
+
+            <h2 id="find-cycles">Finding every cycle in your project</h2>
+
+            <p>Once you have fixed one, it is worth learning whether there are others, since a cycle only surfaces when a particular import order hits it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># see the real import order and what each import costs (stdlib, no install)
+python -X importtime -c "import yourpkg" 2&gt;&amp;1 | tail -40
+
+# static detection across the whole project
+pip install pylint && pylint --disable=all --enable=cyclic-import yourpkg
+
+# enforce a layering contract in CI so new cycles can't be merged
+pip install import-linter        # configure contracts in .importlinter</code></pre>
+            </div>
+
+            <p><code>pylint</code>'s <code>cyclic-import</code> check is the quickest one-off; <code>import-linter</code> is the one to adopt if the codebase has layers you want to keep apart permanently.</p>
+
+            <h2 id="non-fixes">Two popular fixes that do not work</h2>
+
+            <p>These two appear in most of the top-ranking write-ups for this error. Both were tested on CPython 3.14.6; neither survives.</p>
+
+            <h3>&ldquo;Move the import to the bottom of the file&rdquo;</h3>
+
+            <p>It appears to work, and that is the problem. Moving the import below your definitions only decides <em>which of the two modules survives being imported first</em>. The cycle is untouched:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># pkg/models.py
+class User:
+    pass
+
+from pkg.services import send        # "fixed" by moving it down here
+
+# $ python -c "import pkg.models"     → OK
+# $ python -c "import pkg.services"   → ImportError: cannot import name 'send'
+#                                       from partially initialized module 'pkg.services'</code></pre>
+            </div>
+
+            <p>Same code, two entry points, two outcomes. It holds until a test module, a CLI script, a Celery worker or a different framework import order touches the other module first &mdash; at which point it fails somewhere unrelated to the change that caused it. <a href="#fix-defer">Fix 3</a> works from every entry point; prefer it. (The Pydantic case in <a href="#fix-typing">Fix 4</a> is the narrow exception where a bottom-of-file import is correct, because there the import exists to resolve an annotation <em>after</em> the class is defined, not to be used during initialization.)</p>
+
+            <h3>&ldquo;Use <code>importlib.import_module</code> instead&rdquo;</h3>
+
+            <p>At module level this does nothing at all. <code>importlib.import_module</code> performs the same import at the same moment as an <code>import</code> statement &mdash; it is the machinery the statement itself calls:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># pkg/models.py
+import importlib
+services = importlib.import_module("pkg.services")   # identical timing, identical failure
+
+# ImportError: cannot import name 'User' from partially initialized module 'pkg.models'</code></pre>
+            </div>
+
+            <p><code>importlib</code> only helps when the <em>call</em> is deferred into a function &mdash; and a plain <code>import</code> statement inside that same function does the identical job with less ceremony. Keep <code>importlib</code> for what it is actually for: importing a module whose name you do not know until runtime, such as a plugin loaded from config.</p>
+
+            <h2>Debugging checklist</h2>
+            <ul style="list-style:none;padding-left:0;">
+                <li>&#10003; Read the <strong>path in the parentheses</strong> &mdash; is that the file you meant to import from?</li>
+                <li>&#10003; Check whether the module named in the error has an <strong>earlier, still-running frame</strong>; that, not the hint, indicates a cycle</li>
+                <li>&#10003; One file as <strong>two</strong> frames means <a href="#twice-trap">double execution</a>, a different bug</li>
+                <li>&#10003; On 3.13+, check <em>since</em> vs <em>if</em> &mdash; only <em>since</em> is a confirmed name collision</li>
+                <li>&#10003; Message differs from a colleague's? Compare how you each launch it &mdash; <code>sys.path[0]</code> <a href="#version-matrix">changes the hint</a></li>
+                <li>&#10003; Missing name starts with <code>_</code> or the frame is in <code>site-packages</code>? Suspect a <a href="#cause-install">broken build</a></li>
+                <li>&#10003; Moving to <code>import module</code> alone is not enough &mdash; the <strong>use site</strong> must move into a function too</li>
+                <li>&#10003; Test <strong>both</strong> entry points after any fix &mdash; import each module of the pair first</li>
+                <li>&#10003; Annotation-only import? Put it under <code>TYPE_CHECKING</code> &mdash; and check nothing resolves hints at runtime</li>
+                <li>&#10003; Inside a package, import siblings by their real path, not via the package's <code>__init__.py</code></li>
+            </ul>
+
+            <section class="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                <details>
+                    <summary>What does partially initialized module actually mean?</summary>
+                    <p>It means Python has started running that module's top-level code but has not finished. Python registers a module in <code>sys.modules</code> before executing its body, precisely so that a second import of the same module returns the half-built object instead of looping forever. If your import of a name happens while the module is still on its way down its own file, the name simply has not been assigned yet, and you get this <code>ImportError</code>. The module is not broken and the name is not misspelled — you asked too early.</p>
+                </details>
+                <details>
+                    <summary>Is the circular import hint always right?</summary>
+                    <p>No. The hint is a guess derived from a single condition — the module was still initializing — and several unrelated situations satisfy that condition. A genuine import cycle is one. A local file that shadows an installed library is another; questions of that kind attract very heavy traffic on Stack Overflow, where <code>cannot import name 'Flask' from partially initialized module 'flask'</code> usually turns out to be a script saved as <code>flask.py</code>. A package whose compiled extension failed to build is a third. Check the file path in the message rather than trusting the parenthetical.</p>
+                </details>
+                <details>
+                    <summary>Why does Python 3.13 tell me to rename my file instead of mentioning a circular import?</summary>
+                    <p>Python 3.13 added a shadowing suggestion that replaces the circular-import hint when two conditions both hold: the failing module name has no dot in it, and its file was found in the directory Python placed at <code>sys.path[0]</code>, which is your script's own directory. A plain two-module cycle in a flat project meets both, so it now reports &ldquo;consider renaming …&rdquo; and never mentions circular imports. This was reported to CPython as issue gh-136094 and closed as not planned, so the behaviour is staying. If either condition fails — a dotted submodule, or modules imported from somewhere other than the script directory such as <code>python -m</code> or a test runner — you still get the original circular-import wording.</p>
+                </details>
+                <details>
+                    <summary>How do I tell a circular import apart from a shadowed library?</summary>
+                    <p>Read the file path printed at the end of the message and ask whether that is the file you meant to import from. In a real cycle it is your own module and you expected your own module. In a shadowing case it is your own file where you expected <code>site-packages</code>, which is the whole problem. A second tell on Python 3.13 and later is a single word: &ldquo;<em>since</em> it has the same name as the standard library module named X&rdquo; is a confirmed collision, while &ldquo;<em>if</em> it has the same name as a library you intended to import&rdquo; is only a guess and is what a genuine cycle also produces.</p>
+                </details>
+                <details>
+                    <summary>Does the same file appearing twice in the traceback prove a circular import?</summary>
+                    <p>No, and this is a common misreading. During a normal circular import each module is executed only once, so each file appears as exactly one frame; what looks like a second occurrence is usually the text of an <code>import</code> statement inside another file, not a separate frame. The reliable test is different: the module named in the error also appears as an earlier, still-executing frame in the traceback. A file genuinely appearing as two frames means something else — you ran a module directly as a script while it is also imported by name, so Python built both <code>__main__</code> and the named module from the same file and executed it twice.</p>
+                </details>
+                <details>
+                    <summary>Does moving the import to the bottom of the file fix a circular import?</summary>
+                    <p>Not reliably, and it is one of the most commonly repeated bad fixes. Moving the import below your class and function definitions only decides which of the two modules survives being imported first. Import the other module first — from a test, a script, or a different entry point — and the same error comes back. Tested on CPython 3.14.6, the identical code imports cleanly via one module and fails via the other. Defer the import into the function that uses it instead, which works from every entry point.</p>
+                </details>
+                <details>
+                    <summary>Does importlib.import_module avoid a circular import?</summary>
+                    <p>Not when you call it at module level, which is how it is usually shown. <code>importlib.import_module</code> performs exactly the same import at exactly the same moment as an <code>import</code> statement, so the cycle is untouched and the error is identical. It only helps when the call itself is deferred to runtime, inside a function — and at that point a plain <code>import</code> statement inside the function does the same job and is easier to read. Reach for <code>importlib</code> when the module name is genuinely dynamic, not to break a cycle.</p>
+                </details>
+                <details>
+                    <summary>Why does import module work when from module import name fails?</summary>
+                    <p>Because the two forms need different things at different times. <code>from module import name</code> has to read an attribute off the module object immediately, and that attribute does not exist yet. Plain <code>import module</code> only binds the module object itself, which already exists in <code>sys.modules</code>, so it succeeds even mid-cycle. The catch is that you must also defer the attribute lookup: reading <code>module.Name</code> at the top level of your file fails exactly as before, because the name still is not there. It works when the lookup happens inside a function body, which runs after both modules have finished.</p>
+                </details>
+                <details>
+                    <summary>Can type annotations cause this error, and does TYPE_CHECKING fix it?</summary>
+                    <p>Yes. An import that exists only to annotate a parameter or return value is still a real runtime import and can close a cycle on its own. Putting it under <code>if TYPE_CHECKING:</code> removes it at runtime while type checkers still see it. On Python 3.13 and earlier you also need <code>from __future__ import annotations</code>; on 3.14 and later PEP 649 evaluates annotations lazily by default, so the future import is no longer required. Be aware of the trade: the name does not exist at runtime, so anything resolving annotations — <code>typing.get_type_hints</code>, Pydantic, FastAPI, some ORMs — will fail unless you make the name available again before it is resolved.</p>
+                </details>
+            </section>
+
+            <h2>References</h2>
+            <ul>
+                <li><a href="https://docs.python.org/3/reference/import.html#the-module-cache" target="_blank" rel="noopener">The import system &mdash; the module cache</a> (Python Language Reference)</li>
+                <li><a href="https://docs.python.org/3/reference/simple_stmts.html#the-import-statement" target="_blank" rel="noopener">The <code>import</code> statement</a> (Python Language Reference)</li>
+                <li><a href="https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING" target="_blank" rel="noopener">typing.TYPE_CHECKING</a> (Python Standard Library)</li>
+                <li><a href="https://peps.python.org/pep-0649/" target="_blank" rel="noopener">PEP 649 &mdash; Deferred Evaluation of Annotations Using Descriptors</a> (Python Enhancement Proposals)</li>
+                <li><a href="https://docs.python.org/3/library/sys.html#sys.path" target="_blank" rel="noopener">sys.path</a> (Python Standard Library)</li>
+            </ul>
+
+            <div class="tool-cta">
+                <h3>Staring at a traceback you can't place?</h3>
+                <p>Paste it into the Error Log Analyzer and it will match the message against this reference library, including the sibling import errors this one is easy to confuse with.</p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+                    <a href="../error-log-analyzer.html" class="btn btn-primary">Error Log Analyzer</a>
+                    <a href="../http-status.html" class="btn btn-primary" style="background:#28a745;border-color:#28a745;">HTTP Status Codes</a>
+                    <a href="../errors.html" class="btn btn-primary" style="background:#6c757d;border-color:#6c757d;">All Error References</a>
+                </div>
+            </div>
+
+            <div class="author-bio">
+                <strong>About the author</strong>
+                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds privacy-first developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+            </div>
+        </article>
+
+        <section class="related-tools">
+            <h2>Related Errors</h2>
+            <ul>
+                <li><a href="modulenotfounderror-no-module-named.html">ModuleNotFoundError: No module named 'X'</a> &mdash; when the module isn't found at all; covers the <code>sys.path</code> and shadowing triage in depth</li>
+                <li><a href="cannot-find-module.html">Error: Cannot find module</a> &mdash; the Node.js equivalent, with the same &ldquo;my file shadows a package&rdquo; trap</li>
+                <li><a href="nonetype-no-attribute.html">AttributeError: 'NoneType' object has no attribute 'X'</a> &mdash; the other Python <code>AttributeError</code> that reads as a missing name</li>
+                <li><a href="externally-managed-environment.html">error: externally-managed-environment</a> &mdash; when the broken-install path leads you back to pip</li>
+                <li><a href="../errors.html">&larr; All error references</a></li>
+            </ul>
+        </section>
+        <section class="related-tools">
+            <h2>Related Guides</h2>
+            <ul>
+                <li><a href="../error-log-analyzer.html">Error Log Analyzer</a></li>
+                <li><a href="../formatter.html">JSON Formatter</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 JSON Dev Tools. All rights reserved.</p>
+            <p><a href="../privacy-policy.html">Privacy Policy</a> | <a href="../terms-of-service.html">Terms of Service</a> | <a href="../about.html">About</a> | <a href="../contact.html">Contact</a></p>
+        </div>
+    </footer>
+
+    <script src="../js/navbar-component.js"></script>
+    <script src="../js/nav.js"></script>
+    <script src="../js/dark-mode.js"></script>
+    <script src="../js/code-highlight.js"></script>
+</body>
+</html>
