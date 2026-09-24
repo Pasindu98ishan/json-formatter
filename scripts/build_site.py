@@ -33,7 +33,7 @@ SITE_DIRS = {
     'blog': {'.html', '.svg'},
     'css': {'.css'},
     'data': {'.json'},
-    'errors': {'.html', '.svg'},
+    'errors': {'.html', '.svg', '.png'},   # .png: og:image social cards (SVG isn't rendered by social platforms)
     'http-status': {'.html'},
     'images': {'.png'},
     'js': {'.js'},
