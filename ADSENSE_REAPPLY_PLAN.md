@@ -94,10 +94,13 @@ Audits on 2026-09-20 (content, technical, and `docs/audits/adsense-content-audit
 - [x] `errors/nonetype-not-subscriptable.html`, `nonetype-no-attribute.html`: the 4 "JSON Formatter" / "Open JSON Formatter" links pointed at `index.html`; fixed to `formatter.html`. Grepped the other ~230 "JSON Dev Tools" bio-link and 5 other tool names sitewide for the same href/text mismatch — none found; this was isolated to those two files.
 
 **Day 5 (Fri Sep 25): head hygiene**
-- [ ] `scripts/check-meta-description.js` extended to root and `http-status/`, and to titles
-- [ ] All 137 descriptions over 160 chars rewritten to 120–160
-- [ ] 130 titles over 70 chars fixed (over-60 titles are a stretch; the build warns, does not fail)
-- [ ] First external post published (by you)
+*Code-side work done 2026-09-29. Nothing committed yet. **Not fully done:** the external post is still yours to publish.*
+- [x] `scripts/check-meta-description.js` extended to root and `http-status/` (now defaults to `.` + `errors` + `blog` + `http-status`, 295 pages) and to titles. Hard-fails on description > 160 or title > 70; warns on description < 120 or title 61–70. Counts decoded glyphs, not bytes (`&mdash;` is one character), skips the two meta-refresh stubs, and fails on a missing `<title>`/description rather than silently passing.
+- [x] All descriptions over 160 chars rewritten to 120–160 — **138**, not 137 (three pages added since the Sep 20 baseline): 20 root, 72 errors, 46 blog, 0 http-status. Error-page descriptions keep the exact error string and drop the trailing framework list; tool pages drop the "Free online X" preamble and lead with what the tool does.
+- [x] **131** titles over 70 chars fixed (not 130 — same baseline drift): 7 root, 54 errors, 65 blog, 5 http-status. 103 were fixed by dropping the redundant `| JSON Dev Tools` suffix, which `ERROR_PAGE_GUIDE.md` already forbids on error pages; the other 28 were rewritten by hand, keeping the searchable error string and cutting the marketing tail.
+- [x] Bonus: 37 more titles in the 61–70 band de-branded (free win, no copy change) — over-60 titles **204 → 94**. See the go/no-go note; the remaining 94 are mostly exact error strings and cannot reach 60 without breaking the match to what users search.
+- [x] Bonus, found in passing: `blog/common-json-errors.html` carried a triple-mojibake sequence (`Ã¯Â¿Â½Ã¯Â¿Â½Ã¯Â¿Â½`, a double-encoded em-dash) in **both** its meta description and its Article JSON-LD `description`. Both fixed; a sitewide scan for that and two related mojibake patterns finds no others.
+- [ ] First external post published (by you) — `docs/off-page/post-1-share-link-leak.md` was drafted on Day 2 and is still unpublished
 
 **Day 6 (Sat Sep 26): experience capture (needs you, ~1–2 h)**
 - [ ] Question list for Kafka, Postgres, Java, Docker pages sent
@@ -155,8 +158,8 @@ Audits on 2026-09-20 (content, technical, and `docs/audits/adsense-content-audit
 | `errors.html` count matches its own table, real date matches its own sitemap entry, no unverifiable claims, scope statement | yes — **done 2026-09-22** | "0", June 2026, 2 claims, none |
 | Kafka/Postgres/Java/Docker pages with a first-hand section | at least 8 | 0 |
 | Invalid JSON-LD blocks | 0 (enforced by build) | 8 blocks in 4 files |
-| Meta descriptions over 160 chars | 0 | 137 |
-| Titles over 70 / over 60 | 0 / under 40 | 130 / 201 |
+| Meta descriptions over 160 chars | 0 — **done 2026-09-29** | 137 (really 138) |
+| Titles over 70 / over 60 | 0 — **done 2026-09-29** / under 40 — **not met, at 94** | 130 / 201 (really 131 / 204) |
 | CMP live and GA4 consent-gated | yes | site code live 2026-09-22; message created, serves only after approval |
 | Ad loader on non-content pages | 0 | 2 |
 | Placeholder slot / test scripts published | 0 | 1 slot, 2 scripts |
@@ -169,7 +172,7 @@ Audits on 2026-09-20 (content, technical, and `docs/audits/adsense-content-audit
 - `python scripts/build_site.py` passes after each day's changes (sitemap complete, no broken links, JSON-LD valid, no dev files, hub count matches).
 - Share link, in a browser: format JSON, click Share, confirm `#j=`. Open a legacy `?j=` link, confirm the query is stripped and no `j=` value appears in outgoing GA4 requests (network log).
 - Consent test on `formatter.html` and one error page, accepted and declined: GA4 and ads load only after consent in EEA mode.
-- `node scripts/check-meta-description.js` reports 0 over-length descriptions across errors, blog, root and `http-status`.
+- `node scripts/check-meta-description.js` (no arguments) reports 0 **failures** across root, errors, blog and `http-status` — that now covers over-length titles as well as descriptions. Warnings are expected and non-blocking: 94 titles in the 61–70 band and 5 descriptions under 120 chars.
 - `errors.html` with JavaScript disabled shows the right count and date.
 - Word-count and bio-duplication scripts re-run on Day 14 with the same method as the Sep 20 audits.
 - Search Console: Pages report; Rich results test on the 4 fixed blog pages; URL inspection on the moved Privacy/Terms URLs.
@@ -184,6 +187,7 @@ Audits on 2026-09-20 (content, technical, and `docs/audits/adsense-content-audit
 | 2026-09-21 | Day 2 changes (see checklist) | `python scripts/build_site.py` passes, 428 files (two new root pages). Not committed. **Do not deploy Day 2 on its own:** Privacy section 6 says analytics/advertising cookies are set only after consent in the EEA/UK/Switzerland, which is true only once the Day 3-4 consent message is live. |
 | 2026-09-21 | New first-hand post: `blog/vue-echarts-large-dataset-slider-lag.html` (counts toward the 1-2 pages/week) | Story from the author's real fix (Options API, 2.4 MB dataset, markRaw/toRaw). All numbers are from a local reproduction (Vue 3.5.43, ECharts 6.1.0) and labelled as such in the post. Added to blog index and sitemap. Not committed. |
 | 2026-09-22 | Days 3-4 code-side changes (see checklist), two days early | `python scripts/build_site.py` passes, 432 files. Not committed. **Still open:** publishing the GDPR message in the AdSense console — nothing the code does can substitute for that. Two new build-time checks added (errCount vs. table, "Last updated" vs. sitemap lastmod) and both verified to actually fail on injected drift, then reverted. |
+| 2026-09-29 | Day 5 head hygiene (see checklist) | `python scripts/build_site.py` passes, 435 files. `node scripts/check-meta-description.js` reports **0 failures** across all 295 pages, down from 269 (138 descriptions + 131 titles). 213 files changed. Not committed. Titles are **not** duplicated anywhere after de-branding — checked all 296 source pages, 0 collisions. Only `<title>` and `<meta name="description">` were touched; `og:title`/`og:description` were left alone because they are already written independently on almost every page (verified on a sample before starting), so syncing them would have overwritten deliberate social copy. |
 
 **Day 1 audit results**
 - Persisted user input: only the formatter's `formatterInput` (`js/app.js:107`, `js/codemirror-setup.js:137`). `jsonHistory` in `js/utils.js` is dead code: `js/app-enhanced.js` is not loaded by any page. Other localStorage keys are settings (dark mode, toggles, `pxRemBase`, quiz state) and the mock-data field model. The privacy text can therefore say "the formatter saves what you type in this browser".
