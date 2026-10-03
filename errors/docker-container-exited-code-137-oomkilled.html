@@ -60,7 +60,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-07-13",
-  "dateModified": "2026-09-12",
+  "dateModified": "2026-10-03",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -229,7 +229,7 @@ true</code></pre>
                 </svg>
             </div>
 
-            <h2>Step 1: confirm it was actually the OOM killer</h2>
+            <h2 id="step-1">Step 1: confirm it was actually the OOM killer</h2>
             <p>Don't assume &mdash; check. This single flag tells you definitively whether memory was the cause:</p>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -334,6 +334,86 @@ Last State:   Terminated
                 <li>An operator or script running <code>docker kill &lt;container&gt;</code> directly</li>
                 <li>An orchestrator forcefully rescheduling/stopping a container during a deploy or scale-down</li>
             </ul>
+
+            <h2 id="inverse-trap">&hellip;and when memory kills a container <em>without</em> exit 137</h2>
+
+            <p>The section above is the half of this that gets written about. The other half is worse, because it sends you looking in the wrong place: <strong>an OOM kill does not always produce exit code 137.</strong> If the process the kernel chooses is not PID 1, the container's main process can go on to finish normally and report whatever status it likes &mdash; including <code>0</code>.</p>
+
+            <p>All four combinations, run on Docker 25.0.2 against a 32&nbsp;MB limit:</p>
+
+            <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr><th>What happened</th><th><code>ExitCode</code></th><th><code>OOMKilled</code></th><th>What <code>docker ps -a</code> shows</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>PID 1 is itself the memory hog</td>
+                        <td><strong>137</strong></td>
+                        <td><strong>true</strong></td>
+                        <td><code>Exited (137)</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>A child process is OOM-killed; PID 1 then exits cleanly</strong></td>
+                        <td><strong>0</strong></td>
+                        <td><strong>true</strong></td>
+                        <td><code>Exited (0)</code> &mdash; looks like success</td>
+                    </tr>
+                    <tr>
+                        <td>External <code>docker kill</code>, no memory pressure at all</td>
+                        <td><strong>137</strong></td>
+                        <td><strong>false</strong></td>
+                        <td><code>Exited (137)</code></td>
+                    </tr>
+                    <tr>
+                        <td>JVM with <code>-Xmx512m</code> inside <code>--memory=128m</code></td>
+                        <td><strong>137</strong></td>
+                        <td><strong>true</strong></td>
+                        <td><code>Exited (137)</code>, and <em>no Java output</em></td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>Row&nbsp;2 is the trap. A shell script that runs a build step, an import, or a <code>dd</code> &mdash; anything where PID 1 launches a child and carries on &mdash; can have that child killed for memory and still exit <code>0</code>. Nothing in the status line hints at it. If you are triaging by exit code, you will write the incident off as "not memory" and go looking at application logic.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># a child is OOM-killed, but PID 1 (the shell) exits 0 anyway
+$ docker run --name b1 --memory=32m --memory-swap=32m alpine \
+    sh -c 'dd if=/dev/zero of=/dev/shm/f bs=1M count=500 2&gt;/dev/null; echo done; exit 0'
+
+$ docker ps -a --filter name=b1 --format '{{.Status}}'
+Exited (0) Less than a second ago            # ← no sign of a kill
+
+$ docker inspect b1 --format 'ExitCode={{.State.ExitCode}}  OOMKilled={{.State.OOMKilled}}'
+ExitCode=0  OOMKilled=true                   # ← the truth</code></pre>
+            </div>
+
+            <p>So the rule from <a href="#step-1">Step&nbsp;1</a> is stronger than it first appears, and it runs in both directions: <strong>the exit code is not evidence either way.</strong> <code>{{.State.OOMKilled}}</code> is the only field that answers the question. Check it even when the container exited 0, if memory is on your list of suspects at all.</p>
+
+            <h3>The JVM case is its own discriminator</h3>
+
+            <p>Row&nbsp;4 is worth separating out, because it is the single most useful tell when a Java service dies in a container &mdash; and it decides whether you are reading <a href="java-outofmemoryerror-java-heap-space.html">OutOfMemoryError: Java heap space</a> or this page. An explicit <code>-Xmx</code> <strong>overrides</strong> container awareness: <code>UseContainerSupport</code> only supplies the <em>default</em> heap, it does not cap a heap you asked for.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># heap smaller than the container limit → the JVM throws, and you get a stack trace
+$ docker run --memory=256m temurin:21-jre-alpine java -Xmx64m ...
+maxMemory=61MB
+java.lang.OutOfMemoryError: Java heap space        # catchable, loggable
+ExitCode=0  OOMKilled=false
+
+# heap LARGER than the container limit → the kernel wins the race, and Java never speaks
+$ docker run --memory=128m temurin:21-jre-alpine java -Xmx512m ...
+maxMemory=494MB                                   # ← the JVM believed -Xmx, not the cgroup
+(no further output at all)
+ExitCode=137  OOMKilled=true</code></pre>
+            </div>
+
+            <p>Read it as a decision: <strong>a Java <code>OutOfMemoryError</code> stack trace means the JVM stayed inside its own ceiling</strong> &mdash; the heap is too small, or you have a leak, and the <a href="java-outofmemoryerror-java-heap-space.html">heap-space page</a> is where to go. <strong>A 137 with no Java output at all means <code>-Xmx</code> was bigger than the container</strong>, so the JVM was killed mid-allocation before it could diagnose itself. The absence of a stack trace is the signal, not an unlucky truncation of your logs.</p>
+
+            <p class="verified-note">All four rows reproduced on <strong>Docker 25.0.2</strong>; the JVM rows on <strong>Java 21.0.11</strong> (<code>eclipse-temurin:21-jre-alpine</code>). Which process the kernel picks is an OOM-killer scoring decision, so row 2 depends on your container's process tree &mdash; the point is that exit 0 does not rule memory out, not that it always means a child died.</p>
 
             <h2>Debugging checklist</h2>
             <ul style="list-style:none;padding-left:0;">

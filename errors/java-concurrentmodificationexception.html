@@ -55,7 +55,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-07-14",
-  "dateModified": "2026-09-12",
+  "dateModified": "2026-10-03",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -179,7 +179,7 @@ while (it.hasNext()) {
             </div>
             <p>So calling <code>list.remove(s)</code> in the loop body modifies the list behind that hidden iterator's back, and the very next <code>it.next()</code> catches it. Seeing the desugared form makes the fix obvious: change the collection <em>through</em> <code>it</code>, not through <code>list</code>.</p>
 
-            <h2>Why it throws: the fail-fast modification count</h2>
+            <h2 id="why-it-throws">Why it throws: the fail-fast modification count</h2>
             <div class="dg-wrap">
                 <svg viewBox="0 0 640 250" role="img" aria-label="Timeline: the list starts with a modification count, modCount, of 3. The for-each loop creates an iterator that snapshots expectedModCount as 3. During iteration, list.remove increments the list's modCount to 4 but the iterator's expectedModCount stays 3. On the next call to next, the iterator compares the two, sees 4 does not equal 3, and throws ConcurrentModificationException.">
                     <defs>
@@ -222,14 +222,14 @@ for (int i = 0; i &lt; items.size(); i++) {
             </div>
             <p><code>List.set(index, value)</code> overwrites a slot without changing the size, so it doesn't touch <code>modCount</code> and never trips a fail-fast iterator. Only <code>add</code> and <code>remove</code> (and their bulk cousins) are structural modifications. That's why the fixes below are all about how you <em>add or remove</em> during iteration &mdash; replacing values in place was never the problem.</p>
 
-            <h2>Fix 1: removeIf (the cleanest, Java 8+)</h2>
+            <h2 id="fix-removeif">Fix 1: removeIf (the cleanest, Java 8+)</h2>
             <p>For conditional removal, <code>removeIf</code> is a one-liner that handles the iteration internally and never trips the check:</p>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
 <pre><code>items.removeIf(item -&gt; item.equals("b"));   // ✅ no loop, no exception</code></pre>
             </div>
 
-            <h2>Fix 2: Iterator.remove()</h2>
+            <h2 id="fix-iterator-remove">Fix 2: Iterator.remove()</h2>
             <p>When you need explicit control, obtain the <code>Iterator</code> yourself and remove <em>through</em> it &mdash; this updates the iterator's expected count in lockstep with the list's:</p>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -326,8 +326,43 @@ scores.entrySet().removeIf(e -&gt; e.getValue() == 0);</code></pre>
             </div>
             <p>Streams create a new collection instead of modifying the one being iterated, so there is nothing for a fail-fast iterator to catch. This is often the cleanest choice when the &ldquo;modification&rdquo; you wanted was really just &ldquo;a filtered version of this list&rdquo; &mdash; you get an immutable result and the original stays intact.</p>
 
-            <h2>One caveat: fail-fast is best-effort, not a guarantee</h2>
-            <p>It's worth understanding the guarantee you're <em>not</em> getting. The Java documentation is explicit that fail-fast behavior cannot be guaranteed: the modification-count check is done on a best-effort basis, so a program must never depend on this exception for correctness &mdash; it exists only to detect bugs. In practice that means two things. First, in single-threaded code the exception is reliable enough to treat as a hard signal that you modified during iteration, and you should fix the code as shown above. Second, in multi-threaded code the <em>absence</em> of the exception proves nothing &mdash; a data race can corrupt a shared collection silently without ever tripping the check. So don't try to &ldquo;catch and ignore&rdquo; ConcurrentModificationException to paper over a threading problem; the correct response is always to fix the structure of the code, either by modifying through the iterator (single-threaded) or by using a concurrent collection (multi-threaded).</p>
+            <h2 id="best-effort">One caveat: fail-fast is best-effort, not a guarantee</h2>
+            <p>It's worth understanding the guarantee you're <em>not</em> getting. The Java documentation is explicit that fail-fast behavior cannot be guaranteed: the modification-count check is done on a best-effort basis, so a program must never depend on this exception for correctness &mdash; it exists only to detect bugs. In multi-threaded code that is widely understood: the <em>absence</em> of the exception proves nothing, because a data race can corrupt a shared collection silently without ever tripping the check.</p>
+
+            <p>What gets repeated far less often is that <strong>single-threaded code has a silent case too</strong>, and it is not an edge case you would have to go looking for. <strong>Remove the second-to-last element during a for-each and nothing is thrown &mdash; the loop just ends early and never visits the final element.</strong></p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// same loop, same list, only the removed element differs — Java 21.0.11
+List&lt;String&gt; list = new ArrayList&lt;&gt;(List.of("A", "B", "C"));
+for (String s : list) {
+    visited.add(s);
+    if (s.equals(target)) list.remove(s);
+}
+
+target = "A"  (first)           → threw CME      visited=[A]        final=[B, C]
+target = "B"  (second-to-last)  → NO EXCEPTION   visited=[A, B]     final=[A, C]   ← "C" never visited
+target = "C"  (last)            → threw CME      visited=[A, B, C]  final=[A, B]</code></pre>
+            </div>
+
+            <p>It is not specific to three-element lists. At every size tested, removing the element at <code>size-2</code> exits quietly and drops the last element from the iteration:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>size 2, removed e0 → NO EXCEPTION   visited=[e0]              final=[e1]
+size 3, removed e1 → NO EXCEPTION   visited=[e0, e1]          final=[e0, e2]
+size 4, removed e2 → NO EXCEPTION   visited=[e0, e1, e2]      final=[e0, e1, e3]
+size 5, removed e3 → NO EXCEPTION   visited=[e0, e1, e2, e3]  final=[e0, e1, e2, e4]
+//                                   ^ short by one, every time</code></pre>
+            </div>
+
+            <p>The reason is in <code>ArrayList.Itr</code>, and it follows directly from the <a href="#why-it-throws">modCount mechanism</a> above. <code>hasNext()</code> is just <code>cursor != size</code>, and the comodification check lives in <code>next()</code>. Removing an element at <code>size-2</code> leaves <code>cursor</code> exactly equal to the new <code>size</code>, so <code>hasNext()</code> returns <code>false</code>, the loop terminates normally, and <code>checkForComodification()</code> is never reached. Nothing is corrupt and nothing is thrown &mdash; you simply processed one fewer element than the list contained.</p>
+
+            <p><strong>The practical consequence is the point.</strong> It is tempting to treat this exception as a reliable single-threaded tripwire &mdash; "if I had modified during iteration, I'd know." You would not necessarily know. The failure mode of removing during a for-each is <em>either</em> a loud <code>ConcurrentModificationException</code> <em>or</em> a silently incomplete loop, decided by which index you happened to remove. A list-processing bug that skips exactly one element, intermittently, depending on data, is considerably harder to find than an exception with a stack trace. That is the real argument for <a href="#fix-removeif">removeIf</a> and <a href="#fix-iterator-remove">Iterator.remove()</a>: not that they avoid an exception, but that they are the only forms that are <em>correct</em>.</p>
+
+            <p>So don't try to &ldquo;catch and ignore&rdquo; <code>ConcurrentModificationException</code> to paper over the problem, in either threading model; the correct response is always to fix the structure of the code, either by modifying through the iterator (single-threaded) or by using a concurrent collection (multi-threaded).</p>
+
+            <p class="verified-note">Reproduced on <strong>Java 21.0.11</strong> (OpenJDK 64-Bit Server VM, build 21.0.11+9-LTS-211). The removal-position behaviour above is a consequence of <code>ArrayList</code>'s iterator implementation, not a specification guarantee, so treat it as a reason to avoid the pattern rather than a rule to rely on.</p>
 
             <h2>Debugging checklist</h2>
             <ul style="list-style:none;padding-left:0;">

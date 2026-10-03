@@ -60,7 +60,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-06-27",
-  "dateModified": "2026-09-12",
+  "dateModified": "2026-10-03",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -186,7 +186,7 @@ UPDATE accounts SET ... WHERE id=2;   -- waits for B
 -- ❌ deadlock — Postgres aborts one</code></pre>
             </div>
 
-            <h2>Fix 1: lock in a consistent order (the real fix)</h2>
+            <h2 id="fix-1">Fix 1: lock in a consistent order (the real fix)</h2>
             <p>If every transaction touches rows in the <strong>same order</strong>, the opposite-order cycle can't form. Order your updates (and <code>SELECT ... FOR UPDATE</code>) deterministically:</p>
 
             <div class="code-block">
@@ -199,7 +199,7 @@ UPDATE accounts SET balance = balance + 100 WHERE id = 2;
 SELECT * FROM accounts WHERE id IN (1, 2) ORDER BY id FOR UPDATE;</code></pre>
             </div>
 
-            <h2>Fix 2: retry the victim</h2>
+            <h2 id="fix-2">Fix 2: retry the victim</h2>
             <p>Deadlocks are normal under concurrency &mdash; the right response is to retry. Catch SQLSTATE <code>40P01</code>, roll back, and re-run the transaction (make it idempotent so a retry is safe):</p>
 
             <div class="code-block">
@@ -236,6 +236,33 @@ for attempt in range(3):
             </div>
 
             <p>Captured on PostgreSQL&nbsp;16.15. The two <code>Process N:</code> lines are the whole diagnosis: they show each transaction's <em>final</em> statement, and reading them side by side makes the inverted lock order obvious &mdash; one transaction reached <code>id = 1</code> last, the other reached <code>id = 2</code> last, so each already held what the other was waiting for. On a managed service (RDS, Cloud SQL, Supabase) this is in the Postgres error log, not in your application logs.</p>
+
+            <h2 id="which-victim">Which transaction gets aborted &mdash; and why you can't predict it</h2>
+
+            <p>It is natural to assume the choice is principled: the newer transaction loses, or the one holding fewer locks, or the one that has done less work. It is none of those. <strong>PostgreSQL aborts whichever backend's <code>deadlock_timeout</code> happens to expire first <em>after</em> the cycle has closed</strong> &mdash; the process that runs the next deadlock check is the one that finds the cycle, reports it, and dies. That is a timer race, and it is decided by microsecond-level arrival order you do not control.</p>
+
+            <p>Three runs of the same two-transaction cycle on PostgreSQL&nbsp;16.15, varying only how long each transaction waited before reaching for the second row:</p>
+
+            <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr><th>A blocks at</th><th>B blocks at</th><th>Cycle closes</th><th>Aborted</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>t = 1s</td><td>t = 6s</td><td>t = 6s</td><td><strong>B</strong></td></tr>
+                    <tr><td>t = 6s</td><td>t = 1s</td><td>t = 6s</td><td><strong>A</strong></td></tr>
+                    <tr><td>t = 2.0s</td><td>t = 2.4s</td><td>t = 2.4s</td><td><strong>A</strong></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>The first two rows look like a tidy rule &mdash; "whoever completes the cycle loses" &mdash; and the third breaks it. In row 3 <strong>A blocked first and still became the victim</strong>: the cycle closed at 2.4s, A had been waiting since 2.0s so its timer fired at 3.0s, and B's would not have fired until 3.4s. A got there first and A died. In rows 1 and 2 the two waits were five seconds apart, so the earlier waiter's timer had already fired and found nothing before the cycle existed, leaving the later one to discover it.</p>
+
+            <p>So neither "first in wins" nor "last in loses" is reliable. The only rule that holds is the timer one, and the gap between the two blocks relative to <code>deadlock_timeout</code> (1s by default) decides which case you land in.</p>
+
+            <p><strong>What follows from this is the part that affects your code.</strong> You cannot designate one of the two code paths as "the one that will be retried." Either side can be the victim on any given occurrence, including the path you think of as primary or user-facing. So <a href="#fix-2">retry handling</a> belongs on <em>both</em> transactions in the pair, not just the one that happened to lose while you were debugging &mdash; and the retry has to be safe on both sides. If only one path can tolerate replay, <a href="#fix-1">consistent lock ordering</a> is not merely the better fix, it is the only one that works, because it removes the race instead of coping with its outcome.</p>
+
+            <p class="verified-note">All three rows reproduced on <strong>PostgreSQL 16.15</strong> with the default <code>deadlock_timeout = 1s</code>, two <code>UPDATE</code>s per transaction in opposite order. Victim selection is an implementation detail of the detector, not a documented guarantee &mdash; which is precisely the reason not to build logic that assumes a particular side loses.</p>
 
             <h2>The settings that matter</h2>
 

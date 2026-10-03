@@ -51,7 +51,7 @@
   "image": "https://jsondevtools.org/og-image.png",
   "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
   "datePublished": "2026-07-19",
-  "dateModified": "2026-07-19",
+  "dateModified": "2026-10-03",
   "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
 }
     </script>
@@ -213,7 +213,7 @@ jcmd &lt;pid&gt; GC.heap_info
 jstat -gcutil &lt;pid&gt; 5s</code></pre>
             </div>
 
-            <h2>Fix 1: the heap is genuinely too small</h2>
+            <h2 id="fix-1">Fix 1: the heap is genuinely too small</h2>
             <p>If the baseline is flat and the application simply needs more room at peak load, raising the maximum heap is the right and complete fix:</p>
             <div class="code-block">
                 <button class="copy-code-btn" aria-label="Copy code">Copy</button>
@@ -285,6 +285,55 @@ docker run -m 512m myapp java -Xmx512m -jar app.jar
 docker run -m 512m myapp java -XX:MaxRAMPercentage=75.0 -jar app.jar</code></pre>
             </div>
             <p>Modern JDKs (10+) are container-aware by default &mdash; <code>UseContainerSupport</code> is on, so the JVM reads the cgroup limit rather than the host's total RAM. <code>-XX:MaxRAMPercentage</code> is therefore the better flag in containers: it scales automatically when you change the limit, instead of silently becoming wrong the next time someone edits the deployment.</p>
+
+            <h3 id="default-is-25-percent">The container-aware default is 25%, which is lower than most people expect</h3>
+
+            <p>"Container-aware" is easy to read as "sized sensibly to the limit." The number is worth knowing exactly, because it is conservative: with no heap flags at all, the default <code>MaxRAMPercentage</code> is <strong>25.0</strong>, so three quarters of the container's memory is left unused by the heap. Measured on <code>eclipse-temurin:21-jre-alpine</code>:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker run --rm --memory=&lt;LIMIT&gt; eclipse-temurin:21-jre-alpine \
+    java -XX:+PrintFlagsFinal -version | grep -E 'MaxHeapSize|MaxRAMPercentage'
+
+--memory=512m  →  MaxHeapSize = 128 MB   MaxRAMPercentage = 25.0
+--memory=1g    →  MaxHeapSize = 256 MB   MaxRAMPercentage = 25.0
+--memory=2g    →  MaxHeapSize = 512 MB   MaxRAMPercentage = 25.0
+
+bool UseContainerSupport = true {product} {default}</code></pre>
+            </div>
+
+            <p>That cuts both ways. It is why a service can throw <code>OutOfMemoryError: Java heap space</code> in a 2&nbsp;GB container while <code>docker stats</code> shows it using well under a gigabyte &mdash; the heap ceiling was 512&nbsp;MB and the other 1.5&nbsp;GB was never available to it. If that is your situation, the heap is not "genuinely too small" in the sense of <a href="#fix-1">Fix&nbsp;1</a>; it is being capped at a quarter of what you provisioned, and raising <code>MaxRAMPercentage</code> is the fix rather than enlarging the container.</p>
+
+            <p><strong>One caution in the other direction, which is the real reason this flag is not just "set it to 90".</strong> An explicit <code>-Xmx</code> <em>overrides</em> container awareness &mdash; <code>UseContainerSupport</code> supplies the default, it does not cap a value you asked for. A JVM given <code>-Xmx512m</code> inside a 128&nbsp;MB container reports <code>maxMemory=494MB</code>, happily allocates past the cgroup limit, and is killed by the kernel mid-allocation:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># heap under the limit  → the JVM throws, and you get a stack trace to read
+--memory=256m, -Xmx64m  :  maxMemory=61MB   →  java.lang.OutOfMemoryError: Java heap space
+                                               ExitCode=0   OOMKilled=false
+
+# heap over the limit    → killed before it can diagnose itself, no Java output at all
+--memory=128m, -Xmx512m :  maxMemory=494MB  →  (nothing)
+                                               ExitCode=137 OOMKilled=true</code></pre>
+            </div>
+
+            <p>This gives you a clean way to tell the two ceilings apart after the fact, which is the practical version of the table above: <strong>if you have a Java stack trace, the JVM stayed inside its own limit</strong> and you are on the right page. <strong>If the container died with no Java output at all, <code>-Xmx</code> was larger than the container limit</strong> &mdash; the absence of a stack trace is the diagnosis, not missing logs, and <a href="docker-container-exited-code-137-oomkilled.html">exit code 137 / OOMKilled</a> covers it.</p>
+
+            <h3>You cannot fill <code>-Xmx</code> with live data</h3>
+
+            <p>One more measured number, because it affects how you size from a known working set. Retaining 1&nbsp;MB blocks in an <code>ArrayList</code> under <code>-Xmx32m</code> died after <strong>14&nbsp;MB</strong> &mdash; under half the heap:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ java -Xmx32m Oom.java
+max heap = 32 MB
+caught: java.lang.OutOfMemoryError: Java heap space
+retained 14 MB before dying</code></pre>
+            </div>
+
+            <p>The rest went to GC headroom (a collector needs somewhere to copy survivors to) and to the growing list's own backing array, which must briefly hold both the old and new copy while it doubles. So if you know your live set is 600&nbsp;MB, <code>-Xmx600m</code> will not run &mdash; budget meaningfully above the working set rather than at it.</p>
+
+            <p class="verified-note">Measured on <strong>Java 21.0.11</strong> (OpenJDK 64-Bit Server VM, build 21.0.11+9-LTS-211), container figures on <code>eclipse-temurin:21-jre-alpine</code> under <strong>Docker 25.0.2</strong>. The 25&nbsp;% default and <code>UseContainerSupport</code> have been stable since JDK&nbsp;10, but both are tunable, so read them off your own runtime with <code>-XX:+PrintFlagsFinal</code> rather than assuming.</p>
 
             <h2>Related OutOfMemoryError variants</h2>
             <p>The message after <code>OutOfMemoryError:</code> tells you which region ran out, and they have different fixes:</p>

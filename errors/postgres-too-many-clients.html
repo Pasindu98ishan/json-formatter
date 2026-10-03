@@ -47,10 +47,11 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "FATAL: sorry, too many clients already — Cause and Fix",
-  "description": "PostgreSQL raises 'FATAL: sorry, too many clients already' when open connections reach max_connections. This reference explains connection leaks, pooling with PgBouncer, and the serverless pooler fix.",
+  "description": "PostgreSQL raises 'FATAL: sorry, too many clients already' when open connections reach max_connections. This reference explains connection leaks, pooling with PgBouncer, the serverless pooler fix, and why a regular role hits a different message at max_connections minus superuser_reserved_connections.",
+  "image": "https://jsondevtools.org/og-image.png",
   "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
   "datePublished": "2026-06-27",
-  "dateModified": "2026-06-27",
+  "dateModified": "2026-10-03",
   "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
 }
     </script>
@@ -104,7 +105,7 @@
       "name": "What is 'remaining connection slots are reserved'?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Postgres reserves a few connection slots (superuser_reserved_connections) for superusers so admins can still log in during an outage. Regular users see 'too many clients already' once non-reserved slots are full, while a superuser can still connect to investigate."
+        "text": "Postgres reserves a few slots (superuser_reserved_connections, default 3) for superusers so an admin can still log in during an outage. The two messages are not interchangeable. A regular role that exhausts the non-reserved slots gets exactly this message, 'remaining connection slots are reserved for roles with the SUPERUSER attribute' — so its real wall is max_connections minus superuser_reserved_connections, verified as 7 of 10 on PostgreSQL 16.15. 'Sorry, too many clients already' means every slot including the reserve is gone. The catch is that the reserve only helps if your application connects as a non-superuser; if the app is itself a superuser it can consume the reserve and lock you out of your own diagnosis."
       }
     }
   ]
@@ -145,12 +146,17 @@ FATAL:  sorry, too many clients already
 
 # application drivers surface the same thing:
 # psycopg2.OperationalError: FATAL:  sorry, too many clients already
-# error: sorry, too many clients already   (node-postgres)</code></pre>
+# error: sorry, too many clients already   (node-postgres)
+
+# the OTHER message for a full server — a regular role hits this one FIRST:
+FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute</code></pre>
             </div>
 
             <p>Every connection slot is in use. Postgres allows <code>max_connections</code> simultaneous connections (default <strong>100</strong>); once they are all taken, the next client is rejected. This is about the <em>number of open connections</em>, not the queries themselves.</p>
 
-            <h2>Step 1: see what is holding connections</h2>
+            <p>Note the second message in the block above. The two are <strong>not</strong> interchangeable, and which one you get narrows the problem considerably &mdash; see <a href="#two-messages">which message you got</a>.</p>
+
+            <h2 id="step-1">Step 1: see what is holding connections</h2>
             <p>Before changing anything, look at who is connected. A pile of <code>idle</code> connections is the classic sign of a leak:</p>
 
             <div class="code-block">
@@ -167,6 +173,59 @@ FROM pg_stat_activity ORDER BY state;</code></pre>
             </div>
 
             <p>Lots of <code>idle</code> rows &rarr; connections opened and never closed. <code>idle in transaction</code> &rarr; transactions left open (a missing commit/rollback).</p>
+
+            <h2 id="two-messages">Which message you got, and what it rules out</h2>
+
+            <p>A full Postgres server produces <em>two</em> different refusals, and most write-ups treat them as synonyms. They are not: there is a band of connections where a regular application role is already being refused while the server still has slots left. Knowing which message you have tells you whether you are at the real ceiling or at the reserved one.</p>
+
+            <p>Verified on PostgreSQL&nbsp;16.15 with <code>max_connections = 10</code> and the default <code>superuser_reserved_connections = 3</code>, using a plain <code>LOGIN</code> role:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># ten connection attempts from a NON-superuser role:
+succeeded: 7    refused: 3
+
+# and what the three refusals said:
+FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute</code></pre>
+            </div>
+
+            <p><strong>The wall for an ordinary role is <code>max_connections</code> &minus; <code>superuser_reserved_connections</code></strong> &mdash; seven here, not ten. If you size a pool against <code>max_connections</code> you will be three short of your own arithmetic and the error will arrive earlier than you predicted.</p>
+
+            <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr><th>Message</th><th>What is actually true</th><th>What it rules out</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>remaining connection slots are reserved for roles with the SUPERUSER attribute</code></td>
+                        <td>The non-reserved slots are gone. The server still has its superuser reserve.</td>
+                        <td>You can still get in as a superuser to diagnose. The reserve is doing its job.</td>
+                    </tr>
+                    <tr>
+                        <td><code>sorry, too many clients already</code></td>
+                        <td><strong>Every</strong> slot is gone, reserve included.</td>
+                        <td>Nothing is left for an admin session &mdash; and something is consuming the reserve.</td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+
+            <p>With all seven app slots held, a superuser connected without trouble and could read <code>pg_stat_activity</code> normally:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code> usename  | count |  max
+----------+-------+--------
+ app      |     7 | active
+ postgres |     1 | active</code></pre>
+            </div>
+
+            <p><strong>Which leads to the thing worth changing before you need it.</strong> In a separate run the connection holders were themselves connected as <code>postgres</code> &mdash; a superuser. They consumed all ten slots, the reserve included, and the next superuser connection was refused with <code>sorry, too many clients already</code>. <a href="#step-1">Step&nbsp;1</a> above asks you to connect and look at <code>pg_stat_activity</code>; that is exactly the moment you discover you cannot.</p>
+
+            <p>So if your application connects as a superuser &mdash; which is the default in a surprising number of Docker Compose files, migration runners and quick-start guides &mdash; <strong><code>superuser_reserved_connections</code> protects nothing</strong>, including your ability to investigate. Giving the application a non-superuser role is worth doing on that basis alone, independently of least-privilege arguments: it keeps the reserve genuinely in reserve, and it converts the error you get into the more informative of the two.</p>
+
+            <p class="verified-note">Reproduced on <strong>PostgreSQL 16.15</strong> (<code>postgres:16-alpine</code>) with <code>max_connections=10</code> to make the ceiling reachable; the ratio, not the absolute numbers, is the point. <code>reserved_connections</code> (added in PostgreSQL&nbsp;16, default 0) subtracts from the non-superuser pool in the same way if you set it.</p>
 
             <h2>Fix 1: use a connection pool (the real fix)</h2>
             <p>The root cause is almost always "a new connection per request/worker." A pool keeps a small, fixed set of connections and reuses them. Set a sane max in your app's pool:</p>
@@ -249,7 +308,7 @@ SHOW max_connections;</code></pre>
                 </details>
                 <details>
                     <summary>What is 'remaining connection slots are reserved'?</summary>
-                    <p>Postgres reserves a few connection slots (<code>superuser_reserved_connections</code>) for superusers so admins can still log in during an outage. Regular users see 'too many clients already' once non-reserved slots are full, while a superuser can still connect to investigate.</p>
+                    <p>Postgres reserves a few slots (<code>superuser_reserved_connections</code>, default 3) for superusers so an admin can still log in during an outage. The two messages are not interchangeable. A regular role that exhausts the non-reserved slots gets exactly this message, <code>remaining connection slots are reserved for roles with the SUPERUSER attribute</code> &mdash; so its real wall is <code>max_connections</code> minus <code>superuser_reserved_connections</code>, verified as 7 of 10 on PostgreSQL&nbsp;16.15. <code>sorry, too many clients already</code> means every slot including the reserve is gone. The catch is that the reserve only helps if your application connects as a non-superuser; if the app is itself a superuser it can consume the reserve and lock you out of your own diagnosis.</p>
                 </details>
             </section>
 

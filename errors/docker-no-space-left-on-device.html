@@ -55,7 +55,7 @@
     "url": "https://jsondevtools.org/about.html"
   },
   "datePublished": "2026-07-14",
-  "dateModified": "2026-09-12",
+  "dateModified": "2026-10-03",
   "publisher": {
     "@type": "Organization",
     "name": "JSON Dev Tools",
@@ -162,8 +162,16 @@ write /var/lib/docker/tmp/...: no space left on device
 failed to solve: write /var/lib/docker/...: no space left on device
 
 # from inside a container writing a file:
-Error: ENOSPC: no space left on device, write</code></pre>
+Error: ENOSPC: no space left on device, write
+
+# and the capitalised form, from ordinary Unix tools rather than Docker itself —
+# same errno, different wording, so a different search:
+dd: error writing '/path/file': No space left on device
+tar: write error: No space left on device
+cp: error writing '/path/file': No space left on device</code></pre>
             </div>
+
+            <p>Note the capitalisation. Docker's own messages say <code>no space left on device</code> in lower case; the kernel's <code>ENOSPC</code> string as printed by coreutils, <code>tar</code> and most language runtimes is <code>No space left on device</code>. It is the same condition &mdash; which one you are looking at only tells you whether the daemon or your own process hit the wall first.</p>
 
             <p>Docker stores everything it manages under one directory &mdash; <code>/var/lib/docker</code> on Linux, or a fixed-size virtual disk inside the VM on Docker Desktop. That space accumulates quietly: every image you pull, every container you stop but don't remove, every volume, and every layer of build cache stays on disk until something removes it. Eventually a pull or build needs room that isn't there, and you get <code>no space left on device</code> &mdash; the disk counterpart to running out of memory, which surfaces as <a href="docker-container-exited-code-137-oomkilled.html">exit code 137 (OOMKilled)</a>. The fix is to see where the space went, then reclaim the parts you don't need.</p>
 
@@ -245,6 +253,42 @@ docker image prune</code></pre>
 
             <h2>BuildKit: the cache that quietly eats the most</h2>
             <p>Modern Docker builds use <strong>BuildKit</strong> (the default since Docker 23), which maintains its own layer cache separate from image layers. On an active development machine &mdash; where you rebuild the same project dozens of times a day &mdash; this cache is frequently the single largest consumer of disk space, and it's the one most people forget exists because it never shows up in <code>docker image ls</code>. It's the <code>Build Cache</code> line in <code>docker system df</code>, and <code>docker builder prune -a</code> is what clears it completely. If your <code>system df</code> shows a surprisingly large, 100%-reclaimable Build Cache (as in the example above), that's your fastest win and there's zero risk in clearing it.</p>
+
+            <h3 id="not-always-the-cache">&hellip;but check before you assume it</h3>
+
+            <p>"Build cache is usually the biggest" is a good prior, not a diagnosis, and <code>docker system df</code> settles it in one line. A real reading from a machine in active use, where the cache was the <em>smallest</em> consumer by four orders of magnitude:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ docker system df
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          22        8         10.06GB   4.367GB (43%)
+Containers      8         6         1.132GB   4.145MB (0%)
+Local Volumes   20        4         1.017GB   693MB (68%)
+Build Cache     31        0         1.867kB   1.867kB</code></pre>
+            </div>
+
+            <p>Here <code>docker builder prune -a</code> would reclaim under 2&nbsp;kB. The 4.37&nbsp;GB of reclaimable image layers is the whole story, and <code>docker image prune -a</code> is the command that matters. <strong>Read the RECLAIMABLE column, not the SIZE column</strong> &mdash; Containers show 1.13&nbsp;GB but 0&nbsp;% of it is recoverable, because those containers are running. A machine that pulls many images and rarely rebuilds inverts the usual advice completely.</p>
+
+            <h3>The write fails halfway, and leaves the mess behind</h3>
+
+            <p>One detail that matters when you are cleaning up after a failed build or import: <code>ENOSPC</code> is not a clean refusal. The write proceeds until the disk is actually full and <em>then</em> fails, so a partial file is left on disk. Reproduced against a 1&nbsp;MB cap:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ dd if=/dev/zero of=/tight/fill bs=1k count=4096
+dd: error writing '/tight/fill': No space left on device
+1025+0 records in
+1024+0 records out          # ← 1024 of 4096 written, then it stopped
+exit=1
+
+$ df -h /tight
+tmpfs    1.0M   1.0M   0  100%  /tight</code></pre>
+            </div>
+
+            <p>So after you reclaim space, look for truncated output from whatever was running: a half-written layer, a partial database dump, an incomplete <code>tar</code>. The exit code is 1 and the file exists, which is exactly the combination that makes a downstream step fail later with a confusing "corrupt archive" or "unexpected end of file" rather than a disk error.</p>
+
+            <p class="verified-note">Reproduced on <strong>Docker 25.0.2</strong> using <code>--tmpfs /tight:size=1m</code> as a safely contained stand-in for a full Docker directory; the <code>system df</code> output is from the same host, unedited.</p>
 
             <h2>The dangerous flag: --volumes</h2>
             <div style="background:var(--light-bg);border:1px solid var(--border-color);border-left:4px solid #b02a37;border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0;">

@@ -51,7 +51,7 @@
   "image": "https://jsondevtools.org/og-image.png",
   "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
   "datePublished": "2026-07-20",
-  "dateModified": "2026-07-22",
+  "dateModified": "2026-10-03",
   "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
 }
     </script>
@@ -307,7 +307,46 @@ kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
 # TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
 # orders  0          17000           17000           0     ← jumped straight to the end</code></pre>
             </div>
-            <p><code>CURRENT-OFFSET</code> below <code>LOG-END-OFFSET</code> is normal lag &mdash; the consumer is behind but its position is still valid. If <code>CURRENT-OFFSET</code> suddenly equals <code>LOG-END-OFFSET</code> immediately after a restart, with no corresponding burst of processing in your logs, that's the signature of an <code>auto.offset.reset=latest</code> skip, not the consumer catching up.</p>
+            <p>If <code>CURRENT-OFFSET</code> suddenly equals <code>LOG-END-OFFSET</code> immediately after a restart, with no corresponding burst of processing in your logs, that's the signature of an <code>auto.offset.reset=latest</code> skip, not the consumer catching up.</p>
+
+            <h3 id="lag-is-not-proof">The <code>LAG</code> column is wrong in exactly this situation</h3>
+
+            <p>There is a tempting reading of that output which does not survive testing: that <code>CURRENT-OFFSET</code> sitting below <code>LOG-END-OFFSET</code> means the consumer is merely behind and its position is still valid. <strong>It does not mean that.</strong> <code>kafka-consumer-groups.sh</code> computes <code>LAG</code> as <code>LOG-END-OFFSET&nbsp;&minus;&nbsp;CURRENT-OFFSET</code> and never compares the committed offset against the <em>log start</em> offset &mdash; so it will report a healthy-looking backlog for an offset that no longer exists.</p>
+
+            <p>Reproduced on Kafka 3.9.0: 20 records produced, a group committed at offset 5, then records deleted up to offset 12 so the log start overtook the commit.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>$ kafka-delete-records.sh --bootstrap-server localhost:9092 --offset-json-file d.json
+partition: t1-0	low_watermark: 12
+
+$ kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group g1 --describe
+GROUP  TOPIC  PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+g1     t1     0          5               20              15     ← all three numbers are misleading
+
+# offset 5 no longer exists. the log now starts at 12:
+$ kafka-get-offsets.sh --bootstrap-server localhost:9092 --topic t1 --time -2
+t1:0:12                                  # log START offset
+$ kafka-get-offsets.sh --bootstrap-server localhost:9092 --topic t1 --time -1
+t1:0:20                                  # log END offset</code></pre>
+            </div>
+
+            <p>The group is reported as 15 records behind. It is not. Records 5 through 11 are <strong>gone</strong>, not pending &mdash; the reachable backlog is <code>20 &minus; 12 = 8</code>. The seven records in between are unrecoverable, and the only number on screen that hints at it is absent from the <code>--describe</code> output entirely.</p>
+
+            <p><strong>So <code>--describe</code> alone cannot tell you whether you are lagging or have lost data</strong>, which is awkward, because that is the exact question this error raises. The missing comparison is the log start offset, and <code>--time -2</code> is the only place to get it:</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code># the check that actually answers it — committed offset vs LOG START, not log end
+#   CURRENT-OFFSET >= log start  →  genuine lag, position valid, it will catch up
+#   CURRENT-OFFSET <  log start  →  the offset is gone; this error is waiting to happen
+#
+# g1 above:  5 < 12  →  already lost 7 records</code></pre>
+            </div>
+
+            <p>One further consequence worth knowing before you trust a quiet consumer: on the same topic, a group configured with <code>auto.offset.reset=earliest</code> resumed at <code>msg-13</code> and <strong>reported no error at all</strong>. The exception on this page only appears with <code>auto.offset.reset=none</code>. With either default, Kafka silently repositions you and the skip shows up as missing rows downstream, days later. The <a href="#auto-offset-reset">reset behaviour section</a> covers which value does what.</p>
+
+            <p class="verified-note">Reproduced on <strong>Apache Kafka 3.9.0</strong> (KRaft, single broker) using <code>kafka-delete-records.sh</code> to move the log start offset deterministically rather than waiting on retention &mdash; the same mechanism retention expiry uses, without the wait.</p>
 
             <h3>kcat: is it the consumer, or the data?</h3>
             <p>One command settles whether the records are actually gone or whether the problem is purely in the consumer's own offset handling:</p>
