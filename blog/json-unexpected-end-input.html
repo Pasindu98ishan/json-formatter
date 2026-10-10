@@ -47,7 +47,7 @@
       "description": "Truncated responses, unclosed brackets, and partial file writes all cause this error. Learn how to find and fix the missing piece.",
       "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
       "datePublished": "2026-05-04",
-      "dateModified": "2026-07-19",
+      "dateModified": "2026-10-10",
       "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
     }
     </script>
@@ -183,6 +183,42 @@ countBrackets('{"name": "Alice", "scores": [1, 2');
 // { unclosedBraces: 1, unclosedBrackets: 1 }</pre>
             </div>
 
+            <h2 id="in-fetch">Two more causes that only happen in <code>fetch()</code></h2>
+
+            <p>The four causes above are about the JSON itself being incomplete. When the error comes out of a <code>fetch()</code> call there are two further possibilities, and in both the JSON was never the problem &mdash; <code>res.json()</code> was handed an empty body.</p>
+
+            <h3>You already read the response body</h3>
+
+            <p>A <code>Response</code> body is a readable stream, and a stream can only be consumed once. The usual way to trip over this is adding a debug log: <code>res.text()</code> drains the stream, and the <code>res.json()</code> that follows reads nothing and throws.</p>
+
+            <div class="code-block">
+                <button class="copy-code-btn" aria-label="Copy code">Copy</button>
+<pre><code>// ❌ the log consumes the stream; res.json() then gets an empty body
+// fetch('/api/data').then(res =&gt; {
+//     res.text().then(t =&gt; console.log('raw:', t));
+//     return res.json();                 // SyntaxError: Unexpected end of JSON input
+// });
+
+// ✅ read once, then work from the text
+const res  = await fetch('/api/data');
+const text = await res.text();
+console.log('raw:', text);
+const data = text ? JSON.parse(text) : null;
+
+// ✅ or clone before reading, if you genuinely need both
+const res2 = await fetch('/api/data');
+const data2 = await res2.clone().json();
+console.log('raw:', await res2.text());</code></pre>
+            </div>
+
+            <p>This has its own reference if you want the longer version: <a href="../errors/response-body-already-read.html">Failed to execute 'json' on 'Response': body stream already read</a>.</p>
+
+            <h3>A cross-origin request failed before it returned anything</h3>
+
+            <p>When a cross-origin <code>fetch()</code> fails CORS, the browser hands your code an error or an opaque response rather than the server's actual reply, so there is no body to parse. The giveaway is that the real explanation is in the browser console as a CORS policy message, not in the exception you caught.</p>
+
+            <p>Check the console before you touch the parsing code &mdash; a message naming <code>Access-Control-Allow-Origin</code> means the fix belongs on the server, and <a href="../errors/cors-no-access-control-allow-origin.html">No 'Access-Control-Allow-Origin' header is present</a> covers it. If the console instead complains about the preflight, see <a href="../errors/cors-preflight-does-not-pass-access-control-check.html">Response to preflight request doesn't pass access control check</a>.</p>
+
             <h2>The same error in Python</h2>
             <p>&ldquo;Unexpected end of JSON input&rdquo; is the JavaScript/Node wording. Python's <code>json</code> module raises the same underlying problem &mdash; a JSON document that ends too soon &mdash; but with a different message depending on <em>where</em> it was cut off:</p>
             <div class="code-block">
@@ -256,7 +292,6 @@ json.loads('{"name": "Ali')
         <section class="related-articles">
             <h2>Related Articles</h2>
             <ul>
-                <li><a href="fetch-unexpected-end-json-input.html">Unexpected End of JSON Input with fetch() &ndash; What Causes It</a></li>
                 <li><a href="json-unexpected-token.html">Unexpected token &lt; in JSON at position 0 &ndash; Cause and Fix</a></li>
                 <li><a href="json-trailing-comma.html">JSON Trailing Comma Error &ndash; Why It Happens and How to Remove It</a></li>
                 <li><a href="10-json-errors.html">10 JSON Errors I See Every Week</a></li>
@@ -271,7 +306,7 @@ json.loads('{"name": "Ali')
 
             <div class="author-bio">
                 <strong>About the author</strong>
-                <p>Pasindu Ishan is a software developer based in Sri Lanka. He builds developer tools at <a href="../index.html">JSON Dev Tools</a>.</p>
+                <p>Pasindu Ishan is a Senior Software Engineer working on data streaming systems. Most JSON that fails to parse fails for one of a handful of reasons, and the parser’s own position marker usually points near it rather than at it — which is what these pages are about. He builds the free in-browser tools at <a href="../index.html">JSON Dev Tools</a>.</p>
             </div>
         </article>
     </main>

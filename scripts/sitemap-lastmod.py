@@ -41,6 +41,9 @@ CHROME = [
     (re.compile(r'<div class="article-meta-author">.*?</div>', re.S | re.I), ''),
     (re.compile(r'<div class="article-meta">.*?</div>', re.S | re.I), ''),
     (re.compile(r'<div class="author-bio">.*?</div>\s*', re.S | re.I), ''),
+    # the call-to-action block is the same class of furniture: boilerplate that gets
+    # reworded in bulk, not an answer to "did this page's content change?"
+    (re.compile(r'<div class="tool-cta">.*?</div>\s*</div>', re.S | re.I), ''),
     (re.compile(r'\s+'), ' '),
 ]
 

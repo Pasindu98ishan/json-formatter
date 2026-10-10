@@ -117,6 +117,35 @@ def check():
                     json.loads(m.group(2))
                 except ValueError as e:
                     problems.append(f'invalid JSON-LD: {os.path.relpath(page, OUT)} ({e})')
+            # FAQPage markup must describe FAQs that are actually on the page.
+            # Google's structured-data policy forbids marking up content a visitor
+            # cannot see, and ERROR_PAGE_GUIDE.md section 4 makes this a hard rule.
+            # Unguarded it drifted from 2 known pages to 30; hence this check.
+            faq_counts = []
+            for m in re.finditer(r'<script type="application/ld\+json">(.*?)</script>', html, flags=re.S):
+                try:
+                    obj = json.loads(m.group(1))
+                except ValueError:
+                    continue            # already reported above
+                if isinstance(obj, dict) and obj.get('@type') == 'FAQPage':
+                    faq_counts.append(len(obj.get('mainEntity') or []))
+            if faq_counts:
+                schema_qs = sum(faq_counts)
+                # Count only the <details> that are actually FAQs. Several tool pages use
+                # <details> for unrelated collapsible UI (chmod.html's "advanced special
+                # bits", deployment-readiness-checker.html's optional checks), so counting
+                # every <details> on the page would flag correct markup. Prefer the
+                # faq-section wrapper; fall back to a whole-page count for the pages that
+                # list their FAQs without it.
+                faq_section = re.search(r'<section class="faq-section">(.*?)</section>',
+                                        html, flags=re.S)
+                scope = faq_section.group(1) if faq_section else html
+                visible_qs = len(re.findall(r'<details\b', scope))
+                if schema_qs != visible_qs:
+                    where = 'inside <section class="faq-section">' if faq_section else 'on the page'
+                    problems.append(
+                        f'FAQ parity: {os.path.relpath(page, OUT)} has {schema_qs} question(s) in '
+                        f'FAQPage schema but {visible_qs} visible <details> block(s) {where}')
             # code samples and scripts contain example markup, not real links
             html = re.sub(r'<(pre|script|style)\b.*?</\1>', '', html, flags=re.S | re.I)
             for ref in re.findall(r'\b(?:href|src)="([^"]+)"', html):

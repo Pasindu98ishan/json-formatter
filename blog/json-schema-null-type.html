@@ -47,37 +47,49 @@
       "description": "Why JSON Schema generators output type: null and why that breaks real API validation. Learn the correct nullable union type pattern used in production.",
       "author": { "@type": "Person", "name": "Pasindu Ishan", "url": "https://jsondevtools.org/about.html" },
       "datePublished": "2026-05-23",
-      "dateModified": "2026-05-23",
+      "dateModified": "2026-05-24",
       "publisher": { "@type": "Organization", "name": "JSON Dev Tools", "url": "https://jsondevtools.org/" }
     }
     </script>
     <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
     {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "What does type: null mean in JSON Schema?",
-          "acceptedAnswer": { "@type": "Answer", "text": "{\"type\": \"null\"} means the field must always be the literal JSON null value — nothing else passes validation. This is rarely useful for APIs, where null usually means 'no value right now' but the field could be a string, number, or object when populated." }
-        },
-        {
-          "@type": "Question",
-          "name": "How do I make a field nullable in JSON Schema?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Use a type array: {\"type\": [\"string\", \"null\"]}. This accepts either a string or null. You can combine any type with null: [\"integer\", \"null\"], [\"object\", \"null\"], etc. This syntax is supported in JSON Schema draft-04 and later." }
-        },
-        {
-          "@type": "Question",
-          "name": "Why do generators output type: null?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Generators infer strictly from samples. If they see null, they output {\"type\": \"null\"} because that is what they observed. They cannot know what the field would be when non-null. Smart generators output a broad nullable union and ask you to refine it with real data." }
-        },
-        {
-          "@type": "Question",
-          "name": "What is nullable: true in OpenAPI?",
-          "acceptedAnswer": { "@type": "Answer", "text": "OpenAPI 3.0 uses nullable: true as a separate property. OpenAPI 3.1 aligns with JSON Schema draft 2020-12 and uses type arrays instead. If writing raw JSON Schema draft-07, use the type array form." }
-        }
-      ]
+      "@type": "Question",
+      "name": "What does type: null mean in JSON Schema?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means the field must be the literal JSON null value — always. No other value (string, number, boolean) is accepted. This is technically valid but rarely what an API field needs. Most null fields should use a union type like [\"string\",\"null\"] instead."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I make a field nullable in JSON Schema draft-07?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use a type array: {\"type\": [\"string\",\"null\"]}. This accepts either a string or null. Any type can be combined with null this way: [\"integer\",\"null\"], [\"object\",\"null\"], etc. This syntax is supported in draft-04 and later."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do most JSON Schema generators output type: null?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Generators infer strictly from samples. If the sample has null, they record type: null because that is what they observed. They cannot know what the field's \"real\" type would be when populated. The Smart Mode in our generator solves this by outputting a broad nullable union and asking you to refine it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is nullable: true in OpenAPI?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "OpenAPI 3.0 uses nullable: true as a custom extension to express nullable fields. OpenAPI 3.1 aligns with JSON Schema 2020-12 and uses type arrays instead: {\"type\": [\"string\", \"null\"]}. If you are writing raw JSON Schema draft-07, always use the type array form."
+      }
     }
+  ]
+}
     </script>
 </head>
 <body>
